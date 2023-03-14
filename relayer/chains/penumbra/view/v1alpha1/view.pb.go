@@ -4,12 +4,18 @@
 package viewv1alpha1
 
 import (
+	context "context"
 	fmt "fmt"
+	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
-	v1alpha12 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/chain/v1alpha1"
+	v1alpha13 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/chain/v1alpha1"
 	v1alpha11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
-	v1alpha13 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/dex/v1alpha1"
+	v1alpha14 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/dex/v1alpha1"
+	v1alpha12 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/ibc/v1alpha1"
 	v1alpha1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -132,9 +138,9 @@ type TransactionPlannerRequest struct {
 	Fee *v1alpha11.Fee `protobuf:"bytes,2,opt,name=fee,proto3" json:"fee,omitempty"`
 	// The memo for the requested TransactionPlan
 	Memo string `protobuf:"bytes,3,opt,name=memo,proto3" json:"memo,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*TransactionPlannerRequest_AccountId
-	XAccountId isTransactionPlannerRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*TransactionPlannerRequest_AccountGroupId
+	XAccountGroupId isTransactionPlannerRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*TransactionPlannerRequest_Token
 	XToken isTransactionPlannerRequest_XToken `protobuf_oneof:"_token"`
@@ -143,6 +149,7 @@ type TransactionPlannerRequest struct {
 	Swaps         []*TransactionPlannerRequest_Swap       `protobuf:"bytes,30,rep,name=swaps,proto3" json:"swaps,omitempty"`
 	Delegations   []*TransactionPlannerRequest_Delegate   `protobuf:"bytes,40,rep,name=delegations,proto3" json:"delegations,omitempty"`
 	Undelegations []*TransactionPlannerRequest_Undelegate `protobuf:"bytes,50,rep,name=undelegations,proto3" json:"undelegations,omitempty"`
+	IbcActions    []*v1alpha12.IbcAction                  `protobuf:"bytes,60,rep,name=ibc_actions,json=ibcActions,proto3" json:"ibc_actions,omitempty"`
 }
 
 func (m *TransactionPlannerRequest) Reset()         { *m = TransactionPlannerRequest{} }
@@ -178,8 +185,8 @@ func (m *TransactionPlannerRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest proto.InternalMessageInfo
 
-type isTransactionPlannerRequest_XAccountId interface {
-	isTransactionPlannerRequest_XAccountId()
+type isTransactionPlannerRequest_XAccountGroupId interface {
+	isTransactionPlannerRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -189,19 +196,19 @@ type isTransactionPlannerRequest_XToken interface {
 	Size() int
 }
 
-type TransactionPlannerRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type TransactionPlannerRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type TransactionPlannerRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*TransactionPlannerRequest_AccountId) isTransactionPlannerRequest_XAccountId() {}
-func (*TransactionPlannerRequest_Token) isTransactionPlannerRequest_XToken()         {}
+func (*TransactionPlannerRequest_AccountGroupId) isTransactionPlannerRequest_XAccountGroupId() {}
+func (*TransactionPlannerRequest_Token) isTransactionPlannerRequest_XToken()                   {}
 
-func (m *TransactionPlannerRequest) GetXAccountId() isTransactionPlannerRequest_XAccountId {
+func (m *TransactionPlannerRequest) GetXAccountGroupId() isTransactionPlannerRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -233,9 +240,9 @@ func (m *TransactionPlannerRequest) GetMemo() string {
 	return ""
 }
 
-func (m *TransactionPlannerRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*TransactionPlannerRequest_AccountId); ok {
-		return x.AccountId
+func (m *TransactionPlannerRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*TransactionPlannerRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -275,10 +282,17 @@ func (m *TransactionPlannerRequest) GetUndelegations() []*TransactionPlannerRequ
 	return nil
 }
 
+func (m *TransactionPlannerRequest) GetIbcActions() []*v1alpha12.IbcAction {
+	if m != nil {
+		return m.IbcActions
+	}
+	return nil
+}
+
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*TransactionPlannerRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*TransactionPlannerRequest_AccountId)(nil),
+		(*TransactionPlannerRequest_AccountGroupId)(nil),
 		(*TransactionPlannerRequest_Token)(nil),
 	}
 }
@@ -925,7 +939,7 @@ func (m *BalanceByAddressResponse) GetAmount() *v1alpha11.Amount {
 }
 
 // Scaffolding for bearer-token authentication for the ViewService.
-// The `account_id` and `token` fields are both optional,
+// The `account_group_id` and `token` fields are both optional,
 // and numbered as 14 & 15 throughout the view service protocol.
 type ViewAuthToken struct {
 	Inner []byte `protobuf:"bytes,1,opt,name=inner,proto3" json:"inner,omitempty"`
@@ -1061,9 +1075,9 @@ func (m *ViewAuthResponse) GetToken() *ViewAuthToken {
 
 // Requests sync status of the view service.
 type StatusRequest struct {
-	// Types that are valid to be assigned to XAccountId:
-	//	*StatusRequest_AccountId
-	XAccountId isStatusRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*StatusRequest_AccountGroupId
+	XAccountGroupId isStatusRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*StatusRequest_Token
 	XToken isStatusRequest_XToken `protobuf_oneof:"_token"`
@@ -1102,8 +1116,8 @@ func (m *StatusRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StatusRequest proto.InternalMessageInfo
 
-type isStatusRequest_XAccountId interface {
-	isStatusRequest_XAccountId()
+type isStatusRequest_XAccountGroupId interface {
+	isStatusRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -1113,19 +1127,19 @@ type isStatusRequest_XToken interface {
 	Size() int
 }
 
-type StatusRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type StatusRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type StatusRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*StatusRequest_AccountId) isStatusRequest_XAccountId() {}
-func (*StatusRequest_Token) isStatusRequest_XToken()         {}
+func (*StatusRequest_AccountGroupId) isStatusRequest_XAccountGroupId() {}
+func (*StatusRequest_Token) isStatusRequest_XToken()                   {}
 
-func (m *StatusRequest) GetXAccountId() isStatusRequest_XAccountId {
+func (m *StatusRequest) GetXAccountGroupId() isStatusRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -1136,9 +1150,9 @@ func (m *StatusRequest) GetXToken() isStatusRequest_XToken {
 	return nil
 }
 
-func (m *StatusRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*StatusRequest_AccountId); ok {
-		return x.AccountId
+func (m *StatusRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*StatusRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -1153,7 +1167,7 @@ func (m *StatusRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*StatusRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*StatusRequest_AccountId)(nil),
+		(*StatusRequest_AccountGroupId)(nil),
 		(*StatusRequest_Token)(nil),
 	}
 }
@@ -1215,9 +1229,9 @@ func (m *StatusResponse) GetCatchingUp() bool {
 
 // Requests streaming updates on the sync height until the view service is synchronized.
 type StatusStreamRequest struct {
-	// Types that are valid to be assigned to XAccountId:
-	//	*StatusStreamRequest_AccountId
-	XAccountId isStatusStreamRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*StatusStreamRequest_AccountGroupId
+	XAccountGroupId isStatusStreamRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*StatusStreamRequest_Token
 	XToken isStatusStreamRequest_XToken `protobuf_oneof:"_token"`
@@ -1256,8 +1270,8 @@ func (m *StatusStreamRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StatusStreamRequest proto.InternalMessageInfo
 
-type isStatusStreamRequest_XAccountId interface {
-	isStatusStreamRequest_XAccountId()
+type isStatusStreamRequest_XAccountGroupId interface {
+	isStatusStreamRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -1267,19 +1281,19 @@ type isStatusStreamRequest_XToken interface {
 	Size() int
 }
 
-type StatusStreamRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type StatusStreamRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type StatusStreamRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*StatusStreamRequest_AccountId) isStatusStreamRequest_XAccountId() {}
-func (*StatusStreamRequest_Token) isStatusStreamRequest_XToken()         {}
+func (*StatusStreamRequest_AccountGroupId) isStatusStreamRequest_XAccountGroupId() {}
+func (*StatusStreamRequest_Token) isStatusStreamRequest_XToken()                   {}
 
-func (m *StatusStreamRequest) GetXAccountId() isStatusStreamRequest_XAccountId {
+func (m *StatusStreamRequest) GetXAccountGroupId() isStatusStreamRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -1290,9 +1304,9 @@ func (m *StatusStreamRequest) GetXToken() isStatusStreamRequest_XToken {
 	return nil
 }
 
-func (m *StatusStreamRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*StatusStreamRequest_AccountId); ok {
-		return x.AccountId
+func (m *StatusStreamRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*StatusStreamRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -1307,7 +1321,7 @@ func (m *StatusStreamRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*StatusStreamRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*StatusStreamRequest_AccountId)(nil),
+		(*StatusStreamRequest_AccountGroupId)(nil),
 		(*StatusStreamRequest_Token)(nil),
 	}
 }
@@ -1380,9 +1394,9 @@ type NotesRequest struct {
 	//
 	// Ignored if `asset_id` is unset or if `include_spent` is set.
 	AmountToSpend uint64 `protobuf:"varint,5,opt,name=amount_to_spend,json=amountToSpend,proto3" json:"amount_to_spend,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*NotesRequest_AccountId
-	XAccountId isNotesRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*NotesRequest_AccountGroupId
+	XAccountGroupId isNotesRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*NotesRequest_Token
 	XToken isNotesRequest_XToken `protobuf_oneof:"_token"`
@@ -1421,8 +1435,8 @@ func (m *NotesRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NotesRequest proto.InternalMessageInfo
 
-type isNotesRequest_XAccountId interface {
-	isNotesRequest_XAccountId()
+type isNotesRequest_XAccountGroupId interface {
+	isNotesRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -1432,19 +1446,19 @@ type isNotesRequest_XToken interface {
 	Size() int
 }
 
-type NotesRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type NotesRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type NotesRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*NotesRequest_AccountId) isNotesRequest_XAccountId() {}
-func (*NotesRequest_Token) isNotesRequest_XToken()         {}
+func (*NotesRequest_AccountGroupId) isNotesRequest_XAccountGroupId() {}
+func (*NotesRequest_Token) isNotesRequest_XToken()                   {}
 
-func (m *NotesRequest) GetXAccountId() isNotesRequest_XAccountId {
+func (m *NotesRequest) GetXAccountGroupId() isNotesRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -1483,9 +1497,9 @@ func (m *NotesRequest) GetAmountToSpend() uint64 {
 	return 0
 }
 
-func (m *NotesRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*NotesRequest_AccountId); ok {
-		return x.AccountId
+func (m *NotesRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*NotesRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -1500,7 +1514,7 @@ func (m *NotesRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*NotesRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*NotesRequest_AccountId)(nil),
+		(*NotesRequest_AccountGroupId)(nil),
 		(*NotesRequest_Token)(nil),
 	}
 }
@@ -1511,9 +1525,9 @@ type NotesForVotingRequest struct {
 	VotableAtHeight uint64 `protobuf:"varint,1,opt,name=votable_at_height,json=votableAtHeight,proto3" json:"votable_at_height,omitempty"`
 	// If set, only return notes with the specified asset id.
 	AddressIndex *v1alpha11.AddressIndex `protobuf:"bytes,3,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*NotesForVotingRequest_AccountId
-	XAccountId isNotesForVotingRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*NotesForVotingRequest_AccountGroupId
+	XAccountGroupId isNotesForVotingRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*NotesForVotingRequest_Token
 	XToken isNotesForVotingRequest_XToken `protobuf_oneof:"_token"`
@@ -1552,8 +1566,8 @@ func (m *NotesForVotingRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NotesForVotingRequest proto.InternalMessageInfo
 
-type isNotesForVotingRequest_XAccountId interface {
-	isNotesForVotingRequest_XAccountId()
+type isNotesForVotingRequest_XAccountGroupId interface {
+	isNotesForVotingRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -1563,19 +1577,19 @@ type isNotesForVotingRequest_XToken interface {
 	Size() int
 }
 
-type NotesForVotingRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type NotesForVotingRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type NotesForVotingRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*NotesForVotingRequest_AccountId) isNotesForVotingRequest_XAccountId() {}
-func (*NotesForVotingRequest_Token) isNotesForVotingRequest_XToken()         {}
+func (*NotesForVotingRequest_AccountGroupId) isNotesForVotingRequest_XAccountGroupId() {}
+func (*NotesForVotingRequest_Token) isNotesForVotingRequest_XToken()                   {}
 
-func (m *NotesForVotingRequest) GetXAccountId() isNotesForVotingRequest_XAccountId {
+func (m *NotesForVotingRequest) GetXAccountGroupId() isNotesForVotingRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -1600,9 +1614,9 @@ func (m *NotesForVotingRequest) GetAddressIndex() *v1alpha11.AddressIndex {
 	return nil
 }
 
-func (m *NotesForVotingRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*NotesForVotingRequest_AccountId); ok {
-		return x.AccountId
+func (m *NotesForVotingRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*NotesForVotingRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -1617,7 +1631,7 @@ func (m *NotesForVotingRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*NotesForVotingRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*NotesForVotingRequest_AccountId)(nil),
+		(*NotesForVotingRequest_AccountGroupId)(nil),
 		(*NotesForVotingRequest_Token)(nil),
 	}
 }
@@ -1627,9 +1641,9 @@ type WitnessRequest struct {
 	NoteCommitments []*v1alpha11.StateCommitment `protobuf:"bytes,2,rep,name=note_commitments,json=noteCommitments,proto3" json:"note_commitments,omitempty"`
 	// The transaction plan to witness
 	TransactionPlan *v1alpha1.TransactionPlan `protobuf:"bytes,3,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*WitnessRequest_AccountId
-	XAccountId isWitnessRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*WitnessRequest_AccountGroupId
+	XAccountGroupId isWitnessRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*WitnessRequest_Token
 	XToken isWitnessRequest_XToken `protobuf_oneof:"_token"`
@@ -1668,8 +1682,8 @@ func (m *WitnessRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WitnessRequest proto.InternalMessageInfo
 
-type isWitnessRequest_XAccountId interface {
-	isWitnessRequest_XAccountId()
+type isWitnessRequest_XAccountGroupId interface {
+	isWitnessRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -1679,19 +1693,19 @@ type isWitnessRequest_XToken interface {
 	Size() int
 }
 
-type WitnessRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type WitnessRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type WitnessRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*WitnessRequest_AccountId) isWitnessRequest_XAccountId() {}
-func (*WitnessRequest_Token) isWitnessRequest_XToken()         {}
+func (*WitnessRequest_AccountGroupId) isWitnessRequest_XAccountGroupId() {}
+func (*WitnessRequest_Token) isWitnessRequest_XToken()                   {}
 
-func (m *WitnessRequest) GetXAccountId() isWitnessRequest_XAccountId {
+func (m *WitnessRequest) GetXAccountGroupId() isWitnessRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -1716,9 +1730,9 @@ func (m *WitnessRequest) GetTransactionPlan() *v1alpha1.TransactionPlan {
 	return nil
 }
 
-func (m *WitnessRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*WitnessRequest_AccountId); ok {
-		return x.AccountId
+func (m *WitnessRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*WitnessRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -1733,7 +1747,7 @@ func (m *WitnessRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*WitnessRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*WitnessRequest_AccountId)(nil),
+		(*WitnessRequest_AccountGroupId)(nil),
 		(*WitnessRequest_Token)(nil),
 	}
 }
@@ -1782,6 +1796,102 @@ func (m *WitnessResponse) GetWitnessData() *v1alpha1.WitnessData {
 	return nil
 }
 
+type WitnessAndBuildRequest struct {
+	TransactionPlan   *v1alpha1.TransactionPlan   `protobuf:"bytes,1,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
+	AuthorizationData *v1alpha1.AuthorizationData `protobuf:"bytes,2,opt,name=authorization_data,json=authorizationData,proto3" json:"authorization_data,omitempty"`
+}
+
+func (m *WitnessAndBuildRequest) Reset()         { *m = WitnessAndBuildRequest{} }
+func (m *WitnessAndBuildRequest) String() string { return proto.CompactTextString(m) }
+func (*WitnessAndBuildRequest) ProtoMessage()    {}
+func (*WitnessAndBuildRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0aa947b204e6a7c2, []int{23}
+}
+func (m *WitnessAndBuildRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WitnessAndBuildRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WitnessAndBuildRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WitnessAndBuildRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WitnessAndBuildRequest.Merge(m, src)
+}
+func (m *WitnessAndBuildRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *WitnessAndBuildRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_WitnessAndBuildRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WitnessAndBuildRequest proto.InternalMessageInfo
+
+func (m *WitnessAndBuildRequest) GetTransactionPlan() *v1alpha1.TransactionPlan {
+	if m != nil {
+		return m.TransactionPlan
+	}
+	return nil
+}
+
+func (m *WitnessAndBuildRequest) GetAuthorizationData() *v1alpha1.AuthorizationData {
+	if m != nil {
+		return m.AuthorizationData
+	}
+	return nil
+}
+
+type WitnessAndBuildResponse struct {
+	Transaction *v1alpha1.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
+}
+
+func (m *WitnessAndBuildResponse) Reset()         { *m = WitnessAndBuildResponse{} }
+func (m *WitnessAndBuildResponse) String() string { return proto.CompactTextString(m) }
+func (*WitnessAndBuildResponse) ProtoMessage()    {}
+func (*WitnessAndBuildResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0aa947b204e6a7c2, []int{24}
+}
+func (m *WitnessAndBuildResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WitnessAndBuildResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WitnessAndBuildResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WitnessAndBuildResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WitnessAndBuildResponse.Merge(m, src)
+}
+func (m *WitnessAndBuildResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *WitnessAndBuildResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_WitnessAndBuildResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WitnessAndBuildResponse proto.InternalMessageInfo
+
+func (m *WitnessAndBuildResponse) GetTransaction() *v1alpha1.Transaction {
+	if m != nil {
+		return m.Transaction
+	}
+	return nil
+}
+
 // Requests all assets known to the view service.
 type AssetsRequest struct {
 	// If set to false (default), returns all assets, regardless of whether the rest of the fields of
@@ -1805,7 +1915,7 @@ func (m *AssetsRequest) Reset()         { *m = AssetsRequest{} }
 func (m *AssetsRequest) String() string { return proto.CompactTextString(m) }
 func (*AssetsRequest) ProtoMessage()    {}
 func (*AssetsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{23}
+	return fileDescriptor_0aa947b204e6a7c2, []int{25}
 }
 func (m *AssetsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1892,7 +2002,7 @@ func (m *AssetsResponse) Reset()         { *m = AssetsResponse{} }
 func (m *AssetsResponse) String() string { return proto.CompactTextString(m) }
 func (*AssetsResponse) ProtoMessage()    {}
 func (*AssetsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{24}
+	return fileDescriptor_0aa947b204e6a7c2, []int{26}
 }
 func (m *AssetsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1936,7 +2046,7 @@ func (m *ChainParametersRequest) Reset()         { *m = ChainParametersRequest{}
 func (m *ChainParametersRequest) String() string { return proto.CompactTextString(m) }
 func (*ChainParametersRequest) ProtoMessage()    {}
 func (*ChainParametersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{25}
+	return fileDescriptor_0aa947b204e6a7c2, []int{27}
 }
 func (m *ChainParametersRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1966,14 +2076,14 @@ func (m *ChainParametersRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_ChainParametersRequest proto.InternalMessageInfo
 
 type ChainParametersResponse struct {
-	Parameters *v1alpha12.ChainParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
+	Parameters *v1alpha13.ChainParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
 }
 
 func (m *ChainParametersResponse) Reset()         { *m = ChainParametersResponse{} }
 func (m *ChainParametersResponse) String() string { return proto.CompactTextString(m) }
 func (*ChainParametersResponse) ProtoMessage()    {}
 func (*ChainParametersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{26}
+	return fileDescriptor_0aa947b204e6a7c2, []int{28}
 }
 func (m *ChainParametersResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2002,7 +2112,7 @@ func (m *ChainParametersResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ChainParametersResponse proto.InternalMessageInfo
 
-func (m *ChainParametersResponse) GetParameters() *v1alpha12.ChainParameters {
+func (m *ChainParametersResponse) GetParameters() *v1alpha13.ChainParameters {
 	if m != nil {
 		return m.Parameters
 	}
@@ -2017,7 +2127,7 @@ func (m *FMDParametersRequest) Reset()         { *m = FMDParametersRequest{} }
 func (m *FMDParametersRequest) String() string { return proto.CompactTextString(m) }
 func (*FMDParametersRequest) ProtoMessage()    {}
 func (*FMDParametersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{27}
+	return fileDescriptor_0aa947b204e6a7c2, []int{29}
 }
 func (m *FMDParametersRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2047,14 +2157,14 @@ func (m *FMDParametersRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_FMDParametersRequest proto.InternalMessageInfo
 
 type FMDParametersResponse struct {
-	Parameters *v1alpha12.FmdParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
+	Parameters *v1alpha13.FmdParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
 }
 
 func (m *FMDParametersResponse) Reset()         { *m = FMDParametersResponse{} }
 func (m *FMDParametersResponse) String() string { return proto.CompactTextString(m) }
 func (*FMDParametersResponse) ProtoMessage()    {}
 func (*FMDParametersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{28}
+	return fileDescriptor_0aa947b204e6a7c2, []int{30}
 }
 func (m *FMDParametersResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2083,7 +2193,7 @@ func (m *FMDParametersResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FMDParametersResponse proto.InternalMessageInfo
 
-func (m *FMDParametersResponse) GetParameters() *v1alpha12.FmdParameters {
+func (m *FMDParametersResponse) GetParameters() *v1alpha13.FmdParameters {
 	if m != nil {
 		return m.Parameters
 	}
@@ -2094,9 +2204,9 @@ type NoteByCommitmentRequest struct {
 	NoteCommitment *v1alpha11.StateCommitment `protobuf:"bytes,2,opt,name=note_commitment,json=noteCommitment,proto3" json:"note_commitment,omitempty"`
 	// If set to true, waits to return until the requested note is detected.
 	AwaitDetection bool `protobuf:"varint,3,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*NoteByCommitmentRequest_AccountId
-	XAccountId isNoteByCommitmentRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*NoteByCommitmentRequest_AccountGroupId
+	XAccountGroupId isNoteByCommitmentRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*NoteByCommitmentRequest_Token
 	XToken isNoteByCommitmentRequest_XToken `protobuf_oneof:"_token"`
@@ -2106,7 +2216,7 @@ func (m *NoteByCommitmentRequest) Reset()         { *m = NoteByCommitmentRequest
 func (m *NoteByCommitmentRequest) String() string { return proto.CompactTextString(m) }
 func (*NoteByCommitmentRequest) ProtoMessage()    {}
 func (*NoteByCommitmentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{29}
+	return fileDescriptor_0aa947b204e6a7c2, []int{31}
 }
 func (m *NoteByCommitmentRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2135,8 +2245,8 @@ func (m *NoteByCommitmentRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NoteByCommitmentRequest proto.InternalMessageInfo
 
-type isNoteByCommitmentRequest_XAccountId interface {
-	isNoteByCommitmentRequest_XAccountId()
+type isNoteByCommitmentRequest_XAccountGroupId interface {
+	isNoteByCommitmentRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -2146,19 +2256,19 @@ type isNoteByCommitmentRequest_XToken interface {
 	Size() int
 }
 
-type NoteByCommitmentRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type NoteByCommitmentRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type NoteByCommitmentRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*NoteByCommitmentRequest_AccountId) isNoteByCommitmentRequest_XAccountId() {}
-func (*NoteByCommitmentRequest_Token) isNoteByCommitmentRequest_XToken()         {}
+func (*NoteByCommitmentRequest_AccountGroupId) isNoteByCommitmentRequest_XAccountGroupId() {}
+func (*NoteByCommitmentRequest_Token) isNoteByCommitmentRequest_XToken()                   {}
 
-func (m *NoteByCommitmentRequest) GetXAccountId() isNoteByCommitmentRequest_XAccountId {
+func (m *NoteByCommitmentRequest) GetXAccountGroupId() isNoteByCommitmentRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -2183,9 +2293,9 @@ func (m *NoteByCommitmentRequest) GetAwaitDetection() bool {
 	return false
 }
 
-func (m *NoteByCommitmentRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*NoteByCommitmentRequest_AccountId); ok {
-		return x.AccountId
+func (m *NoteByCommitmentRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*NoteByCommitmentRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -2200,7 +2310,7 @@ func (m *NoteByCommitmentRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*NoteByCommitmentRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*NoteByCommitmentRequest_AccountId)(nil),
+		(*NoteByCommitmentRequest_AccountGroupId)(nil),
 		(*NoteByCommitmentRequest_Token)(nil),
 	}
 }
@@ -2213,7 +2323,7 @@ func (m *NoteByCommitmentResponse) Reset()         { *m = NoteByCommitmentRespon
 func (m *NoteByCommitmentResponse) String() string { return proto.CompactTextString(m) }
 func (*NoteByCommitmentResponse) ProtoMessage()    {}
 func (*NoteByCommitmentResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{30}
+	return fileDescriptor_0aa947b204e6a7c2, []int{32}
 }
 func (m *NoteByCommitmentResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2253,9 +2363,9 @@ type SwapByCommitmentRequest struct {
 	SwapCommitment *v1alpha11.StateCommitment `protobuf:"bytes,2,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
 	// If set to true, waits to return until the requested swap is detected.
 	AwaitDetection bool `protobuf:"varint,3,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*SwapByCommitmentRequest_AccountId
-	XAccountId isSwapByCommitmentRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*SwapByCommitmentRequest_AccountGroupId
+	XAccountGroupId isSwapByCommitmentRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*SwapByCommitmentRequest_Token
 	XToken isSwapByCommitmentRequest_XToken `protobuf_oneof:"_token"`
@@ -2265,7 +2375,7 @@ func (m *SwapByCommitmentRequest) Reset()         { *m = SwapByCommitmentRequest
 func (m *SwapByCommitmentRequest) String() string { return proto.CompactTextString(m) }
 func (*SwapByCommitmentRequest) ProtoMessage()    {}
 func (*SwapByCommitmentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{31}
+	return fileDescriptor_0aa947b204e6a7c2, []int{33}
 }
 func (m *SwapByCommitmentRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2294,8 +2404,8 @@ func (m *SwapByCommitmentRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SwapByCommitmentRequest proto.InternalMessageInfo
 
-type isSwapByCommitmentRequest_XAccountId interface {
-	isSwapByCommitmentRequest_XAccountId()
+type isSwapByCommitmentRequest_XAccountGroupId interface {
+	isSwapByCommitmentRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -2305,19 +2415,19 @@ type isSwapByCommitmentRequest_XToken interface {
 	Size() int
 }
 
-type SwapByCommitmentRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type SwapByCommitmentRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type SwapByCommitmentRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*SwapByCommitmentRequest_AccountId) isSwapByCommitmentRequest_XAccountId() {}
-func (*SwapByCommitmentRequest_Token) isSwapByCommitmentRequest_XToken()         {}
+func (*SwapByCommitmentRequest_AccountGroupId) isSwapByCommitmentRequest_XAccountGroupId() {}
+func (*SwapByCommitmentRequest_Token) isSwapByCommitmentRequest_XToken()                   {}
 
-func (m *SwapByCommitmentRequest) GetXAccountId() isSwapByCommitmentRequest_XAccountId {
+func (m *SwapByCommitmentRequest) GetXAccountGroupId() isSwapByCommitmentRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -2342,9 +2452,9 @@ func (m *SwapByCommitmentRequest) GetAwaitDetection() bool {
 	return false
 }
 
-func (m *SwapByCommitmentRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*SwapByCommitmentRequest_AccountId); ok {
-		return x.AccountId
+func (m *SwapByCommitmentRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*SwapByCommitmentRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -2359,7 +2469,7 @@ func (m *SwapByCommitmentRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*SwapByCommitmentRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*SwapByCommitmentRequest_AccountId)(nil),
+		(*SwapByCommitmentRequest_AccountGroupId)(nil),
 		(*SwapByCommitmentRequest_Token)(nil),
 	}
 }
@@ -2372,7 +2482,7 @@ func (m *SwapByCommitmentResponse) Reset()         { *m = SwapByCommitmentRespon
 func (m *SwapByCommitmentResponse) String() string { return proto.CompactTextString(m) }
 func (*SwapByCommitmentResponse) ProtoMessage()    {}
 func (*SwapByCommitmentResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{32}
+	return fileDescriptor_0aa947b204e6a7c2, []int{34}
 }
 func (m *SwapByCommitmentResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2411,9 +2521,9 @@ func (m *SwapByCommitmentResponse) GetSwap() *SwapRecord {
 type NullifierStatusRequest struct {
 	Nullifier      *v1alpha11.Nullifier `protobuf:"bytes,2,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
 	AwaitDetection bool                 `protobuf:"varint,3,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
-	// Types that are valid to be assigned to XAccountId:
-	//	*NullifierStatusRequest_AccountId
-	XAccountId isNullifierStatusRequest_XAccountId `protobuf_oneof:"_account_id"`
+	// Types that are valid to be assigned to XAccountGroupId:
+	//	*NullifierStatusRequest_AccountGroupId
+	XAccountGroupId isNullifierStatusRequest_XAccountGroupId `protobuf_oneof:"_account_group_id"`
 	// Types that are valid to be assigned to XToken:
 	//	*NullifierStatusRequest_Token
 	XToken isNullifierStatusRequest_XToken `protobuf_oneof:"_token"`
@@ -2423,7 +2533,7 @@ func (m *NullifierStatusRequest) Reset()         { *m = NullifierStatusRequest{}
 func (m *NullifierStatusRequest) String() string { return proto.CompactTextString(m) }
 func (*NullifierStatusRequest) ProtoMessage()    {}
 func (*NullifierStatusRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{33}
+	return fileDescriptor_0aa947b204e6a7c2, []int{35}
 }
 func (m *NullifierStatusRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2452,8 +2562,8 @@ func (m *NullifierStatusRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NullifierStatusRequest proto.InternalMessageInfo
 
-type isNullifierStatusRequest_XAccountId interface {
-	isNullifierStatusRequest_XAccountId()
+type isNullifierStatusRequest_XAccountGroupId interface {
+	isNullifierStatusRequest_XAccountGroupId()
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
@@ -2463,19 +2573,19 @@ type isNullifierStatusRequest_XToken interface {
 	Size() int
 }
 
-type NullifierStatusRequest_AccountId struct {
-	AccountId *v1alpha11.AccountID `protobuf:"bytes,14,opt,name=account_id,json=accountId,proto3,oneof" json:"account_id,omitempty"`
+type NullifierStatusRequest_AccountGroupId struct {
+	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,14,opt,name=account_group_id,json=accountGroupId,proto3,oneof" json:"account_group_id,omitempty"`
 }
 type NullifierStatusRequest_Token struct {
 	Token *ViewAuthToken `protobuf:"bytes,15,opt,name=token,proto3,oneof" json:"token,omitempty"`
 }
 
-func (*NullifierStatusRequest_AccountId) isNullifierStatusRequest_XAccountId() {}
-func (*NullifierStatusRequest_Token) isNullifierStatusRequest_XToken()         {}
+func (*NullifierStatusRequest_AccountGroupId) isNullifierStatusRequest_XAccountGroupId() {}
+func (*NullifierStatusRequest_Token) isNullifierStatusRequest_XToken()                   {}
 
-func (m *NullifierStatusRequest) GetXAccountId() isNullifierStatusRequest_XAccountId {
+func (m *NullifierStatusRequest) GetXAccountGroupId() isNullifierStatusRequest_XAccountGroupId {
 	if m != nil {
-		return m.XAccountId
+		return m.XAccountGroupId
 	}
 	return nil
 }
@@ -2500,9 +2610,9 @@ func (m *NullifierStatusRequest) GetAwaitDetection() bool {
 	return false
 }
 
-func (m *NullifierStatusRequest) GetAccountId() *v1alpha11.AccountID {
-	if x, ok := m.GetXAccountId().(*NullifierStatusRequest_AccountId); ok {
-		return x.AccountId
+func (m *NullifierStatusRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
+	if x, ok := m.GetXAccountGroupId().(*NullifierStatusRequest_AccountGroupId); ok {
+		return x.AccountGroupId
 	}
 	return nil
 }
@@ -2517,7 +2627,7 @@ func (m *NullifierStatusRequest) GetToken() *ViewAuthToken {
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*NullifierStatusRequest) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
-		(*NullifierStatusRequest_AccountId)(nil),
+		(*NullifierStatusRequest_AccountGroupId)(nil),
 		(*NullifierStatusRequest_Token)(nil),
 	}
 }
@@ -2530,7 +2640,7 @@ func (m *NullifierStatusResponse) Reset()         { *m = NullifierStatusResponse
 func (m *NullifierStatusResponse) String() string { return proto.CompactTextString(m) }
 func (*NullifierStatusResponse) ProtoMessage()    {}
 func (*NullifierStatusResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{34}
+	return fileDescriptor_0aa947b204e6a7c2, []int{36}
 }
 func (m *NullifierStatusResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2579,7 +2689,7 @@ func (m *TransactionHashesRequest) Reset()         { *m = TransactionHashesReque
 func (m *TransactionHashesRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionHashesRequest) ProtoMessage()    {}
 func (*TransactionHashesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{35}
+	return fileDescriptor_0aa947b204e6a7c2, []int{37}
 }
 func (m *TransactionHashesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2673,7 +2783,7 @@ func (m *TransactionHashesResponse) Reset()         { *m = TransactionHashesResp
 func (m *TransactionHashesResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionHashesResponse) ProtoMessage()    {}
 func (*TransactionHashesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{36}
+	return fileDescriptor_0aa947b204e6a7c2, []int{38}
 }
 func (m *TransactionHashesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2725,7 +2835,7 @@ func (m *TransactionByHashRequest) Reset()         { *m = TransactionByHashReque
 func (m *TransactionByHashRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionByHashRequest) ProtoMessage()    {}
 func (*TransactionByHashRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{37}
+	return fileDescriptor_0aa947b204e6a7c2, []int{39}
 }
 func (m *TransactionByHashRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2770,7 +2880,7 @@ func (m *TransactionByHashResponse) Reset()         { *m = TransactionByHashResp
 func (m *TransactionByHashResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionByHashResponse) ProtoMessage()    {}
 func (*TransactionByHashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{38}
+	return fileDescriptor_0aa947b204e6a7c2, []int{40}
 }
 func (m *TransactionByHashResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2819,7 +2929,7 @@ func (m *TransactionsRequest) Reset()         { *m = TransactionsRequest{} }
 func (m *TransactionsRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionsRequest) ProtoMessage()    {}
 func (*TransactionsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{39}
+	return fileDescriptor_0aa947b204e6a7c2, []int{41}
 }
 func (m *TransactionsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2915,7 +3025,7 @@ func (m *TransactionsResponse) Reset()         { *m = TransactionsResponse{} }
 func (m *TransactionsResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionsResponse) ProtoMessage()    {}
 func (*TransactionsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{40}
+	return fileDescriptor_0aa947b204e6a7c2, []int{42}
 }
 func (m *TransactionsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2973,7 +3083,7 @@ func (m *TransactionPerspectiveRequest) Reset()         { *m = TransactionPerspe
 func (m *TransactionPerspectiveRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionPerspectiveRequest) ProtoMessage()    {}
 func (*TransactionPerspectiveRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{41}
+	return fileDescriptor_0aa947b204e6a7c2, []int{43}
 }
 func (m *TransactionPerspectiveRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3018,7 +3128,7 @@ func (m *TransactionPerspectiveResponse) Reset()         { *m = TransactionPersp
 func (m *TransactionPerspectiveResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionPerspectiveResponse) ProtoMessage()    {}
 func (*TransactionPerspectiveResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{42}
+	return fileDescriptor_0aa947b204e6a7c2, []int{44}
 }
 func (m *TransactionPerspectiveResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3069,7 +3179,7 @@ func (m *NotesResponse) Reset()         { *m = NotesResponse{} }
 func (m *NotesResponse) String() string { return proto.CompactTextString(m) }
 func (*NotesResponse) ProtoMessage()    {}
 func (*NotesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{43}
+	return fileDescriptor_0aa947b204e6a7c2, []int{45}
 }
 func (m *NotesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3114,7 +3224,7 @@ func (m *NotesForVotingResponse) Reset()         { *m = NotesForVotingResponse{}
 func (m *NotesForVotingResponse) String() string { return proto.CompactTextString(m) }
 func (*NotesForVotingResponse) ProtoMessage()    {}
 func (*NotesForVotingResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{44}
+	return fileDescriptor_0aa947b204e6a7c2, []int{46}
 }
 func (m *NotesForVotingResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3175,14 +3285,14 @@ type SpendableNoteRecord struct {
 	// The note position.
 	Position uint64 `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
 	// The source of the note (a tx hash or otherwise)
-	Source *v1alpha12.NoteSource `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
+	Source *v1alpha13.NoteSource `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
 }
 
 func (m *SpendableNoteRecord) Reset()         { *m = SpendableNoteRecord{} }
 func (m *SpendableNoteRecord) String() string { return proto.CompactTextString(m) }
 func (*SpendableNoteRecord) ProtoMessage()    {}
 func (*SpendableNoteRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{45}
+	return fileDescriptor_0aa947b204e6a7c2, []int{47}
 }
 func (m *SpendableNoteRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3279,7 +3389,7 @@ func (m *SpendableNoteRecord) GetPosition() uint64 {
 	return 0
 }
 
-func (m *SpendableNoteRecord) GetSource() *v1alpha12.NoteSource {
+func (m *SpendableNoteRecord) GetSource() *v1alpha13.NoteSource {
 	if m != nil {
 		return m.Source
 	}
@@ -3295,21 +3405,21 @@ func (*SpendableNoteRecord) XXX_OneofWrappers() []interface{} {
 
 type SwapRecord struct {
 	SwapCommitment *v1alpha11.StateCommitment     `protobuf:"bytes,1,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
-	Swap           *v1alpha13.SwapPlaintext       `protobuf:"bytes,2,opt,name=swap,proto3" json:"swap,omitempty"`
+	Swap           *v1alpha14.SwapPlaintext       `protobuf:"bytes,2,opt,name=swap,proto3" json:"swap,omitempty"`
 	Position       uint64                         `protobuf:"varint,3,opt,name=position,proto3" json:"position,omitempty"`
 	Nullifier      *v1alpha11.Nullifier           `protobuf:"bytes,4,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
-	OutputData     *v1alpha13.BatchSwapOutputData `protobuf:"bytes,5,opt,name=output_data,json=outputData,proto3" json:"output_data,omitempty"`
+	OutputData     *v1alpha14.BatchSwapOutputData `protobuf:"bytes,5,opt,name=output_data,json=outputData,proto3" json:"output_data,omitempty"`
 	// Types that are valid to be assigned to XHeightClaimed:
 	//	*SwapRecord_HeightClaimed
 	XHeightClaimed isSwapRecord_XHeightClaimed `protobuf_oneof:"_height_claimed"`
-	Source         *v1alpha12.NoteSource       `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`
+	Source         *v1alpha13.NoteSource       `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`
 }
 
 func (m *SwapRecord) Reset()         { *m = SwapRecord{} }
 func (m *SwapRecord) String() string { return proto.CompactTextString(m) }
 func (*SwapRecord) ProtoMessage()    {}
 func (*SwapRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0aa947b204e6a7c2, []int{46}
+	return fileDescriptor_0aa947b204e6a7c2, []int{48}
 }
 func (m *SwapRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3364,7 +3474,7 @@ func (m *SwapRecord) GetSwapCommitment() *v1alpha11.StateCommitment {
 	return nil
 }
 
-func (m *SwapRecord) GetSwap() *v1alpha13.SwapPlaintext {
+func (m *SwapRecord) GetSwap() *v1alpha14.SwapPlaintext {
 	if m != nil {
 		return m.Swap
 	}
@@ -3385,7 +3495,7 @@ func (m *SwapRecord) GetNullifier() *v1alpha11.Nullifier {
 	return nil
 }
 
-func (m *SwapRecord) GetOutputData() *v1alpha13.BatchSwapOutputData {
+func (m *SwapRecord) GetOutputData() *v1alpha14.BatchSwapOutputData {
 	if m != nil {
 		return m.OutputData
 	}
@@ -3399,7 +3509,7 @@ func (m *SwapRecord) GetHeightClaimed() uint64 {
 	return 0
 }
 
-func (m *SwapRecord) GetSource() *v1alpha12.NoteSource {
+func (m *SwapRecord) GetSource() *v1alpha13.NoteSource {
 	if m != nil {
 		return m.Source
 	}
@@ -3441,6 +3551,8 @@ func init() {
 	proto.RegisterType((*NotesForVotingRequest)(nil), "penumbra.view.v1alpha1.NotesForVotingRequest")
 	proto.RegisterType((*WitnessRequest)(nil), "penumbra.view.v1alpha1.WitnessRequest")
 	proto.RegisterType((*WitnessResponse)(nil), "penumbra.view.v1alpha1.WitnessResponse")
+	proto.RegisterType((*WitnessAndBuildRequest)(nil), "penumbra.view.v1alpha1.WitnessAndBuildRequest")
+	proto.RegisterType((*WitnessAndBuildResponse)(nil), "penumbra.view.v1alpha1.WitnessAndBuildResponse")
 	proto.RegisterType((*AssetsRequest)(nil), "penumbra.view.v1alpha1.AssetsRequest")
 	proto.RegisterType((*AssetsResponse)(nil), "penumbra.view.v1alpha1.AssetsResponse")
 	proto.RegisterType((*ChainParametersRequest)(nil), "penumbra.view.v1alpha1.ChainParametersRequest")
@@ -3470,171 +3582,1327 @@ func init() {
 func init() { proto.RegisterFile("penumbra/view/v1alpha1/view.proto", fileDescriptor_0aa947b204e6a7c2) }
 
 var fileDescriptor_0aa947b204e6a7c2 = []byte{
-	// 2621 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x5a, 0x4d, 0x70, 0x23, 0x47,
-	0x15, 0xf6, 0x48, 0xfe, 0x91, 0x9f, 0xfe, 0x9c, 0x59, 0xaf, 0xad, 0x88, 0xc4, 0xd9, 0x4c, 0x76,
-	0x1d, 0xb3, 0x21, 0xb2, 0xd7, 0x1b, 0x42, 0x70, 0x92, 0x4a, 0x56, 0x31, 0x1b, 0xbb, 0xb2, 0x3f,
-	0x66, 0xbc, 0xeb, 0x65, 0x17, 0x87, 0xa9, 0xf6, 0x4c, 0xdb, 0x1a, 0x2c, 0xcd, 0x4c, 0x66, 0x5a,
-	0x96, 0x0c, 0xa7, 0xbd, 0x84, 0x14, 0x27, 0xaa, 0x38, 0x40, 0xae, 0x1c, 0x29, 0xaa, 0xa8, 0xa2,
-	0x8a, 0x2a, 0x4e, 0xb9, 0xc0, 0x81, 0x82, 0x4b, 0x8e, 0x54, 0x71, 0x81, 0xdd, 0x1b, 0x67, 0xee,
-	0x50, 0xfd, 0x37, 0x9a, 0x91, 0x34, 0x2b, 0xc9, 0xf6, 0x16, 0x6c, 0x6e, 0x9a, 0xee, 0xf7, 0xbe,
-	0xf7, 0xfa, 0xbd, 0xee, 0xd7, 0xef, 0xbd, 0x16, 0xbc, 0xec, 0x61, 0xa7, 0xd9, 0xd8, 0xf3, 0xd1,
-	0xf2, 0x91, 0x8d, 0x5b, 0xcb, 0x47, 0x57, 0x50, 0xdd, 0xab, 0xa1, 0x2b, 0xec, 0xab, 0xe2, 0xf9,
-	0x2e, 0x71, 0xd5, 0x39, 0x49, 0x52, 0x61, 0x83, 0x92, 0xa4, 0xbc, 0x14, 0xb2, 0x9a, 0xae, 0x8f,
-	0x97, 0xcd, 0x1a, 0xb2, 0x9d, 0x0e, 0x00, 0xfb, 0xe4, 0x08, 0xe5, 0xcb, 0x5d, 0x94, 0xfe, 0xb1,
-	0x47, 0xdc, 0x08, 0x29, 0xfb, 0x16, 0xb4, 0x17, 0xe3, 0xb4, 0x16, 0x6e, 0x77, 0x08, 0x2d, 0xdc,
-	0x16, 0x54, 0x6f, 0xc4, 0xa9, 0x88, 0x8f, 0x9c, 0x00, 0x99, 0xc4, 0x76, 0x23, 0x1a, 0x44, 0x06,
-	0x39, 0x97, 0xf6, 0xb9, 0x02, 0x5f, 0xab, 0xfa, 0x2e, 0xb2, 0x4c, 0x14, 0x90, 0x3b, 0x9d, 0x69,
-	0x1d, 0x7f, 0xd2, 0xc4, 0x01, 0x51, 0xbf, 0x0b, 0xd9, 0x08, 0x53, 0x49, 0xb9, 0xa0, 0x2c, 0x65,
-	0x57, 0x97, 0x2b, 0xe1, 0xfa, 0xa9, 0xac, 0x4a, 0x14, 0x56, 0xca, 0xaa, 0x44, 0xc1, 0xa2, 0x18,
-	0xea, 0xab, 0x50, 0x44, 0x2d, 0x64, 0x13, 0xc3, 0xc2, 0x04, 0x73, 0xd8, 0xd4, 0x05, 0x65, 0x29,
-	0xa3, 0x17, 0xd8, 0xf0, 0xba, 0x1c, 0xd5, 0x76, 0xe0, 0x85, 0xfe, 0xaa, 0x05, 0x9e, 0xeb, 0x04,
-	0x58, 0x7d, 0x13, 0x52, 0xb6, 0x25, 0x54, 0x5a, 0x1c, 0x46, 0xa5, 0x4d, 0x4b, 0x4f, 0xd9, 0x96,
-	0xf6, 0xd7, 0x69, 0x78, 0x3e, 0x82, 0xb7, 0x55, 0x47, 0x8e, 0x83, 0x7d, 0xb9, 0xe2, 0x57, 0x20,
-	0x8f, 0xdb, 0x9e, 0xed, 0x1f, 0x1b, 0x35, 0x6c, 0x1f, 0xd4, 0x08, 0x13, 0x30, 0xae, 0xe7, 0xf8,
-	0xe0, 0x06, 0x1b, 0x53, 0xdf, 0x80, 0xf4, 0x3e, 0xc6, 0x4c, 0xef, 0xec, 0xaa, 0xd6, 0x25, 0x5b,
-	0x38, 0x2f, 0x14, 0x7b, 0x1d, 0x63, 0x9d, 0x92, 0xab, 0x2a, 0x8c, 0x37, 0x70, 0xc3, 0x2d, 0xa5,
-	0x2f, 0x28, 0x4b, 0xd3, 0x3a, 0xfb, 0xad, 0xde, 0x00, 0x40, 0xa6, 0xe9, 0x36, 0x1d, 0x62, 0xd8,
-	0x56, 0xa9, 0xc0, 0x00, 0x97, 0x06, 0x00, 0x5e, 0xe3, 0x0c, 0x9b, 0xeb, 0x1b, 0x63, 0xfa, 0xb4,
-	0xe0, 0xde, 0xb4, 0x3e, 0x53, 0x14, 0xf5, 0x7d, 0x98, 0x20, 0xee, 0x21, 0x76, 0x4a, 0x45, 0x06,
-	0x74, 0xa9, 0xd2, 0x7f, 0xa3, 0x56, 0x76, 0x6c, 0xdc, 0xba, 0xd6, 0x24, 0xb5, 0x3b, 0x94, 0x78,
-	0x43, 0xd1, 0x39, 0x17, 0x45, 0xd0, 0x61, 0xca, 0x6d, 0x12, 0xaf, 0x49, 0x82, 0xd2, 0xec, 0x85,
-	0xf4, 0x52, 0x76, 0xf5, 0xad, 0x24, 0x8c, 0x44, 0x13, 0x56, 0x6e, 0x33, 0x00, 0x5d, 0x02, 0xa9,
-	0x37, 0x60, 0x22, 0x68, 0x21, 0x2f, 0x28, 0x2d, 0x30, 0xc4, 0x37, 0x47, 0x47, 0xdc, 0x6e, 0x21,
-	0x4f, 0xe7, 0x20, 0xea, 0x2e, 0x64, 0x2d, 0x5c, 0xc7, 0x07, 0x88, 0xd2, 0x05, 0xa5, 0x25, 0x86,
-	0xb9, 0x36, 0x3a, 0xe6, 0x3a, 0x07, 0xc1, 0x7a, 0x14, 0x4e, 0xdd, 0x83, 0x7c, 0xd3, 0x89, 0xe2,
-	0xaf, 0x32, 0xfc, 0x77, 0x46, 0xc7, 0xbf, 0x2b, 0x61, 0xb0, 0x1e, 0x87, 0x2c, 0x7f, 0xaa, 0xc0,
-	0x24, 0xb7, 0x91, 0xba, 0x06, 0x13, 0x47, 0xa8, 0xde, 0xc4, 0x62, 0x1b, 0x5f, 0x1c, 0xe0, 0xf9,
-	0x1d, 0x4a, 0xab, 0x73, 0x16, 0xf5, 0x7d, 0x98, 0x42, 0x96, 0xe5, 0xe3, 0x20, 0x10, 0x1b, 0x71,
-	0x71, 0xd0, 0xbe, 0xe1, 0xd4, 0xba, 0x64, 0x2b, 0xff, 0x51, 0x81, 0x71, 0x6a, 0xda, 0x53, 0xa9,
-	0xb1, 0x09, 0x39, 0x82, 0xfc, 0x03, 0x4c, 0x0c, 0x14, 0x04, 0x98, 0x0c, 0xab, 0x0b, 0xa5, 0xdd,
-	0xb4, 0xf4, 0x2c, 0xe7, 0x65, 0x9f, 0xf2, 0x58, 0xa5, 0x47, 0x3a, 0x56, 0xe5, 0x5f, 0x2a, 0x90,
-	0x91, 0xce, 0x54, 0xdf, 0x85, 0x49, 0xd4, 0xa0, 0x07, 0x42, 0x2c, 0xe5, 0xd2, 0x20, 0x3d, 0x18,
-	0xb1, 0x2e, 0x98, 0xd4, 0x9b, 0x90, 0xb3, 0x2d, 0xec, 0x10, 0x9b, 0x1c, 0x1b, 0x87, 0xf8, 0x58,
-	0x2c, 0xe6, 0xf2, 0x00, 0x90, 0x4d, 0xc1, 0xf2, 0x11, 0x3e, 0xd6, 0xb3, 0x76, 0xe7, 0xa3, 0xbc,
-	0x01, 0xd0, 0xd9, 0x06, 0xa7, 0xb1, 0x72, 0x35, 0x0f, 0x59, 0xa3, 0x13, 0x28, 0xaa, 0x19, 0x98,
-	0x34, 0xd8, 0x99, 0xd5, 0x30, 0x94, 0xfb, 0xed, 0x41, 0x11, 0x23, 0x3f, 0x84, 0x71, 0xaf, 0x8e,
-	0x64, 0xe0, 0xbe, 0x3a, 0x62, 0xe0, 0xa6, 0x68, 0x3a, 0x03, 0xd0, 0x6c, 0x38, 0x2f, 0xb6, 0x4f,
-	0xf5, 0x78, 0xd3, 0xb1, 0x70, 0x5b, 0xc6, 0xcb, 0x2d, 0xc8, 0x8b, 0xed, 0x64, 0xd8, 0x74, 0x5c,
-	0x88, 0x7a, 0x6d, 0xb8, 0xbd, 0xc8, 0xa1, 0x72, 0x28, 0xf2, 0xa5, 0x3d, 0x80, 0xb9, 0x6e, 0x51,
-	0x62, 0x35, 0x91, 0x1d, 0xaf, 0x9c, 0x68, 0xc7, 0x6b, 0xf7, 0xe1, 0x3c, 0x83, 0xac, 0x1e, 0xcb,
-	0x29, 0xb1, 0x8c, 0xd3, 0x43, 0x3f, 0x54, 0x60, 0xae, 0x1b, 0x5b, 0xe8, 0x7d, 0xf7, 0xf4, 0x36,
-	0xda, 0x18, 0x8b, 0x5b, 0xe9, 0x33, 0x45, 0xa9, 0xce, 0x40, 0xc1, 0x88, 0xe1, 0x6a, 0x87, 0x30,
-	0xff, 0x1d, 0xaf, 0x86, 0x1b, 0xd8, 0x47, 0xf5, 0xae, 0x05, 0x9e, 0xbd, 0x9f, 0x76, 0xa1, 0xd4,
-	0x2b, 0xec, 0xcc, 0x3c, 0xf5, 0x7d, 0x98, 0xaf, 0xa2, 0x3a, 0x72, 0x4c, 0xfc, 0x14, 0x7c, 0xf5,
-	0x0b, 0x05, 0x4a, 0xbd, 0xe8, 0x42, 0xf7, 0x77, 0x60, 0x82, 0x47, 0x32, 0x65, 0xa4, 0x48, 0xc6,
-	0x99, 0x22, 0x01, 0x28, 0x75, 0x82, 0x00, 0xa4, 0x5d, 0x82, 0x7c, 0xec, 0x72, 0x56, 0x67, 0x61,
-	0xc2, 0xa6, 0x47, 0x9a, 0x69, 0x93, 0xd3, 0xf9, 0x87, 0xa6, 0x43, 0x51, 0x92, 0x49, 0xab, 0xbc,
-	0x07, 0xe9, 0xfd, 0xa3, 0x43, 0xa1, 0xf4, 0xeb, 0x83, 0x82, 0x67, 0xb3, 0x5e, 0xa7, 0x00, 0xb6,
-	0x73, 0x40, 0x83, 0x16, 0xe5, 0xd4, 0x6e, 0xc3, 0x4c, 0x07, 0x53, 0xd8, 0xe2, 0x6d, 0x99, 0x50,
-	0x28, 0x23, 0x24, 0x14, 0x22, 0x9d, 0xd0, 0xfe, 0xa0, 0x40, 0x7e, 0x9b, 0x20, 0xd2, 0x0c, 0x3d,
-	0xf7, 0x7f, 0x96, 0xed, 0x24, 0x47, 0x55, 0x1d, 0x0a, 0x52, 0x73, 0x61, 0x89, 0x97, 0x20, 0x1b,
-	0x1c, 0x3b, 0x66, 0x3c, 0x2b, 0x04, 0x3a, 0x24, 0x72, 0xc2, 0x97, 0x20, 0x6b, 0x22, 0x62, 0xd6,
-	0x6c, 0xe7, 0xc0, 0x68, 0x7a, 0x22, 0xa7, 0x05, 0x39, 0x74, 0xd7, 0xd3, 0xbe, 0x50, 0xe0, 0x1c,
-	0x07, 0xdd, 0x26, 0x3e, 0x46, 0x8d, 0x67, 0xce, 0x28, 0x3e, 0xcc, 0xc6, 0xf5, 0x17, 0xa6, 0xf9,
-	0x36, 0x3c, 0x5f, 0x47, 0x04, 0x07, 0xc4, 0x38, 0x74, 0xdc, 0x96, 0x63, 0xec, 0xd5, 0x5d, 0xf3,
-	0x30, 0x6e, 0xa8, 0x39, 0x4e, 0xf0, 0x11, 0x9d, 0xaf, 0xd2, 0xe9, 0x8e, 0xd1, 0xa2, 0x56, 0x4d,
-	0x75, 0x5b, 0x55, 0xfb, 0x3c, 0x0d, 0xb9, 0x5b, 0x2e, 0xc1, 0x41, 0x24, 0x3f, 0xb7, 0x1d, 0xb3,
-	0xde, 0xb4, 0xb0, 0x11, 0x78, 0x58, 0x1c, 0xb3, 0x8c, 0x9e, 0x13, 0x83, 0xdb, 0x74, 0x4c, 0xbd,
-	0x06, 0x19, 0x76, 0x1a, 0xa9, 0x41, 0xd3, 0x23, 0x9d, 0xe2, 0x29, 0xc4, 0x7f, 0xf4, 0xc6, 0xcb,
-	0xf1, 0x53, 0xc6, 0x4b, 0x75, 0x11, 0x8a, 0xfc, 0x90, 0x1b, 0xc4, 0x65, 0xba, 0x5b, 0xa5, 0x09,
-	0xb6, 0xde, 0x3c, 0x1f, 0xbe, 0xe3, 0x52, 0xe5, 0xad, 0x67, 0x67, 0x3f, 0x7c, 0x91, 0x82, 0xf3,
-	0xcc, 0x37, 0xd7, 0x5d, 0x7f, 0xc7, 0x25, 0xb6, 0x73, 0x20, 0x9d, 0x74, 0x19, 0x9e, 0x3b, 0x72,
-	0x09, 0xda, 0xab, 0x63, 0x03, 0x91, 0xf8, 0x4e, 0x28, 0x8a, 0x89, 0x6b, 0x44, 0x6c, 0x81, 0x1e,
-	0x43, 0xa7, 0x4f, 0x6b, 0xe8, 0x67, 0xc6, 0x80, 0xff, 0x4e, 0x41, 0xe1, 0x9e, 0x4d, 0x9c, 0xc8,
-	0xdd, 0x76, 0x1f, 0x66, 0x1c, 0x97, 0x60, 0xc3, 0x74, 0x1b, 0x0d, 0x9b, 0x34, 0xb0, 0x43, 0x68,
-	0x76, 0x4f, 0x4b, 0x90, 0xca, 0x80, 0x15, 0xd0, 0xa3, 0x89, 0x3f, 0x08, 0xd9, 0xf4, 0x22, 0xc5,
-	0xe9, 0x7c, 0x07, 0xea, 0x0f, 0x60, 0x26, 0x92, 0xf0, 0x19, 0x2c, 0x2f, 0x4c, 0x9f, 0x3c, 0x2f,
-	0x2c, 0x92, 0xf8, 0xc0, 0xb3, 0x63, 0x76, 0x0c, 0xc5, 0xd0, 0xea, 0x22, 0x84, 0xe9, 0x90, 0x6b,
-	0xf1, 0x21, 0xc3, 0x42, 0x04, 0x8d, 0xd2, 0xe8, 0x10, 0x50, 0xeb, 0x88, 0x20, 0x3d, 0xdb, 0xea,
-	0x7c, 0x68, 0xbf, 0x49, 0x43, 0x9e, 0x85, 0x95, 0xd0, 0xb9, 0x65, 0xc8, 0xec, 0xdb, 0x75, 0x82,
-	0x7d, 0xcc, 0xfb, 0x16, 0x19, 0x3d, 0xfc, 0x56, 0x7f, 0x08, 0x0b, 0x91, 0xb8, 0x66, 0xda, 0xfb,
-	0xb6, 0x69, 0x58, 0xd8, 0x71, 0x1b, 0xb6, 0x23, 0x2a, 0x51, 0xbe, 0x0d, 0x06, 0x55, 0x0d, 0xeb,
-	0x94, 0x47, 0x7f, 0xa1, 0x13, 0x0e, 0x19, 0xd4, 0x7a, 0x14, 0x49, 0x5d, 0x83, 0xe7, 0xa5, 0xac,
-	0x4e, 0x5d, 0xca, 0x8d, 0x13, 0xb0, 0x2d, 0x91, 0xd1, 0xe7, 0x05, 0xc1, 0x7a, 0x38, 0xcf, 0x0c,
-	0x1c, 0xa8, 0x6f, 0x41, 0x49, 0xf2, 0x36, 0x9d, 0x3d, 0xd7, 0xb1, 0xe8, 0x7d, 0x27, 0x58, 0xc7,
-	0x19, 0xeb, 0x9c, 0x98, 0xbf, 0x2b, 0xa7, 0x05, 0xe7, 0x22, 0x14, 0x25, 0x67, 0xdd, 0x33, 0x9c,
-	0x7d, 0x12, 0xb0, 0xf8, 0x97, 0xd1, 0x65, 0x40, 0xbf, 0xe1, 0xdd, 0xda, 0x27, 0x81, 0xba, 0x0a,
-	0xe7, 0x25, 0x9d, 0xe7, 0xbb, 0x9e, 0x1b, 0xa0, 0x3a, 0xa7, 0x9e, 0x64, 0xd4, 0xe7, 0xc4, 0xe4,
-	0x96, 0x98, 0x63, 0x3c, 0xd7, 0xe0, 0x45, 0xc9, 0x73, 0xc4, 0x22, 0x91, 0xe1, 0x63, 0x13, 0xdb,
-	0x1e, 0x91, 0xaa, 0x4d, 0x31, 0xde, 0xb2, 0x20, 0x92, 0xd1, 0x8a, 0x91, 0x70, 0xf5, 0xb4, 0x1b,
-	0x50, 0x90, 0xde, 0x12, 0x9b, 0x62, 0x2d, 0x9e, 0x08, 0x5e, 0x1c, 0xe6, 0x0a, 0x11, 0x69, 0xa0,
-	0x56, 0x82, 0xb9, 0x0f, 0x6a, 0xc8, 0x76, 0xb6, 0x90, 0x8f, 0x1a, 0x98, 0x60, 0x5f, 0x6e, 0x02,
-	0xad, 0x06, 0xf3, 0x3d, 0x33, 0x42, 0xe0, 0x4d, 0x00, 0x2f, 0x1c, 0x4d, 0xca, 0xe4, 0x58, 0x17,
-	0x31, 0x14, 0xda, 0x0d, 0x15, 0x01, 0xd0, 0xe6, 0x60, 0xf6, 0xfa, 0xcd, 0xf5, 0x5e, 0x0d, 0x2c,
-	0x38, 0xdf, 0x35, 0x2e, 0xe4, 0x7f, 0xd4, 0x47, 0xfe, 0x6b, 0x4f, 0x96, 0x7f, 0xbd, 0x61, 0x25,
-	0x48, 0xff, 0x53, 0x0a, 0xe6, 0xe9, 0xed, 0x50, 0x3d, 0x8e, 0x04, 0x25, 0x71, 0x10, 0xee, 0x41,
-	0xb1, 0x2b, 0xca, 0x89, 0x6c, 0x79, 0xd4, 0x20, 0x57, 0x88, 0x07, 0xb9, 0x7e, 0xcd, 0xc5, 0x74,
-	0xbf, 0xe6, 0xe2, 0xb3, 0x13, 0xac, 0x1c, 0x28, 0xf5, 0x5a, 0x31, 0x8c, 0x5a, 0x05, 0x96, 0x47,
-	0xb0, 0x8b, 0x96, 0x5a, 0xa2, 0xd7, 0x67, 0x71, 0xf9, 0xdb, 0x92, 0x9a, 0x42, 0xea, 0xd8, 0x74,
-	0x7d, 0x4b, 0xcf, 0x07, 0xd1, 0x41, 0xe6, 0xb6, 0xed, 0x16, 0xf2, 0x12, 0xdc, 0x16, 0xb4, 0x90,
-	0x77, 0x06, 0x6e, 0xa3, 0x30, 0x5f, 0x69, 0xb7, 0xe9, 0x50, 0xea, 0xb5, 0x62, 0xd8, 0xb8, 0x1e,
-	0xa7, 0xeb, 0x17, 0xce, 0xd2, 0x12, 0x9d, 0xd5, 0x42, 0x9e, 0xf0, 0x11, 0xa3, 0xd7, 0x7e, 0x97,
-	0x82, 0xb9, 0x5b, 0xcd, 0x7a, 0xdd, 0xde, 0xb7, 0xb1, 0x1f, 0x2f, 0xac, 0xae, 0xc3, 0xb4, 0x23,
-	0x67, 0x84, 0x4f, 0x06, 0x99, 0x25, 0x44, 0xd2, 0x3b, 0xac, 0x5f, 0x41, 0x47, 0x2c, 0xc3, 0x7c,
-	0x8f, 0xcd, 0x84, 0x1f, 0x66, 0x61, 0x82, 0x97, 0x10, 0xfc, 0x2e, 0xe6, 0x1f, 0xda, 0xa7, 0x0a,
-	0x94, 0x22, 0xb9, 0xce, 0x06, 0x0a, 0x6a, 0x9d, 0xea, 0x63, 0x11, 0x72, 0x01, 0x41, 0x7e, 0x3c,
-	0xa7, 0xdd, 0x18, 0xd3, 0xb3, 0x6c, 0x94, 0x67, 0xb4, 0x74, 0x41, 0x1a, 0x00, 0x76, 0xac, 0x58,
-	0x59, 0xb3, 0xa1, 0xe8, 0xd3, 0xd8, 0xb1, 0x42, 0x9a, 0x6a, 0x11, 0xf2, 0x46, 0x14, 0x8c, 0xad,
-	0xa1, 0xc3, 0xa5, 0xdd, 0x8b, 0x3d, 0x53, 0x48, 0x3d, 0x84, 0xee, 0x2f, 0x43, 0xae, 0x4f, 0x99,
-	0x95, 0xdd, 0x8b, 0xd4, 0x56, 0xf3, 0x30, 0x45, 0xda, 0x46, 0x0d, 0x05, 0x35, 0xa6, 0x40, 0x4e,
-	0x9f, 0x24, 0x6d, 0x8a, 0xa2, 0x5d, 0x8d, 0x2d, 0xb0, 0x7a, 0x4c, 0x07, 0xe5, 0x02, 0x23, 0x4c,
-	0x4a, 0x8c, 0x69, 0x37, 0xa6, 0x8d, 0x64, 0x12, 0xda, 0xbc, 0x07, 0x29, 0xd2, 0x3e, 0xe9, 0xeb,
-	0x50, 0x8a, 0xb4, 0xb5, 0x87, 0x0a, 0x9c, 0x8b, 0x8c, 0xfd, 0x4f, 0xec, 0xfd, 0x73, 0x05, 0x66,
-	0xe3, 0x3a, 0x9c, 0xde, 0xd6, 0xc2, 0x32, 0xe9, 0x93, 0x5b, 0xe6, 0x2d, 0x78, 0x31, 0x9a, 0x79,
-	0x63, 0x9f, 0x66, 0x87, 0xc4, 0x3e, 0xc2, 0x03, 0x3d, 0xf6, 0x5b, 0x05, 0x16, 0x92, 0x58, 0xc5,
-	0xca, 0x6e, 0x40, 0x9a, 0xb4, 0x65, 0x20, 0x5a, 0x1b, 0xb5, 0x0a, 0x88, 0x00, 0x52, 0x18, 0xb1,
-	0xd6, 0xd4, 0xc9, 0xd7, 0xfa, 0x31, 0xe4, 0x45, 0xad, 0x1f, 0xea, 0x97, 0x65, 0x79, 0x82, 0xcf,
-	0xc2, 0xe0, 0x49, 0x6e, 0x37, 0x70, 0xc2, 0xdf, 0xda, 0xef, 0x15, 0x98, 0xeb, 0xae, 0x57, 0x9f,
-	0x86, 0xa0, 0x33, 0x7e, 0x45, 0xd0, 0xfe, 0x93, 0x86, 0x73, 0x7d, 0x44, 0xf6, 0xcb, 0xa2, 0x94,
-	0x33, 0xc9, 0xa2, 0xbe, 0x05, 0xe3, 0x2c, 0x9b, 0xe0, 0x7a, 0xbf, 0x32, 0xe8, 0x22, 0xa1, 0x1a,
-	0x31, 0x86, 0xa7, 0x50, 0xcb, 0xc7, 0x2e, 0xb6, 0xf1, 0x93, 0x5f, 0x6c, 0x97, 0xa0, 0xc0, 0x4f,
-	0xaf, 0x61, 0xfa, 0x18, 0x11, 0x1c, 0xf6, 0x5e, 0xf8, 0xe8, 0x07, 0x7c, 0x90, 0xc6, 0x1b, 0x41,
-	0xc6, 0x6f, 0x86, 0x49, 0x19, 0x6f, 0xf8, 0x28, 0xeb, 0x2e, 0xd1, 0x78, 0x53, 0x86, 0x8c, 0xe7,
-	0x06, 0x36, 0xbb, 0x20, 0xa7, 0x18, 0x50, 0xf8, 0xad, 0xbe, 0x0f, 0x93, 0x81, 0xdb, 0xf4, 0x4d,
-	0x5c, 0xca, 0xf4, 0xd7, 0x37, 0x9e, 0x41, 0x53, 0xf3, 0x6d, 0x33, 0x7a, 0x5d, 0xf0, 0xb1, 0x48,
-	0x15, 0x55, 0x43, 0xfb, 0x7b, 0x1a, 0xa0, 0x93, 0x0e, 0xf4, 0xcb, 0xc3, 0x94, 0x33, 0xc9, 0xc3,
-	0xde, 0x15, 0x99, 0x09, 0x77, 0xfc, 0xd7, 0xbb, 0xd0, 0x2c, 0xdc, 0x8e, 0x67, 0x27, 0x5b, 0x75,
-	0x64, 0x3b, 0x04, 0xb7, 0x09, 0x4f, 0x50, 0x62, 0x56, 0x49, 0x77, 0x59, 0xe5, 0xac, 0x1c, 0xb9,
-	0x05, 0x59, 0xfe, 0xae, 0xcc, 0x0b, 0xf5, 0x89, 0xbe, 0xd1, 0x26, 0xa6, 0x69, 0x15, 0x11, 0xb3,
-	0x46, 0xd5, 0xe5, 0x6f, 0xae, 0xac, 0x50, 0x07, 0x37, 0xfc, 0xad, 0x5e, 0xee, 0x6c, 0x8d, 0x3a,
-	0xb2, 0x1b, 0xd8, 0x0a, 0xbd, 0x2e, 0x37, 0x07, 0x1f, 0xe6, 0x89, 0x8a, 0xf4, 0xed, 0xd4, 0x09,
-	0x7d, 0xfb, 0x1c, 0x14, 0x8d, 0xb8, 0xb8, 0xd5, 0x7f, 0xaa, 0x70, 0x8e, 0x66, 0x36, 0x5b, 0xbe,
-	0x4b, 0x5c, 0xd3, 0xad, 0x6f, 0x63, 0xff, 0xc8, 0x36, 0xb1, 0x7a, 0x0f, 0x26, 0x79, 0xc6, 0xa2,
-	0x26, 0x26, 0x44, 0xb1, 0x2c, 0xb0, 0xbc, 0x38, 0x88, 0x4c, 0x44, 0xbb, 0x43, 0xc8, 0x45, 0x1b,
-	0xb9, 0xea, 0x6b, 0x4f, 0xe6, 0x8b, 0xb5, 0xab, 0xcb, 0xdf, 0x18, 0x8e, 0x98, 0x8b, 0x5a, 0x51,
-	0xd4, 0x1d, 0x98, 0x60, 0x41, 0x57, 0xbd, 0x98, 0xc4, 0x18, 0xed, 0xef, 0x96, 0x2f, 0x0d, 0xa0,
-	0x0a, 0x71, 0x3f, 0x81, 0x42, 0x3c, 0x98, 0xab, 0xaf, 0x3f, 0x91, 0xb5, 0xbb, 0x49, 0x59, 0xae,
-	0x0c, 0x4b, 0x1e, 0x8a, 0x7c, 0x00, 0x53, 0xa2, 0xdb, 0xa3, 0x26, 0x9a, 0x3a, 0xde, 0xcf, 0x2b,
-	0xbf, 0x3a, 0x90, 0x4e, 0xf8, 0xe4, 0x3e, 0x4c, 0xf2, 0xf6, 0x43, 0xb2, 0xb3, 0x63, 0xcd, 0xa4,
-	0x64, 0x67, 0xc7, 0xbb, 0x18, 0x2b, 0x8a, 0xea, 0x43, 0xb1, 0xab, 0x4d, 0xa0, 0x26, 0xae, 0xbd,
-	0x7f, 0xd3, 0xa2, 0xbc, 0x3c, 0x34, 0xbd, 0x58, 0x4e, 0x1d, 0xf2, 0xb1, 0x1e, 0x83, 0x9a, 0xb8,
-	0x6d, 0xfa, 0xb5, 0x28, 0xca, 0xaf, 0x0f, 0x49, 0x2d, 0xa4, 0xb9, 0x50, 0x88, 0x3f, 0x19, 0x27,
-	0xef, 0x85, 0xbe, 0xaf, 0xd8, 0xc9, 0x7b, 0x21, 0xe1, 0x25, 0xda, 0x85, 0x42, 0xfc, 0xad, 0x37,
-	0x59, 0x60, 0xdf, 0xf7, 0xe6, 0x64, 0x81, 0x09, 0x4f, 0xc8, 0x4d, 0x98, 0xe9, 0x7e, 0x6c, 0x55,
-	0x13, 0x9d, 0x92, 0xf0, 0x06, 0x5c, 0x5e, 0x19, 0x9e, 0x41, 0x88, 0x6d, 0xc1, 0x4c, 0xf7, 0x3b,
-	0x69, 0xb2, 0xd8, 0x84, 0xf7, 0xda, 0x64, 0xb1, 0x49, 0x4f, 0xb0, 0x2b, 0x0a, 0x5d, 0x6f, 0x77,
-	0xdb, 0x23, 0x59, 0x70, 0x42, 0x9b, 0x29, 0x59, 0x70, 0x62, 0x47, 0xa5, 0x09, 0x33, 0xdd, 0x65,
-	0x7b, 0xb2, 0xd8, 0x84, 0x36, 0x49, 0xb2, 0xd8, 0xc4, 0x8e, 0x80, 0x0f, 0xc5, 0xae, 0x22, 0x35,
-	0xf9, 0x84, 0xf6, 0xef, 0x00, 0x24, 0x9f, 0xd0, 0xa4, 0xea, 0xf7, 0x47, 0xf0, 0x5c, 0x4f, 0x79,
-	0xa9, 0xae, 0x0c, 0xf1, 0x3f, 0xa7, 0x58, 0x45, 0x5c, 0xbe, 0x32, 0x02, 0x47, 0xe8, 0xdd, 0x76,
-	0x4c, 0x36, 0x2f, 0x26, 0x87, 0x92, 0x1d, 0x2b, 0x56, 0x87, 0x92, 0xdd, 0x55, 0xa9, 0x1e, 0x42,
-	0x2e, 0x5a, 0xe3, 0x25, 0x5f, 0x7d, 0x7d, 0xaa, 0xd1, 0xe4, 0xab, 0xaf, 0x5f, 0xd9, 0xb8, 0xa2,
-	0xa8, 0x3f, 0x51, 0x60, 0xae, 0x7f, 0xc1, 0xa4, 0x7e, 0x73, 0x98, 0x3f, 0x94, 0xf5, 0x14, 0x7b,
-	0xe5, 0x37, 0x47, 0x65, 0x13, 0xcb, 0xfe, 0x31, 0xa8, 0xbd, 0xff, 0x12, 0x52, 0xaf, 0x8c, 0xfc,
-	0xaf, 0xb6, 0xf2, 0xea, 0x28, 0x2c, 0x42, 0xf8, 0x43, 0x05, 0x66, 0xfb, 0xfd, 0x93, 0x53, 0xbd,
-	0x9a, 0x18, 0x18, 0x92, 0xff, 0x92, 0x5a, 0x7e, 0x63, 0x34, 0x26, 0xae, 0xc3, 0xaa, 0xd7, 0xf9,
-	0xc3, 0x84, 0x4c, 0xaf, 0x3e, 0x86, 0x8c, 0x1c, 0x52, 0x5f, 0x1d, 0xd4, 0x71, 0x92, 0xd2, 0x97,
-	0x06, 0x13, 0x72, 0x89, 0xd5, 0x9f, 0xa6, 0xfe, 0xfc, 0x68, 0x41, 0xf9, 0xf2, 0xd1, 0x82, 0xf2,
-	0x8f, 0x47, 0x0b, 0xca, 0xcf, 0x1e, 0x2f, 0x8c, 0x7d, 0xf9, 0x78, 0x61, 0xec, 0x6f, 0x8f, 0x17,
-	0xc6, 0xa0, 0x6c, 0xba, 0x8d, 0x04, 0x9c, 0xea, 0x74, 0x98, 0x09, 0x6e, 0x29, 0x0f, 0x6e, 0x1f,
-	0xd8, 0xa4, 0xd6, 0xdc, 0xab, 0x98, 0x6e, 0x63, 0xd9, 0x74, 0x83, 0x86, 0x1b, 0x2c, 0xfb, 0xb8,
-	0x8e, 0x8e, 0xb1, 0xbf, 0x7c, 0xb4, 0x1a, 0xfe, 0x64, 0x49, 0x67, 0xb0, 0xdc, 0xff, 0x7f, 0xcb,
-	0x6f, 0xd3, 0x2f, 0xf9, 0xf1, 0xab, 0x54, 0x7a, 0x6b, 0xe7, 0x7b, 0xbf, 0x4e, 0xcd, 0x6d, 0x49,
-	0xe1, 0x54, 0x5a, 0x65, 0x47, 0x4c, 0xff, 0xa5, 0x33, 0xb1, 0x4b, 0x27, 0x76, 0xe5, 0xc4, 0xa3,
-	0x94, 0xd6, 0x7f, 0x62, 0xf7, 0xc3, 0xad, 0xea, 0x4d, 0x4c, 0x10, 0xcd, 0xc5, 0xff, 0x95, 0x2a,
-	0x49, 0xa2, 0xb5, 0x35, 0x4a, 0xb5, 0xb6, 0x26, 0xc9, 0xf6, 0x26, 0xd9, 0xdf, 0x8d, 0xaf, 0xfe,
-	0x37, 0x00, 0x00, 0xff, 0xff, 0xbb, 0xac, 0x10, 0x65, 0x5d, 0x2d, 0x00, 0x00,
+	// 2751 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe4, 0x5a, 0xcd, 0x73, 0xe4, 0xc4,
+	0x15, 0x5f, 0xcd, 0xf8, 0x6b, 0xdf, 0x8c, 0x67, 0xbc, 0xb2, 0xd7, 0x1e, 0x26, 0x60, 0x16, 0xb1,
+	0xbb, 0x38, 0x4b, 0x18, 0xef, 0x7a, 0x81, 0x10, 0x03, 0x05, 0x1e, 0x1c, 0x63, 0x17, 0xbb, 0xe0,
+	0xc8, 0xac, 0x37, 0x10, 0x13, 0x55, 0x5b, 0x6a, 0x7b, 0x14, 0x6b, 0x24, 0x21, 0xf5, 0xf8, 0x83,
+	0x9c, 0xb8, 0x10, 0x8a, 0x53, 0xaa, 0x72, 0x48, 0x72, 0xcd, 0x2d, 0xa9, 0x54, 0x71, 0xca, 0x5f,
+	0x90, 0x0b, 0x95, 0x43, 0x8a, 0x03, 0xa9, 0x4a, 0x25, 0x55, 0xa9, 0xd4, 0x72, 0xcb, 0x3f, 0x91,
+	0x54, 0x7f, 0x69, 0x24, 0x8d, 0xc4, 0xcc, 0xd8, 0xa6, 0x92, 0x0d, 0x37, 0x75, 0xf7, 0x7b, 0xbf,
+	0xf7, 0xfa, 0xbd, 0xee, 0xd7, 0xaf, 0x9f, 0x1a, 0x9e, 0xf0, 0xb1, 0xdb, 0x69, 0xef, 0x06, 0x68,
+	0xf1, 0xd0, 0xc6, 0x47, 0x8b, 0x87, 0xb7, 0x90, 0xe3, 0xb7, 0xd0, 0x2d, 0xd6, 0x6a, 0xf8, 0x81,
+	0x47, 0x3c, 0x75, 0x56, 0x92, 0x34, 0x58, 0xa7, 0x24, 0xa9, 0x2f, 0x44, 0xac, 0xa6, 0x17, 0xe0,
+	0x45, 0xb3, 0x85, 0x6c, 0xb7, 0x0b, 0xc0, 0x9a, 0x1c, 0xa1, 0x7e, 0x23, 0x45, 0x19, 0x9c, 0xf8,
+	0xc4, 0x8b, 0x91, 0xb2, 0xb6, 0xa0, 0xbd, 0x9a, 0xa4, 0xb5, 0xf0, 0x71, 0x97, 0xd0, 0xc2, 0xc7,
+	0x82, 0xea, 0xd9, 0x24, 0x15, 0x09, 0x90, 0x1b, 0x22, 0x93, 0xd8, 0x5e, 0x4c, 0x83, 0x58, 0x67,
+	0x36, 0xb6, 0xbd, 0x6b, 0x76, 0xa9, 0xed, 0x5d, 0x93, 0x53, 0x69, 0xbf, 0x56, 0xe0, 0x5b, 0xcd,
+	0xc0, 0x43, 0x96, 0x89, 0x42, 0xf2, 0x76, 0x17, 0x44, 0xc7, 0xef, 0x77, 0x70, 0x48, 0xd4, 0x1f,
+	0x40, 0x29, 0x06, 0x5d, 0x53, 0xae, 0x28, 0x0b, 0xa5, 0xa5, 0xc5, 0x46, 0x64, 0x25, 0x8a, 0xdd,
+	0x88, 0x0b, 0x97, 0x32, 0x1a, 0x71, 0xb0, 0x38, 0x86, 0xfa, 0x14, 0x54, 0xd1, 0x11, 0xb2, 0x89,
+	0x61, 0x61, 0x82, 0x39, 0x6c, 0xe1, 0x8a, 0xb2, 0x30, 0xa1, 0x57, 0x58, 0xf7, 0xaa, 0xec, 0xd5,
+	0xb6, 0xe1, 0xd1, 0x6c, 0xd5, 0x42, 0xdf, 0x73, 0x43, 0xac, 0x3e, 0x0f, 0x05, 0xdb, 0x12, 0x2a,
+	0x5d, 0x1f, 0x44, 0xa5, 0x0d, 0x4b, 0x2f, 0xd8, 0x96, 0xf6, 0x5b, 0x80, 0x47, 0x62, 0x78, 0x9b,
+	0x0e, 0x72, 0x5d, 0x1c, 0xc8, 0x19, 0x3f, 0x09, 0x93, 0xf8, 0xd8, 0xb7, 0x83, 0x13, 0xa3, 0x85,
+	0xed, 0xfd, 0x16, 0x61, 0x02, 0x46, 0xf4, 0x32, 0xef, 0x5c, 0x67, 0x7d, 0xea, 0xb3, 0x50, 0xdc,
+	0xc3, 0x98, 0xe9, 0x5d, 0x5a, 0xd2, 0x52, 0xb2, 0x85, 0x8b, 0x23, 0xb1, 0x6b, 0x18, 0xeb, 0x94,
+	0x5c, 0x55, 0x61, 0xa4, 0x8d, 0xdb, 0x5e, 0xad, 0x78, 0x45, 0x59, 0xb8, 0xa8, 0xb3, 0x6f, 0x75,
+	0x07, 0xa6, 0x90, 0x69, 0x7a, 0x1d, 0x97, 0x18, 0xfb, 0x81, 0xd7, 0xf1, 0x0d, 0xdb, 0xaa, 0x55,
+	0x18, 0xec, 0x33, 0x7d, 0x60, 0x57, 0x38, 0xdb, 0xeb, 0x94, 0x6b, 0xc3, 0x5a, 0xbf, 0xa0, 0x57,
+	0x50, 0xa2, 0xe7, 0x63, 0x45, 0x51, 0x5f, 0x85, 0x51, 0xe2, 0x1d, 0x60, 0xb7, 0x56, 0x65, 0x90,
+	0xd7, 0x1a, 0xd9, 0xcb, 0xbb, 0xb1, 0x6d, 0xe3, 0xa3, 0x95, 0x0e, 0x69, 0xbd, 0x4d, 0x89, 0xd7,
+	0x15, 0x9d, 0x73, 0x51, 0x04, 0x1d, 0xc6, 0xbd, 0x0e, 0xf1, 0x3b, 0x24, 0xac, 0xcd, 0x5c, 0x29,
+	0x2e, 0x94, 0x96, 0x5e, 0xc8, 0xc3, 0xc8, 0x35, 0x69, 0xe3, 0x2d, 0x06, 0xa0, 0x4b, 0x20, 0xf5,
+	0x0e, 0x8c, 0x86, 0x47, 0xc8, 0x0f, 0x6b, 0xf3, 0x0c, 0xf1, 0xf9, 0xe1, 0x11, 0xb7, 0x8e, 0x90,
+	0xaf, 0x73, 0x10, 0x75, 0x07, 0x4a, 0x16, 0x76, 0xf0, 0x3e, 0xa2, 0x74, 0x61, 0x6d, 0x81, 0x61,
+	0x2e, 0x0f, 0x8f, 0xb9, 0xca, 0x41, 0xb0, 0x1e, 0x87, 0x53, 0x77, 0x61, 0xb2, 0xe3, 0xc6, 0xf1,
+	0x97, 0x18, 0xfe, 0x4b, 0xc3, 0xe3, 0xdf, 0x93, 0x30, 0x58, 0x4f, 0x42, 0xaa, 0x6b, 0x50, 0xb2,
+	0x77, 0x4d, 0x83, 0x73, 0x85, 0xb5, 0x97, 0x98, 0x84, 0x6b, 0x29, 0xf7, 0xd3, 0x3d, 0xdb, 0x5d,
+	0xc9, 0xbb, 0xe6, 0x0a, 0xdf, 0x0c, 0x60, 0xcb, 0xcf, 0xb0, 0xfe, 0x91, 0x02, 0x63, 0xdc, 0xd6,
+	0xea, 0x32, 0x8c, 0x1e, 0x22, 0xa7, 0x83, 0xc5, 0xf6, 0xb8, 0xda, 0x67, 0x2d, 0x6d, 0x53, 0x5a,
+	0x9d, 0xb3, 0xa8, 0xaf, 0xc2, 0x38, 0xb2, 0xac, 0x00, 0x87, 0xa1, 0x58, 0xe0, 0xd7, 0xfb, 0xad,
+	0x44, 0x4e, 0xad, 0x4b, 0xb6, 0xfa, 0x1f, 0x15, 0x18, 0xa1, 0x2e, 0x3a, 0x93, 0x1a, 0x1b, 0x50,
+	0x26, 0x28, 0xd8, 0xc7, 0xc4, 0x40, 0x61, 0x88, 0xc9, 0xa0, 0xba, 0x50, 0xda, 0x0d, 0x4b, 0x2f,
+	0x71, 0x5e, 0xd6, 0x94, 0xdb, 0xb5, 0x38, 0xd4, 0x76, 0xad, 0xff, 0x4a, 0x81, 0x09, 0xb9, 0x28,
+	0xd4, 0x97, 0x61, 0x0c, 0xb5, 0xe9, 0xee, 0x12, 0x53, 0xb9, 0xd6, 0x4f, 0x0f, 0x46, 0xac, 0x0b,
+	0x26, 0xf5, 0x2e, 0x94, 0x6d, 0x0b, 0xbb, 0xc4, 0x26, 0x27, 0xc6, 0x01, 0x3e, 0x11, 0x93, 0xb9,
+	0xd1, 0x07, 0x64, 0x43, 0xb0, 0xbc, 0x81, 0x4f, 0xf4, 0x92, 0xdd, 0x6d, 0xd4, 0xd7, 0x01, 0xba,
+	0xcb, 0xe9, 0x2c, 0x56, 0x6e, 0x4e, 0xc3, 0x25, 0x23, 0x1d, 0x80, 0x9a, 0x13, 0x30, 0x66, 0xb0,
+	0x08, 0xa0, 0x61, 0xa8, 0x67, 0xad, 0x68, 0x11, 0x81, 0x5f, 0x87, 0x11, 0xdf, 0x41, 0xf2, 0x58,
+	0xb8, 0x3d, 0xe4, 0xb1, 0x40, 0xd1, 0x74, 0x06, 0xa0, 0xd9, 0x70, 0x59, 0x2c, 0xa2, 0xe6, 0xc9,
+	0x86, 0x6b, 0xe1, 0x63, 0x19, 0x8d, 0x37, 0x61, 0x52, 0x2c, 0x2a, 0xc3, 0xa6, 0xfd, 0x42, 0xd4,
+	0xd3, 0x83, 0xad, 0x48, 0x0e, 0x55, 0x46, 0xb1, 0x96, 0xf6, 0x2e, 0xcc, 0xa6, 0x45, 0x89, 0xd9,
+	0xc4, 0xd6, 0xbd, 0x72, 0xaa, 0x75, 0xaf, 0xbd, 0x03, 0x97, 0x19, 0x64, 0xf3, 0x44, 0x0e, 0x89,
+	0x69, 0x9c, 0x1d, 0xfa, 0x43, 0x05, 0x66, 0xd3, 0xd8, 0x42, 0xef, 0x7b, 0x67, 0xb7, 0xd1, 0xfa,
+	0x85, 0xa4, 0x95, 0x3e, 0x56, 0x94, 0xe6, 0x14, 0x54, 0x8c, 0x04, 0xae, 0x76, 0x00, 0x73, 0xdf,
+	0xf7, 0x5b, 0xb8, 0x8d, 0x03, 0xe4, 0xa4, 0x26, 0x78, 0xfe, 0x7e, 0xda, 0x81, 0x5a, 0xaf, 0xb0,
+	0x73, 0xf3, 0xd4, 0x8f, 0x60, 0xae, 0x89, 0x1c, 0xe4, 0x9a, 0xf8, 0x6b, 0xf0, 0xd5, 0x2f, 0x15,
+	0xa8, 0xf5, 0xa2, 0x0b, 0xdd, 0x5f, 0x82, 0x51, 0x1e, 0xcf, 0x94, 0xa1, 0xe2, 0x19, 0x67, 0x8a,
+	0x85, 0xa1, 0xc2, 0x29, 0xc2, 0x90, 0x76, 0x0d, 0x26, 0x13, 0x47, 0xbd, 0x3a, 0x03, 0xa3, 0x36,
+	0xdd, 0xd2, 0x4c, 0x9b, 0xb2, 0xce, 0x1b, 0x9a, 0x0e, 0x55, 0x49, 0x26, 0xad, 0xf2, 0x0a, 0x14,
+	0xf7, 0x0e, 0x0f, 0x84, 0xd2, 0xfd, 0x52, 0x93, 0xb5, 0x8e, 0xe3, 0x50, 0x00, 0xdb, 0xdd, 0xa7,
+	0xa1, 0x8b, 0x72, 0x6a, 0x6f, 0xc1, 0x54, 0x17, 0x53, 0xd8, 0xe2, 0x45, 0x99, 0x9e, 0x28, 0x43,
+	0xa4, 0x27, 0x22, 0x39, 0xd1, 0xfe, 0xac, 0xc0, 0xe4, 0x16, 0x41, 0xa4, 0x13, 0x79, 0xee, 0x7f,
+	0x3c, 0x97, 0xea, 0x17, 0x6b, 0x75, 0xa8, 0xc8, 0xf9, 0x08, 0xfb, 0x3c, 0x0e, 0xa5, 0xf0, 0xc4,
+	0x35, 0x93, 0x99, 0x28, 0xd0, 0x2e, 0x91, 0x87, 0x3e, 0x0e, 0x25, 0x13, 0x11, 0xb3, 0x65, 0xbb,
+	0xfb, 0x46, 0xc7, 0x17, 0x79, 0x34, 0xc8, 0xae, 0x7b, 0xbe, 0xf6, 0x85, 0x02, 0xd3, 0x1c, 0x74,
+	0x8b, 0x04, 0x18, 0xb5, 0xff, 0x4f, 0x4c, 0x15, 0xc0, 0x4c, 0x72, 0x56, 0xc2, 0x60, 0xdf, 0x83,
+	0x47, 0x1c, 0x44, 0x70, 0x48, 0x8c, 0x03, 0xd7, 0x3b, 0x72, 0x8d, 0x5d, 0xc7, 0x33, 0x0f, 0x92,
+	0xe6, 0x9b, 0xe5, 0x04, 0x6f, 0xd0, 0xf1, 0x26, 0x1d, 0xee, 0x9a, 0x32, 0x6e, 0xeb, 0x42, 0xda,
+	0xd6, 0xda, 0xa7, 0x45, 0x28, 0xbf, 0xe9, 0x11, 0x1c, 0xc6, 0x6e, 0x0a, 0xb6, 0x6b, 0x3a, 0x1d,
+	0x0b, 0x1b, 0xa1, 0x8f, 0xc5, 0x96, 0x9c, 0xd0, 0xcb, 0xa2, 0x73, 0x8b, 0xf6, 0xa9, 0x2b, 0x30,
+	0xc1, 0x76, 0x2e, 0x35, 0x70, 0x71, 0xa8, 0x1d, 0x3f, 0x8e, 0xf8, 0x47, 0x6f, 0x6c, 0x1d, 0x39,
+	0x63, 0x6c, 0x55, 0xaf, 0x43, 0x95, 0x07, 0x04, 0x83, 0x78, 0x4c, 0x77, 0xab, 0x36, 0xca, 0xe6,
+	0x3b, 0xc9, 0xbb, 0xdf, 0xf6, 0xa8, 0xf2, 0xd6, 0xc3, 0xbe, 0x4a, 0xbe, 0x28, 0xc0, 0x65, 0xe6,
+	0xb1, 0x35, 0x2f, 0xd8, 0xf6, 0x88, 0xed, 0xee, 0x4b, 0xd7, 0xdd, 0x80, 0x4b, 0x87, 0x1e, 0x41,
+	0xbb, 0x0e, 0x36, 0x10, 0x49, 0xae, 0x8f, 0xaa, 0x18, 0x58, 0x21, 0x62, 0x61, 0xf4, 0x98, 0xbf,
+	0x78, 0x56, 0xf3, 0x3f, 0xe4, 0x66, 0xfd, 0xa4, 0x08, 0x95, 0xfb, 0x36, 0x71, 0x63, 0x67, 0xe6,
+	0x3b, 0x30, 0xe5, 0x7a, 0x04, 0x1b, 0xa6, 0xd7, 0x6e, 0xdb, 0xa4, 0x8d, 0x5d, 0x42, 0xef, 0x0e,
+	0xf4, 0x1a, 0xd3, 0xe8, 0x33, 0x23, 0xba, 0x8d, 0xf1, 0x6b, 0x11, 0x9b, 0x5e, 0xa5, 0x38, 0xdd,
+	0x76, 0xa8, 0xfe, 0x18, 0xa6, 0x62, 0x89, 0xa4, 0xc1, 0xf2, 0xcd, 0xe2, 0xe9, 0xf3, 0xcd, 0x2a,
+	0x49, 0x76, 0x3c, 0xec, 0xce, 0xc0, 0x50, 0x8d, 0x7c, 0x21, 0x82, 0xa0, 0x0e, 0xe5, 0x23, 0xde,
+	0x65, 0x58, 0x88, 0xa0, 0x61, 0x8a, 0x36, 0x02, 0x6a, 0x15, 0x11, 0xa4, 0x97, 0x8e, 0xba, 0x0d,
+	0xed, 0x1f, 0x0a, 0xcc, 0x8a, 0xc1, 0x15, 0xd7, 0x6a, 0x76, 0x6c, 0xc7, 0x92, 0xbe, 0xcf, 0x72,
+	0x90, 0x72, 0x8e, 0x0e, 0xb2, 0x40, 0x45, 0x1d, 0xd2, 0xf2, 0x02, 0xfb, 0x03, 0x76, 0x5f, 0xe6,
+	0x93, 0xe2, 0xe9, 0xcf, 0x73, 0x83, 0x48, 0x58, 0x89, 0x73, 0xb3, 0xa9, 0x5d, 0x42, 0xe9, 0x2e,
+	0xcd, 0x81, 0xb9, 0x9e, 0xf9, 0x09, 0x7b, 0x9e, 0x7f, 0x0d, 0x4c, 0xfb, 0x7d, 0x11, 0x26, 0x59,
+	0x9c, 0x8f, 0x76, 0x50, 0x1d, 0x26, 0xf6, 0x6c, 0x87, 0xe0, 0x00, 0xf3, 0x92, 0xd6, 0x84, 0x1e,
+	0xb5, 0xd5, 0x9f, 0xc0, 0x7c, 0xec, 0xa0, 0x31, 0xed, 0x3d, 0xdb, 0x34, 0x2c, 0xec, 0x7a, 0x6d,
+	0xdb, 0x15, 0x45, 0x09, 0xbe, 0xd7, 0xfa, 0x5d, 0xfc, 0x56, 0x29, 0x8f, 0xfe, 0x68, 0xf7, 0x7c,
+	0x62, 0x50, 0xab, 0x71, 0x24, 0x75, 0x19, 0x1e, 0x91, 0xb2, 0xba, 0x25, 0x0a, 0xbe, 0xd6, 0x42,
+	0xb6, 0xef, 0x26, 0xf4, 0x39, 0x41, 0xb0, 0x1a, 0x8d, 0xb3, 0x55, 0x1b, 0xaa, 0x2f, 0x40, 0x4d,
+	0xf2, 0x76, 0xdc, 0x5d, 0xcf, 0xb5, 0x68, 0x5a, 0x22, 0x58, 0x47, 0x18, 0xeb, 0xac, 0x18, 0xbf,
+	0x27, 0x87, 0x05, 0xe7, 0x75, 0xa8, 0x4a, 0x4e, 0xc7, 0x37, 0xdc, 0x3d, 0x12, 0xb2, 0x03, 0x69,
+	0x42, 0x97, 0x27, 0xec, 0x1d, 0xff, 0xcd, 0x3d, 0x12, 0xaa, 0x4b, 0x70, 0x59, 0xd2, 0xf9, 0x81,
+	0xe7, 0x7b, 0x21, 0x72, 0x38, 0xf5, 0x18, 0xa3, 0x9e, 0x16, 0x83, 0x9b, 0x62, 0x8c, 0xf1, 0xac,
+	0xc0, 0x63, 0x92, 0xe7, 0x90, 0x1d, 0x02, 0x46, 0x80, 0x4d, 0x6c, 0xfb, 0x44, 0xaa, 0x36, 0xce,
+	0x78, 0xeb, 0x82, 0x48, 0x1e, 0x14, 0x8c, 0x84, 0xab, 0xa7, 0xdd, 0x81, 0x8a, 0xf4, 0x96, 0x58,
+	0x13, 0xcb, 0xc9, 0x2c, 0xfe, 0xea, 0x20, 0x67, 0xba, 0xc8, 0xe1, 0xb5, 0x1a, 0xcc, 0xbe, 0xd6,
+	0x42, 0xb6, 0xbb, 0x89, 0x02, 0xd4, 0xc6, 0x04, 0x07, 0x72, 0x11, 0x68, 0x2d, 0x98, 0xeb, 0x19,
+	0x11, 0x02, 0xef, 0x02, 0xf8, 0x51, 0x6f, 0x5e, 0x1a, 0xce, 0xca, 0xd0, 0x91, 0xd0, 0x34, 0x54,
+	0x0c, 0x40, 0x9b, 0x85, 0x99, 0xb5, 0xbb, 0xab, 0xbd, 0x1a, 0x58, 0x70, 0x39, 0xd5, 0x2f, 0xe4,
+	0xbf, 0x91, 0x21, 0xff, 0xe9, 0xaf, 0x96, 0xbf, 0xd6, 0xb6, 0x72, 0xa4, 0xff, 0xad, 0x00, 0x73,
+	0xf4, 0x60, 0x6e, 0x9e, 0xc4, 0x22, 0xbf, 0xd8, 0x08, 0xf7, 0xa1, 0x9a, 0x3a, 0x4a, 0xc4, 0x5e,
+	0x1f, 0xf6, 0x24, 0xa9, 0x24, 0x4f, 0x92, 0xac, 0xba, 0x73, 0x31, 0xab, 0xee, 0xfc, 0xb0, 0x9f,
+	0x08, 0x2e, 0xd4, 0x7a, 0x6d, 0x1b, 0x1d, 0x0d, 0x15, 0x96, 0xee, 0xb1, 0xcc, 0x87, 0xda, 0xa7,
+	0xd7, 0x93, 0x49, 0x2d, 0xb6, 0x24, 0x35, 0x85, 0xd4, 0xb1, 0xe9, 0x05, 0x96, 0x3e, 0x19, 0xc6,
+	0x3b, 0x99, 0x33, 0xb7, 0x8e, 0x90, 0x9f, 0xe3, 0xcc, 0xf0, 0x08, 0xf9, 0xe7, 0xe0, 0x4c, 0x0a,
+	0xf3, 0x0d, 0x74, 0xa6, 0x0e, 0xb5, 0x5e, 0xdb, 0x46, 0xff, 0x3f, 0x46, 0xa8, 0x55, 0x84, 0x0b,
+	0xb5, 0x5c, 0x17, 0x1e, 0x21, 0x5f, 0x78, 0x8e, 0xd1, 0x6b, 0x9f, 0x15, 0x60, 0xf6, 0xcd, 0x8e,
+	0xe3, 0xd8, 0x7b, 0x36, 0x0e, 0x92, 0x37, 0xe8, 0x35, 0xb8, 0xe8, 0xca, 0x11, 0xe1, 0xa9, 0x85,
+	0x3e, 0x66, 0x8a, 0x90, 0xf4, 0x2e, 0xeb, 0x37, 0xc6, 0x3d, 0x8b, 0x30, 0xd7, 0x63, 0x49, 0xe1,
+	0x9d, 0x19, 0x18, 0xe5, 0xb7, 0x42, 0x7e, 0x9a, 0xf3, 0x86, 0xf6, 0x91, 0x02, 0xb5, 0x58, 0x56,
+	0xb0, 0x8e, 0xc2, 0x56, 0xf7, 0x42, 0x79, 0x1d, 0xca, 0x21, 0x41, 0x41, 0xf2, 0x42, 0xb2, 0x7e,
+	0x41, 0x2f, 0xb1, 0x5e, 0x7e, 0x1d, 0xa1, 0xd3, 0xd2, 0x00, 0xb0, 0x6b, 0x25, 0x6e, 0xaa, 0xeb,
+	0x8a, 0x7e, 0x11, 0xbb, 0x56, 0x44, 0xd3, 0xac, 0xc2, 0xa4, 0x11, 0x07, 0x6b, 0x4e, 0x42, 0xc9,
+	0xe8, 0x72, 0x69, 0xf7, 0x13, 0xff, 0xc0, 0xa4, 0x1e, 0x42, 0xf7, 0x27, 0xa0, 0x9c, 0x71, 0x73,
+	0x2e, 0xed, 0xc6, 0xae, 0xcb, 0x73, 0x30, 0x4e, 0x8e, 0x8d, 0x16, 0x0a, 0x5b, 0x4c, 0x81, 0xb2,
+	0x3e, 0x46, 0x8e, 0x29, 0x8a, 0x76, 0x3b, 0x31, 0xc1, 0xe6, 0x09, 0xed, 0x94, 0x13, 0x8c, 0x31,
+	0x29, 0x09, 0xa6, 0x9d, 0x84, 0x36, 0x92, 0x49, 0x68, 0xf3, 0x0a, 0x14, 0xc8, 0xf1, 0x69, 0xd3,
+	0xae, 0x02, 0x39, 0xd6, 0x3e, 0x54, 0x60, 0x3a, 0xd6, 0xf7, 0x5f, 0xb1, 0xf7, 0x2f, 0x14, 0x98,
+	0x49, 0xea, 0x70, 0x76, 0x5b, 0x0b, 0xcb, 0x14, 0x4f, 0x6f, 0x99, 0x17, 0xe0, 0xb1, 0x78, 0xfe,
+	0x8d, 0x03, 0x9a, 0x5f, 0x12, 0xfb, 0x10, 0xf7, 0xf5, 0xd8, 0xa7, 0x0a, 0xcc, 0xe7, 0xb1, 0x8a,
+	0x99, 0xdd, 0x81, 0x22, 0x39, 0x96, 0xe1, 0x69, 0x79, 0xd8, 0xbb, 0x40, 0x0c, 0x90, 0xc2, 0x88,
+	0xb9, 0x16, 0x4e, 0x3f, 0xd7, 0xf7, 0x60, 0x52, 0x94, 0x6f, 0x22, 0xfd, 0x4a, 0x2c, 0xd3, 0x08,
+	0x58, 0x70, 0x3c, 0xcd, 0x49, 0x08, 0x6e, 0xf4, 0xad, 0xfd, 0x41, 0x81, 0xd9, 0x74, 0xb1, 0xe1,
+	0xeb, 0x10, 0x74, 0xce, 0xbf, 0x92, 0xb4, 0x7f, 0x17, 0x61, 0x3a, 0x43, 0x64, 0x56, 0x1e, 0xa6,
+	0x9c, 0x4b, 0x1e, 0xf6, 0x5d, 0x18, 0x61, 0x99, 0x07, 0xd7, 0xfb, 0xc9, 0x7e, 0xc7, 0x0b, 0xd5,
+	0x88, 0x31, 0x7c, 0x0d, 0x85, 0x98, 0xc4, 0x71, 0x37, 0x72, 0xfa, 0xe3, 0xee, 0x1a, 0x54, 0xf8,
+	0xee, 0x35, 0xcc, 0x00, 0x23, 0x82, 0xa3, 0x72, 0x1a, 0xef, 0x7d, 0x8d, 0x77, 0xd2, 0x78, 0x23,
+	0xc8, 0xf8, 0xc9, 0x30, 0x26, 0xe3, 0x0d, 0xef, 0x65, 0x05, 0x43, 0x1a, 0x6f, 0xea, 0x30, 0xe1,
+	0x7b, 0xa1, 0xcd, 0x8e, 0xcd, 0x71, 0x06, 0x14, 0xb5, 0xd5, 0x57, 0x61, 0x2c, 0xf4, 0x3a, 0x81,
+	0x89, 0x6b, 0x13, 0xd9, 0xfa, 0x26, 0x73, 0x70, 0x6a, 0xbe, 0x2d, 0x46, 0xaf, 0x0b, 0x3e, 0x16,
+	0xa9, 0xe2, 0x6a, 0x68, 0x7f, 0x2f, 0x02, 0x74, 0x93, 0x84, 0xac, 0x9c, 0x4d, 0x39, 0x97, 0x9c,
+	0xed, 0x65, 0x91, 0xaf, 0x70, 0xc7, 0x7f, 0x3b, 0x85, 0x66, 0xe1, 0xe3, 0x64, 0xce, 0xb2, 0xe9,
+	0x20, 0xdb, 0x25, 0xf8, 0x98, 0xf0, 0xb4, 0x25, 0x61, 0x95, 0x62, 0xca, 0x2a, 0xe7, 0xe5, 0xc8,
+	0x4d, 0x28, 0xf1, 0x47, 0x0a, 0xbc, 0xc8, 0x30, 0x9a, 0x19, 0x6d, 0x12, 0x9a, 0x36, 0x11, 0x31,
+	0x5b, 0x54, 0x5d, 0xfe, 0xe3, 0x9d, 0x95, 0x17, 0xc0, 0x8b, 0xbe, 0xd5, 0x1b, 0xdd, 0xa5, 0xe1,
+	0x20, 0xbb, 0x8d, 0xad, 0xc8, 0xeb, 0x72, 0x71, 0xf0, 0x6e, 0x9e, 0xae, 0x48, 0xdf, 0x8e, 0x9f,
+	0xd2, 0xb7, 0x97, 0xa0, 0x6a, 0x24, 0xc5, 0x2d, 0xfd, 0x65, 0x1a, 0xa6, 0x69, 0x7e, 0xb3, 0x19,
+	0x78, 0xc4, 0x33, 0x3d, 0x67, 0x0b, 0x07, 0x87, 0xb6, 0x89, 0xd5, 0xfb, 0x30, 0xc6, 0x33, 0x16,
+	0x35, 0x37, 0x2d, 0x4a, 0xe4, 0x86, 0xf5, 0xeb, 0xfd, 0xc8, 0x44, 0xb4, 0x3b, 0x80, 0x72, 0xbc,
+	0x36, 0xaf, 0x3e, 0xfd, 0xd5, 0x7c, 0x89, 0xff, 0x12, 0xf5, 0xef, 0x0c, 0x46, 0xcc, 0x45, 0xdd,
+	0x54, 0xd4, 0x6d, 0x18, 0x65, 0x41, 0x57, 0xbd, 0x9a, 0xc7, 0x18, 0x2f, 0xd9, 0xd7, 0xaf, 0xf5,
+	0xa1, 0x8a, 0x70, 0xdf, 0x87, 0x4a, 0x32, 0x98, 0xab, 0xcf, 0x7c, 0x25, 0x6b, 0xba, 0xc2, 0x5c,
+	0x6f, 0x0c, 0x4a, 0x1e, 0x89, 0x7c, 0x17, 0xc6, 0x45, 0x05, 0x4a, 0xcd, 0x35, 0x75, 0xb2, 0xec,
+	0x5a, 0x7f, 0xaa, 0x2f, 0x9d, 0xf0, 0x49, 0x10, 0x55, 0x09, 0x65, 0x75, 0x4b, 0x6d, 0xf4, 0xe1,
+	0x4d, 0x95, 0xf9, 0xea, 0x8b, 0x03, 0xd3, 0x0b, 0x99, 0xef, 0xc0, 0x18, 0x2f, 0x9a, 0xe4, 0x2f,
+	0xb0, 0x44, 0x09, 0x2c, 0x7f, 0x81, 0x25, 0x6b, 0x2f, 0x37, 0x15, 0x3a, 0x9d, 0x54, 0x71, 0x23,
+	0x7f, 0x3a, 0xd9, 0xa5, 0x96, 0xfc, 0xe9, 0xe4, 0x15, 0x60, 0x1c, 0x98, 0x4c, 0x54, 0x46, 0xd4,
+	0xdc, 0xa5, 0x9a, 0x55, 0x58, 0xa9, 0x3f, 0x33, 0x20, 0xb5, 0x90, 0xe6, 0x41, 0x25, 0xf9, 0x4a,
+	0x21, 0x7f, 0xfd, 0x65, 0x3e, 0x9c, 0xc8, 0x5f, 0x7f, 0x39, 0x8f, 0x1f, 0x3c, 0xa8, 0x24, 0x9f,
+	0x17, 0xe4, 0x0b, 0xcc, 0x7c, 0xe2, 0x90, 0x2f, 0x30, 0xe7, 0xd5, 0x42, 0x07, 0xa6, 0xd2, 0xff,
+	0xf7, 0xd5, 0x5c, 0xa7, 0xe4, 0x3c, 0x3b, 0xa8, 0xdf, 0x1c, 0x9c, 0x41, 0x88, 0x3d, 0x82, 0xa9,
+	0xf4, 0xaf, 0xf9, 0x7c, 0xb1, 0x39, 0x4f, 0x04, 0xf2, 0xc5, 0xe6, 0xfd, 0xf5, 0xbf, 0xa9, 0xd0,
+	0xf9, 0xa6, 0xcb, 0x32, 0xf9, 0x82, 0x73, 0x8a, 0x63, 0xf9, 0x82, 0x73, 0x2b, 0x3e, 0x1d, 0x98,
+	0x4a, 0x17, 0x10, 0xf2, 0xc5, 0xe6, 0x94, 0x71, 0xf2, 0xc5, 0xe6, 0xd6, 0x26, 0x02, 0xa8, 0xa6,
+	0x2e, 0xc6, 0xf9, 0x3b, 0x34, 0xbb, 0x16, 0x91, 0xbf, 0x43, 0xf3, 0x6e, 0xdc, 0x1f, 0xc0, 0xa5,
+	0x9e, 0x2b, 0xad, 0x7a, 0x73, 0x80, 0x87, 0x7a, 0x89, 0x5b, 0x78, 0xfd, 0xd6, 0x10, 0x1c, 0x91,
+	0x77, 0x8f, 0x13, 0xb2, 0xf9, 0x05, 0x76, 0x20, 0xd9, 0x89, 0x0b, 0xf2, 0x40, 0xb2, 0x53, 0xb7,
+	0xe3, 0x03, 0x28, 0xc7, 0xef, 0x95, 0xf9, 0xc7, 0x6d, 0xc6, 0x0d, 0x38, 0xff, 0xb8, 0xcd, 0xba,
+	0xaa, 0xde, 0x54, 0xd4, 0x9f, 0x29, 0x30, 0x9b, 0x7d, 0x49, 0x53, 0x9f, 0x1b, 0xe4, 0x45, 0x64,
+	0xcf, 0x05, 0xb3, 0xfe, 0xfc, 0xb0, 0x6c, 0x62, 0xda, 0x3f, 0x05, 0xb5, 0xf7, 0x61, 0x9a, 0x7a,
+	0x6b, 0xe8, 0x67, 0x99, 0xf5, 0xa5, 0x61, 0x58, 0x84, 0xf0, 0x0f, 0x15, 0x98, 0xc9, 0x7a, 0x9a,
+	0xac, 0xde, 0xce, 0x0d, 0x0c, 0xf9, 0x6f, 0xac, 0xeb, 0xcf, 0x0e, 0xc7, 0xc4, 0x75, 0x58, 0xf2,
+	0xbb, 0x6f, 0x74, 0x64, 0x4a, 0xf7, 0x1e, 0x4c, 0xc8, 0x2e, 0xf5, 0xa9, 0x7e, 0xb5, 0x2e, 0x29,
+	0x7d, 0xa1, 0x3f, 0x21, 0x97, 0xd8, 0xfc, 0xa4, 0xf0, 0xd9, 0x83, 0x79, 0xe5, 0xf3, 0x07, 0xf3,
+	0xca, 0x3f, 0x1f, 0xcc, 0x2b, 0x3f, 0xff, 0x72, 0xfe, 0xc2, 0xe7, 0x5f, 0xce, 0x5f, 0xf8, 0xeb,
+	0x97, 0xf3, 0x17, 0xa0, 0x6e, 0x7a, 0xed, 0x1c, 0x9c, 0xe6, 0xc5, 0x28, 0xfb, 0xdc, 0x54, 0xde,
+	0x7d, 0x6b, 0xdf, 0x26, 0xad, 0xce, 0x6e, 0xc3, 0xf4, 0xda, 0x8b, 0xa6, 0x17, 0xb6, 0xbd, 0x70,
+	0x31, 0xc0, 0x0e, 0x3a, 0xc1, 0xc1, 0xe2, 0xe1, 0x52, 0xf4, 0xc9, 0x12, 0xdd, 0x70, 0x31, 0xfb,
+	0xb9, 0xfe, 0x8b, 0xb4, 0x25, 0x1b, 0xbf, 0x29, 0x14, 0x37, 0xb7, 0x7f, 0xf8, 0xbb, 0xc2, 0xec,
+	0xa6, 0x14, 0x4e, 0xa5, 0x35, 0xb6, 0xc5, 0xf0, 0x9f, 0xba, 0x03, 0x3b, 0x74, 0x60, 0x47, 0x0e,
+	0x3c, 0x28, 0x68, 0xd9, 0x03, 0x3b, 0xaf, 0x6f, 0x36, 0xef, 0x62, 0x82, 0x68, 0xfe, 0xff, 0xaf,
+	0x42, 0x4d, 0x12, 0x2d, 0x2f, 0x53, 0xaa, 0xe5, 0x65, 0x49, 0xb6, 0x3b, 0xc6, 0xde, 0xcf, 0xdf,
+	0xfe, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa3, 0xe5, 0x09, 0xfc, 0x54, 0x30, 0x00, 0x00,
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// ViewProtocolServiceClient is the client API for ViewProtocolService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type ViewProtocolServiceClient interface {
+	// Get current status of chain sync
+	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	// Stream sync status updates until the view service has caught up with the core.chain.v1alpha1.
+	StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (ViewProtocolService_StatusStreamClient, error)
+	// Queries for notes that have been accepted by the core.chain.v1alpha1.
+	Notes(ctx context.Context, in *NotesRequest, opts ...grpc.CallOption) (ViewProtocolService_NotesClient, error)
+	NotesForVoting(ctx context.Context, in *NotesForVotingRequest, opts ...grpc.CallOption) (ViewProtocolService_NotesForVotingClient, error)
+	// Returns authentication paths for the given note commitments.
+	//
+	// This method takes a batch of input commitments, rather than just one, so
+	// that the client can get a consistent set of authentication paths to a
+	// common root.  (Otherwise, if a client made multiple requests, the wallet
+	// service could have advanced the state commitment tree state between queries).
+	Witness(ctx context.Context, in *WitnessRequest, opts ...grpc.CallOption) (*WitnessResponse, error)
+	WitnessAndBuild(ctx context.Context, in *WitnessAndBuildRequest, opts ...grpc.CallOption) (*WitnessAndBuildResponse, error)
+	// Queries for assets.
+	Assets(ctx context.Context, in *AssetsRequest, opts ...grpc.CallOption) (ViewProtocolService_AssetsClient, error)
+	// Query for the current chain parameters.
+	ChainParameters(ctx context.Context, in *ChainParametersRequest, opts ...grpc.CallOption) (*ChainParametersResponse, error)
+	// Query for the current FMD parameters.
+	FMDParameters(ctx context.Context, in *FMDParametersRequest, opts ...grpc.CallOption) (*FMDParametersResponse, error)
+	// Query for an address given an address index
+	AddressByIndex(ctx context.Context, in *AddressByIndexRequest, opts ...grpc.CallOption) (*AddressByIndexResponse, error)
+	// Query for an address given an address index
+	IndexByAddress(ctx context.Context, in *IndexByAddressRequest, opts ...grpc.CallOption) (*IndexByAddressResponse, error)
+	// Query for an ephemeral address
+	EphemeralAddress(ctx context.Context, in *EphemeralAddressRequest, opts ...grpc.CallOption) (*EphemeralAddressResponse, error)
+	// Query for balance of a given address
+	BalanceByAddress(ctx context.Context, in *BalanceByAddressRequest, opts ...grpc.CallOption) (ViewProtocolService_BalanceByAddressClient, error)
+	// Query for a note by its note commitment, optionally waiting until the note is detected.
+	NoteByCommitment(ctx context.Context, in *NoteByCommitmentRequest, opts ...grpc.CallOption) (*NoteByCommitmentResponse, error)
+	// Query for a swap by its swap commitment, optionally waiting until the swap is detected.
+	SwapByCommitment(ctx context.Context, in *SwapByCommitmentRequest, opts ...grpc.CallOption) (*SwapByCommitmentResponse, error)
+	// Query for whether a nullifier has been spent, optionally waiting until it is spent.
+	NullifierStatus(ctx context.Context, in *NullifierStatusRequest, opts ...grpc.CallOption) (*NullifierStatusResponse, error)
+	// Query for the transaction hashes in the given range of blocks.
+	TransactionHashes(ctx context.Context, in *TransactionHashesRequest, opts ...grpc.CallOption) (ViewProtocolService_TransactionHashesClient, error)
+	// Query for a given transaction hash.
+	TransactionByHash(ctx context.Context, in *TransactionByHashRequest, opts ...grpc.CallOption) (*TransactionByHashResponse, error)
+	// Query for the full transactions in the given range of blocks.
+	Transactions(ctx context.Context, in *TransactionsRequest, opts ...grpc.CallOption) (ViewProtocolService_TransactionsClient, error)
+	// Query for the transaction perspective of the given transaction
+	TransactionPerspective(ctx context.Context, in *TransactionPerspectiveRequest, opts ...grpc.CallOption) (*TransactionPerspectiveResponse, error)
+	// Query for a transaction plan
+	TransactionPlanner(ctx context.Context, in *TransactionPlannerRequest, opts ...grpc.CallOption) (*TransactionPlannerResponse, error)
+	// Broadcast a transaction to the network, optionally waiting for full confirmation.
+	BroadcastTransaction(ctx context.Context, in *BroadcastTransactionRequest, opts ...grpc.CallOption) (*BroadcastTransactionResponse, error)
+}
+
+type viewProtocolServiceClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewViewProtocolServiceClient(cc grpc1.ClientConn) ViewProtocolServiceClient {
+	return &viewProtocolServiceClient{cc}
+}
+
+func (c *viewProtocolServiceClient) Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error) {
+	out := new(StatusResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/Status", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (ViewProtocolService_StatusStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[0], "/penumbra.view.v1alpha1.ViewProtocolService/StatusStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceStatusStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_StatusStreamClient interface {
+	Recv() (*StatusStreamResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceStatusStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceStatusStreamClient) Recv() (*StatusStreamResponse, error) {
+	m := new(StatusStreamResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) Notes(ctx context.Context, in *NotesRequest, opts ...grpc.CallOption) (ViewProtocolService_NotesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[1], "/penumbra.view.v1alpha1.ViewProtocolService/Notes", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceNotesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_NotesClient interface {
+	Recv() (*NotesResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceNotesClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceNotesClient) Recv() (*NotesResponse, error) {
+	m := new(NotesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) NotesForVoting(ctx context.Context, in *NotesForVotingRequest, opts ...grpc.CallOption) (ViewProtocolService_NotesForVotingClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[2], "/penumbra.view.v1alpha1.ViewProtocolService/NotesForVoting", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceNotesForVotingClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_NotesForVotingClient interface {
+	Recv() (*NotesForVotingResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceNotesForVotingClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceNotesForVotingClient) Recv() (*NotesForVotingResponse, error) {
+	m := new(NotesForVotingResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) Witness(ctx context.Context, in *WitnessRequest, opts ...grpc.CallOption) (*WitnessResponse, error) {
+	out := new(WitnessResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/Witness", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) WitnessAndBuild(ctx context.Context, in *WitnessAndBuildRequest, opts ...grpc.CallOption) (*WitnessAndBuildResponse, error) {
+	out := new(WitnessAndBuildResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/WitnessAndBuild", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) Assets(ctx context.Context, in *AssetsRequest, opts ...grpc.CallOption) (ViewProtocolService_AssetsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[3], "/penumbra.view.v1alpha1.ViewProtocolService/Assets", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceAssetsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_AssetsClient interface {
+	Recv() (*AssetsResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceAssetsClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceAssetsClient) Recv() (*AssetsResponse, error) {
+	m := new(AssetsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) ChainParameters(ctx context.Context, in *ChainParametersRequest, opts ...grpc.CallOption) (*ChainParametersResponse, error) {
+	out := new(ChainParametersResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/ChainParameters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) FMDParameters(ctx context.Context, in *FMDParametersRequest, opts ...grpc.CallOption) (*FMDParametersResponse, error) {
+	out := new(FMDParametersResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/FMDParameters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) AddressByIndex(ctx context.Context, in *AddressByIndexRequest, opts ...grpc.CallOption) (*AddressByIndexResponse, error) {
+	out := new(AddressByIndexResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/AddressByIndex", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) IndexByAddress(ctx context.Context, in *IndexByAddressRequest, opts ...grpc.CallOption) (*IndexByAddressResponse, error) {
+	out := new(IndexByAddressResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/IndexByAddress", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) EphemeralAddress(ctx context.Context, in *EphemeralAddressRequest, opts ...grpc.CallOption) (*EphemeralAddressResponse, error) {
+	out := new(EphemeralAddressResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/EphemeralAddress", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) BalanceByAddress(ctx context.Context, in *BalanceByAddressRequest, opts ...grpc.CallOption) (ViewProtocolService_BalanceByAddressClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[4], "/penumbra.view.v1alpha1.ViewProtocolService/BalanceByAddress", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceBalanceByAddressClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_BalanceByAddressClient interface {
+	Recv() (*BalanceByAddressResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceBalanceByAddressClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceBalanceByAddressClient) Recv() (*BalanceByAddressResponse, error) {
+	m := new(BalanceByAddressResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) NoteByCommitment(ctx context.Context, in *NoteByCommitmentRequest, opts ...grpc.CallOption) (*NoteByCommitmentResponse, error) {
+	out := new(NoteByCommitmentResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/NoteByCommitment", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) SwapByCommitment(ctx context.Context, in *SwapByCommitmentRequest, opts ...grpc.CallOption) (*SwapByCommitmentResponse, error) {
+	out := new(SwapByCommitmentResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/SwapByCommitment", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) NullifierStatus(ctx context.Context, in *NullifierStatusRequest, opts ...grpc.CallOption) (*NullifierStatusResponse, error) {
+	out := new(NullifierStatusResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/NullifierStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) TransactionHashes(ctx context.Context, in *TransactionHashesRequest, opts ...grpc.CallOption) (ViewProtocolService_TransactionHashesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[5], "/penumbra.view.v1alpha1.ViewProtocolService/TransactionHashes", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceTransactionHashesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_TransactionHashesClient interface {
+	Recv() (*TransactionHashesResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceTransactionHashesClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceTransactionHashesClient) Recv() (*TransactionHashesResponse, error) {
+	m := new(TransactionHashesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) TransactionByHash(ctx context.Context, in *TransactionByHashRequest, opts ...grpc.CallOption) (*TransactionByHashResponse, error) {
+	out := new(TransactionByHashResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/TransactionByHash", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) Transactions(ctx context.Context, in *TransactionsRequest, opts ...grpc.CallOption) (ViewProtocolService_TransactionsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewProtocolService_serviceDesc.Streams[6], "/penumbra.view.v1alpha1.ViewProtocolService/Transactions", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewProtocolServiceTransactionsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewProtocolService_TransactionsClient interface {
+	Recv() (*TransactionsResponse, error)
+	grpc.ClientStream
+}
+
+type viewProtocolServiceTransactionsClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewProtocolServiceTransactionsClient) Recv() (*TransactionsResponse, error) {
+	m := new(TransactionsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewProtocolServiceClient) TransactionPerspective(ctx context.Context, in *TransactionPerspectiveRequest, opts ...grpc.CallOption) (*TransactionPerspectiveResponse, error) {
+	out := new(TransactionPerspectiveResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/TransactionPerspective", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) TransactionPlanner(ctx context.Context, in *TransactionPlannerRequest, opts ...grpc.CallOption) (*TransactionPlannerResponse, error) {
+	out := new(TransactionPlannerResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/TransactionPlanner", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *viewProtocolServiceClient) BroadcastTransaction(ctx context.Context, in *BroadcastTransactionRequest, opts ...grpc.CallOption) (*BroadcastTransactionResponse, error) {
+	out := new(BroadcastTransactionResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewProtocolService/BroadcastTransaction", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ViewProtocolServiceServer is the server API for ViewProtocolService service.
+type ViewProtocolServiceServer interface {
+	// Get current status of chain sync
+	Status(context.Context, *StatusRequest) (*StatusResponse, error)
+	// Stream sync status updates until the view service has caught up with the core.chain.v1alpha1.
+	StatusStream(*StatusStreamRequest, ViewProtocolService_StatusStreamServer) error
+	// Queries for notes that have been accepted by the core.chain.v1alpha1.
+	Notes(*NotesRequest, ViewProtocolService_NotesServer) error
+	NotesForVoting(*NotesForVotingRequest, ViewProtocolService_NotesForVotingServer) error
+	// Returns authentication paths for the given note commitments.
+	//
+	// This method takes a batch of input commitments, rather than just one, so
+	// that the client can get a consistent set of authentication paths to a
+	// common root.  (Otherwise, if a client made multiple requests, the wallet
+	// service could have advanced the state commitment tree state between queries).
+	Witness(context.Context, *WitnessRequest) (*WitnessResponse, error)
+	WitnessAndBuild(context.Context, *WitnessAndBuildRequest) (*WitnessAndBuildResponse, error)
+	// Queries for assets.
+	Assets(*AssetsRequest, ViewProtocolService_AssetsServer) error
+	// Query for the current chain parameters.
+	ChainParameters(context.Context, *ChainParametersRequest) (*ChainParametersResponse, error)
+	// Query for the current FMD parameters.
+	FMDParameters(context.Context, *FMDParametersRequest) (*FMDParametersResponse, error)
+	// Query for an address given an address index
+	AddressByIndex(context.Context, *AddressByIndexRequest) (*AddressByIndexResponse, error)
+	// Query for an address given an address index
+	IndexByAddress(context.Context, *IndexByAddressRequest) (*IndexByAddressResponse, error)
+	// Query for an ephemeral address
+	EphemeralAddress(context.Context, *EphemeralAddressRequest) (*EphemeralAddressResponse, error)
+	// Query for balance of a given address
+	BalanceByAddress(*BalanceByAddressRequest, ViewProtocolService_BalanceByAddressServer) error
+	// Query for a note by its note commitment, optionally waiting until the note is detected.
+	NoteByCommitment(context.Context, *NoteByCommitmentRequest) (*NoteByCommitmentResponse, error)
+	// Query for a swap by its swap commitment, optionally waiting until the swap is detected.
+	SwapByCommitment(context.Context, *SwapByCommitmentRequest) (*SwapByCommitmentResponse, error)
+	// Query for whether a nullifier has been spent, optionally waiting until it is spent.
+	NullifierStatus(context.Context, *NullifierStatusRequest) (*NullifierStatusResponse, error)
+	// Query for the transaction hashes in the given range of blocks.
+	TransactionHashes(*TransactionHashesRequest, ViewProtocolService_TransactionHashesServer) error
+	// Query for a given transaction hash.
+	TransactionByHash(context.Context, *TransactionByHashRequest) (*TransactionByHashResponse, error)
+	// Query for the full transactions in the given range of blocks.
+	Transactions(*TransactionsRequest, ViewProtocolService_TransactionsServer) error
+	// Query for the transaction perspective of the given transaction
+	TransactionPerspective(context.Context, *TransactionPerspectiveRequest) (*TransactionPerspectiveResponse, error)
+	// Query for a transaction plan
+	TransactionPlanner(context.Context, *TransactionPlannerRequest) (*TransactionPlannerResponse, error)
+	// Broadcast a transaction to the network, optionally waiting for full confirmation.
+	BroadcastTransaction(context.Context, *BroadcastTransactionRequest) (*BroadcastTransactionResponse, error)
+}
+
+// UnimplementedViewProtocolServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedViewProtocolServiceServer struct {
+}
+
+func (*UnimplementedViewProtocolServiceServer) Status(ctx context.Context, req *StatusRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) StatusStream(req *StatusStreamRequest, srv ViewProtocolService_StatusStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method StatusStream not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) Notes(req *NotesRequest, srv ViewProtocolService_NotesServer) error {
+	return status.Errorf(codes.Unimplemented, "method Notes not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) NotesForVoting(req *NotesForVotingRequest, srv ViewProtocolService_NotesForVotingServer) error {
+	return status.Errorf(codes.Unimplemented, "method NotesForVoting not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) Witness(ctx context.Context, req *WitnessRequest) (*WitnessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Witness not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) WitnessAndBuild(ctx context.Context, req *WitnessAndBuildRequest) (*WitnessAndBuildResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WitnessAndBuild not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) Assets(req *AssetsRequest, srv ViewProtocolService_AssetsServer) error {
+	return status.Errorf(codes.Unimplemented, "method Assets not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) ChainParameters(ctx context.Context, req *ChainParametersRequest) (*ChainParametersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ChainParameters not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) FMDParameters(ctx context.Context, req *FMDParametersRequest) (*FMDParametersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FMDParameters not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) AddressByIndex(ctx context.Context, req *AddressByIndexRequest) (*AddressByIndexResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddressByIndex not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) IndexByAddress(ctx context.Context, req *IndexByAddressRequest) (*IndexByAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IndexByAddress not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) EphemeralAddress(ctx context.Context, req *EphemeralAddressRequest) (*EphemeralAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EphemeralAddress not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) BalanceByAddress(req *BalanceByAddressRequest, srv ViewProtocolService_BalanceByAddressServer) error {
+	return status.Errorf(codes.Unimplemented, "method BalanceByAddress not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) NoteByCommitment(ctx context.Context, req *NoteByCommitmentRequest) (*NoteByCommitmentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NoteByCommitment not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) SwapByCommitment(ctx context.Context, req *SwapByCommitmentRequest) (*SwapByCommitmentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SwapByCommitment not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) NullifierStatus(ctx context.Context, req *NullifierStatusRequest) (*NullifierStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NullifierStatus not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) TransactionHashes(req *TransactionHashesRequest, srv ViewProtocolService_TransactionHashesServer) error {
+	return status.Errorf(codes.Unimplemented, "method TransactionHashes not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) TransactionByHash(ctx context.Context, req *TransactionByHashRequest) (*TransactionByHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransactionByHash not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) Transactions(req *TransactionsRequest, srv ViewProtocolService_TransactionsServer) error {
+	return status.Errorf(codes.Unimplemented, "method Transactions not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) TransactionPerspective(ctx context.Context, req *TransactionPerspectiveRequest) (*TransactionPerspectiveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransactionPerspective not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) TransactionPlanner(ctx context.Context, req *TransactionPlannerRequest) (*TransactionPlannerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransactionPlanner not implemented")
+}
+func (*UnimplementedViewProtocolServiceServer) BroadcastTransaction(ctx context.Context, req *BroadcastTransactionRequest) (*BroadcastTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTransaction not implemented")
+}
+
+func RegisterViewProtocolServiceServer(s grpc1.Server, srv ViewProtocolServiceServer) {
+	s.RegisterService(&_ViewProtocolService_serviceDesc, srv)
+}
+
+func _ViewProtocolService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/Status",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).Status(ctx, req.(*StatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_StatusStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StatusStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).StatusStream(m, &viewProtocolServiceStatusStreamServer{stream})
+}
+
+type ViewProtocolService_StatusStreamServer interface {
+	Send(*StatusStreamResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceStatusStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceStatusStreamServer) Send(m *StatusStreamResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_Notes_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(NotesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).Notes(m, &viewProtocolServiceNotesServer{stream})
+}
+
+type ViewProtocolService_NotesServer interface {
+	Send(*NotesResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceNotesServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceNotesServer) Send(m *NotesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_NotesForVoting_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(NotesForVotingRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).NotesForVoting(m, &viewProtocolServiceNotesForVotingServer{stream})
+}
+
+type ViewProtocolService_NotesForVotingServer interface {
+	Send(*NotesForVotingResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceNotesForVotingServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceNotesForVotingServer) Send(m *NotesForVotingResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_Witness_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WitnessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).Witness(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/Witness",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).Witness(ctx, req.(*WitnessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_WitnessAndBuild_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WitnessAndBuildRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).WitnessAndBuild(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/WitnessAndBuild",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).WitnessAndBuild(ctx, req.(*WitnessAndBuildRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_Assets_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AssetsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).Assets(m, &viewProtocolServiceAssetsServer{stream})
+}
+
+type ViewProtocolService_AssetsServer interface {
+	Send(*AssetsResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceAssetsServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceAssetsServer) Send(m *AssetsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_ChainParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChainParametersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).ChainParameters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/ChainParameters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).ChainParameters(ctx, req.(*ChainParametersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_FMDParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FMDParametersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).FMDParameters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/FMDParameters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).FMDParameters(ctx, req.(*FMDParametersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_AddressByIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddressByIndexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).AddressByIndex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/AddressByIndex",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).AddressByIndex(ctx, req.(*AddressByIndexRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_IndexByAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IndexByAddressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).IndexByAddress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/IndexByAddress",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).IndexByAddress(ctx, req.(*IndexByAddressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_EphemeralAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EphemeralAddressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).EphemeralAddress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/EphemeralAddress",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).EphemeralAddress(ctx, req.(*EphemeralAddressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_BalanceByAddress_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(BalanceByAddressRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).BalanceByAddress(m, &viewProtocolServiceBalanceByAddressServer{stream})
+}
+
+type ViewProtocolService_BalanceByAddressServer interface {
+	Send(*BalanceByAddressResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceBalanceByAddressServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceBalanceByAddressServer) Send(m *BalanceByAddressResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_NoteByCommitment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NoteByCommitmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).NoteByCommitment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/NoteByCommitment",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).NoteByCommitment(ctx, req.(*NoteByCommitmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_SwapByCommitment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SwapByCommitmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).SwapByCommitment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/SwapByCommitment",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).SwapByCommitment(ctx, req.(*SwapByCommitmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_NullifierStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NullifierStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).NullifierStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/NullifierStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).NullifierStatus(ctx, req.(*NullifierStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_TransactionHashes_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(TransactionHashesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).TransactionHashes(m, &viewProtocolServiceTransactionHashesServer{stream})
+}
+
+type ViewProtocolService_TransactionHashesServer interface {
+	Send(*TransactionHashesResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceTransactionHashesServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceTransactionHashesServer) Send(m *TransactionHashesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_TransactionByHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionByHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).TransactionByHash(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/TransactionByHash",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).TransactionByHash(ctx, req.(*TransactionByHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_Transactions_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(TransactionsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewProtocolServiceServer).Transactions(m, &viewProtocolServiceTransactionsServer{stream})
+}
+
+type ViewProtocolService_TransactionsServer interface {
+	Send(*TransactionsResponse) error
+	grpc.ServerStream
+}
+
+type viewProtocolServiceTransactionsServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewProtocolServiceTransactionsServer) Send(m *TransactionsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewProtocolService_TransactionPerspective_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionPerspectiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).TransactionPerspective(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/TransactionPerspective",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).TransactionPerspective(ctx, req.(*TransactionPerspectiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_TransactionPlanner_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionPlannerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).TransactionPlanner(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/TransactionPlanner",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).TransactionPlanner(ctx, req.(*TransactionPlannerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ViewProtocolService_BroadcastTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BroadcastTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewProtocolServiceServer).BroadcastTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewProtocolService/BroadcastTransaction",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewProtocolServiceServer).BroadcastTransaction(ctx, req.(*BroadcastTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _ViewProtocolService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "penumbra.view.v1alpha1.ViewProtocolService",
+	HandlerType: (*ViewProtocolServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Status",
+			Handler:    _ViewProtocolService_Status_Handler,
+		},
+		{
+			MethodName: "Witness",
+			Handler:    _ViewProtocolService_Witness_Handler,
+		},
+		{
+			MethodName: "WitnessAndBuild",
+			Handler:    _ViewProtocolService_WitnessAndBuild_Handler,
+		},
+		{
+			MethodName: "ChainParameters",
+			Handler:    _ViewProtocolService_ChainParameters_Handler,
+		},
+		{
+			MethodName: "FMDParameters",
+			Handler:    _ViewProtocolService_FMDParameters_Handler,
+		},
+		{
+			MethodName: "AddressByIndex",
+			Handler:    _ViewProtocolService_AddressByIndex_Handler,
+		},
+		{
+			MethodName: "IndexByAddress",
+			Handler:    _ViewProtocolService_IndexByAddress_Handler,
+		},
+		{
+			MethodName: "EphemeralAddress",
+			Handler:    _ViewProtocolService_EphemeralAddress_Handler,
+		},
+		{
+			MethodName: "NoteByCommitment",
+			Handler:    _ViewProtocolService_NoteByCommitment_Handler,
+		},
+		{
+			MethodName: "SwapByCommitment",
+			Handler:    _ViewProtocolService_SwapByCommitment_Handler,
+		},
+		{
+			MethodName: "NullifierStatus",
+			Handler:    _ViewProtocolService_NullifierStatus_Handler,
+		},
+		{
+			MethodName: "TransactionByHash",
+			Handler:    _ViewProtocolService_TransactionByHash_Handler,
+		},
+		{
+			MethodName: "TransactionPerspective",
+			Handler:    _ViewProtocolService_TransactionPerspective_Handler,
+		},
+		{
+			MethodName: "TransactionPlanner",
+			Handler:    _ViewProtocolService_TransactionPlanner_Handler,
+		},
+		{
+			MethodName: "BroadcastTransaction",
+			Handler:    _ViewProtocolService_BroadcastTransaction_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StatusStream",
+			Handler:       _ViewProtocolService_StatusStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Notes",
+			Handler:       _ViewProtocolService_Notes_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "NotesForVoting",
+			Handler:       _ViewProtocolService_NotesForVoting_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Assets",
+			Handler:       _ViewProtocolService_Assets_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "BalanceByAddress",
+			Handler:       _ViewProtocolService_BalanceByAddress_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "TransactionHashes",
+			Handler:       _ViewProtocolService_TransactionHashes_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Transactions",
+			Handler:       _ViewProtocolService_Transactions_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "penumbra/view/v1alpha1/view.proto",
+}
+
+// ViewAuthServiceClient is the client API for ViewAuthService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type ViewAuthServiceClient interface {
+	ViewAuth(ctx context.Context, in *ViewAuthRequest, opts ...grpc.CallOption) (*ViewAuthResponse, error)
+}
+
+type viewAuthServiceClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewViewAuthServiceClient(cc grpc1.ClientConn) ViewAuthServiceClient {
+	return &viewAuthServiceClient{cc}
+}
+
+func (c *viewAuthServiceClient) ViewAuth(ctx context.Context, in *ViewAuthRequest, opts ...grpc.CallOption) (*ViewAuthResponse, error) {
+	out := new(ViewAuthResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.view.v1alpha1.ViewAuthService/ViewAuth", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ViewAuthServiceServer is the server API for ViewAuthService service.
+type ViewAuthServiceServer interface {
+	ViewAuth(context.Context, *ViewAuthRequest) (*ViewAuthResponse, error)
+}
+
+// UnimplementedViewAuthServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedViewAuthServiceServer struct {
+}
+
+func (*UnimplementedViewAuthServiceServer) ViewAuth(ctx context.Context, req *ViewAuthRequest) (*ViewAuthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ViewAuth not implemented")
+}
+
+func RegisterViewAuthServiceServer(s grpc1.Server, srv ViewAuthServiceServer) {
+	s.RegisterService(&_ViewAuthService_serviceDesc, srv)
+}
+
+func _ViewAuthService_ViewAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ViewAuthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ViewAuthServiceServer).ViewAuth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.view.v1alpha1.ViewAuthService/ViewAuth",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ViewAuthServiceServer).ViewAuth(ctx, req.(*ViewAuthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _ViewAuthService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "penumbra.view.v1alpha1.ViewAuthService",
+	HandlerType: (*ViewAuthServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ViewAuth",
+			Handler:    _ViewAuthService_ViewAuth_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "penumbra/view/v1alpha1/view.proto",
 }
 
 func (m *BroadcastTransactionRequest) Marshal() (dAtA []byte, err error) {
@@ -3737,6 +5005,22 @@ func (m *TransactionPlannerRequest) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	_ = i
 	var l int
 	_ = l
+	if len(m.IbcActions) > 0 {
+		for iNdEx := len(m.IbcActions) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.IbcActions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x3
+			i--
+			dAtA[i] = 0xe2
+		}
+	}
 	if len(m.Undelegations) > 0 {
 		for iNdEx := len(m.Undelegations) - 1; iNdEx >= 0; iNdEx-- {
 			{
@@ -3810,11 +5094,11 @@ func (m *TransactionPlannerRequest) MarshalToSizedBuffer(dAtA []byte) (int, erro
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -3846,16 +5130,16 @@ func (m *TransactionPlannerRequest) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
-func (m *TransactionPlannerRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *TransactionPlannerRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *TransactionPlannerRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *TransactionPlannerRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -4550,11 +5834,11 @@ func (m *StatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -4562,16 +5846,16 @@ func (m *StatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *StatusRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *StatusRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *StatusRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *StatusRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -4671,11 +5955,11 @@ func (m *StatusStreamRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -4683,16 +5967,16 @@ func (m *StatusStreamRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *StatusStreamRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *StatusStreamRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *StatusStreamRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *StatusStreamRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -4787,11 +6071,11 @@ func (m *NotesRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -4838,16 +6122,16 @@ func (m *NotesRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *NotesRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *NotesRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *NotesRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *NotesRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -4909,11 +6193,11 @@ func (m *NotesForVotingRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -4938,16 +6222,16 @@ func (m *NotesForVotingRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *NotesForVotingRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *NotesForVotingRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *NotesForVotingRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *NotesForVotingRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -5009,11 +6293,11 @@ func (m *WitnessRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -5047,16 +6331,16 @@ func (m *WitnessRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *WitnessRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *WitnessRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *WitnessRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *WitnessRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -5112,6 +6396,88 @@ func (m *WitnessResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.WitnessData != nil {
 		{
 			size, err := m.WitnessData.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *WitnessAndBuildRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WitnessAndBuildRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WitnessAndBuildRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AuthorizationData != nil {
+		{
+			size, err := m.AuthorizationData.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.TransactionPlan != nil {
+		{
+			size, err := m.TransactionPlan.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *WitnessAndBuildResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WitnessAndBuildResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WitnessAndBuildResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Transaction != nil {
+		{
+			size, err := m.Transaction.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -5401,11 +6767,11 @@ func (m *NoteByCommitmentRequest) MarshalToSizedBuffer(dAtA []byte) (int, error)
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -5435,16 +6801,16 @@ func (m *NoteByCommitmentRequest) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *NoteByCommitmentRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *NoteByCommitmentRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *NoteByCommitmentRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *NoteByCommitmentRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -5541,11 +6907,11 @@ func (m *SwapByCommitmentRequest) MarshalToSizedBuffer(dAtA []byte) (int, error)
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -5575,16 +6941,16 @@ func (m *SwapByCommitmentRequest) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *SwapByCommitmentRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *SwapByCommitmentRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *SwapByCommitmentRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *SwapByCommitmentRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -5681,11 +7047,11 @@ func (m *NullifierStatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 			}
 		}
 	}
-	if m.XAccountId != nil {
+	if m.XAccountGroupId != nil {
 		{
-			size := m.XAccountId.Size()
+			size := m.XAccountGroupId.Size()
 			i -= size
-			if _, err := m.XAccountId.MarshalTo(dAtA[i:]); err != nil {
+			if _, err := m.XAccountGroupId.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
 		}
@@ -5715,16 +7081,16 @@ func (m *NullifierStatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
-func (m *NullifierStatusRequest_AccountId) MarshalTo(dAtA []byte) (int, error) {
+func (m *NullifierStatusRequest_AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *NullifierStatusRequest_AccountId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *NullifierStatusRequest_AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
-	if m.AccountId != nil {
+	if m.AccountGroupId != nil {
 		{
-			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -6506,8 +7872,8 @@ func (m *TransactionPlannerRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovView(uint64(l))
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -6536,17 +7902,23 @@ func (m *TransactionPlannerRequest) Size() (n int) {
 			n += 2 + l + sovView(uint64(l))
 		}
 	}
+	if len(m.IbcActions) > 0 {
+		for _, e := range m.IbcActions {
+			l = e.Size()
+			n += 2 + l + sovView(uint64(l))
+		}
+	}
 	return n
 }
 
-func (m *TransactionPlannerRequest_AccountId) Size() (n int) {
+func (m *TransactionPlannerRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -6808,8 +8180,8 @@ func (m *StatusRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -6817,14 +8189,14 @@ func (m *StatusRequest) Size() (n int) {
 	return n
 }
 
-func (m *StatusRequest_AccountId) Size() (n int) {
+func (m *StatusRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -6862,8 +8234,8 @@ func (m *StatusStreamRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -6871,14 +8243,14 @@ func (m *StatusStreamRequest) Size() (n int) {
 	return n
 }
 
-func (m *StatusStreamRequest_AccountId) Size() (n int) {
+func (m *StatusStreamRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -6930,8 +8302,8 @@ func (m *NotesRequest) Size() (n int) {
 	if m.AmountToSpend != 0 {
 		n += 1 + sovView(uint64(m.AmountToSpend))
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -6939,14 +8311,14 @@ func (m *NotesRequest) Size() (n int) {
 	return n
 }
 
-func (m *NotesRequest_AccountId) Size() (n int) {
+func (m *NotesRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -6976,8 +8348,8 @@ func (m *NotesForVotingRequest) Size() (n int) {
 		l = m.AddressIndex.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -6985,14 +8357,14 @@ func (m *NotesForVotingRequest) Size() (n int) {
 	return n
 }
 
-func (m *NotesForVotingRequest_AccountId) Size() (n int) {
+func (m *NotesForVotingRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -7025,8 +8397,8 @@ func (m *WitnessRequest) Size() (n int) {
 		l = m.TransactionPlan.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -7034,14 +8406,14 @@ func (m *WitnessRequest) Size() (n int) {
 	return n
 }
 
-func (m *WitnessRequest_AccountId) Size() (n int) {
+func (m *WitnessRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -7066,6 +8438,36 @@ func (m *WitnessResponse) Size() (n int) {
 	_ = l
 	if m.WitnessData != nil {
 		l = m.WitnessData.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	return n
+}
+
+func (m *WitnessAndBuildRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.TransactionPlan != nil {
+		l = m.TransactionPlan.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if m.AuthorizationData != nil {
+		l = m.AuthorizationData.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	return n
+}
+
+func (m *WitnessAndBuildResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Transaction != nil {
+		l = m.Transaction.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -7174,8 +8576,8 @@ func (m *NoteByCommitmentRequest) Size() (n int) {
 	if m.AwaitDetection {
 		n += 2
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -7183,14 +8585,14 @@ func (m *NoteByCommitmentRequest) Size() (n int) {
 	return n
 }
 
-func (m *NoteByCommitmentRequest_AccountId) Size() (n int) {
+func (m *NoteByCommitmentRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -7233,8 +8635,8 @@ func (m *SwapByCommitmentRequest) Size() (n int) {
 	if m.AwaitDetection {
 		n += 2
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -7242,14 +8644,14 @@ func (m *SwapByCommitmentRequest) Size() (n int) {
 	return n
 }
 
-func (m *SwapByCommitmentRequest_AccountId) Size() (n int) {
+func (m *SwapByCommitmentRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -7292,8 +8694,8 @@ func (m *NullifierStatusRequest) Size() (n int) {
 	if m.AwaitDetection {
 		n += 2
 	}
-	if m.XAccountId != nil {
-		n += m.XAccountId.Size()
+	if m.XAccountGroupId != nil {
+		n += m.XAccountGroupId.Size()
 	}
 	if m.XToken != nil {
 		n += m.XToken.Size()
@@ -7301,14 +8703,14 @@ func (m *NullifierStatusRequest) Size() (n int) {
 	return n
 }
 
-func (m *NullifierStatusRequest_AccountId) Size() (n int) {
+func (m *NullifierStatusRequest_AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.AccountId != nil {
-		l = m.AccountId.Size()
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
 	return n
@@ -7933,7 +9335,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -7960,11 +9362,11 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &TransactionPlannerRequest_AccountId{v}
+			m.XAccountGroupId = &TransactionPlannerRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -8134,6 +9536,40 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.Undelegations = append(m.Undelegations, &TransactionPlannerRequest_Undelegate{})
 			if err := m.Undelegations[len(m.Undelegations)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 60:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IbcActions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.IbcActions = append(m.IbcActions, &v1alpha12.IbcAction{})
+			if err := m.IbcActions[len(m.IbcActions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -9742,7 +11178,7 @@ func (m *StatusRequest) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -9769,11 +11205,11 @@ func (m *StatusRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &StatusRequest_AccountId{v}
+			m.XAccountGroupId = &StatusRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -9951,7 +11387,7 @@ func (m *StatusStreamRequest) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -9978,11 +11414,11 @@ func (m *StatusStreamRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &StatusStreamRequest_AccountId{v}
+			m.XAccountGroupId = &StatusStreamRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -10270,7 +11706,7 @@ func (m *NotesRequest) Unmarshal(dAtA []byte) error {
 			}
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -10297,11 +11733,11 @@ func (m *NotesRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &NotesRequest_AccountId{v}
+			m.XAccountGroupId = &NotesRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -10445,7 +11881,7 @@ func (m *NotesForVotingRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -10472,11 +11908,11 @@ func (m *NotesForVotingRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &NotesForVotingRequest_AccountId{v}
+			m.XAccountGroupId = &NotesForVotingRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -10635,7 +12071,7 @@ func (m *WitnessRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -10662,11 +12098,11 @@ func (m *WitnessRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &WitnessRequest_AccountId{v}
+			m.XAccountGroupId = &WitnessRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -10786,6 +12222,214 @@ func (m *WitnessResponse) Unmarshal(dAtA []byte) error {
 				m.WitnessData = &v1alpha1.WitnessData{}
 			}
 			if err := m.WitnessData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WitnessAndBuildRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WitnessAndBuildRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WitnessAndBuildRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TransactionPlan", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TransactionPlan == nil {
+				m.TransactionPlan = &v1alpha1.TransactionPlan{}
+			}
+			if err := m.TransactionPlan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuthorizationData", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AuthorizationData == nil {
+				m.AuthorizationData = &v1alpha1.AuthorizationData{}
+			}
+			if err := m.AuthorizationData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WitnessAndBuildResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WitnessAndBuildResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WitnessAndBuildResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Transaction", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Transaction == nil {
+				m.Transaction = &v1alpha1.Transaction{}
+			}
+			if err := m.Transaction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -11209,7 +12853,7 @@ func (m *ChainParametersResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Parameters == nil {
-				m.Parameters = &v1alpha12.ChainParameters{}
+				m.Parameters = &v1alpha13.ChainParameters{}
 			}
 			if err := m.Parameters.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11345,7 +12989,7 @@ func (m *FMDParametersResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Parameters == nil {
-				m.Parameters = &v1alpha12.FmdParameters{}
+				m.Parameters = &v1alpha13.FmdParameters{}
 			}
 			if err := m.Parameters.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11459,7 +13103,7 @@ func (m *NoteByCommitmentRequest) Unmarshal(dAtA []byte) error {
 			m.AwaitDetection = bool(v != 0)
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -11486,11 +13130,11 @@ func (m *NoteByCommitmentRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &NoteByCommitmentRequest_AccountId{v}
+			m.XAccountGroupId = &NoteByCommitmentRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -11721,7 +13365,7 @@ func (m *SwapByCommitmentRequest) Unmarshal(dAtA []byte) error {
 			m.AwaitDetection = bool(v != 0)
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -11748,11 +13392,11 @@ func (m *SwapByCommitmentRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &SwapByCommitmentRequest_AccountId{v}
+			m.XAccountGroupId = &SwapByCommitmentRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -11983,7 +13627,7 @@ func (m *NullifierStatusRequest) Unmarshal(dAtA []byte) error {
 			m.AwaitDetection = bool(v != 0)
 		case 14:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -12010,11 +13654,11 @@ func (m *NullifierStatusRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v1alpha11.AccountID{}
+			v := &v1alpha11.AccountGroupId{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.XAccountId = &NullifierStatusRequest_AccountId{v}
+			m.XAccountGroupId = &NullifierStatusRequest_AccountGroupId{v}
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -13409,7 +15053,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Source == nil {
-				m.Source = &v1alpha12.NoteSource{}
+				m.Source = &v1alpha13.NoteSource{}
 			}
 			if err := m.Source.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13531,7 +15175,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Swap == nil {
-				m.Swap = &v1alpha13.SwapPlaintext{}
+				m.Swap = &v1alpha14.SwapPlaintext{}
 			}
 			if err := m.Swap.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13622,7 +15266,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.OutputData == nil {
-				m.OutputData = &v1alpha13.BatchSwapOutputData{}
+				m.OutputData = &v1alpha14.BatchSwapOutputData{}
 			}
 			if err := m.OutputData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13678,7 +15322,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Source == nil {
-				m.Source = &v1alpha12.NoteSource{}
+				m.Source = &v1alpha13.NoteSource{}
 			}
 			if err := m.Source.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

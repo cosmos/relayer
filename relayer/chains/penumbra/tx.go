@@ -4,45 +4,52 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	ics23 "github.com/confio/ics23/go"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
+	"github.com/cometbft/cometbft/light"
+	tmcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	cosmosproto "github.com/cosmos/gogoproto/proto"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	ics23 "github.com/cosmos/ics23/go"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
+	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/ibc/v1alpha1"
+	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-
-	penumbra_crypto "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/crypto/v1alpha1"
-	penumbra_ibc_types "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/ibc/v1alpha1"
-	penumbra_types "buf.build/gen/go/penumbra-zone/penumbra/protocolbuffers/go/penumbra/core/transaction/v1alpha1"
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/light"
-	tmcrypto "github.com/tendermint/tendermint/proto/tendermint/crypto"
-
-	"github.com/gogo/protobuf/proto"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
-	googleproto "google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Variables used for retries
 var (
-	rtyAttNum = uint(5)
-	rtyAtt    = retry.Attempts(rtyAttNum)
-	rtyDel    = retry.Delay(time.Millisecond * 400)
-	rtyErr    = retry.LastErrorOnly(true)
+	rtyAttNum                   = uint(5)
+	rtyAtt                      = retry.Attempts(rtyAttNum)
+	rtyDel                      = retry.Delay(time.Millisecond * 400)
+	rtyErr                      = retry.LastErrorOnly(true)
+	numRegex                    = regexp.MustCompile("[0-9]+")
+	defaultBroadcastWaitTimeout = 10 * time.Minute
+	errUnknown                  = "unknown"
 )
 
 // Default IBC settings
@@ -66,6 +73,20 @@ var (
 	seqTag      = "packet_sequence"
 )
 
+const (
+	ErrTimeoutAfterWaitingForTxBroadcast _err = "timed out after waiting for tx to get included in the block"
+)
+
+type _err string
+
+func (e _err) Error() string { return string(e) }
+
+// Deprecated: this interface is used only internally for scenario we are
+// deprecating (StdTxConfig support)
+type intoAny interface {
+	AsAny() *codectypes.Any
+}
+
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
 func (cc *PenumbraProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -74,99 +95,94 @@ func (cc *PenumbraProvider) SendMessage(ctx context.Context, msg provider.Relaye
 
 // takes a RelayerMessage, converts it to a PenumbraMessage, and wraps it into
 // Penumbra's equivalent of the "message" abstraction, an Action.
-func msgToPenumbraAction(msg sdk.Msg) (*penumbra_types.Action, error) {
-	bz, err := proto.Marshal(msg)
+func msgToPenumbraAction(msg sdk.Msg) (*penumbratypes.Action, error) {
+	anyMsg, err := codectypes.NewAnyWithValue(msg)
 	if err != nil {
 		return nil, err
 	}
 
-	anyMsg := &anypb.Any{
-		TypeUrl: "/" + proto.MessageName(msg),
-		Value:   bz,
-	}
-
 	switch msg.(type) {
 	case *clienttypes.MsgCreateClient:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *clienttypes.MsgUpdateClient:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenInit:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenAck:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenTry:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenConfirm:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenInit:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenTry:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenAck:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenConfirm:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseInit:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseConfirm:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgRecvPacket:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgAcknowledgement:
-		return &penumbra_types.Action{
-			Action: &penumbra_types.Action_IbcAction{IbcAction: &penumbra_ibc_types.IbcAction{
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
 				RawAction: anyMsg,
 			}},
 		}, nil
@@ -221,7 +237,7 @@ type ValidatorUpdate struct {
 	Power  int64              `protobuf:"varint,2,opt,name=power,proto3" json:"power,omitempty"`
 }
 
-func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbra_crypto.MerkleRoot, error) {
+func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.MerkleRoot, error) {
 	req := abci.RequestQuery{
 		Path:   "state/key",
 		Height: 1,
@@ -234,7 +250,7 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbra_crypto.Mer
 		return nil, err
 	}
 
-	return &penumbra_crypto.MerkleRoot{Inner: res.Value[2:]}, nil
+	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
 }
 
 func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
@@ -277,9 +293,9 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 	// due to how the penumbra state machine is
 	// constructed.
 	for _, msg := range cosmos.CosmosMsgs(msgs...) {
-		txBody := penumbra_types.TransactionBody{
-			Actions: make([]*penumbra_types.Action, 1),
-			Fee:     &penumbra_crypto.Fee{Amount: &penumbra_crypto.Amount{Lo: 0, Hi: 0}},
+		txBody := penumbratypes.TransactionBody{
+			Actions: make([]*penumbratypes.Action, 1),
+			Fee:     &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
 		}
 		action, err := msgToPenumbraAction(msg)
 		if err != nil {
@@ -292,13 +308,13 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 			return nil, false, err
 		}
 
-		tx := &penumbra_types.Transaction{
+		tx := &penumbratypes.Transaction{
 			Body:       &txBody,
 			BindingSig: make([]byte, 64), // use the Cool Signature
 			Anchor:     anchor,
 		}
 
-		txBytes, err := googleproto.Marshal(tx)
+		txBytes, err := cosmosproto.Marshal(tx)
 		if err != nil {
 			return nil, false, err
 		}
@@ -404,11 +420,11 @@ func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState,
 	return NewPenumbraMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
-func (cc *PenumbraProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.Header) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 	fmt.Println("PENUMBRA update client")
 	acc, err := cc.Address()
 	if err != nil {
@@ -431,21 +447,21 @@ func (cc *PenumbraProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexp
 	cosmosheader.ValidatorSet.TotalVotingPower = valSet.TotalVotingPower()
 	cosmosheader.TrustedValidators.TotalVotingPower = trustedValset.TotalVotingPower()
 
-	anyHeader, err := clienttypes.PackHeader(cosmosheader)
+	anyHeader, err := clienttypes.PackClientMessage(cosmosheader)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := &clienttypes.MsgUpdateClient{
-		ClientId: srcClientId,
-		Header:   anyHeader,
-		Signer:   acc,
+		ClientId:      srcClientId,
+		ClientMessage: anyHeader,
+		Signer:        acc,
 	}
 
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstPrefix commitmenttypes.MerklePrefix, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, dstPrefix commitmenttypes.MerklePrefix, dstHeader ibcexported.ClientMessage) ([]provider.RelayerMessage, error) {
 	var (
 		acc     string
 		err     error
@@ -478,7 +494,7 @@ func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, 
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstPrefix commitmenttypes.MerklePrefix, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, dstPrefix commitmenttypes.MerklePrefix, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
 	fmt.Println("CONN OPEN TRY")
 	var (
 		acc string
@@ -544,7 +560,7 @@ func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvi
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcConnId, dstClientId, dstConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -593,7 +609,7 @@ func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvi
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, dstConnId, srcClientId, srcConnId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -626,7 +642,7 @@ func (cc *PenumbraProvider) ConnectionOpenConfirm(ctx context.Context, dstQueryP
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.Header) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, srcVersion, dstPortId string, order chantypes.Order, dstHeader ibcexported.ClientMessage) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -658,7 +674,7 @@ func (cc *PenumbraProvider) ChannelOpenInit(srcClientId, srcConnId, srcPortId, s
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcPortId, dstPortId, srcChanId, dstChanId, srcVersion, srcConnectionId, srcClientId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -711,7 +727,7 @@ func (cc *PenumbraProvider) ChannelOpenTry(ctx context.Context, dstQueryProvider
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcPortId, srcChanId, dstChanId, dstPortId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -748,7 +764,7 @@ func (cc *PenumbraProvider) ChannelOpenAck(ctx context.Context, dstQueryProvider
 	return []provider.RelayerMessage{updateMsg, cosmos.NewCosmosMessage(msg)}, nil
 }
 
-func (cc *PenumbraProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.Header, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) ChannelOpenConfirm(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, srcClientId, srcPortId, srcChanId, dstPortId, dstChanId string) ([]provider.RelayerMessage, error) {
 	var (
 		acc string
 		err error
@@ -1497,7 +1513,7 @@ func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.Channel
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(PenumbraIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: PenumbraIBCHeader, actual: %T", trustedHeader)
@@ -1733,7 +1749,7 @@ EventLoop:
 // returns an IBC Update Header which can be used to update an on chain
 // light client on the destination chain. The source is used to construct
 // the header data.
-func (cc *PenumbraProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) GetIBCUpdateHeader(ctx context.Context, srch int64, dst provider.ChainProvider, dstClientId string) (ibcexported.ClientMessage, error) {
 	// Construct header data from light client representing source.
 	h, err := cc.GetLightSignedHeaderAtHeight(ctx, srch)
 	if err != nil {
@@ -1760,7 +1776,7 @@ func (cc *PenumbraProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (pro
 	}, nil
 }
 
-func (cc *PenumbraProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h int64) (ibcexported.ClientMessage, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")
 	}
@@ -1787,7 +1803,7 @@ func (cc *PenumbraProvider) GetLightSignedHeaderAtHeight(ctx context.Context, h 
 // TrustedHeight is the latest height of the IBC client on dst
 // TrustedValidators is the validator set of srcChain at the TrustedHeight
 // InjectTrustedFields returns a copy of the header with TrustedFields modified
-func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibcexported.Header, dst provider.ChainProvider, dstClientId string) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibcexported.ClientMessage, dst provider.ChainProvider, dstClientId string) (ibcexported.ClientMessage, error) {
 	// make copy of header stored in mop
 	h, ok := header.(*tmclient.Header)
 	if !ok {
@@ -2006,4 +2022,218 @@ func (cc *PenumbraProvider) QueryIBCHeader(ctx context.Context, h int64) (provid
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
+}
+
+// QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
+func (cc *PenumbraProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+	opts := rpcclient.ABCIQueryOptions{
+		Height: req.Height,
+		Prove:  req.Prove,
+	}
+	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
+	if err != nil {
+		return abci.ResponseQuery{}, err
+	}
+
+	if !result.Response.IsOK() {
+		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+	}
+
+	// data from trusted node or subspace query doesn't need verification
+	if !opts.Prove || !isQueryStoreWithProof(req.Path) {
+		return result.Response, nil
+	}
+
+	return result.Response, nil
+}
+
+func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
+	switch resp.Code {
+	case sdkerrors.ErrInvalidRequest.ABCICode():
+		return status.Error(codes.InvalidArgument, resp.Log)
+	case sdkerrors.ErrUnauthorized.ABCICode():
+		return status.Error(codes.Unauthenticated, resp.Log)
+	case sdkerrors.ErrKeyNotFound.ABCICode():
+		return status.Error(codes.NotFound, resp.Log)
+	default:
+		return status.Error(codes.Unknown, resp.Log)
+	}
+}
+
+// isQueryStoreWithProof expects a format like /<queryType>/<storeName>/<subpath>
+// queryType must be "store" and subpath must be "key" to require a proof.
+func isQueryStoreWithProof(path string) bool {
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+
+	paths := strings.SplitN(path[1:], "/", 3)
+
+	switch {
+	case len(paths) != 3:
+		return false
+	case paths[0] != "store":
+		return false
+	case rootmulti.RequireProof("/" + paths[2]):
+		return true
+	}
+
+	return false
+}
+
+// sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
+func (cc *PenumbraProvider) sdkError(codespace string, code uint32) error {
+	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
+	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
+	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	if err.Error() != errUnknown {
+		return err
+	}
+	return nil
+}
+
+// broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
+// The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (cc *PenumbraProvider) broadcastTx(
+	ctx context.Context,            // context for tx broadcast
+	tx []byte,                      // raw tx to be broadcasted
+	msgs []provider.RelayerMessage, // used for logging only
+	fees sdk.Coins,                 // used for metrics
+
+	asyncCtx context.Context,                               // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration,                             // timeout for waiting for block inclusion
+	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+) error {
+	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
+	isErr := err != nil
+	isFailed := res != nil && res.Code != 0
+	if isErr || isFailed {
+		if isErr && res == nil {
+			// There are some cases where BroadcastTxSync will return an error but the associated
+			// ResultBroadcastTx will be nil.
+			return err
+		}
+		rlyResp := &provider.RelayerTxResponse{
+			TxHash:    res.Hash.String(),
+			Codespace: res.Codespace,
+			Code:      res.Code,
+			Data:      res.Data.String(),
+		}
+		if isFailed {
+			err = cc.sdkError(res.Codespace, res.Code)
+			if err == nil {
+				err = fmt.Errorf("transaction failed to execute")
+			}
+		}
+		cc.LogFailedTx(rlyResp, err, msgs)
+		return err
+	}
+
+	// TODO: maybe we need to check if the node has tx indexing enabled?
+	// if not, we need to find a new way to block until inclusion in a block
+
+	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallback)
+
+	return nil
+}
+
+// waitForTx waits for a transaction to be included in a block, logs success/fail, then invokes callback.
+// This is intended to be called as an async goroutine.
+func (cc *PenumbraProvider) waitForTx(
+	ctx context.Context,
+	txHash []byte,
+	msgs []provider.RelayerMessage, // used for logging only
+	waitTimeout time.Duration,
+	callback func(*provider.RelayerTxResponse, error),
+) {
+	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	if err != nil {
+		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
+		if callback != nil {
+			callback(nil, err)
+		}
+		return
+	}
+
+	rlyResp := &provider.RelayerTxResponse{
+		Height:    res.Height,
+		TxHash:    res.TxHash,
+		Codespace: res.Codespace,
+		Code:      res.Code,
+		Data:      res.Data,
+		Events:    parseEventsFromTxResponse(res),
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+
+	if res.Code != 0 {
+		// Check for any registered SDK errors
+		err := cc.sdkError(res.Codespace, res.Code)
+		if err == nil {
+			err = fmt.Errorf("transaction failed to execute")
+		}
+		if callback != nil {
+			callback(nil, err)
+		}
+		cc.LogFailedTx(rlyResp, nil, msgs)
+		return
+	}
+
+	if callback != nil {
+		callback(rlyResp, nil)
+	}
+	cc.LogSuccessTx(res, msgs)
+}
+
+// waitForBlockInclusion will wait for a transaction to be included in a block, up to waitTimeout or context cancellation.
+func (cc *PenumbraProvider) waitForBlockInclusion(
+	ctx context.Context,
+	txHash []byte,
+	waitTimeout time.Duration,
+) (*sdk.TxResponse, error) {
+	exitAfter := time.After(waitTimeout)
+	for {
+		select {
+		case <-exitAfter:
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
+		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
+		case <-time.After(time.Millisecond * 100):
+			res, err := cc.RPCClient.Tx(ctx, txHash, false)
+			if err == nil {
+				return cc.mkTxResult(res)
+			}
+			if strings.Contains(err.Error(), "transaction indexing is disabled") {
+				return nil, fmt.Errorf("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// mkTxResult decodes a comet transaction into an SDK TxResponse.
+func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
+	txbz, err := cc.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	if err != nil {
+		return nil, err
+	}
+	p, ok := txbz.(intoAny)
+	if !ok {
+		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
+	}
+	any := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, any, ""), nil
+}
+
+func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []provider.RelayerMessage, memo string, asyncCtx context.Context, asyncCallback func(*provider.RelayerTxResponse, error)) error {
+	//TODO implement me
+	panic("implement me")
 }

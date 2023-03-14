@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	abci "github.com/cometbft/cometbft/abci/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -16,17 +19,15 @@ import (
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	transfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	abci "github.com/tendermint/tendermint/abci/types"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -773,7 +774,7 @@ func (cc *PenumbraProvider) QueryLatestHeight(ctx context.Context) (int64, error
 }
 
 // QueryHeaderAtHeight returns the header at a given height
-func (cc *PenumbraProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.Header, error) {
+func (cc *PenumbraProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
 	var (
 		page    = 1
 		perPage = 100000
@@ -1036,4 +1037,18 @@ func (cc *PenumbraProvider) QueryRecvPacket(
 		}
 	}
 	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
+}
+
+// QueryStatus queries the current node status.
+func (cc *PenumbraProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
+	status, err := cc.RPCClient.Status(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query node status: %w", err)
+	}
+	return status, nil
+}
+
+func (cc *PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
+	//TODO implement me
+	panic("implement me")
 }
