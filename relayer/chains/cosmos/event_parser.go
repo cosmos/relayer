@@ -175,6 +175,7 @@ func (c clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientSta
 		ClientID:        c.clientID,
 		ConsensusHeight: c.consensusHeight,
 		TrustingPeriod:  trustingPeriod,
+		Header:          c.header,
 	}
 }
 

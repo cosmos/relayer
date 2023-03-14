@@ -78,8 +78,8 @@ func (cc *CosmosProvider) Invoke(ctx context.Context, method string, req, reply 
 		*header.HeaderAddr = outMd
 	}
 
-	if cc.Codec.InterfaceRegistry != nil {
-		return types.UnpackInterfaces(reply, cc.Codec.Marshaler)
+	if cc.Cdc.InterfaceRegistry != nil {
+		return types.UnpackInterfaces(reply, cc.Cdc.Marshaler)
 	}
 
 	return nil
