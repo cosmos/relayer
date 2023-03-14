@@ -59,7 +59,7 @@ func (a *appState) AddPathFromFile(ctx context.Context, stderr io.Writer, file, 
 // It returns any input or validation errors.
 // If the path was successfully added, it returns nil.
 func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, stderr io.Writer, src, dst, name string) error {
-	// TODO: confirm name is available before going through input.
+	// TODO: confirm name is available before going through input, add the ability to configure multi-hop paths
 
 	var (
 		value string

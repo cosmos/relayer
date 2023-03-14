@@ -56,6 +56,8 @@ type PathProcessor struct {
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
 
+	hops [][2]*pathEndRuntime
+
 	memo string
 
 	clientUpdateThresholdTime time.Duration
@@ -90,6 +92,8 @@ func NewPathProcessor(
 	log *zap.Logger,
 	pathEnd1 PathEnd,
 	pathEnd2 PathEnd,
+	// TODO: fill in the hops
+	//hops [][2]PathEnd,
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
