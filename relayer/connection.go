@@ -37,6 +37,7 @@ func (c *Chain) CreateOpenConnections(
 		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
 		nil,
+		nil,
 		memo,
 		DefaultClientUpdateThreshold,
 		DefaultFlushInterval,

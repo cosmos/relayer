@@ -12,6 +12,25 @@ import (
 	"go.uber.org/zap"
 )
 
+func newPathEnd(pathName, chainID, clientID string) processor.PathEnd {
+	return processor.NewPathEnd(pathName, chainID, chainID, "", []processor.ChainChannelKey{})
+}
+
+func newRelayPathEnds(pathName string, hops []*Chain) [][2]*processor.PathEnd {
+	pathEnds := [][2]*processor.PathEnd{}
+	for _, hop := range hops {
+		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
+		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
+
+		pathEnds = append(pathEnds,
+			[2]*processor.PathEnd{
+				&pathEnd1,
+				&pathEnd2,
+			})
+	}
+	return pathEnds
+}
+
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
 func (c *Chain) CreateOpenChannels(
 	ctx context.Context,
@@ -54,8 +73,9 @@ func (c *Chain) CreateOpenChannels(
 
 	pp := processor.NewPathProcessor(
 		c.log,
-		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+		newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),
+		newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID),
+		newRelayPathEnds(pathName, hops),
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
@@ -126,8 +146,9 @@ func (c *Chain) CloseChannel(
 		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
-			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+			newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),
+			newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID),
+			newRelayPathEnds(pathName, hops),
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,

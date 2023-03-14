@@ -148,6 +148,7 @@ func relayerStartEventProcessor(
 				log,
 				p.src,
 				p.dst,
+				nil, // TODO: extract hops if any
 				metrics,
 				memo,
 				clientUpdateThresholdTime,
