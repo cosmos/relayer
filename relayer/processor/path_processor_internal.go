@@ -655,11 +655,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	var eg errgroup.Group
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
+		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1, pp.hops)
 	})
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
+		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2, pp.hops)
 	})
 	return eg.Wait()
 }

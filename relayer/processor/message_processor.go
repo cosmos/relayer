@@ -81,6 +81,7 @@ func (mp *messageProcessor) processMessages(
 	ctx context.Context,
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
+	hops [][2]*PathEnd,
 ) error {
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
@@ -91,7 +92,7 @@ func (mp *messageProcessor) processMessages(
 		return err
 	}
 
-	mp.assembleMessages(ctx, messages, src, dst)
+	mp.assembleMessages(ctx, messages, src, dst, hops)
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 }
@@ -144,31 +145,32 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 }
 
 // assembleMessages will assemble all messages in parallel. This typically involves proof queries for each.
-func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
+func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime,
+	hops [][2]*PathEnd) {
 	var wg sync.WaitGroup
 
 	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
 	for i, msg := range messages.connectionMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
 	}
 
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
 	for i, msg := range messages.channelMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
 	}
 
 	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
 	for i, msg := range messages.clientICQMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
 	}
 
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
 	for i, msg := range messages.packetMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
 	}
 
 	wg.Wait()
@@ -192,10 +194,11 @@ func (mp *messageProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
+	hops [][2]*PathEnd,
 	i int,
 	wg *sync.WaitGroup,
 ) {
-	assembled, err := msg.assemble(ctx, src, dst)
+	assembled, err := msg.assemble(ctx, src, dst, hops)
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {

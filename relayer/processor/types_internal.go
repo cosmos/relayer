@@ -24,7 +24,7 @@ type pathEndMessages struct {
 type ibcMessage interface {
 	// assemble executes the appropriate proof query function,
 	// then, if successful, assembles the message for the destination.
-	assemble(ctx context.Context, src, dst *pathEndRuntime) (provider.RelayerMessage, error)
+	assemble(ctx context.Context, src, dst *pathEndRuntime, hops [][2]*PathEnd) (provider.RelayerMessage, error)
 
 	// tracker creates a message tracker for message status
 	tracker(assembled provider.RelayerMessage) messageToTrack
@@ -48,6 +48,7 @@ type packetIBCMessage struct {
 func (msg packetIBCMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	hops [][2]*PathEnd,
 ) (provider.RelayerMessage, error) {
 	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
@@ -141,6 +142,7 @@ type channelIBCMessage struct {
 func (msg channelIBCMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	hops [][2]*PathEnd,
 ) (provider.RelayerMessage, error) {
 	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
@@ -217,6 +219,7 @@ type connectionIBCMessage struct {
 func (msg connectionIBCMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	hops [][2]*PathEnd,
 ) (provider.RelayerMessage, error) {
 	var connProof func(context.Context, provider.ConnectionInfo, uint64) (provider.ConnectionProof, error)
 	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
@@ -290,6 +293,7 @@ type clientICQMessage struct {
 func (msg clientICQMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	hops [][2]*PathEnd,
 ) (provider.RelayerMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, interchainQueryTimeout)
 	defer cancel()
