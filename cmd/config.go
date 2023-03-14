@@ -401,31 +401,34 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 }
 
 // ChainsFromPath takes the path name and returns the properly configured chains
-func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, error) {
+func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, []*relayer.Chain, error) {
 	pth, err := c.Paths.Get(path)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
 	src, dst := pth.Src.ChainID, pth.Dst.ChainID
 	chains, err := c.Chains.Gets(src, dst)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
 	if err = chains[src].SetPath(pth.Src); err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
+	}
+	hops := []*relayer.Chain{}
+	for _, hop := range pth.Hops {
+		hopChain := chains[hop.ChainID]
+		if err = hopChain.SetRelayPaths(hop.PathEnds); err != nil {
+			return nil, "", "", nil, err
+		}
+		hops = append(hops, hopChain)
 	}
 	if err = chains[dst].SetPath(pth.Dst); err != nil {
-		return nil, "", "", err
-	}
-	for _, hop := range pth.Hops {
-		if err = chains[hop.ChainID].SetRelayPaths(hop.PathEnds); err != nil {
-			return nil, "", "", err
-		}
+		return nil, "", "", nil, err
 	}
 
-	return chains, src, dst, nil
+	return chains, src, dst, hops, nil
 }
 
 // MustYAML returns the yaml string representation of the Paths

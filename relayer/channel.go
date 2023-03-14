@@ -16,6 +16,7 @@ import (
 func (c *Chain) CreateOpenChannels(
 	ctx context.Context,
 	dst *Chain,
+	hops []*Chain,
 	maxRetries uint64,
 	timeout time.Duration,
 	srcPortID, dstPortID, order, version string,
@@ -104,6 +105,7 @@ func (c *Chain) CreateOpenChannels(
 func (c *Chain) CloseChannel(
 	ctx context.Context,
 	dst *Chain,
+	hops []*Chain,
 	maxRetries uint64,
 	timeout time.Duration,
 	srcChanID,
