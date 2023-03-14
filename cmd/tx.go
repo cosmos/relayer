@@ -587,16 +587,20 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			src, dst := pth.Src.ChainID, pth.Dst.ChainID
-			chainIDs := []string{src, dst}
+			chainIDs := []string{src}
 			for _, hop := range pth.Hops {
 				chainIDs = append(chainIDs, hop.ChainID)
 			}
+			chainIDs = append(chainIDs, dst)
 			c, err := a.Config.Chains.Gets(chainIDs...)
 			if err != nil {
 				return err
 			}
 
 			c[src].PathEnd = pth.Src
+			for _, hop := range pth.Hops {
+				c[hop.ChainID].RelayPathEnds = hop.PathEnds
+			}
 			c[dst].PathEnd = pth.Dst
 
 			srcPort, err := cmd.Flags().GetString(flagSrcPort)
@@ -649,28 +653,35 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			// create clients if they aren't already created
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
-			if err != nil {
-				return fmt.Errorf("error creating clients: %w", err)
-			}
-			if clientSrc != "" || clientDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
-					return err
+			for i, srcChainID := range chainIDs {
+				if i == len(chainIDs)-1 {
+					// When we reach dst we already connected via the previous hop
+					break
+				}
+				dstChainID := chainIDs[i+1]
+
+				// create clients if they aren't already created
+				clientSrc, clientDst, err := c[srcChainID].CreateClients(cmd.Context(), c[dstChainID], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+				if err != nil {
+					return fmt.Errorf("error creating clients: %w", err)
+				}
+				if clientSrc != "" || clientDst != "" {
+					if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
+						return err
+					}
+				}
+
+				// create connection if it isn't already created
+				connectionSrc, connectionDst, err := c[srcChainID].CreateOpenConnections(cmd.Context(), c[dstChainID], retries, to, memo, initialBlockHistory, pathName)
+				if err != nil {
+					return fmt.Errorf("error creating connections: %w", err)
+				}
+				if connectionSrc != "" || connectionDst != "" {
+					if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
+						return err
+					}
 				}
 			}
-
-			// create connection if it isn't already created
-			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
-			if err != nil {
-				return fmt.Errorf("error creating connections: %w", err)
-			}
-			if connectionSrc != "" || connectionDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
-					return err
-				}
-			}
-
 			// create channel if it isn't already created
 			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},
