@@ -3,6 +3,7 @@ module github.com/cosmos/relayer/v2/interchaintest
 go 1.19
 
 require (
+	cosmossdk.io/simapp v0.0.0-20230224204036-a6adb0821462
 	github.com/cometbft/cometbft v0.37.0
 	github.com/cosmos/cosmos-sdk v0.47.0-rc3
 	github.com/cosmos/ibc-go/v7 v7.0.0-rc1
@@ -10,7 +11,7 @@ require (
 	github.com/docker/docker v20.10.19+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/moby/moby v20.10.22+incompatible
-	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230309173441-1cbc09c52979
+	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230309210425-6f04be9aab19
 	github.com/stretchr/testify v1.8.2
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.1.0
@@ -53,6 +54,7 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
+	github.com/cockroachdb/apd/v2 v2.0.2 // indirect
 	github.com/coinbase/rosetta-sdk-go/types v1.0.0 // indirect
 	github.com/cometbft/cometbft-db v0.7.0 // indirect
 	github.com/confio/ics23/go v0.9.0 // indirect
@@ -90,6 +92,7 @@ require (
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
@@ -196,6 +199,7 @@ require (
 	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/vedhavyas/go-subkey v1.0.3 // indirect

@@ -348,7 +348,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	ppChanged := false
 
-	var latestHeader CosmosIBCHeader
+	var latestHeader provider.TendermintIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -377,7 +377,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			break
 		}
 
-		latestHeader = ibcHeader.(CosmosIBCHeader)
+		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 
 		heightUint64 := uint64(i)
 
