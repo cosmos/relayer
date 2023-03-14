@@ -91,6 +91,7 @@ type PathAction struct {
 type Path struct {
 	Src    *PathEnd      `yaml:"src" json:"src"`
 	Dst    *PathEnd      `yaml:"dst" json:"dst"`
+	Hops   []*PathHop    `yaml:"hops" json:"hops"`
 	Filter ChannelFilter `yaml:"src-channel-filter" json:"src-channel-filter"`
 }
 
@@ -119,6 +120,11 @@ type IBCdata struct {
 		ClientID     string `json:"client_id"`
 		ConnectionID string `json:"connection_id"`
 	} `json:"chain_2"`
+	Hops []struct {
+		ChainName     string    `json:"chain_name"`
+		ClientIDs     [2]string `json:"client_ids"`
+		ConnectionIDs [2]string `json:"connection_ids"`
+	} `json:"hops"`
 	Channels []struct {
 		Chain1 struct {
 			ChannelID string `json:"channel_id"`

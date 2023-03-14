@@ -433,9 +433,37 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					ClientID:     ibc.Chain2.ClientID,
 					ConnectionID: ibc.Chain2.ConnectionID,
 				}
+				hops := []*relayer.PathHop{}
+				hopSrcChainID := srcPathEnd.ChainID
+				hopDstChainID := dstPathEnd.ChainID
+				for i, hop := range ibc.Hops {
+					if i > 0 {
+						hopSrcChainID = hops[i-1].ChainID
+					}
+					if i < len(ibc.Hops)-1 {
+						// We need to pull this one out of the config since we haven't processed the PathHop yet
+						hopDstChainID = a.Config.Chains[ibc.Hops[i+1].ChainName].ChainID()
+					}
+					hops = append(hops, &relayer.PathHop{
+						ChainID: a.Config.Chains[hop.ChainName].ChainID(),
+						PathEnds: [2]*relayer.PathEnd{
+							&relayer.PathEnd{
+								ChainID:      hopSrcChainID,
+								ClientID:     hop.ClientIDs[0],
+								ConnectionID: hop.ConnectionIDs[0],
+							},
+							&relayer.PathEnd{
+								ChainID:      hopDstChainID,
+								ClientID:     hop.ClientIDs[1],
+								ConnectionID: hop.ConnectionIDs[1],
+							},
+						},
+					})
+				}
 				newPath := &relayer.Path{
-					Src: srcPathEnd,
-					Dst: dstPathEnd,
+					Src:  srcPathEnd,
+					Dst:  dstPathEnd,
+					Hops: hops,
 				}
 				client.Close()
 
