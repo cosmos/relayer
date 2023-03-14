@@ -31,7 +31,8 @@ type Chain struct {
 	Chainid       string `yaml:"chain-id" json:"chain-id"`
 	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
 
-	PathEnd *PathEnd `yaml:"-" json:"-"`
+	PathEnd       *PathEnd    `yaml:"-" json:"-"`
+	RelayPathEnds [2]*PathEnd `yaml:"-" json:"-"`
 
 	debug bool
 }

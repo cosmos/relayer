@@ -420,10 +420,8 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 		return nil, "", "", err
 	}
 	for _, hop := range pth.Hops {
-		for _, pathEnd := range hop.PathEnds {
-			if err = chains[hop.ChainID].SetPath(pathEnd); err != nil {
-				return nil, "", "", err
-			}
+		if err = chains[hop.ChainID].SetRelayPaths(hop.PathEnds); err != nil {
+			return nil, "", "", err
 		}
 	}
 
