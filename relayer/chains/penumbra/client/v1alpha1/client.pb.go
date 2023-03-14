@@ -4,16 +4,21 @@
 package clientv1alpha1
 
 import (
+	context "context"
 	fmt "fmt"
 	crypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
 	p2p "github.com/cometbft/cometbft/proto/tendermint/p2p"
 	types1 "github.com/cometbft/cometbft/proto/tendermint/types"
+	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
 	types "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	v1alpha1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/chain/v1alpha1"
 	v1alpha12 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
 	v1alpha13 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/dex/v1alpha1"
 	v1alpha11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/stake/v1alpha1"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	io "io"
 	math "math"
@@ -2740,6 +2745,1012 @@ var fileDescriptor_d2500e6c93f0531d = []byte{
 	0xfb, 0x0f, 0x31, 0x41, 0xb4, 0x97, 0xf9, 0x57, 0xae, 0x12, 0xa0, 0xed, 0xee, 0x72, 0xbc, 0xdd,
 	0xdd, 0x00, 0xf1, 0x64, 0x9e, 0xb5, 0x55, 0x77, 0xff, 0x13, 0x00, 0x00, 0xff, 0xff, 0x6b, 0x3e,
 	0x1b, 0x52, 0x3c, 0x20, 0x00, 0x00,
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// ObliviousQueryServiceClient is the client API for ObliviousQueryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type ObliviousQueryServiceClient interface {
+	CompactBlockRange(ctx context.Context, in *CompactBlockRangeRequest, opts ...grpc.CallOption) (ObliviousQueryService_CompactBlockRangeClient, error)
+	ChainParameters(ctx context.Context, in *ChainParametersRequest, opts ...grpc.CallOption) (*ChainParametersResponse, error)
+	ValidatorInfo(ctx context.Context, in *ValidatorInfoRequest, opts ...grpc.CallOption) (ObliviousQueryService_ValidatorInfoClient, error)
+	AssetList(ctx context.Context, in *AssetListRequest, opts ...grpc.CallOption) (*AssetListResponse, error)
+}
+
+type obliviousQueryServiceClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewObliviousQueryServiceClient(cc grpc1.ClientConn) ObliviousQueryServiceClient {
+	return &obliviousQueryServiceClient{cc}
+}
+
+func (c *obliviousQueryServiceClient) CompactBlockRange(ctx context.Context, in *CompactBlockRangeRequest, opts ...grpc.CallOption) (ObliviousQueryService_CompactBlockRangeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ObliviousQueryService_serviceDesc.Streams[0], "/penumbra.client.v1alpha1.ObliviousQueryService/CompactBlockRange", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &obliviousQueryServiceCompactBlockRangeClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ObliviousQueryService_CompactBlockRangeClient interface {
+	Recv() (*CompactBlockRangeResponse, error)
+	grpc.ClientStream
+}
+
+type obliviousQueryServiceCompactBlockRangeClient struct {
+	grpc.ClientStream
+}
+
+func (x *obliviousQueryServiceCompactBlockRangeClient) Recv() (*CompactBlockRangeResponse, error) {
+	m := new(CompactBlockRangeResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *obliviousQueryServiceClient) ChainParameters(ctx context.Context, in *ChainParametersRequest, opts ...grpc.CallOption) (*ChainParametersResponse, error) {
+	out := new(ChainParametersResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.ObliviousQueryService/ChainParameters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *obliviousQueryServiceClient) ValidatorInfo(ctx context.Context, in *ValidatorInfoRequest, opts ...grpc.CallOption) (ObliviousQueryService_ValidatorInfoClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ObliviousQueryService_serviceDesc.Streams[1], "/penumbra.client.v1alpha1.ObliviousQueryService/ValidatorInfo", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &obliviousQueryServiceValidatorInfoClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ObliviousQueryService_ValidatorInfoClient interface {
+	Recv() (*ValidatorInfoResponse, error)
+	grpc.ClientStream
+}
+
+type obliviousQueryServiceValidatorInfoClient struct {
+	grpc.ClientStream
+}
+
+func (x *obliviousQueryServiceValidatorInfoClient) Recv() (*ValidatorInfoResponse, error) {
+	m := new(ValidatorInfoResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *obliviousQueryServiceClient) AssetList(ctx context.Context, in *AssetListRequest, opts ...grpc.CallOption) (*AssetListResponse, error) {
+	out := new(AssetListResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.ObliviousQueryService/AssetList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ObliviousQueryServiceServer is the server API for ObliviousQueryService service.
+type ObliviousQueryServiceServer interface {
+	CompactBlockRange(*CompactBlockRangeRequest, ObliviousQueryService_CompactBlockRangeServer) error
+	ChainParameters(context.Context, *ChainParametersRequest) (*ChainParametersResponse, error)
+	ValidatorInfo(*ValidatorInfoRequest, ObliviousQueryService_ValidatorInfoServer) error
+	AssetList(context.Context, *AssetListRequest) (*AssetListResponse, error)
+}
+
+// UnimplementedObliviousQueryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedObliviousQueryServiceServer struct {
+}
+
+func (*UnimplementedObliviousQueryServiceServer) CompactBlockRange(req *CompactBlockRangeRequest, srv ObliviousQueryService_CompactBlockRangeServer) error {
+	return status.Errorf(codes.Unimplemented, "method CompactBlockRange not implemented")
+}
+func (*UnimplementedObliviousQueryServiceServer) ChainParameters(ctx context.Context, req *ChainParametersRequest) (*ChainParametersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ChainParameters not implemented")
+}
+func (*UnimplementedObliviousQueryServiceServer) ValidatorInfo(req *ValidatorInfoRequest, srv ObliviousQueryService_ValidatorInfoServer) error {
+	return status.Errorf(codes.Unimplemented, "method ValidatorInfo not implemented")
+}
+func (*UnimplementedObliviousQueryServiceServer) AssetList(ctx context.Context, req *AssetListRequest) (*AssetListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssetList not implemented")
+}
+
+func RegisterObliviousQueryServiceServer(s grpc1.Server, srv ObliviousQueryServiceServer) {
+	s.RegisterService(&_ObliviousQueryService_serviceDesc, srv)
+}
+
+func _ObliviousQueryService_CompactBlockRange_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CompactBlockRangeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ObliviousQueryServiceServer).CompactBlockRange(m, &obliviousQueryServiceCompactBlockRangeServer{stream})
+}
+
+type ObliviousQueryService_CompactBlockRangeServer interface {
+	Send(*CompactBlockRangeResponse) error
+	grpc.ServerStream
+}
+
+type obliviousQueryServiceCompactBlockRangeServer struct {
+	grpc.ServerStream
+}
+
+func (x *obliviousQueryServiceCompactBlockRangeServer) Send(m *CompactBlockRangeResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ObliviousQueryService_ChainParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChainParametersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObliviousQueryServiceServer).ChainParameters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.ObliviousQueryService/ChainParameters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObliviousQueryServiceServer).ChainParameters(ctx, req.(*ChainParametersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ObliviousQueryService_ValidatorInfo_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ValidatorInfoRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ObliviousQueryServiceServer).ValidatorInfo(m, &obliviousQueryServiceValidatorInfoServer{stream})
+}
+
+type ObliviousQueryService_ValidatorInfoServer interface {
+	Send(*ValidatorInfoResponse) error
+	grpc.ServerStream
+}
+
+type obliviousQueryServiceValidatorInfoServer struct {
+	grpc.ServerStream
+}
+
+func (x *obliviousQueryServiceValidatorInfoServer) Send(m *ValidatorInfoResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ObliviousQueryService_AssetList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssetListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObliviousQueryServiceServer).AssetList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.ObliviousQueryService/AssetList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObliviousQueryServiceServer).AssetList(ctx, req.(*AssetListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _ObliviousQueryService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "penumbra.client.v1alpha1.ObliviousQueryService",
+	HandlerType: (*ObliviousQueryServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ChainParameters",
+			Handler:    _ObliviousQueryService_ChainParameters_Handler,
+		},
+		{
+			MethodName: "AssetList",
+			Handler:    _ObliviousQueryService_AssetList_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CompactBlockRange",
+			Handler:       _ObliviousQueryService_CompactBlockRange_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ValidatorInfo",
+			Handler:       _ObliviousQueryService_ValidatorInfo_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "penumbra/client/v1alpha1/client.proto",
+}
+
+// SpecificQueryServiceClient is the client API for SpecificQueryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type SpecificQueryServiceClient interface {
+	TransactionByNote(ctx context.Context, in *TransactionByNoteRequest, opts ...grpc.CallOption) (*TransactionByNoteResponse, error)
+	ValidatorStatus(ctx context.Context, in *ValidatorStatusRequest, opts ...grpc.CallOption) (*ValidatorStatusResponse, error)
+	ValidatorPenalty(ctx context.Context, in *ValidatorPenaltyRequest, opts ...grpc.CallOption) (*ValidatorPenaltyResponse, error)
+	NextValidatorRate(ctx context.Context, in *NextValidatorRateRequest, opts ...grpc.CallOption) (*NextValidatorRateResponse, error)
+	BatchSwapOutputData(ctx context.Context, in *BatchSwapOutputDataRequest, opts ...grpc.CallOption) (*BatchSwapOutputDataResponse, error)
+	StubCPMMReserves(ctx context.Context, in *StubCPMMReservesRequest, opts ...grpc.CallOption) (*StubCPMMReservesResponse, error)
+	AssetInfo(ctx context.Context, in *AssetInfoRequest, opts ...grpc.CallOption) (*AssetInfoResponse, error)
+	ProposalInfo(ctx context.Context, in *ProposalInfoRequest, opts ...grpc.CallOption) (*ProposalInfoResponse, error)
+	ProposalRateData(ctx context.Context, in *ProposalRateDataRequest, opts ...grpc.CallOption) (SpecificQueryService_ProposalRateDataClient, error)
+	// General-purpose key-value state query API, that can be used to query
+	// arbitrary keys in the JMT storage.
+	KeyValue(ctx context.Context, in *KeyValueRequest, opts ...grpc.CallOption) (*KeyValueResponse, error)
+	// General-purpose prefixed key-value state query API, that can be used to query
+	// arbitrary prefixes in the JMT storage.
+	PrefixValue(ctx context.Context, in *PrefixValueRequest, opts ...grpc.CallOption) (SpecificQueryService_PrefixValueClient, error)
+}
+
+type specificQueryServiceClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewSpecificQueryServiceClient(cc grpc1.ClientConn) SpecificQueryServiceClient {
+	return &specificQueryServiceClient{cc}
+}
+
+func (c *specificQueryServiceClient) TransactionByNote(ctx context.Context, in *TransactionByNoteRequest, opts ...grpc.CallOption) (*TransactionByNoteResponse, error) {
+	out := new(TransactionByNoteResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/TransactionByNote", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) ValidatorStatus(ctx context.Context, in *ValidatorStatusRequest, opts ...grpc.CallOption) (*ValidatorStatusResponse, error) {
+	out := new(ValidatorStatusResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/ValidatorStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) ValidatorPenalty(ctx context.Context, in *ValidatorPenaltyRequest, opts ...grpc.CallOption) (*ValidatorPenaltyResponse, error) {
+	out := new(ValidatorPenaltyResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/ValidatorPenalty", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) NextValidatorRate(ctx context.Context, in *NextValidatorRateRequest, opts ...grpc.CallOption) (*NextValidatorRateResponse, error) {
+	out := new(NextValidatorRateResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/NextValidatorRate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) BatchSwapOutputData(ctx context.Context, in *BatchSwapOutputDataRequest, opts ...grpc.CallOption) (*BatchSwapOutputDataResponse, error) {
+	out := new(BatchSwapOutputDataResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/BatchSwapOutputData", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) StubCPMMReserves(ctx context.Context, in *StubCPMMReservesRequest, opts ...grpc.CallOption) (*StubCPMMReservesResponse, error) {
+	out := new(StubCPMMReservesResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/StubCPMMReserves", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) AssetInfo(ctx context.Context, in *AssetInfoRequest, opts ...grpc.CallOption) (*AssetInfoResponse, error) {
+	out := new(AssetInfoResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/AssetInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) ProposalInfo(ctx context.Context, in *ProposalInfoRequest, opts ...grpc.CallOption) (*ProposalInfoResponse, error) {
+	out := new(ProposalInfoResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/ProposalInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) ProposalRateData(ctx context.Context, in *ProposalRateDataRequest, opts ...grpc.CallOption) (SpecificQueryService_ProposalRateDataClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_SpecificQueryService_serviceDesc.Streams[0], "/penumbra.client.v1alpha1.SpecificQueryService/ProposalRateData", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &specificQueryServiceProposalRateDataClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type SpecificQueryService_ProposalRateDataClient interface {
+	Recv() (*ProposalRateDataResponse, error)
+	grpc.ClientStream
+}
+
+type specificQueryServiceProposalRateDataClient struct {
+	grpc.ClientStream
+}
+
+func (x *specificQueryServiceProposalRateDataClient) Recv() (*ProposalRateDataResponse, error) {
+	m := new(ProposalRateDataResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *specificQueryServiceClient) KeyValue(ctx context.Context, in *KeyValueRequest, opts ...grpc.CallOption) (*KeyValueResponse, error) {
+	out := new(KeyValueResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.SpecificQueryService/KeyValue", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *specificQueryServiceClient) PrefixValue(ctx context.Context, in *PrefixValueRequest, opts ...grpc.CallOption) (SpecificQueryService_PrefixValueClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_SpecificQueryService_serviceDesc.Streams[1], "/penumbra.client.v1alpha1.SpecificQueryService/PrefixValue", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &specificQueryServicePrefixValueClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type SpecificQueryService_PrefixValueClient interface {
+	Recv() (*PrefixValueResponse, error)
+	grpc.ClientStream
+}
+
+type specificQueryServicePrefixValueClient struct {
+	grpc.ClientStream
+}
+
+func (x *specificQueryServicePrefixValueClient) Recv() (*PrefixValueResponse, error) {
+	m := new(PrefixValueResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// SpecificQueryServiceServer is the server API for SpecificQueryService service.
+type SpecificQueryServiceServer interface {
+	TransactionByNote(context.Context, *TransactionByNoteRequest) (*TransactionByNoteResponse, error)
+	ValidatorStatus(context.Context, *ValidatorStatusRequest) (*ValidatorStatusResponse, error)
+	ValidatorPenalty(context.Context, *ValidatorPenaltyRequest) (*ValidatorPenaltyResponse, error)
+	NextValidatorRate(context.Context, *NextValidatorRateRequest) (*NextValidatorRateResponse, error)
+	BatchSwapOutputData(context.Context, *BatchSwapOutputDataRequest) (*BatchSwapOutputDataResponse, error)
+	StubCPMMReserves(context.Context, *StubCPMMReservesRequest) (*StubCPMMReservesResponse, error)
+	AssetInfo(context.Context, *AssetInfoRequest) (*AssetInfoResponse, error)
+	ProposalInfo(context.Context, *ProposalInfoRequest) (*ProposalInfoResponse, error)
+	ProposalRateData(*ProposalRateDataRequest, SpecificQueryService_ProposalRateDataServer) error
+	// General-purpose key-value state query API, that can be used to query
+	// arbitrary keys in the JMT storage.
+	KeyValue(context.Context, *KeyValueRequest) (*KeyValueResponse, error)
+	// General-purpose prefixed key-value state query API, that can be used to query
+	// arbitrary prefixes in the JMT storage.
+	PrefixValue(*PrefixValueRequest, SpecificQueryService_PrefixValueServer) error
+}
+
+// UnimplementedSpecificQueryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedSpecificQueryServiceServer struct {
+}
+
+func (*UnimplementedSpecificQueryServiceServer) TransactionByNote(ctx context.Context, req *TransactionByNoteRequest) (*TransactionByNoteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransactionByNote not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) ValidatorStatus(ctx context.Context, req *ValidatorStatusRequest) (*ValidatorStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidatorStatus not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) ValidatorPenalty(ctx context.Context, req *ValidatorPenaltyRequest) (*ValidatorPenaltyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidatorPenalty not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) NextValidatorRate(ctx context.Context, req *NextValidatorRateRequest) (*NextValidatorRateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NextValidatorRate not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) BatchSwapOutputData(ctx context.Context, req *BatchSwapOutputDataRequest) (*BatchSwapOutputDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchSwapOutputData not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) StubCPMMReserves(ctx context.Context, req *StubCPMMReservesRequest) (*StubCPMMReservesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StubCPMMReserves not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) AssetInfo(ctx context.Context, req *AssetInfoRequest) (*AssetInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssetInfo not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) ProposalInfo(ctx context.Context, req *ProposalInfoRequest) (*ProposalInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProposalInfo not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) ProposalRateData(req *ProposalRateDataRequest, srv SpecificQueryService_ProposalRateDataServer) error {
+	return status.Errorf(codes.Unimplemented, "method ProposalRateData not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) KeyValue(ctx context.Context, req *KeyValueRequest) (*KeyValueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KeyValue not implemented")
+}
+func (*UnimplementedSpecificQueryServiceServer) PrefixValue(req *PrefixValueRequest, srv SpecificQueryService_PrefixValueServer) error {
+	return status.Errorf(codes.Unimplemented, "method PrefixValue not implemented")
+}
+
+func RegisterSpecificQueryServiceServer(s grpc1.Server, srv SpecificQueryServiceServer) {
+	s.RegisterService(&_SpecificQueryService_serviceDesc, srv)
+}
+
+func _SpecificQueryService_TransactionByNote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionByNoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).TransactionByNote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/TransactionByNote",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).TransactionByNote(ctx, req.(*TransactionByNoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_ValidatorStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidatorStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).ValidatorStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/ValidatorStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).ValidatorStatus(ctx, req.(*ValidatorStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_ValidatorPenalty_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidatorPenaltyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).ValidatorPenalty(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/ValidatorPenalty",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).ValidatorPenalty(ctx, req.(*ValidatorPenaltyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_NextValidatorRate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NextValidatorRateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).NextValidatorRate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/NextValidatorRate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).NextValidatorRate(ctx, req.(*NextValidatorRateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_BatchSwapOutputData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchSwapOutputDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).BatchSwapOutputData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/BatchSwapOutputData",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).BatchSwapOutputData(ctx, req.(*BatchSwapOutputDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_StubCPMMReserves_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StubCPMMReservesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).StubCPMMReserves(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/StubCPMMReserves",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).StubCPMMReserves(ctx, req.(*StubCPMMReservesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_AssetInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssetInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).AssetInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/AssetInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).AssetInfo(ctx, req.(*AssetInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_ProposalInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProposalInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).ProposalInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/ProposalInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).ProposalInfo(ctx, req.(*ProposalInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_ProposalRateData_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ProposalRateDataRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SpecificQueryServiceServer).ProposalRateData(m, &specificQueryServiceProposalRateDataServer{stream})
+}
+
+type SpecificQueryService_ProposalRateDataServer interface {
+	Send(*ProposalRateDataResponse) error
+	grpc.ServerStream
+}
+
+type specificQueryServiceProposalRateDataServer struct {
+	grpc.ServerStream
+}
+
+func (x *specificQueryServiceProposalRateDataServer) Send(m *ProposalRateDataResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _SpecificQueryService_KeyValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SpecificQueryServiceServer).KeyValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.SpecificQueryService/KeyValue",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SpecificQueryServiceServer).KeyValue(ctx, req.(*KeyValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SpecificQueryService_PrefixValue_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PrefixValueRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SpecificQueryServiceServer).PrefixValue(m, &specificQueryServicePrefixValueServer{stream})
+}
+
+type SpecificQueryService_PrefixValueServer interface {
+	Send(*PrefixValueResponse) error
+	grpc.ServerStream
+}
+
+type specificQueryServicePrefixValueServer struct {
+	grpc.ServerStream
+}
+
+func (x *specificQueryServicePrefixValueServer) Send(m *PrefixValueResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+var _SpecificQueryService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "penumbra.client.v1alpha1.SpecificQueryService",
+	HandlerType: (*SpecificQueryServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "TransactionByNote",
+			Handler:    _SpecificQueryService_TransactionByNote_Handler,
+		},
+		{
+			MethodName: "ValidatorStatus",
+			Handler:    _SpecificQueryService_ValidatorStatus_Handler,
+		},
+		{
+			MethodName: "ValidatorPenalty",
+			Handler:    _SpecificQueryService_ValidatorPenalty_Handler,
+		},
+		{
+			MethodName: "NextValidatorRate",
+			Handler:    _SpecificQueryService_NextValidatorRate_Handler,
+		},
+		{
+			MethodName: "BatchSwapOutputData",
+			Handler:    _SpecificQueryService_BatchSwapOutputData_Handler,
+		},
+		{
+			MethodName: "StubCPMMReserves",
+			Handler:    _SpecificQueryService_StubCPMMReserves_Handler,
+		},
+		{
+			MethodName: "AssetInfo",
+			Handler:    _SpecificQueryService_AssetInfo_Handler,
+		},
+		{
+			MethodName: "ProposalInfo",
+			Handler:    _SpecificQueryService_ProposalInfo_Handler,
+		},
+		{
+			MethodName: "KeyValue",
+			Handler:    _SpecificQueryService_KeyValue_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ProposalRateData",
+			Handler:       _SpecificQueryService_ProposalRateData_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "PrefixValue",
+			Handler:       _SpecificQueryService_PrefixValue_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "penumbra/client/v1alpha1/client.proto",
+}
+
+// TendermintProxyServiceClient is the client API for TendermintProxyService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type TendermintProxyServiceClient interface {
+	// Status queries the current status.
+	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
+	// Broadcast a transaction asynchronously.
+	BroadcastTxAsync(ctx context.Context, in *BroadcastTxAsyncRequest, opts ...grpc.CallOption) (*BroadcastTxAsyncResponse, error)
+	// Broadcast a transaction synchronously.
+	BroadcastTxSync(ctx context.Context, in *BroadcastTxSyncRequest, opts ...grpc.CallOption) (*BroadcastTxSyncResponse, error)
+	// Fetch a transaction by hash.
+	GetTx(ctx context.Context, in *GetTxRequest, opts ...grpc.CallOption) (*GetTxResponse, error)
+	// ABCIQuery defines a query handler that supports ABCI queries directly to the
+	// application, bypassing Tendermint completely. The ABCI query must contain
+	// a valid and supported path, including app, custom, p2p, and store.
+	ABCIQuery(ctx context.Context, in *ABCIQueryRequest, opts ...grpc.CallOption) (*ABCIQueryResponse, error)
+	// GetBlockByHeight queries block for given height.
+	GetBlockByHeight(ctx context.Context, in *GetBlockByHeightRequest, opts ...grpc.CallOption) (*GetBlockByHeightResponse, error)
+}
+
+type tendermintProxyServiceClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewTendermintProxyServiceClient(cc grpc1.ClientConn) TendermintProxyServiceClient {
+	return &tendermintProxyServiceClient{cc}
+}
+
+func (c *tendermintProxyServiceClient) GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error) {
+	out := new(GetStatusResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.TendermintProxyService/GetStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tendermintProxyServiceClient) BroadcastTxAsync(ctx context.Context, in *BroadcastTxAsyncRequest, opts ...grpc.CallOption) (*BroadcastTxAsyncResponse, error) {
+	out := new(BroadcastTxAsyncResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.TendermintProxyService/BroadcastTxAsync", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tendermintProxyServiceClient) BroadcastTxSync(ctx context.Context, in *BroadcastTxSyncRequest, opts ...grpc.CallOption) (*BroadcastTxSyncResponse, error) {
+	out := new(BroadcastTxSyncResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.TendermintProxyService/BroadcastTxSync", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tendermintProxyServiceClient) GetTx(ctx context.Context, in *GetTxRequest, opts ...grpc.CallOption) (*GetTxResponse, error) {
+	out := new(GetTxResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.TendermintProxyService/GetTx", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tendermintProxyServiceClient) ABCIQuery(ctx context.Context, in *ABCIQueryRequest, opts ...grpc.CallOption) (*ABCIQueryResponse, error) {
+	out := new(ABCIQueryResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.TendermintProxyService/ABCIQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tendermintProxyServiceClient) GetBlockByHeight(ctx context.Context, in *GetBlockByHeightRequest, opts ...grpc.CallOption) (*GetBlockByHeightResponse, error) {
+	out := new(GetBlockByHeightResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.client.v1alpha1.TendermintProxyService/GetBlockByHeight", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TendermintProxyServiceServer is the server API for TendermintProxyService service.
+type TendermintProxyServiceServer interface {
+	// Status queries the current status.
+	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
+	// Broadcast a transaction asynchronously.
+	BroadcastTxAsync(context.Context, *BroadcastTxAsyncRequest) (*BroadcastTxAsyncResponse, error)
+	// Broadcast a transaction synchronously.
+	BroadcastTxSync(context.Context, *BroadcastTxSyncRequest) (*BroadcastTxSyncResponse, error)
+	// Fetch a transaction by hash.
+	GetTx(context.Context, *GetTxRequest) (*GetTxResponse, error)
+	// ABCIQuery defines a query handler that supports ABCI queries directly to the
+	// application, bypassing Tendermint completely. The ABCI query must contain
+	// a valid and supported path, including app, custom, p2p, and store.
+	ABCIQuery(context.Context, *ABCIQueryRequest) (*ABCIQueryResponse, error)
+	// GetBlockByHeight queries block for given height.
+	GetBlockByHeight(context.Context, *GetBlockByHeightRequest) (*GetBlockByHeightResponse, error)
+}
+
+// UnimplementedTendermintProxyServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedTendermintProxyServiceServer struct {
+}
+
+func (*UnimplementedTendermintProxyServiceServer) GetStatus(ctx context.Context, req *GetStatusRequest) (*GetStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
+}
+func (*UnimplementedTendermintProxyServiceServer) BroadcastTxAsync(ctx context.Context, req *BroadcastTxAsyncRequest) (*BroadcastTxAsyncResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTxAsync not implemented")
+}
+func (*UnimplementedTendermintProxyServiceServer) BroadcastTxSync(ctx context.Context, req *BroadcastTxSyncRequest) (*BroadcastTxSyncResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BroadcastTxSync not implemented")
+}
+func (*UnimplementedTendermintProxyServiceServer) GetTx(ctx context.Context, req *GetTxRequest) (*GetTxResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTx not implemented")
+}
+func (*UnimplementedTendermintProxyServiceServer) ABCIQuery(ctx context.Context, req *ABCIQueryRequest) (*ABCIQueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ABCIQuery not implemented")
+}
+func (*UnimplementedTendermintProxyServiceServer) GetBlockByHeight(ctx context.Context, req *GetBlockByHeightRequest) (*GetBlockByHeightResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockByHeight not implemented")
+}
+
+func RegisterTendermintProxyServiceServer(s grpc1.Server, srv TendermintProxyServiceServer) {
+	s.RegisterService(&_TendermintProxyService_serviceDesc, srv)
+}
+
+func _TendermintProxyService_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TendermintProxyServiceServer).GetStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.TendermintProxyService/GetStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TendermintProxyServiceServer).GetStatus(ctx, req.(*GetStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TendermintProxyService_BroadcastTxAsync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BroadcastTxAsyncRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TendermintProxyServiceServer).BroadcastTxAsync(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.TendermintProxyService/BroadcastTxAsync",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TendermintProxyServiceServer).BroadcastTxAsync(ctx, req.(*BroadcastTxAsyncRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TendermintProxyService_BroadcastTxSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BroadcastTxSyncRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TendermintProxyServiceServer).BroadcastTxSync(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.TendermintProxyService/BroadcastTxSync",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TendermintProxyServiceServer).BroadcastTxSync(ctx, req.(*BroadcastTxSyncRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TendermintProxyService_GetTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTxRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TendermintProxyServiceServer).GetTx(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.TendermintProxyService/GetTx",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TendermintProxyServiceServer).GetTx(ctx, req.(*GetTxRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TendermintProxyService_ABCIQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ABCIQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TendermintProxyServiceServer).ABCIQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.TendermintProxyService/ABCIQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TendermintProxyServiceServer).ABCIQuery(ctx, req.(*ABCIQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TendermintProxyService_GetBlockByHeight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBlockByHeightRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TendermintProxyServiceServer).GetBlockByHeight(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.client.v1alpha1.TendermintProxyService/GetBlockByHeight",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TendermintProxyServiceServer).GetBlockByHeight(ctx, req.(*GetBlockByHeightRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _TendermintProxyService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "penumbra.client.v1alpha1.TendermintProxyService",
+	HandlerType: (*TendermintProxyServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetStatus",
+			Handler:    _TendermintProxyService_GetStatus_Handler,
+		},
+		{
+			MethodName: "BroadcastTxAsync",
+			Handler:    _TendermintProxyService_BroadcastTxAsync_Handler,
+		},
+		{
+			MethodName: "BroadcastTxSync",
+			Handler:    _TendermintProxyService_BroadcastTxSync_Handler,
+		},
+		{
+			MethodName: "GetTx",
+			Handler:    _TendermintProxyService_GetTx_Handler,
+		},
+		{
+			MethodName: "ABCIQuery",
+			Handler:    _TendermintProxyService_ABCIQuery_Handler,
+		},
+		{
+			MethodName: "GetBlockByHeight",
+			Handler:    _TendermintProxyService_GetBlockByHeight_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "penumbra/client/v1alpha1/client.proto",
 }
 
 func (m *CompactBlockRangeRequest) Marshal() (dAtA []byte, err error) {

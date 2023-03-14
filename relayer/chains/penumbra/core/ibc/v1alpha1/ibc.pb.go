@@ -5,10 +5,10 @@ package ibcv1alpha1
 
 import (
 	fmt "fmt"
+	types "github.com/cosmos/cosmos-sdk/codec/types"
 	proto "github.com/cosmos/gogoproto/proto"
-	types "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	types1 "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	v1alpha1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -49,7 +49,7 @@ type IbcAction struct {
 	// .ibc.core.client.v1.MsgUpgradeClient upgrade_client = 16;
 	// .ibc.core.client.v1.MsgSubmitMisbehaviour submit_misbehaviour = 17;
 	// }
-	RawAction *anypb.Any `protobuf:"bytes,1,opt,name=raw_action,json=rawAction,proto3" json:"raw_action,omitempty"`
+	RawAction *types.Any `protobuf:"bytes,1,opt,name=raw_action,json=rawAction,proto3" json:"raw_action,omitempty"`
 }
 
 func (m *IbcAction) Reset()         { *m = IbcAction{} }
@@ -85,7 +85,7 @@ func (m *IbcAction) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_IbcAction proto.InternalMessageInfo
 
-func (m *IbcAction) GetRawAction() *anypb.Any {
+func (m *IbcAction) GetRawAction() *types.Any {
 	if m != nil {
 		return m.RawAction
 	}
@@ -289,7 +289,7 @@ func (m *Ics20Withdrawal) GetSourceChannel() string {
 
 type ClientData struct {
 	ClientId        string     `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
-	ClientState     *anypb.Any `protobuf:"bytes,2,opt,name=client_state,json=clientState,proto3" json:"client_state,omitempty"`
+	ClientState     *types.Any `protobuf:"bytes,2,opt,name=client_state,json=clientState,proto3" json:"client_state,omitempty"`
 	ProcessedTime   string     `protobuf:"bytes,3,opt,name=processed_time,json=processedTime,proto3" json:"processed_time,omitempty"`
 	ProcessedHeight uint64     `protobuf:"varint,4,opt,name=processed_height,json=processedHeight,proto3" json:"processed_height,omitempty"`
 }
@@ -334,7 +334,7 @@ func (m *ClientData) GetClientId() string {
 	return ""
 }
 
-func (m *ClientData) GetClientState() *anypb.Any {
+func (m *ClientData) GetClientState() *types.Any {
 	if m != nil {
 		return m.ClientState
 	}
@@ -400,7 +400,7 @@ func (m *ClientCounter) GetCounter() uint64 {
 }
 
 type ConsensusState struct {
-	ConsensusState *anypb.Any `protobuf:"bytes,1,opt,name=consensus_state,json=consensusState,proto3" json:"consensus_state,omitempty"`
+	ConsensusState *types.Any `protobuf:"bytes,1,opt,name=consensus_state,json=consensusState,proto3" json:"consensus_state,omitempty"`
 }
 
 func (m *ConsensusState) Reset()         { *m = ConsensusState{} }
@@ -436,7 +436,7 @@ func (m *ConsensusState) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ConsensusState proto.InternalMessageInfo
 
-func (m *ConsensusState) GetConsensusState() *anypb.Any {
+func (m *ConsensusState) GetConsensusState() *types.Any {
 	if m != nil {
 		return m.ConsensusState
 	}
@@ -444,7 +444,7 @@ func (m *ConsensusState) GetConsensusState() *anypb.Any {
 }
 
 type VerifiedHeights struct {
-	Heights []*types.Height `protobuf:"bytes,1,rep,name=heights,proto3" json:"heights,omitempty"`
+	Heights []*types1.Height `protobuf:"bytes,1,rep,name=heights,proto3" json:"heights,omitempty"`
 }
 
 func (m *VerifiedHeights) Reset()         { *m = VerifiedHeights{} }
@@ -480,7 +480,7 @@ func (m *VerifiedHeights) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_VerifiedHeights proto.InternalMessageInfo
 
-func (m *VerifiedHeights) GetHeights() []*types.Height {
+func (m *VerifiedHeights) GetHeights() []*types1.Height {
 	if m != nil {
 		return m.Heights
 	}
@@ -1291,7 +1291,7 @@ func (m *IbcAction) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.RawAction == nil {
-				m.RawAction = &anypb.Any{}
+				m.RawAction = &types.Any{}
 			}
 			if err := m.RawAction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1911,7 +1911,7 @@ func (m *ClientData) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ClientState == nil {
-				m.ClientState = &anypb.Any{}
+				m.ClientState = &types.Any{}
 			}
 			if err := m.ClientState.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2117,7 +2117,7 @@ func (m *ConsensusState) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ConsensusState == nil {
-				m.ConsensusState = &anypb.Any{}
+				m.ConsensusState = &types.Any{}
 			}
 			if err := m.ConsensusState.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2202,7 +2202,7 @@ func (m *VerifiedHeights) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Heights = append(m.Heights, &types.Height{})
+			m.Heights = append(m.Heights, &types1.Height{})
 			if err := m.Heights[len(m.Heights)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

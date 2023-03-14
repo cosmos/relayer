@@ -19,7 +19,6 @@ buf generate --template proto/buf.gen.penumbra.yaml buf.build/penumbra-zone/penu
 
 # move proto files to the right places
 
-ls -R
 #
 # Note: Proto files are suffixed with the current binary version.
 cp -r github.com/cosmos/relayer/v2/* ./

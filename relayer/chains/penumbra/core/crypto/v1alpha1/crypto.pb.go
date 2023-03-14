@@ -122,6 +122,196 @@ func (m *Address) GetInner() []byte {
 	return nil
 }
 
+type AddressView struct {
+	// Types that are valid to be assigned to AddressView:
+	//
+	//	*AddressView_Visible_
+	//	*AddressView_Opaque_
+	AddressView isAddressView_AddressView `protobuf_oneof:"address_view"`
+}
+
+func (m *AddressView) Reset()         { *m = AddressView{} }
+func (m *AddressView) String() string { return proto.CompactTextString(m) }
+func (*AddressView) ProtoMessage()    {}
+func (*AddressView) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{2}
+}
+func (m *AddressView) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AddressView) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AddressView.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AddressView) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddressView.Merge(m, src)
+}
+func (m *AddressView) XXX_Size() int {
+	return m.Size()
+}
+func (m *AddressView) XXX_DiscardUnknown() {
+	xxx_messageInfo_AddressView.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AddressView proto.InternalMessageInfo
+
+type isAddressView_AddressView interface {
+	isAddressView_AddressView()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type AddressView_Visible_ struct {
+	Visible *AddressView_Visible `protobuf:"bytes,1,opt,name=visible,proto3,oneof" json:"visible,omitempty"`
+}
+type AddressView_Opaque_ struct {
+	Opaque *AddressView_Opaque `protobuf:"bytes,2,opt,name=opaque,proto3,oneof" json:"opaque,omitempty"`
+}
+
+func (*AddressView_Visible_) isAddressView_AddressView() {}
+func (*AddressView_Opaque_) isAddressView_AddressView()  {}
+
+func (m *AddressView) GetAddressView() isAddressView_AddressView {
+	if m != nil {
+		return m.AddressView
+	}
+	return nil
+}
+
+func (m *AddressView) GetVisible() *AddressView_Visible {
+	if x, ok := m.GetAddressView().(*AddressView_Visible_); ok {
+		return x.Visible
+	}
+	return nil
+}
+
+func (m *AddressView) GetOpaque() *AddressView_Opaque {
+	if x, ok := m.GetAddressView().(*AddressView_Opaque_); ok {
+		return x.Opaque
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*AddressView) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*AddressView_Visible_)(nil),
+		(*AddressView_Opaque_)(nil),
+	}
+}
+
+type AddressView_Visible struct {
+	Address        *Address        `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Index          *AddressIndex   `protobuf:"bytes,2,opt,name=index,proto3" json:"index,omitempty"`
+	AccountGroupId *AccountGroupId `protobuf:"bytes,3,opt,name=account_group_id,json=accountGroupId,proto3" json:"account_group_id,omitempty"`
+}
+
+func (m *AddressView_Visible) Reset()         { *m = AddressView_Visible{} }
+func (m *AddressView_Visible) String() string { return proto.CompactTextString(m) }
+func (*AddressView_Visible) ProtoMessage()    {}
+func (*AddressView_Visible) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{2, 0}
+}
+func (m *AddressView_Visible) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AddressView_Visible) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AddressView_Visible.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AddressView_Visible) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddressView_Visible.Merge(m, src)
+}
+func (m *AddressView_Visible) XXX_Size() int {
+	return m.Size()
+}
+func (m *AddressView_Visible) XXX_DiscardUnknown() {
+	xxx_messageInfo_AddressView_Visible.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AddressView_Visible proto.InternalMessageInfo
+
+func (m *AddressView_Visible) GetAddress() *Address {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
+func (m *AddressView_Visible) GetIndex() *AddressIndex {
+	if m != nil {
+		return m.Index
+	}
+	return nil
+}
+
+func (m *AddressView_Visible) GetAccountGroupId() *AccountGroupId {
+	if m != nil {
+		return m.AccountGroupId
+	}
+	return nil
+}
+
+type AddressView_Opaque struct {
+	Address *Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *AddressView_Opaque) Reset()         { *m = AddressView_Opaque{} }
+func (m *AddressView_Opaque) String() string { return proto.CompactTextString(m) }
+func (*AddressView_Opaque) ProtoMessage()    {}
+func (*AddressView_Opaque) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{2, 1}
+}
+func (m *AddressView_Opaque) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AddressView_Opaque) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AddressView_Opaque.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AddressView_Opaque) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddressView_Opaque.Merge(m, src)
+}
+func (m *AddressView_Opaque) XXX_Size() int {
+	return m.Size()
+}
+func (m *AddressView_Opaque) XXX_DiscardUnknown() {
+	xxx_messageInfo_AddressView_Opaque.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AddressView_Opaque proto.InternalMessageInfo
+
+func (m *AddressView_Opaque) GetAddress() *Address {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
 type SpendKey struct {
 	Inner []byte `protobuf:"bytes,1,opt,name=inner,proto3" json:"inner,omitempty"`
 }
@@ -130,7 +320,7 @@ func (m *SpendKey) Reset()         { *m = SpendKey{} }
 func (m *SpendKey) String() string { return proto.CompactTextString(m) }
 func (*SpendKey) ProtoMessage()    {}
 func (*SpendKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{2}
+	return fileDescriptor_5c23a0b4440af102, []int{3}
 }
 func (m *SpendKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -174,7 +364,7 @@ func (m *SpendVerificationKey) Reset()         { *m = SpendVerificationKey{} }
 func (m *SpendVerificationKey) String() string { return proto.CompactTextString(m) }
 func (*SpendVerificationKey) ProtoMessage()    {}
 func (*SpendVerificationKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{3}
+	return fileDescriptor_5c23a0b4440af102, []int{4}
 }
 func (m *SpendVerificationKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -218,7 +408,7 @@ func (m *FullViewingKey) Reset()         { *m = FullViewingKey{} }
 func (m *FullViewingKey) String() string { return proto.CompactTextString(m) }
 func (*FullViewingKey) ProtoMessage()    {}
 func (*FullViewingKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{4}
+	return fileDescriptor_5c23a0b4440af102, []int{5}
 }
 func (m *FullViewingKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -254,22 +444,22 @@ func (m *FullViewingKey) GetInner() []byte {
 	return nil
 }
 
-type AccountID struct {
+type AccountGroupId struct {
 	Inner []byte `protobuf:"bytes,1,opt,name=inner,proto3" json:"inner,omitempty"`
 }
 
-func (m *AccountID) Reset()         { *m = AccountID{} }
-func (m *AccountID) String() string { return proto.CompactTextString(m) }
-func (*AccountID) ProtoMessage()    {}
-func (*AccountID) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{5}
+func (m *AccountGroupId) Reset()         { *m = AccountGroupId{} }
+func (m *AccountGroupId) String() string { return proto.CompactTextString(m) }
+func (*AccountGroupId) ProtoMessage()    {}
+func (*AccountGroupId) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{6}
 }
-func (m *AccountID) XXX_Unmarshal(b []byte) error {
+func (m *AccountGroupId) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *AccountID) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AccountGroupId) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_AccountID.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AccountGroupId.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -279,19 +469,19 @@ func (m *AccountID) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *AccountID) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountID.Merge(m, src)
+func (m *AccountGroupId) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountGroupId.Merge(m, src)
 }
-func (m *AccountID) XXX_Size() int {
+func (m *AccountGroupId) XXX_Size() int {
 	return m.Size()
 }
-func (m *AccountID) XXX_DiscardUnknown() {
-	xxx_messageInfo_AccountID.DiscardUnknown(m)
+func (m *AccountGroupId) XXX_DiscardUnknown() {
+	xxx_messageInfo_AccountGroupId.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AccountID proto.InternalMessageInfo
+var xxx_messageInfo_AccountGroupId proto.InternalMessageInfo
 
-func (m *AccountID) GetInner() []byte {
+func (m *AccountGroupId) GetInner() []byte {
 	if m != nil {
 		return m.Inner
 	}
@@ -306,7 +496,7 @@ func (m *Diversifier) Reset()         { *m = Diversifier{} }
 func (m *Diversifier) String() string { return proto.CompactTextString(m) }
 func (*Diversifier) ProtoMessage()    {}
 func (*Diversifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{6}
+	return fileDescriptor_5c23a0b4440af102, []int{7}
 }
 func (m *Diversifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -343,14 +533,15 @@ func (m *Diversifier) GetInner() []byte {
 }
 
 type AddressIndex struct {
-	Inner []byte `protobuf:"bytes,1,opt,name=inner,proto3" json:"inner,omitempty"`
+	Account    uint32 `protobuf:"varint,2,opt,name=account,proto3" json:"account,omitempty"`
+	Randomizer []byte `protobuf:"bytes,3,opt,name=randomizer,proto3" json:"randomizer,omitempty"`
 }
 
 func (m *AddressIndex) Reset()         { *m = AddressIndex{} }
 func (m *AddressIndex) String() string { return proto.CompactTextString(m) }
 func (*AddressIndex) ProtoMessage()    {}
 func (*AddressIndex) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{7}
+	return fileDescriptor_5c23a0b4440af102, []int{8}
 }
 func (m *AddressIndex) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -379,9 +570,16 @@ func (m *AddressIndex) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AddressIndex proto.InternalMessageInfo
 
-func (m *AddressIndex) GetInner() []byte {
+func (m *AddressIndex) GetAccount() uint32 {
 	if m != nil {
-		return m.Inner
+		return m.Account
+	}
+	return 0
+}
+
+func (m *AddressIndex) GetRandomizer() []byte {
+	if m != nil {
+		return m.Randomizer
 	}
 	return nil
 }
@@ -394,7 +592,7 @@ func (m *StateCommitment) Reset()         { *m = StateCommitment{} }
 func (m *StateCommitment) String() string { return proto.CompactTextString(m) }
 func (*StateCommitment) ProtoMessage()    {}
 func (*StateCommitment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{8}
+	return fileDescriptor_5c23a0b4440af102, []int{9}
 }
 func (m *StateCommitment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -438,7 +636,7 @@ func (m *BalanceCommitment) Reset()         { *m = BalanceCommitment{} }
 func (m *BalanceCommitment) String() string { return proto.CompactTextString(m) }
 func (*BalanceCommitment) ProtoMessage()    {}
 func (*BalanceCommitment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{9}
+	return fileDescriptor_5c23a0b4440af102, []int{10}
 }
 func (m *BalanceCommitment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -482,7 +680,7 @@ func (m *AssetId) Reset()         { *m = AssetId{} }
 func (m *AssetId) String() string { return proto.CompactTextString(m) }
 func (*AssetId) ProtoMessage()    {}
 func (*AssetId) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{10}
+	return fileDescriptor_5c23a0b4440af102, []int{11}
 }
 func (m *AssetId) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -527,7 +725,7 @@ func (m *Amount) Reset()         { *m = Amount{} }
 func (m *Amount) String() string { return proto.CompactTextString(m) }
 func (*Amount) ProtoMessage()    {}
 func (*Amount) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{11}
+	return fileDescriptor_5c23a0b4440af102, []int{12}
 }
 func (m *Amount) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -578,7 +776,7 @@ func (m *Denom) Reset()         { *m = Denom{} }
 func (m *Denom) String() string { return proto.CompactTextString(m) }
 func (*Denom) ProtoMessage()    {}
 func (*Denom) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{12}
+	return fileDescriptor_5c23a0b4440af102, []int{13}
 }
 func (m *Denom) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -623,7 +821,7 @@ func (m *Value) Reset()         { *m = Value{} }
 func (m *Value) String() string { return proto.CompactTextString(m) }
 func (*Value) ProtoMessage()    {}
 func (*Value) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{13}
+	return fileDescriptor_5c23a0b4440af102, []int{14}
 }
 func (m *Value) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -674,7 +872,7 @@ func (m *MerkleRoot) Reset()         { *m = MerkleRoot{} }
 func (m *MerkleRoot) String() string { return proto.CompactTextString(m) }
 func (*MerkleRoot) ProtoMessage()    {}
 func (*MerkleRoot) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{14}
+	return fileDescriptor_5c23a0b4440af102, []int{15}
 }
 func (m *MerkleRoot) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -719,7 +917,7 @@ func (m *Asset) Reset()         { *m = Asset{} }
 func (m *Asset) String() string { return proto.CompactTextString(m) }
 func (*Asset) ProtoMessage()    {}
 func (*Asset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{15}
+	return fileDescriptor_5c23a0b4440af102, []int{16}
 }
 func (m *Asset) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -771,7 +969,7 @@ func (m *IdentityKey) Reset()         { *m = IdentityKey{} }
 func (m *IdentityKey) String() string { return proto.CompactTextString(m) }
 func (*IdentityKey) ProtoMessage()    {}
 func (*IdentityKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{16}
+	return fileDescriptor_5c23a0b4440af102, []int{17}
 }
 func (m *IdentityKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -816,7 +1014,7 @@ func (m *GovernanceKey) Reset()         { *m = GovernanceKey{} }
 func (m *GovernanceKey) String() string { return proto.CompactTextString(m) }
 func (*GovernanceKey) ProtoMessage()    {}
 func (*GovernanceKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{17}
+	return fileDescriptor_5c23a0b4440af102, []int{18}
 }
 func (m *GovernanceKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -860,7 +1058,7 @@ func (m *ConsensusKey) Reset()         { *m = ConsensusKey{} }
 func (m *ConsensusKey) String() string { return proto.CompactTextString(m) }
 func (*ConsensusKey) ProtoMessage()    {}
 func (*ConsensusKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{18}
+	return fileDescriptor_5c23a0b4440af102, []int{19}
 }
 func (m *ConsensusKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -906,7 +1104,7 @@ func (m *Note) Reset()         { *m = Note{} }
 func (m *Note) String() string { return proto.CompactTextString(m) }
 func (*Note) ProtoMessage()    {}
 func (*Note) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{19}
+	return fileDescriptor_5c23a0b4440af102, []int{20}
 }
 func (m *Note) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -966,7 +1164,7 @@ func (m *NoteCiphertext) Reset()         { *m = NoteCiphertext{} }
 func (m *NoteCiphertext) String() string { return proto.CompactTextString(m) }
 func (*NoteCiphertext) ProtoMessage()    {}
 func (*NoteCiphertext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{20}
+	return fileDescriptor_5c23a0b4440af102, []int{21}
 }
 func (m *NoteCiphertext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1010,7 +1208,7 @@ func (m *Nullifier) Reset()         { *m = Nullifier{} }
 func (m *Nullifier) String() string { return proto.CompactTextString(m) }
 func (*Nullifier) ProtoMessage()    {}
 func (*Nullifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{21}
+	return fileDescriptor_5c23a0b4440af102, []int{22}
 }
 func (m *Nullifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1054,7 +1252,7 @@ func (m *SpendAuthSignature) Reset()         { *m = SpendAuthSignature{} }
 func (m *SpendAuthSignature) String() string { return proto.CompactTextString(m) }
 func (*SpendAuthSignature) ProtoMessage()    {}
 func (*SpendAuthSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{22}
+	return fileDescriptor_5c23a0b4440af102, []int{23}
 }
 func (m *SpendAuthSignature) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1098,7 +1296,7 @@ func (m *BindingSignature) Reset()         { *m = BindingSignature{} }
 func (m *BindingSignature) String() string { return proto.CompactTextString(m) }
 func (*BindingSignature) ProtoMessage()    {}
 func (*BindingSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{23}
+	return fileDescriptor_5c23a0b4440af102, []int{24}
 }
 func (m *BindingSignature) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1150,7 +1348,7 @@ func (m *NotePayload) Reset()         { *m = NotePayload{} }
 func (m *NotePayload) String() string { return proto.CompactTextString(m) }
 func (*NotePayload) ProtoMessage()    {}
 func (*NotePayload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{24}
+	return fileDescriptor_5c23a0b4440af102, []int{25}
 }
 func (m *NotePayload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1211,7 +1409,7 @@ func (m *StateCommitmentProof) Reset()         { *m = StateCommitmentProof{} }
 func (m *StateCommitmentProof) String() string { return proto.CompactTextString(m) }
 func (*StateCommitmentProof) ProtoMessage()    {}
 func (*StateCommitmentProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{25}
+	return fileDescriptor_5c23a0b4440af102, []int{26}
 }
 func (m *StateCommitmentProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1272,7 +1470,7 @@ func (m *MerklePathChunk) Reset()         { *m = MerklePathChunk{} }
 func (m *MerklePathChunk) String() string { return proto.CompactTextString(m) }
 func (*MerklePathChunk) ProtoMessage()    {}
 func (*MerklePathChunk) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{26}
+	return fileDescriptor_5c23a0b4440af102, []int{27}
 }
 func (m *MerklePathChunk) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1331,7 +1529,7 @@ func (m *Clue) Reset()         { *m = Clue{} }
 func (m *Clue) String() string { return proto.CompactTextString(m) }
 func (*Clue) ProtoMessage()    {}
 func (*Clue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{27}
+	return fileDescriptor_5c23a0b4440af102, []int{28}
 }
 func (m *Clue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1376,7 +1574,7 @@ func (m *EffectHash) Reset()         { *m = EffectHash{} }
 func (m *EffectHash) String() string { return proto.CompactTextString(m) }
 func (*EffectHash) ProtoMessage()    {}
 func (*EffectHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{28}
+	return fileDescriptor_5c23a0b4440af102, []int{29}
 }
 func (m *EffectHash) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1421,7 +1619,7 @@ func (m *ZKOutputProof) Reset()         { *m = ZKOutputProof{} }
 func (m *ZKOutputProof) String() string { return proto.CompactTextString(m) }
 func (*ZKOutputProof) ProtoMessage()    {}
 func (*ZKOutputProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{29}
+	return fileDescriptor_5c23a0b4440af102, []int{30}
 }
 func (m *ZKOutputProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1466,7 +1664,7 @@ func (m *ZKSpendProof) Reset()         { *m = ZKSpendProof{} }
 func (m *ZKSpendProof) String() string { return proto.CompactTextString(m) }
 func (*ZKSpendProof) ProtoMessage()    {}
 func (*ZKSpendProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{30}
+	return fileDescriptor_5c23a0b4440af102, []int{31}
 }
 func (m *ZKSpendProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1511,7 +1709,7 @@ func (m *ZKSwapProof) Reset()         { *m = ZKSwapProof{} }
 func (m *ZKSwapProof) String() string { return proto.CompactTextString(m) }
 func (*ZKSwapProof) ProtoMessage()    {}
 func (*ZKSwapProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{31}
+	return fileDescriptor_5c23a0b4440af102, []int{32}
 }
 func (m *ZKSwapProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1550,10 +1748,13 @@ func (m *ZKSwapProof) GetInner() []byte {
 func init() {
 	proto.RegisterType((*Fee)(nil), "penumbra.core.crypto.v1alpha1.Fee")
 	proto.RegisterType((*Address)(nil), "penumbra.core.crypto.v1alpha1.Address")
+	proto.RegisterType((*AddressView)(nil), "penumbra.core.crypto.v1alpha1.AddressView")
+	proto.RegisterType((*AddressView_Visible)(nil), "penumbra.core.crypto.v1alpha1.AddressView.Visible")
+	proto.RegisterType((*AddressView_Opaque)(nil), "penumbra.core.crypto.v1alpha1.AddressView.Opaque")
 	proto.RegisterType((*SpendKey)(nil), "penumbra.core.crypto.v1alpha1.SpendKey")
 	proto.RegisterType((*SpendVerificationKey)(nil), "penumbra.core.crypto.v1alpha1.SpendVerificationKey")
 	proto.RegisterType((*FullViewingKey)(nil), "penumbra.core.crypto.v1alpha1.FullViewingKey")
-	proto.RegisterType((*AccountID)(nil), "penumbra.core.crypto.v1alpha1.AccountID")
+	proto.RegisterType((*AccountGroupId)(nil), "penumbra.core.crypto.v1alpha1.AccountGroupId")
 	proto.RegisterType((*Diversifier)(nil), "penumbra.core.crypto.v1alpha1.Diversifier")
 	proto.RegisterType((*AddressIndex)(nil), "penumbra.core.crypto.v1alpha1.AddressIndex")
 	proto.RegisterType((*StateCommitment)(nil), "penumbra.core.crypto.v1alpha1.StateCommitment")
@@ -1587,64 +1788,74 @@ func init() {
 }
 
 var fileDescriptor_5c23a0b4440af102 = []byte{
-	// 910 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x96, 0xcd, 0x6e, 0xdb, 0x46,
-	0x10, 0xc7, 0x43, 0xca, 0x1f, 0xf2, 0xc8, 0x96, 0x5b, 0xc2, 0x07, 0xa3, 0xad, 0x15, 0x87, 0x4e,
-	0xd2, 0x24, 0x68, 0x25, 0xd8, 0x06, 0x7a, 0x50, 0x51, 0xa0, 0x12, 0xdd, 0xa4, 0x86, 0x90, 0x54,
-	0xa0, 0x0b, 0xb7, 0x30, 0x0c, 0x08, 0x6b, 0x72, 0x24, 0x2e, 0x44, 0xee, 0x12, 0xcb, 0xa5, 0x12,
-	0xa1, 0x0f, 0x50, 0xf4, 0xd6, 0x73, 0x8f, 0x3d, 0xf6, 0x0d, 0xfa, 0x06, 0x45, 0x4f, 0x39, 0xe6,
-	0xd8, 0xda, 0xb7, 0x3e, 0x45, 0xb1, 0xe4, 0x52, 0x71, 0x8d, 0x52, 0xf2, 0xa5, 0x40, 0x6f, 0x1c,
-	0xce, 0x6f, 0x66, 0x67, 0xff, 0x33, 0x23, 0x11, 0x9e, 0xc4, 0xc8, 0xd2, 0xe8, 0x42, 0x90, 0x96,
-	0xc7, 0x05, 0xb6, 0x3c, 0x31, 0x8d, 0x25, 0x6f, 0x4d, 0xf6, 0x49, 0x18, 0x07, 0x64, 0x5f, 0xdb,
-	0xcd, 0x58, 0x70, 0xc9, 0xad, 0x9d, 0x82, 0x6d, 0x2a, 0xb6, 0xa9, 0x7d, 0x05, 0x6b, 0x7f, 0x6f,
-	0x40, 0xe5, 0x29, 0xa2, 0xf5, 0x19, 0xac, 0x90, 0x88, 0xa7, 0x4c, 0x6e, 0x1b, 0xbb, 0xc6, 0xa3,
-	0xda, 0xc1, 0x83, 0xe6, 0xdc, 0xb8, 0x66, 0x27, 0x83, 0x5d, 0x1d, 0x64, 0x75, 0xa0, 0x4a, 0x92,
-	0x04, 0xe5, 0x80, 0xfa, 0xdb, 0x66, 0x96, 0xe0, 0xe1, 0xa2, 0x04, 0x0a, 0x3f, 0xf6, 0xdd, 0x55,
-	0x92, 0x3f, 0xd8, 0x77, 0x61, 0xb5, 0xe3, 0xfb, 0x02, 0x93, 0xc4, 0xda, 0x82, 0x65, 0xca, 0x18,
-	0x8a, 0xac, 0x96, 0x75, 0x37, 0x37, 0xec, 0x5d, 0xa8, 0x9e, 0xc4, 0xc8, 0xfc, 0x1e, 0x4e, 0x4b,
-	0x88, 0x8f, 0x60, 0x2b, 0x23, 0x4e, 0x51, 0xd0, 0x21, 0xf5, 0x88, 0xa4, 0x9c, 0x95, 0xd3, 0x0f,
-	0xa1, 0xfe, 0x34, 0x0d, 0xc3, 0x53, 0x8a, 0x2f, 0x29, 0x1b, 0x95, 0x73, 0xf7, 0x60, 0xad, 0xe3,
-	0x79, 0xea, 0x9a, 0xc7, 0x47, 0x25, 0xc8, 0x1e, 0xd4, 0x8e, 0xe8, 0x04, 0x45, 0x42, 0x87, 0x14,
-	0x45, 0x09, 0x74, 0x1f, 0xd6, 0xf5, 0x05, 0x8f, 0x99, 0x8f, 0xaf, 0x4a, 0xa8, 0x0f, 0x61, 0xf3,
-	0x44, 0x12, 0x89, 0x0e, 0x8f, 0x22, 0x2a, 0x23, 0x64, 0xb2, 0x04, 0x7c, 0x0c, 0xef, 0x76, 0x49,
-	0x48, 0x98, 0xb7, 0x18, 0x55, 0xd2, 0xe6, 0x2a, 0x97, 0x00, 0x8f, 0x60, 0x25, 0x6f, 0xa8, 0x55,
-	0x07, 0x33, 0xe4, 0x99, 0x73, 0xc9, 0x35, 0x43, 0xae, 0xec, 0x80, 0x66, 0x2d, 0x5d, 0x72, 0xcd,
-	0x80, 0xda, 0x3b, 0xb0, 0x7c, 0x84, 0x8c, 0x47, 0x2a, 0x91, 0xaf, 0x1e, 0x32, 0x76, 0xcd, 0xcd,
-	0x0d, 0xfb, 0x07, 0x03, 0x96, 0x4f, 0x49, 0x98, 0xfe, 0x1f, 0x06, 0xca, 0x06, 0x78, 0x8e, 0x62,
-	0x1c, 0xa2, 0xcb, 0x79, 0x99, 0x32, 0xdf, 0xc1, 0x72, 0x16, 0x67, 0x7d, 0x02, 0x26, 0xf5, 0x75,
-	0xa9, 0xb7, 0x3d, 0xc9, 0xa4, 0xbe, 0xd5, 0x2e, 0x64, 0xc8, 0x8b, 0xbc, 0xbf, 0x20, 0x34, 0xd3,
-	0xae, 0x10, 0x6b, 0x07, 0x6a, 0xc7, 0x3e, 0x32, 0x49, 0xe5, 0x54, 0x4d, 0x5f, 0x1d, 0x4c, 0x3a,
-	0xd6, 0xe5, 0x99, 0x74, 0x6c, 0xdf, 0x85, 0x8d, 0x67, 0x7c, 0x82, 0x82, 0xa9, 0x1e, 0x6b, 0x60,
-	0x34, 0x03, 0x46, 0x63, 0x35, 0x50, 0x0e, 0x67, 0x09, 0xb2, 0x24, 0x4d, 0xca, 0xc7, 0xf7, 0x27,
-	0x03, 0x96, 0x5e, 0x70, 0x89, 0xaa, 0xd4, 0x89, 0x6a, 0x8d, 0xbe, 0xe5, 0xa2, 0x52, 0xb3, 0x36,
-	0xba, 0x79, 0x88, 0x4a, 0x2d, 0x12, 0xc4, 0xbc, 0x17, 0xeb, 0x6e, 0x6e, 0x58, 0x9f, 0xc3, 0x2a,
-	0xc9, 0x27, 0x7a, 0xbb, 0x72, 0x3b, 0xe5, 0x72, 0xda, 0x2d, 0xc2, 0xd4, 0x0e, 0xaa, 0xda, 0x1c,
-	0x1a, 0x07, 0x28, 0x24, 0xbe, 0x92, 0xe5, 0x3b, 0xf8, 0x22, 0x0d, 0xc3, 0x79, 0xeb, 0xf5, 0x04,
-	0xac, 0x6c, 0xf9, 0x3b, 0xa9, 0x0c, 0x4e, 0xe8, 0x88, 0x11, 0x99, 0x0a, 0x2c, 0x9d, 0xf7, 0x77,
-	0xba, 0x94, 0xf9, 0x94, 0x8d, 0x16, 0x91, 0x7f, 0x1a, 0x50, 0x53, 0x15, 0xf6, 0xc9, 0x34, 0xe4,
-	0xc4, 0xb7, 0xbe, 0x81, 0x4d, 0xc6, 0x25, 0x0e, 0xbc, 0xd9, 0xce, 0x69, 0x39, 0x9b, 0x0b, 0xae,
-	0x7e, 0x63, 0xa9, 0xdd, 0xba, 0x4a, 0x73, 0x6d, 0x73, 0xf7, 0x60, 0x03, 0xe3, 0x00, 0x23, 0x14,
-	0x24, 0x1c, 0x8c, 0x71, 0xaa, 0x95, 0x5e, 0x9f, 0xbd, 0x54, 0x1d, 0xfe, 0x1a, 0xea, 0xc8, 0xb2,
-	0xcc, 0xe8, 0x0f, 0x54, 0x02, 0xad, 0xfb, 0xc7, 0x0b, 0x0e, 0xff, 0xa7, 0xc6, 0xee, 0xc6, 0x2c,
-	0x89, 0x72, 0xd8, 0x6f, 0x0c, 0xd8, 0xba, 0x51, 0x5e, 0x5f, 0x70, 0x3e, 0xfc, 0xef, 0x2e, 0xfb,
-	0x1e, 0x54, 0x63, 0x9e, 0x50, 0xf5, 0xfb, 0xac, 0x7f, 0x5b, 0x66, 0xb6, 0xd5, 0x83, 0x35, 0x92,
-	0xca, 0x60, 0x10, 0x13, 0x19, 0x6c, 0x57, 0x76, 0x2b, 0xb7, 0x38, 0x2e, 0x5f, 0xf3, 0x3e, 0x91,
-	0x81, 0x13, 0xa4, 0x6c, 0xec, 0x56, 0x55, 0x02, 0x65, 0xda, 0x01, 0x6c, 0xde, 0x70, 0x5a, 0xef,
-	0xc3, 0x5a, 0x42, 0x2f, 0x42, 0xca, 0x46, 0x83, 0x7d, 0xdd, 0xeb, 0xaa, 0x7e, 0xb1, 0x7f, 0xdd,
-	0x79, 0xa0, 0x3b, 0x50, 0x38, 0x0f, 0xae, 0x3b, 0x0f, 0x33, 0xe1, 0xdf, 0x3a, 0x0f, 0xed, 0x0f,
-	0x60, 0xc9, 0xd1, 0x9b, 0xf2, 0x2f, 0x63, 0x64, 0x03, 0x7c, 0x31, 0x1c, 0xa2, 0x27, 0xbf, 0x24,
-	0x49, 0x50, 0xc2, 0x3c, 0x80, 0x8d, 0xb3, 0xde, 0x57, 0xa9, 0x8c, 0x53, 0x2d, 0x7f, 0xe9, 0xdf,
-	0xc8, 0x59, 0x2f, 0x9b, 0xf4, 0x79, 0xd4, 0x1e, 0xd4, 0xce, 0x7a, 0x27, 0x2f, 0x49, 0x3c, 0x07,
-	0xea, 0xfe, 0x6a, 0xfe, 0x76, 0xd9, 0x30, 0x5e, 0x5f, 0x36, 0x8c, 0x3f, 0x2e, 0x1b, 0xc6, 0x8f,
-	0x57, 0x8d, 0x3b, 0xaf, 0xaf, 0x1a, 0x77, 0xde, 0x5c, 0x35, 0xee, 0xc0, 0x3d, 0x8f, 0x47, 0xf3,
-	0x55, 0xef, 0xd6, 0x9c, 0xec, 0x45, 0x5f, 0x7d, 0x66, 0xf4, 0x8d, 0xb3, 0x6f, 0x47, 0x54, 0x06,
-	0xe9, 0x45, 0xd3, 0xe3, 0x51, 0xcb, 0xe3, 0x49, 0xc4, 0x93, 0x96, 0xc0, 0x90, 0x4c, 0x51, 0xb4,
-	0x26, 0x07, 0xb3, 0x47, 0x2f, 0x20, 0x94, 0x25, 0xad, 0xb9, 0x1f, 0x30, 0x9f, 0xe6, 0x76, 0x61,
-	0xfe, 0x6c, 0x56, 0xfa, 0x8e, 0xf3, 0x8b, 0xb9, 0xd3, 0x2f, 0xca, 0x71, 0x54, 0x39, 0xf9, 0xe9,
-	0xcd, 0x53, 0x4d, 0xfd, 0xfe, 0xd6, 0x7f, 0xae, 0xfc, 0xe7, 0xb9, 0xff, 0xbc, 0xf0, 0x5f, 0x9a,
-	0x8f, 0xe7, 0xfa, 0xcf, 0x9f, 0xf5, 0xbb, 0xcf, 0x51, 0x12, 0x9f, 0x48, 0xf2, 0x97, 0xb9, 0x5b,
-	0xb0, 0xed, 0xb6, 0x82, 0xdb, 0xed, 0x9c, 0x6e, 0xb7, 0x0b, 0xfc, 0x62, 0x25, 0xfb, 0xbc, 0x3a,
-	0xfc, 0x3b, 0x00, 0x00, 0xff, 0xff, 0xc5, 0x93, 0x3a, 0x32, 0x8c, 0x09, 0x00, 0x00,
+	// 1060 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x56, 0x4f, 0x6f, 0xe3, 0x44,
+	0x14, 0xaf, 0x9d, 0xb6, 0x69, 0x5f, 0xd2, 0x74, 0xb1, 0x7a, 0xa8, 0x0a, 0xcd, 0x76, 0xdd, 0x6e,
+	0xd9, 0x5d, 0x20, 0x51, 0x5b, 0x89, 0x43, 0x10, 0x12, 0x4d, 0x96, 0x6d, 0x4b, 0xb4, 0xdd, 0xc8,
+	0x45, 0x5d, 0x54, 0x55, 0x8a, 0xa6, 0xf6, 0x6b, 0x3c, 0x8a, 0x33, 0x63, 0xec, 0x71, 0xba, 0x81,
+	0x0f, 0x80, 0xb8, 0x71, 0xe6, 0xc8, 0x91, 0x6f, 0xc0, 0x37, 0x40, 0x9c, 0xf6, 0xb8, 0x47, 0x68,
+	0x0f, 0x48, 0x9c, 0xf8, 0x08, 0x68, 0xec, 0x71, 0x36, 0xad, 0xd6, 0x49, 0x01, 0x21, 0x71, 0x9b,
+	0x37, 0xef, 0xf7, 0x7e, 0xf3, 0xfe, 0xdb, 0xf0, 0xc8, 0x47, 0x16, 0xf5, 0xce, 0x02, 0x52, 0xb5,
+	0x79, 0x80, 0x55, 0x3b, 0x18, 0xf8, 0x82, 0x57, 0xfb, 0x5b, 0xc4, 0xf3, 0x5d, 0xb2, 0xa5, 0xe4,
+	0x8a, 0x1f, 0x70, 0xc1, 0x8d, 0xd5, 0x14, 0x5b, 0x91, 0xd8, 0x8a, 0xd2, 0xa5, 0x58, 0xf3, 0x1b,
+	0x0d, 0x72, 0x4f, 0x10, 0x8d, 0x8f, 0x61, 0x96, 0xf4, 0x78, 0xc4, 0xc4, 0xb2, 0xb6, 0xa6, 0x3d,
+	0x28, 0x6c, 0xdf, 0xaf, 0x8c, 0xb5, 0xab, 0xec, 0xc6, 0x60, 0x4b, 0x19, 0x19, 0xbb, 0x30, 0x47,
+	0xc2, 0x10, 0x45, 0x9b, 0x3a, 0xcb, 0x7a, 0x4c, 0xb0, 0x39, 0x89, 0x40, 0xc2, 0x0f, 0x1c, 0x2b,
+	0x4f, 0x92, 0x83, 0x79, 0x17, 0xf2, 0xbb, 0x8e, 0x13, 0x60, 0x18, 0x1a, 0x4b, 0x30, 0x43, 0x19,
+	0xc3, 0x20, 0xf6, 0xa5, 0x68, 0x25, 0x82, 0xf9, 0x67, 0x0e, 0x0a, 0x0a, 0x71, 0x4c, 0xf1, 0xc2,
+	0x38, 0x84, 0x7c, 0x9f, 0x86, 0xf4, 0xcc, 0x43, 0xe5, 0xf3, 0xf6, 0xa4, 0x27, 0x5f, 0x1b, 0x57,
+	0x8e, 0x13, 0xcb, 0xfd, 0x29, 0x2b, 0x25, 0x31, 0x9a, 0x30, 0xcb, 0x7d, 0xf2, 0x65, 0x84, 0x2a,
+	0x82, 0xad, 0xbf, 0x41, 0xf7, 0x2c, 0x36, 0xdc, 0x9f, 0xb2, 0x14, 0xc5, 0xca, 0xef, 0x1a, 0xe4,
+	0xd5, 0x1b, 0xc6, 0x27, 0x90, 0x27, 0x09, 0x56, 0x39, 0xba, 0x79, 0x3b, 0x66, 0x2b, 0x35, 0x33,
+	0x76, 0x65, 0x42, 0x1c, 0x7c, 0xa1, 0x3c, 0x7b, 0xef, 0x76, 0xf6, 0x07, 0xd2, 0xc4, 0x4a, 0x2c,
+	0x8d, 0xe7, 0x70, 0x87, 0xd8, 0xb6, 0x2c, 0x56, 0xbb, 0x13, 0xf0, 0xc8, 0x97, 0x95, 0xca, 0xc5,
+	0x6c, 0x1f, 0x4c, 0x62, 0x4b, 0xcc, 0xf6, 0xa4, 0xd5, 0x81, 0x63, 0x95, 0xc8, 0x35, 0x79, 0xe5,
+	0x33, 0x98, 0x4d, 0xa2, 0xff, 0xf7, 0x71, 0xd6, 0x4b, 0x50, 0x54, 0xc7, 0x76, 0x9f, 0xe2, 0x85,
+	0xb9, 0x06, 0x73, 0x47, 0x3e, 0x32, 0xa7, 0x89, 0x83, 0x8c, 0xa6, 0x78, 0x1f, 0x96, 0x62, 0xc4,
+	0x31, 0x06, 0xf4, 0x9c, 0xda, 0x44, 0x50, 0xce, 0xb2, 0xd1, 0x9b, 0x50, 0x7a, 0x12, 0x79, 0x9e,
+	0x2c, 0x19, 0x65, 0x9d, 0xb1, 0xb8, 0xeb, 0x51, 0x67, 0xe0, 0xd6, 0xa1, 0xf0, 0x98, 0xf6, 0x31,
+	0x08, 0xe9, 0x39, 0xc5, 0x20, 0x03, 0xb4, 0x0f, 0xc5, 0xd1, 0x82, 0x18, 0xcb, 0x90, 0x57, 0x29,
+	0x8c, 0xcb, 0xb9, 0x60, 0xa5, 0xa2, 0x51, 0x06, 0x08, 0x08, 0x73, 0x78, 0x8f, 0x7e, 0x85, 0x41,
+	0x5c, 0x9d, 0xa2, 0x35, 0x72, 0x63, 0xbe, 0x0b, 0x8b, 0x47, 0x82, 0x08, 0x6c, 0xf0, 0x5e, 0x8f,
+	0x8a, 0x1e, 0x32, 0x91, 0xf1, 0xe4, 0x43, 0x78, 0xab, 0x4e, 0x3c, 0xc2, 0xec, 0xc9, 0x50, 0x39,
+	0x76, 0xc9, 0x04, 0x66, 0x00, 0x1e, 0xc0, 0x6c, 0x32, 0xec, 0x46, 0x09, 0x74, 0x8f, 0xc7, 0xca,
+	0x69, 0x4b, 0xf7, 0xb8, 0x94, 0x5d, 0x1a, 0xc7, 0x30, 0x6d, 0xe9, 0x2e, 0x35, 0x57, 0x61, 0xe6,
+	0x31, 0x32, 0xde, 0x93, 0x44, 0x8e, 0x3c, 0xc4, 0xd8, 0x79, 0x2b, 0x11, 0xcc, 0x6f, 0x35, 0x98,
+	0x39, 0x26, 0x5e, 0xf4, 0x7f, 0x58, 0x36, 0x26, 0xc0, 0x53, 0x0c, 0xba, 0x1e, 0x5a, 0x9c, 0x67,
+	0x65, 0xe6, 0x6b, 0x98, 0x89, 0xed, 0x8c, 0x0f, 0x41, 0xa7, 0xce, 0x6d, 0x5b, 0x5a, 0xbd, 0xa4,
+	0x53, 0xc7, 0xa8, 0xa5, 0x69, 0x48, 0x9c, 0xdc, 0x98, 0x60, 0x1a, 0xe7, 0x2e, 0x4d, 0xd6, 0x2a,
+	0x14, 0x0e, 0x1c, 0x64, 0x82, 0x8a, 0x81, 0x6c, 0xd3, 0x12, 0xe8, 0xb4, 0xab, 0xdc, 0xd3, 0x69,
+	0xd7, 0xbc, 0x0b, 0x0b, 0x7b, 0xbc, 0x8f, 0x01, 0x93, 0x35, 0x56, 0x80, 0xce, 0x10, 0xd0, 0xe9,
+	0x9a, 0x1b, 0x50, 0x6c, 0x70, 0x16, 0x22, 0x0b, 0xa3, 0x30, 0xbb, 0xcf, 0xbf, 0xd7, 0x60, 0xfa,
+	0x90, 0x0b, 0x94, 0xae, 0xf6, 0x65, 0x69, 0x54, 0x94, 0x93, 0x5c, 0x8d, 0xcb, 0x68, 0x25, 0x26,
+	0x92, 0x3a, 0x08, 0x11, 0x93, 0x5a, 0x14, 0xad, 0x44, 0x18, 0x5d, 0x06, 0xb9, 0x7f, 0xb4, 0x0c,
+	0xe4, 0x10, 0x4a, 0xdf, 0x1a, 0xd4, 0x77, 0x31, 0x10, 0xf8, 0x22, 0xab, 0x4e, 0xf7, 0x60, 0xfe,
+	0x30, 0xf2, 0xbc, 0x71, 0x23, 0xf8, 0x08, 0x8c, 0x78, 0x4b, 0xec, 0x46, 0xc2, 0x3d, 0xa2, 0x1d,
+	0x46, 0x44, 0x14, 0x60, 0x66, 0xbf, 0xdf, 0xa9, 0x53, 0xe6, 0x50, 0xd6, 0x99, 0x84, 0xfc, 0x4d,
+	0x83, 0x82, 0xf4, 0xb0, 0x45, 0x06, 0x1e, 0x27, 0x8e, 0xf1, 0x1c, 0x16, 0x19, 0x17, 0xd8, 0xb6,
+	0x87, 0x33, 0xa7, 0xd2, 0x59, 0x99, 0x10, 0xfa, 0x8d, 0xa1, 0xb6, 0x4a, 0x92, 0x66, 0x64, 0x72,
+	0xd7, 0x61, 0x01, 0x7d, 0x17, 0x7b, 0x18, 0x10, 0xaf, 0xdd, 0xc5, 0x81, 0xca, 0x74, 0x71, 0x78,
+	0x29, 0x2b, 0xfc, 0x39, 0x94, 0x90, 0xc5, 0xcc, 0xe8, 0xb4, 0x25, 0xc1, 0x2d, 0xd7, 0xfb, 0xf5,
+	0x1c, 0x5b, 0x0b, 0x43, 0x12, 0xa9, 0x30, 0x5f, 0x69, 0xb0, 0x74, 0xc3, 0xbd, 0x56, 0xc0, 0xf9,
+	0xf9, 0x7f, 0x17, 0xec, 0x0a, 0xcc, 0xf9, 0x3c, 0xa4, 0x72, 0x91, 0xab, 0xdd, 0x32, 0x94, 0x8d,
+	0x26, 0xcc, 0x93, 0x48, 0xb8, 0x6d, 0x9f, 0x08, 0x77, 0x39, 0xb7, 0x96, 0xbb, 0xc5, 0x73, 0xc9,
+	0x98, 0xb7, 0x88, 0x70, 0x1b, 0x6e, 0xc4, 0xba, 0xd6, 0x9c, 0x24, 0x90, 0xa2, 0xe9, 0xc2, 0xe2,
+	0x0d, 0xa5, 0xf1, 0x36, 0xcc, 0xcb, 0x4f, 0x36, 0x65, 0x9d, 0xf6, 0x96, 0xaa, 0xf5, 0x9c, 0xba,
+	0xd8, 0x1a, 0x55, 0x6e, 0xab, 0x0a, 0xa4, 0xca, 0xed, 0x51, 0xe5, 0x8e, 0xda, 0xdc, 0xa9, 0x72,
+	0xc7, 0x7c, 0x07, 0xa6, 0x1b, 0x6a, 0x52, 0xde, 0xd0, 0x46, 0x26, 0xc0, 0xa7, 0xe7, 0xe7, 0x68,
+	0x8b, 0x7d, 0x12, 0xba, 0x19, 0x98, 0xfb, 0xb0, 0x70, 0xd2, 0x7c, 0x16, 0x09, 0x3f, 0x52, 0xe9,
+	0x7f, 0x33, 0x6c, 0x03, 0x8a, 0x27, 0xcd, 0xb8, 0xd3, 0xc7, 0xa1, 0xd6, 0xa1, 0x70, 0xd2, 0x3c,
+	0xba, 0x20, 0xfe, 0x18, 0x50, 0xfd, 0x27, 0xfd, 0xe7, 0xcb, 0xb2, 0xf6, 0xf2, 0xb2, 0xac, 0xfd,
+	0x7a, 0x59, 0xd6, 0xbe, 0xbb, 0x2a, 0x4f, 0xbd, 0xbc, 0x2a, 0x4f, 0xbd, 0xba, 0x2a, 0x4f, 0xc1,
+	0x3d, 0x9b, 0xf7, 0xc6, 0x67, 0xbd, 0x5e, 0x68, 0xc4, 0x17, 0x2d, 0xf9, 0x0b, 0xda, 0xd2, 0x4e,
+	0xbe, 0xe8, 0x50, 0xe1, 0x46, 0x67, 0x15, 0x9b, 0xf7, 0xaa, 0x36, 0x0f, 0x7b, 0x3c, 0xac, 0x06,
+	0xe8, 0x91, 0x01, 0x06, 0xd5, 0xfe, 0xf6, 0xf0, 0x68, 0xbb, 0x84, 0xb2, 0xb0, 0x3a, 0xf6, 0xe7,
+	0xf6, 0xa3, 0x44, 0x4e, 0xc5, 0x1f, 0xf4, 0x5c, 0xab, 0xd1, 0xf8, 0x51, 0x5f, 0x6d, 0xa5, 0xee,
+	0x34, 0xa4, 0x3b, 0xc9, 0xeb, 0x95, 0x63, 0x85, 0xfa, 0xe5, 0xb5, 0xfe, 0x54, 0xea, 0x4f, 0x13,
+	0xfd, 0x69, 0xaa, 0xbf, 0xd4, 0x1f, 0x8e, 0xd5, 0x9f, 0xee, 0xb5, 0xea, 0x4f, 0x51, 0x10, 0x87,
+	0x08, 0xf2, 0x87, 0xbe, 0x96, 0x62, 0x6b, 0x35, 0x09, 0xae, 0xd5, 0x12, 0x74, 0xad, 0x96, 0xc2,
+	0xcf, 0x66, 0xe3, 0x5f, 0xef, 0x9d, 0xbf, 0x02, 0x00, 0x00, 0xff, 0xff, 0x3a, 0x9c, 0x41, 0xcd,
+	0xa8, 0x0b, 0x00, 0x00,
 }
 
 func (m *Fee) Marshal() (dAtA []byte, err error) {
@@ -1718,6 +1929,174 @@ func (m *Address) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.Inner)
 		copy(dAtA[i:], m.Inner)
 		i = encodeVarintCrypto(dAtA, i, uint64(len(m.Inner)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AddressView) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AddressView) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AddressView) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AddressView != nil {
+		{
+			size := m.AddressView.Size()
+			i -= size
+			if _, err := m.AddressView.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AddressView_Visible_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AddressView_Visible_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Visible != nil {
+		{
+			size, err := m.Visible.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *AddressView_Opaque_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AddressView_Opaque_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Opaque != nil {
+		{
+			size, err := m.Opaque.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *AddressView_Visible) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AddressView_Visible) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AddressView_Visible) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AccountGroupId != nil {
+		{
+			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Index != nil {
+		{
+			size, err := m.Index.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Address != nil {
+		{
+			size, err := m.Address.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AddressView_Opaque) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AddressView_Opaque) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AddressView_Opaque) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Address != nil {
+		{
+			size, err := m.Address.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0xa
 	}
@@ -1814,7 +2193,7 @@ func (m *FullViewingKey) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *AccountID) Marshal() (dAtA []byte, err error) {
+func (m *AccountGroupId) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1824,12 +2203,12 @@ func (m *AccountID) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *AccountID) MarshalTo(dAtA []byte) (int, error) {
+func (m *AccountGroupId) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *AccountID) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *AccountGroupId) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1894,12 +2273,17 @@ func (m *AddressIndex) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Inner) > 0 {
-		i -= len(m.Inner)
-		copy(dAtA[i:], m.Inner)
-		i = encodeVarintCrypto(dAtA, i, uint64(len(m.Inner)))
+	if len(m.Randomizer) > 0 {
+		i -= len(m.Randomizer)
+		copy(dAtA[i:], m.Randomizer)
+		i = encodeVarintCrypto(dAtA, i, uint64(len(m.Randomizer)))
 		i--
-		dAtA[i] = 0xa
+		dAtA[i] = 0x1a
+	}
+	if m.Account != 0 {
+		i = encodeVarintCrypto(dAtA, i, uint64(m.Account))
+		i--
+		dAtA[i] = 0x10
 	}
 	return len(dAtA) - i, nil
 }
@@ -2788,6 +3172,76 @@ func (m *Address) Size() (n int) {
 	return n
 }
 
+func (m *AddressView) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AddressView != nil {
+		n += m.AddressView.Size()
+	}
+	return n
+}
+
+func (m *AddressView_Visible_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Visible != nil {
+		l = m.Visible.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+func (m *AddressView_Opaque_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Opaque != nil {
+		l = m.Opaque.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+func (m *AddressView_Visible) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Address != nil {
+		l = m.Address.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	if m.Index != nil {
+		l = m.Index.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	if m.AccountGroupId != nil {
+		l = m.AccountGroupId.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+
+func (m *AddressView_Opaque) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Address != nil {
+		l = m.Address.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+
 func (m *SpendKey) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2827,7 +3281,7 @@ func (m *FullViewingKey) Size() (n int) {
 	return n
 }
 
-func (m *AccountID) Size() (n int) {
+func (m *AccountGroupId) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2859,7 +3313,10 @@ func (m *AddressIndex) Size() (n int) {
 	}
 	var l int
 	_ = l
-	l = len(m.Inner)
+	if m.Account != 0 {
+		n += 1 + sovCrypto(uint64(m.Account))
+	}
+	l = len(m.Randomizer)
 	if l > 0 {
 		n += 1 + l + sovCrypto(uint64(l))
 	}
@@ -3433,6 +3890,370 @@ func (m *Address) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *AddressView) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AddressView: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AddressView: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Visible", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &AddressView_Visible{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.AddressView = &AddressView_Visible_{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Opaque", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &AddressView_Opaque{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.AddressView = &AddressView_Opaque_{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AddressView_Visible) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Visible: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Visible: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Address == nil {
+				m.Address = &Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Index == nil {
+				m.Index = &AddressIndex{}
+			}
+			if err := m.Index.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AccountGroupId == nil {
+				m.AccountGroupId = &AccountGroupId{}
+			}
+			if err := m.AccountGroupId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AddressView_Opaque) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Opaque: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Opaque: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Address == nil {
+				m.Address = &Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *SpendKey) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -3685,7 +4506,7 @@ func (m *FullViewingKey) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *AccountID) Unmarshal(dAtA []byte) error {
+func (m *AccountGroupId) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -3708,10 +4529,10 @@ func (m *AccountID) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: AccountID: wiretype end group for non-group")
+			return fmt.Errorf("proto: AccountGroupId: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AccountID: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AccountGroupId: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -3882,9 +4703,28 @@ func (m *AddressIndex) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: AddressIndex: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Account", wireType)
+			}
+			m.Account = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Account |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Inner", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Randomizer", wireType)
 			}
 			var byteLen int
 			for shift := uint(0); ; shift += 7 {
@@ -3911,9 +4751,9 @@ func (m *AddressIndex) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Inner = append(m.Inner[:0], dAtA[iNdEx:postIndex]...)
-			if m.Inner == nil {
-				m.Inner = []byte{}
+			m.Randomizer = append(m.Randomizer[:0], dAtA[iNdEx:postIndex]...)
+			if m.Randomizer == nil {
+				m.Randomizer = []byte{}
 			}
 			iNdEx = postIndex
 		default:

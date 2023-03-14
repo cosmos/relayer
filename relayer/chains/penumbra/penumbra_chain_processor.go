@@ -7,15 +7,15 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v5/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
-	//	jsonrpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	//	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )

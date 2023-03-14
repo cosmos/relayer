@@ -3,20 +3,29 @@ package penumbra
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"time"
 
+	provtypes "github.com/cometbft/cometbft/light/provider"
+	prov "github.com/cometbft/cometbft/light/provider/http"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
+	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
+	tmtypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	chantypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v5/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v5/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
+	"github.com/cosmos/gogoproto/proto"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
-	lens "github.com/strangelove-ventures/lens/client"
-	jsonrpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
+	"golang.org/x/mod/semver"
 )
 
 var (
@@ -25,19 +34,28 @@ var (
 	_ provider.ProviderConfig = &PenumbraProviderConfig{}
 )
 
+const cometEncodingThreshold = "v0.37.0-alpha"
+
 type PenumbraProviderConfig struct {
-	Key            string  `json:"key" yaml:"key"`
-	ChainName      string  `json:"-" yaml:"-"`
-	ChainID        string  `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string  `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix  string  `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string  `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment  float64 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices      string  `json:"gas-prices" yaml:"gas-prices"`
-	Debug          bool    `json:"debug" yaml:"debug"`
-	Timeout        string  `json:"timeout" yaml:"timeout"`
-	OutputFormat   string  `json:"output-format" yaml:"output-format"`
-	SignModeStr    string  `json:"sign-mode" yaml:"sign-mode"`
+	KeyDirectory   string                  `json:"key-directory" yaml:"key-directory"`
+	Key            string                  `json:"key" yaml:"key"`
+	ChainName      string                  `json:"-" yaml:"-"`
+	ChainID        string                  `json:"chain-id" yaml:"chain-id"`
+	RPCAddr        string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix  string                  `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend string                  `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment  float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices      string                  `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount   uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Debug          bool                    `json:"debug" yaml:"debug"`
+	Timeout        string                  `json:"timeout" yaml:"timeout"`
+	BlockTimeout   string                  `json:"block-timeout" yaml:"block-timeout"`
+	OutputFormat   string                  `json:"output-format" yaml:"output-format"`
+	SignModeStr    string                  `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
+	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
+	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
+	Broadcast      provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
 func (pc PenumbraProviderConfig) Validate() error {
@@ -45,6 +63,48 @@ func (pc PenumbraProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
+}
+
+func (pc PenumbraProviderConfig) BroadcastMode() provider.BroadcastMode {
+	return pc.Broadcast
+}
+
+// NewProvider validates the PenumbraProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
+func (pc PenumbraProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+	if err := pc.Validate(); err != nil {
+		return nil, err
+	}
+
+	pc.KeyDirectory = keysDir(homepath, pc.ChainID)
+
+	pc.ChainName = chainName
+	pc.Modules = append([]module.AppModuleBasic{}, moduleBasics...)
+
+	if pc.Broadcast == "" {
+		pc.Broadcast = provider.BroadcastModeBatch
+	}
+
+	httpClient, err := jsonrpcclient.DefaultHTTPClient(pc.RPCAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	rc, err := jsonrpcclient.NewWithHTTPClient(pc.RPCAddr, httpClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PenumbraProvider{
+		log:            log,
+		PCfg:           pc,
+		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
+		Input:          os.Stdin,
+		Output:         os.Stdout,
+
+		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
+		Codec:     makeCodec(pc.Modules, pc.ExtraCodecs),
+		RPCCaller: rc,
+	}, nil
 }
 
 type PenumbraIBCHeader struct {
@@ -64,67 +124,25 @@ func (h PenumbraIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	}
 }
 
-// NewProvider validates the PenumbraProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
-func (pc PenumbraProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
-	if err := pc.Validate(); err != nil {
-		return nil, err
-	}
-	cc, err := lens.NewChainClient(
-		log.With(zap.String("sys", "chain_client")),
-		ChainClientConfig(&pc),
-		homepath,
-		os.Stdin,
-		os.Stdout,
-	)
-	if err != nil {
-		return nil, err
-	}
-	pc.ChainName = chainName
-
-	httpClient, err := jsonrpcclient.DefaultHTTPClient(pc.RPCAddr)
-	if err != nil {
-		return nil, err
-	}
-	//	httpClient.Timeout = time.Duration(pc.Timeout)
-	rc, err := jsonrpcclient.NewWithHTTPClient(pc.RPCAddr, httpClient)
-	if err != nil {
-		return nil, err
-	}
-
-	return &PenumbraProvider{
-		log: log,
-
-		ChainClient: *cc,
-		PCfg:        pc,
-		RPCCaller:   rc,
-	}, nil
-}
-
-// ChainClientConfig builds a ChainClientConfig struct from a PenumbraProviderConfig, this is used
-// to instantiate an instance of ChainClient from lens which is how we build the PenumbraProvider
-func ChainClientConfig(pcfg *PenumbraProviderConfig) *lens.ChainClientConfig {
-	return &lens.ChainClientConfig{
-		Key:            pcfg.Key,
-		ChainID:        pcfg.ChainID,
-		RPCAddr:        pcfg.RPCAddr,
-		AccountPrefix:  pcfg.AccountPrefix,
-		KeyringBackend: pcfg.KeyringBackend,
-		GasAdjustment:  pcfg.GasAdjustment,
-		GasPrices:      pcfg.GasPrices,
-		Debug:          pcfg.Debug,
-		Timeout:        pcfg.Timeout,
-		OutputFormat:   pcfg.OutputFormat,
-		SignModeStr:    pcfg.SignModeStr,
-		Modules:        append([]module.AppModuleBasic{}, lens.ModuleBasics...),
-	}
+func (h PenumbraIBCHeader) NextValidatorsHash() []byte {
+	return h.SignedHeader.NextValidatorsHash
 }
 
 type PenumbraProvider struct {
 	log *zap.Logger
 
-	lens.ChainClient
-	PCfg      PenumbraProviderConfig
-	RPCCaller jsonrpcclient.Caller
+	PCfg           PenumbraProviderConfig
+	Keybase        keyring.Keyring
+	KeyringOptions []keyring.Option
+	RPCClient      rpcclient.Client
+	LightProvider  provtypes.Provider
+	Input          io.Reader
+	Output         io.Writer
+	Codec          Codec
+	RPCCaller      jsonrpcclient.Caller
+
+	// for comet < v0.37, decode tm events as base64
+	cometLegacyEncoding bool
 }
 
 func (cc *PenumbraProvider) ProviderConfig() provider.ProviderConfig {
@@ -153,23 +171,6 @@ func (cc *PenumbraProvider) Timeout() string {
 
 func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
-}
-
-func (cc *PenumbraProvider) AddKey(name string, coinType uint32) (*provider.KeyOutput, error) {
-	// The lens client returns an equivalent KeyOutput type,
-	// but that type is declared in the lens module,
-	// and relayer's KeyProvider interface references the relayer KeyOutput.
-	//
-	// Translate the lens KeyOutput to a relayer KeyOutput here to satisfy the interface.
-
-	ko, err := cc.ChainClient.AddKey(name, coinType)
-	if err != nil {
-		return nil, err
-	}
-	return &provider.KeyOutput{
-		Mnemonic: ko.Mnemonic,
-		Address:  ko.Address,
-	}, nil
 }
 
 // Address returns the chains configured address as a string
@@ -224,6 +225,46 @@ func (cc *PenumbraProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
+// Init initializes the keystore, RPC client, amd light client provider.
+// Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
+// NOTE: Init must be called after creating a new instance of CosmosProvider.
+func (cc *PenumbraProvider) Init(ctx context.Context) error {
+	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Codec.Marshaler, cc.KeyringOptions...)
+	if err != nil {
+		return err
+	}
+	// TODO: figure out how to deal with input or maybe just make all keyring backends test?
+
+	timeout, err := time.ParseDuration(cc.PCfg.Timeout)
+	if err != nil {
+		return err
+	}
+
+	rpcClient, err := newRPCClient(cc.PCfg.RPCAddr, timeout)
+	if err != nil {
+		return err
+	}
+
+	lightprovider, err := prov.New(cc.PCfg.ChainID, cc.PCfg.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	cc.RPCClient = rpcClient
+	cc.LightProvider = lightprovider
+	cc.Keybase = keybase
+
+	status, err := cc.QueryStatus(ctx)
+	if err != nil {
+		// Operations can occur before the node URL is added to the config, so noop here.
+		return nil
+	}
+
+	cc.setCometVersion(cc.log, status.NodeInfo.Version)
+
+	return nil
+}
+
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *PenumbraProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	var initial int64
@@ -271,4 +312,31 @@ func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {
 		TimeoutHeight:      pi.TimeoutHeight,
 		TimeoutTimestamp:   pi.TimeoutTimestamp,
 	}
+}
+
+func (cc *PenumbraProvider) setCometVersion(log *zap.Logger, version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+}
+
+func (cc *PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+	return semver.Compare("v"+version, cometEncodingThreshold) < 0
+}
+
+// keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
+}
+
+// newRPCClient initializes a new tendermint RPC client connected to the specified address.
+func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
+	httpClient, err := libclient.DefaultHTTPClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	httpClient.Timeout = timeout
+	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return rpcClient, nil
 }

@@ -5,10 +5,10 @@ package governancev1alpha1
 
 import (
 	fmt "fmt"
+	types "github.com/cosmos/cosmos-sdk/codec/types"
 	proto "github.com/cosmos/gogoproto/proto"
 	v1alpha11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/chain/v1alpha1"
 	v1alpha1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -1732,7 +1732,7 @@ type Proposal_DaoSpend struct {
 	// The transaction plan to be executed at the time the proposal is passed. This must be a
 	// transaction plan which can be executed by the DAO, which means it can't require any witness
 	// data or authorization signatures, but it may use the `DaoSpend` action.
-	TransactionPlan *anypb.Any `protobuf:"bytes,2,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
+	TransactionPlan *types.Any `protobuf:"bytes,2,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
 }
 
 func (m *Proposal_DaoSpend) Reset()         { *m = Proposal_DaoSpend{} }
@@ -1768,7 +1768,7 @@ func (m *Proposal_DaoSpend) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Proposal_DaoSpend proto.InternalMessageInfo
 
-func (m *Proposal_DaoSpend) GetTransactionPlan() *anypb.Any {
+func (m *Proposal_DaoSpend) GetTransactionPlan() *types.Any {
 	if m != nil {
 		return m.TransactionPlan
 	}
@@ -7112,7 +7112,7 @@ func (m *Proposal_DaoSpend) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransactionPlan == nil {
-				m.TransactionPlan = &anypb.Any{}
+				m.TransactionPlan = &types.Any{}
 			}
 			if err := m.TransactionPlan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
