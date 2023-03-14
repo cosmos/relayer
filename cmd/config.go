@@ -419,6 +419,13 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 	if err = chains[dst].SetPath(pth.Dst); err != nil {
 		return nil, "", "", err
 	}
+	for _, hop := range pth.Hops {
+		for _, pathEnd := range hop.PathEnds {
+			if err = chains[hop.ChainID].SetPath(pathEnd); err != nil {
+				return nil, "", "", err
+			}
+		}
+	}
 
 	return chains, src, dst, nil
 }

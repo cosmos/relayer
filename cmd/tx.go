@@ -587,7 +587,11 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			src, dst := pth.Src.ChainID, pth.Dst.ChainID
-			c, err := a.Config.Chains.Gets(src, dst)
+			chainIDs := []string{src, dst}
+			for _, hop := range pth.Hops {
+				chainIDs = append(chainIDs, hop.ChainID)
+			}
+			c, err := a.Config.Chains.Gets(chainIDs...)
 			if err != nil {
 				return err
 			}
