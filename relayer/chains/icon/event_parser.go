@@ -1,73 +1,65 @@
 package icon
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
-	"time"
 
 	"cosmossdk.io/errors"
-	"github.com/gorilla/websocket"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 	"github.com/icon-project/ibc-relayer/relayer/provider"
+
 	"go.uber.org/zap"
 )
 
-const (
-	ENDPOINT              = "https://ctz.solidwallet.io/api/v3"
-	WSS_ENDPOINT          = "wss://ctz.solidwallet.io/api/v3/icon_dex/event"
-	SEND_PACKET_SIGNATURE = "SendPacket(bytes)"
-	CONTRACT_ADDRESS      = "cxf17ab3c6daa47e915eab4292fbf3094067e9a026"
-)
+// func (ip *IconProvider) FetchEvent(height int) {
 
-func (ip *IconProvider) FetchEvent(height int) {
+// 	blockReq := &types.BlockRequest{
+// 		EventFilters: []*types.EventFilter{{
+// 			Addr:      types.Address(CONTRACT_ADDRESS),
+// 			Signature: SEND_PACKET_SIGNATURE,
+// 			// Indexed:   []*string{&dstAddr},
+// 		}},
+// 		Height: types.NewHexInt(int64(height)),
+// 	}
+// 	ctx := context.Background()
+// 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+// 	defer cancel()
 
-	blockReq := &types.BlockRequest{
-		EventFilters: []*types.EventFilter{{
-			Addr:      types.Address(CONTRACT_ADDRESS),
-			Signature: SEND_PACKET_SIGNATURE,
-			// Indexed:   []*string{&dstAddr},
-		}},
-		Height: types.NewHexInt(int64(height)),
-	}
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
+// 	l := zap.Logger{}
 
-	l := zap.Logger{}
+// 	client := NewClient(WSS_ENDPOINT, &l)
+// 	h, s := height, 0
 
-	client := NewClient(WSS_ENDPOINT, &l)
-	h, s := height, 0
+// 	go func() {
+// 		err := client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
+// 			_h, _ := v.Height.Int()
+// 			if _h != h {
+// 				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
+// 				l.Warn(err.Error())
+// 				return err
+// 			}
+// 			h++
+// 			s++
+// 			return nil
+// 		},
+// 			func(conn *websocket.Conn) {
+// 				l.Info("Connected")
+// 			},
+// 			func(conn *websocket.Conn, err error) {
+// 				l.Info("Disconnected")
+// 				_ = conn.Close()
+// 			})
+// 		if err.Error() == "context deadline exceeded" {
+// 			return
+// 		}
+// 	}()
 
-	go func() {
-		err := client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
-			_h, _ := v.Height.Int()
-			if _h != h {
-				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
-				l.Warn(err.Error())
-				return err
-			}
-			h++
-			s++
-			return nil
-		},
-			func(conn *websocket.Conn) {
-				l.Info("Connected")
-			},
-			func(conn *websocket.Conn, err error) {
-				l.Info("Disconnected")
-				_ = conn.Close()
-			})
-		if err.Error() == "context deadline exceeded" {
-			return
-		}
-	}()
-
-}
+// }
 
 type Packet struct {
 	Sequence           big.Int
@@ -110,13 +102,12 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	pi.DestChannel = packet.DestinationChannel
 	pi.Sequence = packet.Sequence.Uint64()
 	pi.Data = packet.Data
-	pi.TimeoutHeight.RevisionHeight = packet.Height.RevisionHeight.Uint64()
-	pi.TimeoutHeight.RevisionNumber = packet.Height.RevisionNumber.Uint64()
+	pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight.Uint64()
+	pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber.Uint64()
 	pi.TimeoutTimestamp = packet.Timestamp.Uint64()
 	if eventType == EventTypeAcknowledgePacket {
 		pi.Ack = []byte(event.Indexed[2])
 	}
-
 }
 
 type channelInfo provider.ChannelInfo
@@ -152,10 +143,18 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 
 type clientInfo struct {
 	clientID        string
-	consensusHeight Height
+	consensusHeight clienttypes.Height
 	header          []byte
 }
 
+func (c clientInfo) ClientState() provider.ClientState {
+	return provider.ClientState{
+		ClientID:        c.clientID,
+		ConsensusHeight: c.consensusHeight,
+	}
+}
+
+// eventType_signature  ,rlpPacket
 func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	clientId := event.Indexed[1]
 	height := event.Indexed[3]
@@ -185,9 +184,9 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		return
 	}
 
-	cl.consensusHeight = Height{
-		RevisionHeight: *big.NewInt(int64(revisionHeight)),
-		RevisionNumber: *big.NewInt(int64(revisionNumber)),
+	cl.consensusHeight = clienttypes.Height{
+		RevisionHeight: revisionHeight,
+		RevisionNumber: revisionNumber,
 	}
 	cl.clientID = clientId
 }
@@ -195,7 +194,6 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 func parseIBCMessageFromEvent(
 	log *zap.Logger,
 	event types.EventLog,
-	chainID string,
 	height uint64,
 ) *ibcMessage {
 	eventType := event.Indexed[0]
@@ -249,12 +247,13 @@ func GetEventLogSignature(indexed []string) string {
 	return indexed[0]
 }
 
-func _parsePacket(str string) (*Packet, error) {
-	p := Packet{}
+func _parsePacket(str string) (*types.Packet, error) {
+	p := types.Packet{}
 	e := rlpDecodeHex(str, &p)
 	if e != nil {
 		return nil, e
 	}
+	fmt.Printf("packetData decoded: %v \n", p)
 	return &p, nil
 }
 

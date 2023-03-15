@@ -1,13 +1,14 @@
 package icon
 
 import (
+	"fmt"
 	"io/ioutil"
-	"log"
 	"testing"
 	"time"
 
-	"github.com/icon-project/btp/common/wallet"
 	"github.com/icon-project/goloop/common/codec"
+	"github.com/icon-project/goloop/common/wallet"
+	"github.com/icon-project/goloop/module"
 	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 	"go.uber.org/zap"
 )
@@ -18,7 +19,7 @@ func NewTestClient() *Client {
 	return NewClient(uri, l)
 }
 
-func getTestWallet() (wallet.Wallet, error) {
+func getTestWallet() (module.Wallet, error) {
 
 	keyStore_file := "/Users/viveksharmapoudel/keystore/god_wallet.json"
 	kpass := "gochain"
@@ -28,37 +29,30 @@ func getTestWallet() (wallet.Wallet, error) {
 		return nil, err
 	}
 
-	w, err := wallet.DecryptKeyStore(keystore_bytes, []byte(kpass))
+	wallet, err := wallet.NewFromKeyStore(keystore_bytes, []byte(kpass))
 	if err != nil {
 		return nil, err
 	}
 
-	return w, nil
+	return wallet, nil
 }
 
 func TestTransaction(t *testing.T) {
 
 	c := NewTestClient()
 
-	ksf := "/Users/viveksharmapoudel/keystore/god_wallet.json"
-	kpass := "gochain"
-
-	kb, err := ioutil.ReadFile(ksf)
+	// ksf := "~/keystore/god_wallet.json"
+	// kpass := "gochain"
+	rpcWallet, err := getTestWallet()
 	if err != nil {
-		log.Fatalln("fail to open KeyStore file")
-		t.Fail()
-		return
-	}
-
-	rpcWallet, err := wallet.DecryptKeyStore(kb, []byte(kpass))
-	if err != nil {
+		fmt.Println(err)
 		t.Fail()
 		return
 	}
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-		FromAddress: types.Address(rpcWallet.Address()),
+		FromAddress: types.Address(rpcWallet.Address().Bytes()),
 		ToAddress:   types.Address("cx6e24351b49133f2337a01c968cb864958ffadce8"),
 		Timestamp:   types.NewHexInt(time.Now().UnixNano() / int64(time.Microsecond)),
 		NetworkID:   types.NewHexInt(2),
@@ -106,11 +100,11 @@ func TestCallFunction(t *testing.T) {
 	}
 	var op types.HexBytes
 	err = c.Call(&types.CallParam{
-		FromAddress: types.Address(w.Address()),
+		FromAddress: types.Address(w.Address().String()),
 		ToAddress:   types.Address("cx6e24351b49133f2337a01c968cb864958ffadce8"),
 		DataType:    "call",
-		Data: map[string]interface{}{
-			"method": "name",
+		Data: &types.CallData{
+			Method: "name",
 		},
 	}, &op)
 

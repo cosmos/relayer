@@ -1,5 +1,7 @@
 package icon
 
+import "github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
+
 // Events
 var (
 
@@ -35,3 +37,26 @@ var (
 	EventTypeTimeoutPacket        = "timeout_packet"
 	EventTypeTimeoutPacketOnClose = "timeout_on_close_packet"
 )
+
+func GetMonitorEventFilters(address string) []*types.EventFilter {
+
+	filters := []*types.EventFilter{}
+	if address == "" {
+		return filters
+	}
+
+	eventArr := []string{
+		EventTypeSendPacket,
+		// EventTypeRecvPacket,
+		// EventTypeWriteAck,
+		// EventTypeAcknowledgePacket,
+	}
+
+	for _, event := range eventArr {
+		filters = append(filters, &types.EventFilter{
+			Addr:      types.Address(address),
+			Signature: event,
+		})
+	}
+	return filters
+}

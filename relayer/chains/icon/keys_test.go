@@ -8,6 +8,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	ENDPOINT = "https://ctz.solidwallet.io/api/v3/"
+)
+
 func TestCreateKeystore(t *testing.T) {
 	kwName := "testWallet.json"
 	p := &IconProvider{

@@ -1,9 +1,9 @@
 {
   "src": {
-    "chain-id": "ibc-0"
+    "chain-id": "ibc-icon"
   },
   "dst": {
-    "chain-id": "ibc-1"
+    "chain-id": "ibc-icon2"
   },
   "src-channel-filter": {
     "rule": null,

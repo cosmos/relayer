@@ -56,6 +56,7 @@ type IClient interface {
 	GetBTPNetworkInfo(p *icon.BTPNetworkInfoParam) (*icon.BTPNetworkInfo, error)
 
 	MonitorBlock(ctx context.Context, p *types.BlockRequest, cb func(conn *websocket.Conn, v *types.BlockNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error
+	MonitorBTP(ctx context.Context, p *types.BTPRequest, cb func(conn *websocket.Conn, v *types.BTPNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error
 	MonitorEvent(ctx context.Context, p *types.EventRequest, cb func(conn *websocket.Conn, v *types.EventNotification) error, errCb func(*websocket.Conn, error)) error
 	Monitor(ctx context.Context, reqUrl string, reqPtr, respPtr interface{}, cb types.WsReadCallback) error
 	CloseAllMonitor()
@@ -581,6 +582,36 @@ func NewIconOptionsByHeader(h http.Header) IconOptions {
 		return m
 	}
 	return nil
+}
+
+func (c *Client) MonitorBTP(ctx context.Context, p *types.BTPRequest, cb func(conn *websocket.Conn, v *types.BTPNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error {
+	resp := &types.BTPNotification{}
+	return c.Monitor(ctx, "/btp", p, resp, func(conn *websocket.Conn, v interface{}) error {
+		switch t := v.(type) {
+		case *types.BTPNotification:
+			if err := cb(conn, t); err != nil {
+				// c.log.Debug(fmt.Sprintf("MonitorBTP callback return err:%+v", err))
+				return err
+			}
+		case types.WSEvent:
+			c.log.Debug(fmt.Sprintf("MonitorBTP WSEvent %s %+v", conn.LocalAddr().String(), t))
+			switch t {
+			case types.WSEventInit:
+				if scb != nil {
+					scb(conn)
+				} else {
+					return errors.New("Second Callback function (scb) is nil ")
+				}
+			}
+		case error:
+			errCb(conn, t)
+			return t
+		default:
+			errCb(conn, fmt.Errorf("not supported type %T", t))
+			return errors.New("Not supported type")
+		}
+		return nil
+	})
 }
 
 func NewClient(uri string, l *zap.Logger) *Client {

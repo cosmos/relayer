@@ -66,7 +66,7 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 }
 
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
-	return IconIBCHeader{}, nil
+	return nil, nil
 }
 func (icp *IconProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, nil

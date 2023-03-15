@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
 	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 	"github.com/icon-project/ibc-relayer/relayer/processor"
@@ -49,8 +51,10 @@ type IconProviderConfig struct {
 	ChainID           string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
 	Timeout           string `json:"timeout" yaml:"timeout"`
-	IbcHostAddress    string `json:"ibc_host_address,omitempty"`
-	IbcHandlerAddress string `json:"ibc_handler_address,omitempty"`
+	Keystore          string `json:"keystore" yaml:"keystore"`
+	Password          string `json:"password" yaml:"password"`
+	NetworkID         int64  `json:"network-id" yaml:"network-id"`
+	IbcHandlerAddress string `json:"ibc-handler-address"`
 }
 
 func (pp IconProviderConfig) Validate() error {
@@ -61,16 +65,39 @@ func (pp IconProviderConfig) Validate() error {
 }
 
 // NewProvider should provide a new Icon provider
+// NewProvider should provide a new Icon provider
 func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+
+	pp.ChainName = chainName
+	if _, err := os.Stat(pp.Keystore); err != nil {
+		return nil, err
+	}
+
 	if err := pp.Validate(); err != nil {
 		return nil, err
 	}
 
+	ksByte, err := os.ReadFile(pp.Keystore)
+	if err != nil {
+		return nil, err
+	}
+
+	wallet, err := wallet.NewFromKeyStore(ksByte, []byte(pp.Password))
+	if err != nil {
+		return nil, err
+	}
+
 	return &IconProvider{
-		log:    log, //.With(zap.String("sys", "chain_client")),
-		client: NewClient(pp.getRPCAddr(), log),
-		PCfg:   pp,
+		log:       log.With(zap.String("sys", "chain_client")),
+		client:    NewClient(pp.getRPCAddr(), log),
+		PCfg:      pp,
+		wallet:    wallet,
+		NetworkID: types.NewHexInt(pp.NetworkID),
 	}, nil
+}
+
+func (icp *IconProvider) AddWallet(w module.Wallet) {
+	icp.wallet = w
 }
 
 func (pp IconProviderConfig) getRPCAddr() string {
@@ -78,13 +105,14 @@ func (pp IconProviderConfig) getRPCAddr() string {
 }
 
 type IconProvider struct {
-	log     *zap.Logger
-	PCfg    IconProviderConfig
-	txMu    sync.Mutex
-	client  *Client
-	wallet  module.Wallet
-	metrics *processor.PrometheusMetrics
-	codec   codec.ProtoCodecMarshaler
+	log       *zap.Logger
+	PCfg      IconProviderConfig
+	txMu      sync.Mutex
+	client    *Client
+	wallet    module.Wallet
+	metrics   *processor.PrometheusMetrics
+	codec     codec.ProtoCodecMarshaler
+	NetworkID types.HexInt
 }
 
 type SignedHeader struct {
@@ -97,25 +125,28 @@ type ValidatorSet struct {
 }
 
 type IconIBCHeader struct {
-	header            SignedHeader
-	trustedHeight     types.Height
-	trustedValidators ValidatorSet
+	Messages []string
+	Header   *types.BTPBlockHeader
+	Proof    types.HexBytes
+}
+
+func NewIconIBCHeader(msgs []string, header *types.BTPBlockHeader, proof types.HexBytes) *IconIBCHeader {
+	return &IconIBCHeader{
+		Header:   header,
+		Messages: msgs,
+		Proof:    proof,
+	}
 }
 
 func (h IconIBCHeader) Height() uint64 {
-	return h.Height()
+	return uint64(h.Header.MainHeight)
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return h.ConsensusState()
-}
 
-func (h IconIBCHeader) ClientType() string {
-	return h.ClientType()
-}
+	// TODO:
+	// btpBlock timestamp, roothash, Nextvalidatorshash, messageRoothash
 
-func (h IconIBCHeader) ValidateBasic() error {
-	// TODO: Implement
 	return nil
 }
 
@@ -126,6 +157,7 @@ func (*IconIBCHeader) ProtoMessage()    {}
 //ChainProvider Methods
 
 func (icp *IconProvider) Init(ctx context.Context) error {
+
 	return nil
 }
 
@@ -245,8 +277,8 @@ func (icp *IconProvider) PacketCommitment(ctx context.Context, msgTransfer provi
 		return provider.PacketProof{}, nil
 	}
 	return provider.PacketProof{
-		Proof: packetCommitmentResponse.Proof,
-		ProofHeight: packetCommitmentResponse.ProofHeight
+		Proof:       packetCommitmentResponse.Proof,
+		ProofHeight: packetCommitmentResponse.ProofHeight,
 	}, nil
 }
 
@@ -569,25 +601,25 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 }
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	trustedIconHeader, ok := trustedHeader.(IconIBCHeader)
-	if !ok {
-		return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
-	}
-	latestIconHeader, ok := latestHeader.(IconIBCHeader)
-	if !ok {
-		return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
-	}
+	// trustedIconHeader, ok := trustedHeader.(IconIBCHeader)
+	// if !ok {
+	// 	return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
+	// }
+	// latestIconHeader, ok := latestHeader.(IconIBCHeader)
+	// if !ok {
+	// 	return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
+	// }
 
-	// TODO: CHECK
-
-	return &IconIBCHeader{
-		header: latestIconHeader.header,
-		trustedHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(trustedHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(trustedHeight.RevisionHeight)),
-		},
-		trustedValidators: trustedIconHeader.trustedValidators,
-	}, nil
+	// TODO: implementation remaining
+	return nil, nil
+	// return &IconIBCHeader{
+	// 	header: latestIconHeader.header,
+	// 	trustedHeight: types.Height{
+	// 		RevisionNumber: *big.NewInt(int64(trustedHeight.RevisionNumber)),
+	// 		RevisionHeight: *big.NewInt(int64(trustedHeight.RevisionHeight)),
+	// 	},
+	// 	trustedValidators: trustedIconHeader.trustedValidators,
+	// }, nil
 
 }
 
@@ -733,4 +765,16 @@ func (icp *IconProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 
 func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 	return "", nil
+}
+
+func (icp *IconProvider) GetBtpMessage(height int64) ([]string, error) {
+	pr := types.BTPBlockParam{
+		Height:    types.NewHexInt(height),
+		NetworkId: icp.NetworkID,
+	}
+	mgs, err := icp.client.GetBTPMessage(&pr)
+	if err != nil {
+		return nil, err
+	}
+	return mgs, nil
 }

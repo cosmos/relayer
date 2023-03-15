@@ -66,11 +66,6 @@ const (
 	ResultStatusFailureCodeEnd    = 99
 )
 
-const (
-	BMCRelayMethod     = "handleRelayMessage"
-	BMCGetStatusMethod = "getStatus"
-)
-
 type BlockHeader struct {
 	Version                int
 	Height                 int64
@@ -84,12 +79,6 @@ type BlockHeader struct {
 	LogsBloom              []byte
 	Result                 []byte
 }
-
-// type EventLog struct {
-// 	Addr    []byte
-// 	Indexed [][]byte
-// 	Data    [][]byte
-// }
 
 type EventLog struct {
 	Addr    Address
@@ -135,14 +124,29 @@ type TransactionParam struct {
 	TxHash      HexBytes    `json:"-"`
 }
 
+type BlockHeaderResult struct {
+	StateHash        []byte
+	PatchReceiptHash []byte
+	ReceiptHash      common.HexBytes
+	ExtensionData    []byte
+}
+type TxResult struct {
+	Status             int64
+	To                 []byte
+	CumulativeStepUsed []byte
+	StepUsed           []byte
+	StepPrice          []byte
+	LogsBloom          []byte
+	EventLogs          []EventLog
+	ScoreAddress       []byte
+	EventLogsHash      common.HexBytes
+	TxIndex            HexInt
+	BlockHeight        HexInt
+}
+
 type CallData struct {
 	Method string      `json:"method"`
 	Params interface{} `json:"params,omitempty"`
-}
-
-type BMCRelayMethodParams struct {
-	Prev     string `json:"_prev"`
-	Messages string `json:"_msg"`
 }
 
 type ClientStateParam struct {
@@ -345,25 +349,6 @@ type AddressParam struct {
 	Height  HexInt  `json:"height,omitempty" validate:"optional,t_int"`
 }
 
-type BMCStatusParams struct {
-	Target string `json:"_link"`
-}
-
-type BMCStatus struct {
-	TxSeq            HexInt `json:"tx_seq"`
-	RxSeq            HexInt `json:"rx_seq"`
-	BMRIndex         HexInt `json:"relay_idx"`
-	RotateHeight     HexInt `json:"rotate_height"`
-	RotateTerm       HexInt `json:"rotate_term"`
-	DelayLimit       HexInt `json:"delay_limit"`
-	MaxAggregation   HexInt `json:"max_agg"`
-	CurrentHeight    HexInt `json:"cur_height"`
-	RxHeight         HexInt `json:"rx_height"`
-	RxHeightSrc      HexInt `json:"rx_height_src"`
-	BlockIntervalSrc HexInt `json:"block_interval_src"`
-	BlockIntervalDst HexInt `json:"block_interval_dst"`
-}
-
 type TransactionHashParam struct {
 	Hash HexBytes `json:"txHash" validate:"required,t_hash"`
 }
@@ -511,14 +496,6 @@ func NewAddress(b []byte) Address {
 // T_SIG
 type Signature string
 
-type RelayMessage struct {
-	ReceiptProofs [][]byte
-	//
-	height        int64
-	eventSequence int64
-	numberOfEvent int
-}
-
 type ReceiptProof struct {
 	Index  int
 	Events []byte
@@ -592,6 +569,7 @@ type VoteType byte
 
 type WsReadCallback func(*websocket.Conn, interface{}) error
 
+// BTP Related
 type BTPBlockParam struct {
 	Height    HexInt `json:"height" validate:"required,t_int"`
 	NetworkId HexInt `json:"networkID" validate:"required,t_int"`
