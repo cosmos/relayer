@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -69,19 +70,19 @@ func (ip *IconProvider) FetchEvent(height int) {
 }
 
 type Packet struct {
-	Sequence           uint
+	Sequence           big.Int
 	SourcePort         string
 	SourceChannel      string
 	DestinationPort    string
 	DestinationChannel string
 	Data               []byte
 	Height             Height
-	Timestamp          uint
+	Timestamp          big.Int
 }
 
 type Height struct {
-	RevisionHeight uint
-	RevisionNumber uint
+	RevisionHeight big.Int
+	RevisionNumber big.Int
 }
 
 type ibcMessage struct {
@@ -107,11 +108,11 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	pi.SourceChannel = packet.SourceChannel
 	pi.DestPort = packet.DestinationPort
 	pi.DestChannel = packet.DestinationChannel
-	pi.Sequence = uint64(packet.Sequence)
+	pi.Sequence = packet.Sequence.Uint64()
 	pi.Data = packet.Data
-	pi.TimeoutHeight.RevisionHeight = uint64(packet.Height.RevisionHeight)
-	pi.TimeoutHeight.RevisionNumber = uint64(packet.Height.RevisionNumber)
-	pi.TimeoutTimestamp = uint64(packet.Timestamp)
+	pi.TimeoutHeight.RevisionHeight = packet.Height.RevisionHeight.Uint64()
+	pi.TimeoutHeight.RevisionNumber = packet.Height.RevisionNumber.Uint64()
+	pi.TimeoutTimestamp = packet.Timestamp.Uint64()
 	if eventType == EventTypeAcknowledgePacket {
 		pi.Ack = []byte(event.Indexed[2])
 	}
@@ -185,8 +186,8 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	}
 
 	cl.consensusHeight = Height{
-		RevisionHeight: uint(revisionHeight),
-		RevisionNumber: uint(revisionNumber),
+		RevisionHeight: *big.NewInt(int64(revisionHeight)),
+		RevisionNumber: *big.NewInt(int64(revisionNumber)),
 	}
 	cl.clientID = clientId
 }

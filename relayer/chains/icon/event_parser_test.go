@@ -2,6 +2,7 @@ package icon
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
@@ -45,17 +46,17 @@ func TestDecode(t *testing.T) {
 	}
 	require.NoError(t, err)
 	expected := &Packet{
-		Sequence:           1,
+		Sequence:           *big.NewInt(1),
 		SourcePort:         "xcall",
 		SourceChannel:      "channel-0",
 		DestinationPort:    "xcall",
 		DestinationChannel: "channel-1",
 		Height: Height{
-			RevisionNumber: 9_999_999,
-			RevisionHeight: 2,
+			RevisionNumber: *big.NewInt(9999999),
+			RevisionHeight: *big.NewInt(2),
 		},
 		Data:      make([]byte, 0),
-		Timestamp: 1676951661,
+		Timestamp: *big.NewInt(1676951661),
 	}
 	assert.Equal(t, expected, packet)
 }

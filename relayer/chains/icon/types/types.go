@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	chanTypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/gorilla/websocket"
 	"github.com/icon-project/goloop/common"
 
@@ -149,12 +150,196 @@ type ClientStateParam struct {
 	Height   string `json:"height"`
 }
 
-type CallParam struct {
-	FromAddress Address     `json:"from" validate:"optional,t_addr_eoa"`
-	ToAddress   Address     `json:"to" validate:"required,t_addr_score"`
-	DataType    string      `json:"dataType" validate:"required,call"`
-	Data        interface{} `json:"data"`
+type ClientState struct {
+	ChainId                      string
+	TrustLevel                   Fraction
+	TrustingPeriod               Duration
+	UnbondingPeriod              Duration
+	MaxClockDrift                Duration
+	FrozenHeight                 Height
+	LatestHeight                 Height
+	ProofSpecs                   ProofSpec
+	AllowUpdateAfterExpiry       bool
+	AllowUpdateAfterMisbehaviour bool
 }
+
+type ConsensusState struct {
+	Timestamp          Duration
+	Root               MerkleRoot
+	NextValidatorsHash []byte
+}
+
+type MerkleRoot struct {
+	Hash []byte
+}
+
+type Duration struct {
+	Seconds big.Int
+	Nanos   big.Int
+}
+
+type Fraction struct {
+	Numerator   big.Int
+	Denominator big.Int
+}
+
+type ProofSpec struct {
+}
+
+type MsgCreateClient struct {
+	ClientState    []byte `json:"clientState"`
+	ConsensusState []byte `json:"consensusState"`
+	ClientType     string `json:"clientType"`
+}
+
+type MsgUpdateClient struct {
+	ClientId      string `json:"clientId"`
+	ClientMessage []byte `json:"clientMessage"`
+}
+
+type MsgChannelCloseConfirm struct {
+	PortId      string
+	ChannelId   string
+	ProofInit   []byte
+	ProofHeight Height
+}
+
+type MsgChannelCloseInit struct {
+	PortId    string
+	ChannelId string
+}
+
+type MsgChannelOpenAck struct {
+	PortId                string
+	ChannelId             string
+	CounterpartyVersion   string
+	CounterpartyChannelId string
+	ProofTry              []byte
+	ProofHeight           Height
+}
+
+type MsgChannelOpenConfirm struct {
+	PortId      string
+	ChannelId   string
+	ProofAck    []byte
+	ProofHeight Height
+}
+
+type MsgChannelOpenInit struct {
+	PortId  string
+	Channel Channel
+}
+
+type MsgChannelOpenTry struct {
+	PortId              string
+	PreviousChannelId   string
+	Channel             Channel
+	CounterpartyVersion string
+	ProofInit           []byte
+	ProofHeight         Height
+}
+
+type MsgConnectionOpenAck struct {
+	ConnectionId             string
+	ClientStateBytes         []byte
+	Version                  Version
+	CounterpartyConnectionID string
+	ProofTry                 []byte
+	ProofClient              []byte
+	ProofConsensus           []byte
+	ProofHeight              Height
+	ConsensusHeight          Height
+}
+
+type MsgConnectionOpenConfirm struct {
+	ConnectionId string
+	ProofAck     []byte
+	ProofHeight  Height
+}
+
+type MsgConnectionOpenInit struct {
+	ClientId     string
+	Counterparty ConnectionCounterparty
+	DelayPeriod  big.Int
+}
+
+type MsgConnectionOpenTry struct {
+	PreviousConnectionId string
+	Counterparty         ConnectionCounterparty
+	DelayPeriod          big.Int
+	ClientId             string
+	ClientStateBytes     []byte
+	CounterpartyVersions []Version
+	ProofInit            []byte
+	ProofClient          []byte
+	ProofConsensus       []byte
+	ProofHeight          Height
+	ConsensusHeight      Height
+}
+
+type MsgPacketAcknowledgement struct {
+	Packet          Packet
+	Acknowledgement []byte
+	Proof           []byte
+	ProofHeight     Height
+}
+
+type MsgPacketRecv struct {
+	Packet      Packet
+	Proof       []byte
+	ProofHeight Height
+}
+
+type Version struct {
+	Identifier string
+	Features   []string
+}
+
+type Channel struct {
+	State          chanTypes.State
+	Ordering       chanTypes.Order
+	Counterparty   ChannelCounterparty
+	ConnectionHops []string
+	Version        string
+}
+
+type ChannelCounterparty struct {
+	PortId    string
+	ChannelId string
+}
+
+type ConnectionCounterparty struct {
+	ClientId     string
+	ConnectionId string
+	Prefix       MerklePrefix
+}
+
+type MerklePrefix struct {
+	KeyPrefix []byte `protobuf:"bytes,1,opt,name=key_prefix,json=keyPrefix,proto3" json:"key_prefix,omitempty" yaml:"key_prefix"`
+}
+
+func NewMerklePrefix(keyPrefix []byte) MerklePrefix {
+	return MerklePrefix{
+		KeyPrefix: keyPrefix,
+	}
+}
+
+type CallParam struct {
+	FromAddress Address   `json:"from" validate:"optional,t_addr_eoa"`
+	ToAddress   Address   `json:"to" validate:"required,t_addr_score"`
+	DataType    string    `json:"dataType" validate:"required,call"`
+	Data        *CallData `json:"data"`
+}
+
+// Added to implement RelayerMessage interface
+func (c *CallParam) Type() string {
+	return c.DataType
+}
+
+func (c *CallParam) MsgBytes() ([]byte, error) {
+	return nil, nil
+}
+
 type AddressParam struct {
 	Address Address `json:"address" validate:"required,t_addr"`
 	Height  HexInt  `json:"height,omitempty" validate:"optional,t_int"`
@@ -461,17 +646,17 @@ type BTPBlockHeader struct {
 }
 
 type Packet struct {
-	Sequence           big.Int
-	Sourceport         string
-	Sourcechannel      string
-	Destinationport    string
-	Destinationchannel string
-	Data               []byte
-	Timeoutheight      Height
-	Timestamp          big.Int
+	Sequence           big.Int `json:"sequence"`
+	SourcePort         string  `json:"sourcePort"`
+	SourceChannel      string  `json:"sourceChannel"`
+	DestinationPort    string  `json:"destinationPort"`
+	DestinationChannel string  `json:"destionationChannel"`
+	Data               []byte  `json:"data"`
+	TimeoutHeight      Height  `json:"timeoutHeight"`
+	Timestamp          big.Int `json:"timestamp"`
 }
 
 type Height struct {
-	RevisionNumber big.Int
-	RevisionHeight big.Int
+	RevisionNumber big.Int `json:"revisionNumber"`
+	RevisionHeight big.Int `json:"revisionHeight"`
 }

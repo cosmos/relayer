@@ -26,6 +26,7 @@ import (
 	"github.com/icon-project/goloop/common"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/crypto"
+	"github.com/icon-project/goloop/module"
 	"github.com/icon-project/icon-bridge/common/jsonrpc"
 )
 
@@ -75,7 +76,7 @@ type Client struct {
 
 var txSerializeExcludes = map[string]bool{"signature": true}
 
-func (c *Client) SignTransaction(w Wallet, p *types.TransactionParam) error {
+func (c *Client) SignTransaction(w module.Wallet, p *types.TransactionParam) error {
 	p.Timestamp = types.NewHexInt(time.Now().UnixNano() / int64(time.Microsecond))
 	js, err := json.Marshal(p)
 	if err != nil {
