@@ -118,10 +118,20 @@ func (pp *PathProcessor) disablePeriodicFlush() {
 
 func (pp *PathProcessor) SetMessageLifecycle(messageLifecycle MessageLifecycle) {
 	pp.messageLifecycle = messageLifecycle
-	if messageLifecycle != nil {
+	if !pp.shouldFlush() {
 		// disable flushing when termination conditions are set, e.g. connection/channel handshakes
 		pp.disablePeriodicFlush()
 	}
+}
+
+func (pp *PathProcessor) shouldFlush() bool {
+	if pp.messageLifecycle == nil {
+		return true
+	}
+	if _, ok := pp.messageLifecycle.(*FlushLifecycle); ok {
+		return true
+	}
+	return false
 }
 
 // TEST USE ONLY
@@ -308,7 +318,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			continue
 		}
 
-		if pp.messageLifecycle == nil && !pp.initialFlushComplete {
+		if pp.shouldFlush() && !pp.initialFlushComplete {
 			pp.flush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
