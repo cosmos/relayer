@@ -489,7 +489,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 		if m.Initial == nil {
 			return
 		}
-		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
+		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnectionHops[0]) {
 			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {

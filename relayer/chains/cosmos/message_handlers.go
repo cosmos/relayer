@@ -63,7 +63,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 }
 
 func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
-	ccp.channelConnections[ci.ChannelID] = ci.ConnID
+	ccp.channelConnections[ci.ChannelID] = ci.ConnectionHops[0]
 	channelKey := processor.ChannelInfoChannelKey(ci)
 
 	if eventType == chantypes.EventTypeChannelOpenInit {
@@ -178,7 +178,14 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 		zap.String("port_id", ci.PortID),
 		zap.String("counterparty_channel_id", ci.CounterpartyChannelID),
 		zap.String("counterparty_port_id", ci.CounterpartyPortID),
-		zap.String("connection_id", ci.ConnID),
+		zap.Array("connection_hops", zapcore.ArrayMarshalerFunc(
+			func(enc zapcore.ArrayEncoder) error {
+				for _, hop := range ci.ConnectionHops {
+					enc.AppendString(hop)
+				}
+				return nil
+			},
+		)),
 	)
 }
 

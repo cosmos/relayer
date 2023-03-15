@@ -200,8 +200,12 @@ func (msg channelIBCMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("channel_id", msg.info.ChannelID)
 	enc.AddString("counterparty_port_id", msg.info.CounterpartyPortID)
 	enc.AddString("counterparty_channel_id", msg.info.CounterpartyChannelID)
-	enc.AddString("connection_id", msg.info.ConnID)
-	enc.AddString("counterparty_connection_id", msg.info.CounterpartyConnID)
+	enc.AddArray("connection_hops", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+		for _, hop := range msg.info.ConnectionHops {
+			enc.AppendString(hop)
+		}
+		return nil
+	}))
 	enc.AddString("order", msg.info.Order.String())
 	enc.AddString("version", msg.info.Version)
 	return nil

@@ -88,7 +88,6 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
-
 	return processor.NewEventProcessor().
 		WithChainProcessors(
 			c.chainProcessor(c.log, nil),
@@ -103,9 +102,9 @@ func (c *Chain) CreateOpenChannels(
 				Info: provider.ChannelInfo{
 					PortID:             srcPortID,
 					CounterpartyPortID: dstPortID,
-					ConnID:             c.PathEnd.ConnectionID,
-					Version:            version,
-					Order:              OrderFromString(order),
+					// TODO: pass connection hops
+					Version: version,
+					Order:   OrderFromString(order),
 				},
 			},
 			Termination: &processor.ChannelMessage{

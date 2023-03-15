@@ -127,11 +127,7 @@ type ChannelInfo struct {
 	ChannelID             string
 	CounterpartyPortID    string
 	CounterpartyChannelID string
-	ConnID                string
-
-	// CounterpartyConnID doesn't come from any events, but is needed for
-	// MsgChannelOpenTry, so should be added manually for MsgChannelOpenInit.
-	CounterpartyConnID string
+	ConnectionHops        []string
 
 	Order   chantypes.Order
 	Version string
