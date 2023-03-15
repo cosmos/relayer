@@ -95,11 +95,7 @@ func NewPathProcessor(
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
 ) *PathProcessor {
-	if flushInterval == 0 {
-		// "disable" periodic flushing by using a large value.
-		flushInterval = 200 * 24 * 365 * time.Hour
-	}
-	return &PathProcessor{
+	pp := &PathProcessor{
 		log:                       log,
 		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
 		pathEnd2:                  newPathEndRuntime(log, pathEnd2, metrics),
@@ -109,10 +105,23 @@ func NewPathProcessor(
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
 	}
+	if flushInterval == 0 {
+		pp.disablePeriodicFlush()
+	}
+	return pp
+}
+
+// disablePeriodicFlush will "disable" periodic flushing by using a large value.
+func (pp *PathProcessor) disablePeriodicFlush() {
+	pp.flushInterval = 200 * 24 * 365 * time.Hour
 }
 
 func (pp *PathProcessor) SetMessageLifecycle(messageLifecycle MessageLifecycle) {
 	pp.messageLifecycle = messageLifecycle
+	if messageLifecycle != nil {
+		// disable flushing when termination conditions are set, e.g. connection/channel handshakes
+		pp.disablePeriodicFlush()
+	}
 }
 
 // TEST USE ONLY
@@ -299,7 +308,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			continue
 		}
 
-		if !pp.initialFlushComplete {
+		if pp.messageLifecycle == nil && !pp.initialFlushComplete {
 			pp.flush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
