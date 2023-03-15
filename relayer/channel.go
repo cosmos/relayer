@@ -88,6 +88,10 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
+	connectionHops := []string{}
+	for _, hop := range hops {
+		connectionHops = append(connectionHops, hop.PathEnd.ConnectionID)
+	}
 	return processor.NewEventProcessor().
 		WithChainProcessors(
 			c.chainProcessor(c.log, nil),
@@ -102,9 +106,9 @@ func (c *Chain) CreateOpenChannels(
 				Info: provider.ChannelInfo{
 					PortID:             srcPortID,
 					CounterpartyPortID: dstPortID,
-					// TODO: pass connection hops
-					Version: version,
-					Order:   OrderFromString(order),
+					ConnectionHops:     connectionHops,
+					Version:            version,
+					Order:              OrderFromString(order),
 				},
 			},
 			Termination: &processor.ChannelMessage{
