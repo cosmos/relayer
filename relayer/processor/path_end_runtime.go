@@ -141,9 +141,8 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 			if eventType == chantypes.EventTypeChannelOpenInit {
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
 				for k := range pathEnd.connectionStateCache {
-					if k.ConnectionID == ci.ConnectionHops[0] {
-						ci.ConnectionHops[1] = k.CounterpartyConnID
-						// TODO: get a hold of the other connections
+					if k.ConnectionID == ci.ConnID {
+						ci.CounterpartyConnID = k.CounterpartyConnID
 						break
 					}
 				}

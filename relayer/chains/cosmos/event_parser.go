@@ -382,7 +382,7 @@ func (res *channelInfo) parseChannelAttribute(attr sdk.Attribute) {
 	case chantypes.AttributeCounterpartyChannelID:
 		res.CounterpartyChannelID = attr.Value
 	case chantypes.AttributeKeyConnectionID:
-		res.ConnectionHops = strings.Split(attr.Value, ",")
+		res.ConnID = attr.Value
 	case chantypes.AttributeVersion:
 		res.Version = attr.Value
 	}

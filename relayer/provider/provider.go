@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
@@ -127,10 +128,19 @@ type ChannelInfo struct {
 	ChannelID             string
 	CounterpartyPortID    string
 	CounterpartyChannelID string
-	ConnectionHops        []string
+	ConnID                string
+
+	// CounterpartyConnID doesn't come from any events, but is needed for
+	// MsgChannelOpenTry, so should be added manually for MsgChannelOpenInit.
+	CounterpartyConnID string
 
 	Order   chantypes.Order
 	Version string
+}
+
+// ConnectionHops splits the list of connection hops to
+func (c ChannelInfo) ConnectionHops() []string {
+	return strings.Split(c.ConnID, ".")
 }
 
 // ClientICQQueryID string wrapper for query ID.

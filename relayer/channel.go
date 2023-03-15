@@ -88,9 +88,12 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
-	connectionHops := []string{}
-	for _, hop := range hops {
-		connectionHops = append(connectionHops, hop.PathEnd.ConnectionID)
+	connectionHops := ""
+	for i, hop := range hops {
+		if i > 0 {
+			connectionHops += "."
+		}
+		connectionHops += hop.PathEnd.ConnectionID
 	}
 	return processor.NewEventProcessor().
 		WithChainProcessors(
@@ -106,9 +109,10 @@ func (c *Chain) CreateOpenChannels(
 				Info: provider.ChannelInfo{
 					PortID:             srcPortID,
 					CounterpartyPortID: dstPortID,
-					ConnectionHops:     connectionHops,
-					Version:            version,
-					Order:              OrderFromString(order),
+					// TODO: find out when this converts to protobuf and split again
+					ConnID:  connectionHops,
+					Version: version,
+					Order:   OrderFromString(order),
 				},
 			},
 			Termination: &processor.ChannelMessage{
