@@ -109,6 +109,7 @@ func StartRelayer(
 type path struct {
 	src processor.PathEnd
 	dst processor.PathEnd
+	// TODO: add hops here
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.

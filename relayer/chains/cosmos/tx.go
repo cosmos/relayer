@@ -567,7 +567,8 @@ func (cc *CosmosProvider) MsgRecvPacket(
 		return nil, err
 	}
 	msg := &chantypes.MsgRecvPacket{
-		Packet:          msgTransfer.Packet(),
+		Packet: msgTransfer.Packet(),
+		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
@@ -606,9 +607,10 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 	msg := &chantypes.MsgAcknowledgement{
 		Packet:          msgRecvPacket.Packet(),
 		Acknowledgement: msgRecvPacket.Ack,
-		ProofAcked:      proof.Proof,
-		ProofHeight:     proof.ProofHeight,
-		Signer:          signer,
+		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
+		ProofAcked:  proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -657,7 +659,8 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeout{
-		Packet:           msgTransfer.Packet(),
+		Packet: msgTransfer.Packet(),
+		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
@@ -673,7 +676,8 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
-		Packet:           msgTransfer.Packet(),
+		Packet: msgTransfer.Packet(),
+		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
@@ -849,11 +853,82 @@ func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pr
 	return NewCosmosMessage(msg), nil
 }
 
+func (cc *CosmosProvider) GenerateConsensusProofs(msg provider.ChannelInfo, height uint64) ([]byte, error) {
+	connectionHops := msg.ConnectionHops()
+	// iterate all but the last two chains (connection hops doesn't include src and dest so ends up being the exact length)
+	for i := 0; i < len(connectionHops); i++ {
+		// TODO: pass in ctx for the various chains so we can query
+		//cc.QueryLatestHeight()
+		/* TODO: this
+		previousChain := chains[i]   // previous chains state root is on currentChain and is the source chain for i==0.
+		currentChain  := chains[i+1] // currentChain is where the proof is queried and generated
+		nextChain     := chains[i+2] // nextChain holds the state root of the currentChain
+
+		consensusHeight := GetClientStateHeight(currentChain, previousChain.ClientID) // height of previous chain client state on current chain
+		nextHeight := GetClientStateHeight(nextChain, currentChain)      // height of current chain state on next chain
+
+		// consensus state of previous chain on current chain at consensusHeight which is the height of previous chain client state on current chain
+		consensusState := GetConsensusState(currentChain, previousChain.ClientID, currentHeight)
+
+		// prefixed key for consensus state of previous chain
+		consensusKey := GetPrefixedConsensusStateKey(currentChain, currentHeight)
+
+		// proof of previous chain's consensus state at currentHeight on currentChain at nextHeight
+		consensusProof := GetConsensusStateProof(currentChain, nextHeight, currentHeight, currentChain.ClientID)
+
+		proofs = append(consStateProofs, &ProofData{
+			Key:   &consensusKey,
+			Value: consensusState,
+			Proof: consensusProof,
+		})
+		*/
+	}
+	return nil, nil
+}
+
+func (cc *CosmosProvider) GenerateConnectionProofs(msg provider.ChannelInfo, height uint64) ([]byte, error) {
+	/* TODO: this
+	assert(len(chains) > 2)
+
+	var proofs []*ProofData
+
+	// iterate all but the last two chains
+	for i := 0; i < len(chains)-2; i++ {
+
+		previousChain := chains[i]  // previous chains state root is on currentChain and is the source chain for i==0.
+		currentChain := chains[i+1] // currentChain is where the proof is queried and generated
+		nextChain := chains[i+2]    // nextChain holds the state root of the currentChain
+
+		currentHeight := currentChain.GetClientStateHeight(sourceChain) // height of previous chain state on current chain
+		nextHeight := nextChain.GetClientStateHeight(currentChain)      // height of current chain state on next chain
+
+		// prefixed key for the connection from currentChain to prevChain
+		connectionKey := GetPrefixedConnectionKey(currentChain)
+
+		// proof of current chain's connection to previous Chain.
+		connectionEnd := GetConnection(currentChain)
+
+		// Query proof of the currentChain's connection with the previousChain at nextHeight
+		// (currentChain's state root height on nextChain)
+		connectionProof := GetConnectionProof(currentChain, nextHeight)
+
+		proofs = append(proofs, &ProofData{
+			Key:   &connectionKey,
+			Value: connectionEnd,
+			Proof: connectionProof,
+		})
+	}
+	return proofs
+	*/
+	return nil, nil
+}
+
 func (cc *CosmosProvider) ChannelProof(
 	ctx context.Context,
 	msg provider.ChannelInfo,
 	height uint64,
 ) (provider.ChannelProof, error) {
+	// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
 	channelRes, err := cc.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, err
@@ -959,6 +1034,8 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 
 	return NewCosmosMessage(msg), nil
 }
+
+// TODO: add MsgChannelCloseFrozen
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)

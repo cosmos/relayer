@@ -138,7 +138,7 @@ type ChannelInfo struct {
 	Version string
 }
 
-// ConnectionHops splits the list of connection hops to
+// ConnectionHops splits the list of connection hops to turn it into an array.
 func (c ChannelInfo) ConnectionHops() []string {
 	return strings.Split(c.ConnID, ".")
 }
