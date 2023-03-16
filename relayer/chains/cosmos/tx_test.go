@@ -18,6 +18,7 @@ func (err mockAccountSequenceMismatchError) Error() string {
 
 func TestHandleAccountSequenceMismatchError(t *testing.T) {
 	p := &CosmosProvider{}
-	p.handleAccountSequenceMismatchError(mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
-	require.Equal(t, p.nextAccountSeq, uint64(10))
+	ws := &WalletState{}
+	p.handleAccountSequenceMismatchError(ws, mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
+	require.Equal(t, ws.NextAccountSequence, uint64(10))
 }

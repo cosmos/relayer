@@ -108,6 +108,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
 		Input:          os.Stdin,
 		Output:         os.Stdout,
+		walletStateMap: map[string]*WalletState{},
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Codec: MakeCodec(pc.Modules, pc.ExtraCodecs),
@@ -129,9 +130,13 @@ type CosmosProvider struct {
 	Codec          Codec
 	// TODO: GRPC Client type?
 
-	nextAccountSeq uint64
-	txMu           sync.Mutex
-	feegrantMu     sync.Mutex
+	//nextAccountSeq uint64
+	feegrantMu sync.Mutex
+
+	// the map key is the TX signer, which can either be 'default' (provider key) or a feegrantee
+	// the purpose of the map is to lock on the signer from TX creation through submission,
+	// thus making TX sequencing errors less likely.
+	walletStateMap map[string]*WalletState
 
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
@@ -141,6 +146,11 @@ type CosmosProvider struct {
 
 	// for tendermint < v0.37, decode tm events as base64
 	tendermintLegacyEncoding bool
+}
+
+type WalletState struct {
+	NextAccountSequence uint64
+	Mu                  sync.Mutex
 }
 
 type CosmosIBCHeader struct {
@@ -357,9 +367,9 @@ func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
 	cc.metrics = m
 }
 
-func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
-	if seq > cc.nextAccountSeq {
-		cc.nextAccountSeq = seq
+func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq uint64) {
+	if seq > sequenceGuard.NextAccountSequence {
+		sequenceGuard.NextAccountSequence = seq
 	}
 }
 

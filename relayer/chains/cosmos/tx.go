@@ -73,6 +73,21 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
+// Gets the sequence guard. If it doesn't exist, initialized and returns it.
+func ensureSequenceGuard(cc *CosmosProvider, key string) *WalletState {
+	if cc.walletStateMap == nil {
+		cc.walletStateMap = map[string]*WalletState{}
+	}
+
+	sequenceGuard, ok := cc.walletStateMap[key]
+	if !ok {
+		cc.walletStateMap[key] = &WalletState{}
+		return cc.walletStateMap[key]
+	}
+
+	return sequenceGuard
+}
+
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
 // This is used extensively in the relayer as an extension of the Provider interface
 //
@@ -89,22 +104,20 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		return nil, false, err
 	}
 
-	//The default signer will be used, so guard against account sequence number mismatch errors
-	if feegranterKey == "" || txSignerKey == cc.PCfg.Key {
-		cc.txMu.Lock()
-		defer cc.txMu.Unlock()
-	}
+	sequenceGuard := ensureSequenceGuard(cc, txSignerKey)
+	sequenceGuard.Mu.Lock()
+	defer sequenceGuard.Mu.Unlock()
 
 	if err := retry.Do(func() error {
 
-		txBytes, sequence, f, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey)
+		txBytes, sequence, f, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey, sequenceGuard)
 		fees = f
 		if err != nil {
 			errMsg := err.Error()
 
 			// Account sequence mismatch errors can happen on the simulated transaction also.
 			if strings.Contains(errMsg, sdkerrors.ErrWrongSequence.Error()) {
-				cc.handleAccountSequenceMismatchError(err)
+				cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 				return err
 			}
 
@@ -175,7 +188,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		resp, err = cc.BroadcastTx(ctx, txBytes)
 		if err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-				cc.handleAccountSequenceMismatchError(err)
+				cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 				return err
 			}
 
@@ -184,7 +197,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 		}
 
 		// we had a successful tx with this sequence, so update it to the next
-		cc.updateNextAccountSequence(sequence + 1)
+		cc.updateNextAccountSequence(sequenceGuard, sequence+1)
 
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
@@ -240,17 +253,15 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 		return err
 	}
 
-	//The default signer will be used, so guard against account sequence number mismatch errors
-	if feegranterKey == "" || txSignerKey == cc.PCfg.Key {
-		cc.txMu.Lock()
-		defer cc.txMu.Unlock()
-	}
+	sequenceGuard := ensureSequenceGuard(cc, txSignerKey)
+	sequenceGuard.Mu.Lock()
+	defer sequenceGuard.Mu.Unlock()
 
-	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey)
+	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey, sequenceGuard)
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
 		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-			cc.handleAccountSequenceMismatchError(err)
+			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
 
 		return err
@@ -258,15 +269,14 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 
 	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallbacks); err != nil {
 		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-			cc.handleAccountSequenceMismatchError(err)
+			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
 
 		return err
 	}
 
 	// we had a successful tx broadcast with this sequence, so update it to the next
-	cc.updateNextAccountSequence(sequence + 1)
-
+	cc.updateNextAccountSequence(sequenceGuard, sequence+1)
 	return nil
 }
 
@@ -640,7 +650,15 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	return
 }
 
-func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string, gas uint64, txSignerKey string, feegranterKey string) (
+func (cc *CosmosProvider) buildMessages(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
+	gas uint64,
+	txSignerKey string,
+	feegranterKey string,
+	sequenceGuard *WalletState,
+) (
 	txBytes []byte,
 	sequence uint64,
 	fees sdk.Coins,
@@ -660,14 +678,11 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		txf = txf.WithMemo(memo)
 	}
 
-	//If feegranting is enabled the sequence number should already be correct.
-	if feegranterKey == "" {
-		sequence = txf.Sequence()
-		cc.updateNextAccountSequence(sequence)
-		if sequence < cc.nextAccountSeq {
-			sequence = cc.nextAccountSeq
-			txf = txf.WithSequence(sequence)
-		}
+	sequence = txf.Sequence()
+	cc.updateNextAccountSequence(sequenceGuard, sequence)
+	if sequence < sequenceGuard.NextAccountSequence {
+		sequence = sequenceGuard.NextAccountSequence
+		txf = txf.WithSequence(sequence)
 	}
 
 	adjusted := gas
@@ -718,7 +733,11 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 // handleAccountSequenceMismatchError will parse the error string, e.g.:
 // "account sequence mismatch, expected 10, got 9: incorrect account sequence"
 // and update the next account sequence with the expected value.
-func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
+func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *WalletState, err error) {
+	if sequenceGuard == nil {
+		panic("sequence guard not configured")
+	}
+
 	sequences := numRegex.FindAllString(err.Error(), -1)
 	if len(sequences) != 2 {
 		return
@@ -727,7 +746,7 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
 	if err != nil {
 		return
 	}
-	cc.nextAccountSeq = nextSeq
+	sequenceGuard.NextAccountSequence = nextSeq
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
