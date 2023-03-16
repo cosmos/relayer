@@ -145,24 +145,29 @@ func (msg channelIBCMessage) assemble(
 ) (provider.RelayerMessage, error) {
 	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
+	var proofChainProvider provider.ChainProvider
 	switch msg.eventType {
 	case chantypes.EventTypeChannelOpenInit:
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelOpenInit
 	case chantypes.EventTypeChannelOpenTry:
-		chanProof = src.chainProvider.ChannelProof
+		proofChainProvider = src.chainProvider
+		chanProof = proofChainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenTry
 	case chantypes.EventTypeChannelOpenAck:
-		chanProof = src.chainProvider.ChannelProof
+		proofChainProvider = src.chainProvider
+		chanProof = proofChainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenAck
 	case chantypes.EventTypeChannelOpenConfirm:
-		chanProof = src.chainProvider.ChannelProof
+		proofChainProvider = src.chainProvider
+		chanProof = proofChainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
 	case chantypes.EventTypeChannelCloseInit:
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelCloseInit
 	case chantypes.EventTypeChannelCloseConfirm:
-		chanProof = src.chainProvider.ChannelProof
+		proofChainProvider = src.chainProvider
+		chanProof = proofChainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
 	default:
 		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
@@ -170,6 +175,9 @@ func (msg channelIBCMessage) assemble(
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {
+		for _, hop := range hops {
+			proofChainProvider.AddQueryProvider(hop.chainProvider.ChainId(), hop.chainProvider)
+		}
 		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
 			return nil, fmt.Errorf("error querying channel proof: %w", err)

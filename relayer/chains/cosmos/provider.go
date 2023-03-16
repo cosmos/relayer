@@ -120,11 +120,13 @@ type CosmosProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+
+	// queryProviders allows to query other chains for multi-hop proofs
+	queryProviders map[string]provider.QueryProvider
 }
 
-func (cc *CosmosProvider) AddQueryProvider(chainID, connID, clientID string, queryProvider provider.QueryProvider) {
-	//TODO implement me
-	panic("implement me")
+func (cc *CosmosProvider) AddQueryProvider(chainID string, queryProvider provider.QueryProvider) {
+	cc.queryProviders[chainID] = queryProvider
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
