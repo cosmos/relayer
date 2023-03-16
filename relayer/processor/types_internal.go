@@ -51,6 +51,7 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 ) (provider.RelayerMessage, error) {
 	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
+	// TODO: add hop chain query providers
 	switch msg.eventType {
 	case chantypes.EventTypeRecvPacket:
 		packetProof = src.chainProvider.PacketCommitment
@@ -83,6 +84,7 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 
 	var proof provider.PacketProof
 	var err error
+	// TODO: add hop chain IDs
 	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 	if err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
@@ -143,7 +145,7 @@ func (msg channelIBCMessage) assemble(
 	src, dst *pathEndRuntime,
 	hops []*pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
+	var chanProof func(context.Context, provider.ChannelInfo, uint64, []string) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
 	var proofChainProvider provider.ChainProvider
 	switch msg.eventType {
@@ -175,10 +177,12 @@ func (msg channelIBCMessage) assemble(
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {
-		for _, hop := range hops {
+		hopChainIDs := make([]string, len(hops))
+		for i, hop := range hops {
+			hopChainIDs[i] = hop.chainProvider.ChainId()
 			proofChainProvider.AddQueryProvider(hop.chainProvider.ChainId(), hop.chainProvider)
 		}
-		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
+		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height, hopChainIDs)
 		if err != nil {
 			return nil, fmt.Errorf("error querying channel proof: %w", err)
 		}

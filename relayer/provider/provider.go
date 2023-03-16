@@ -329,8 +329,9 @@ type ChainProvider interface {
 
 	// [Begin] Channel handshake IBC message assembly
 
-	// ChannelProof queries for proof of a channel state.
-	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64) (ChannelProof, error)
+	// ChannelProof queries for proof of a channel state. If the channel is multi-hop, the hops represent the chain IDs
+	// of the intermediate hops.
+	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64, hops []string) (ChannelProof, error)
 
 	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
 	// ready to write to the chain. The channel proof is not needed here, but it needs

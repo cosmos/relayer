@@ -853,7 +853,58 @@ func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pr
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) GenerateConsensusProofs(msg provider.ChannelInfo, height uint64) ([]byte, error) {
+// generateMultihopProof generates proof of a key/value at the proofHeight on source chain.
+func (cc *CosmosProvider) generateMultihopProof(
+	ctx context.Context,
+	msg provider.ChannelInfo,
+	height uint64,
+	keyProof []byte,
+	hops []string,
+) ([]byte, error) {
+	if len(hops) == 0 {
+		return keyProof, nil
+	}
+	multihopProof := chantypes.MsgMultihopProofs{
+		KeyProof: &chantypes.MultihopProof{Proof: keyProof},
+	}
+	chain0 := cc
+	chain1 := cc.queryProviders[hops[0]]
+	connectionHops := msg.ConnectionHops()
+	conn0, err := chain0.QueryConnection(ctx, int64(height), connectionHops[0])
+	if err != nil {
+		return nil, err
+	}
+	latestHeight1, err := chain1.QueryLatestHeight(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Get height of chain0's client state on chain1
+	clientState1, err := chain1.QueryClientState(ctx, latestHeight1, conn0.Connection.ClientId)
+	if err != nil {
+		return nil, err
+	}
+	// Ensure that chain0's client state is update to date
+	if clientState1.GetLatestHeight().GetRevisionHeight() < height {
+		// TODO: update
+		return nil, fmt.Errorf("chain0's client state is not up to date")
+	}
+
+	// Generate and assign consensus, clientState, and connection proofs
+	if multihopProof.ConsensusProofs, err = cc.generateConsensusProofs(ctx, msg, height, hops); err != nil {
+		return nil, err
+	}
+	if multihopProof.ConnectionProofs, err = cc.generateConnectionProofs(ctx, msg, height, hops); err != nil {
+		return nil, err
+	}
+	return multihopProof.Marshal()
+}
+
+func (cc *CosmosProvider) generateConsensusProofs(
+	ctx context.Context,
+	msg provider.ChannelInfo,
+	height uint64,
+	hops []string,
+) ([]*chantypes.MultihopProof, error) {
 	connectionHops := msg.ConnectionHops()
 	// iterate all but the last two chains (connection hops doesn't include src and dest so ends up being the exact length)
 	for i := 0; i < len(connectionHops); i++ {
@@ -886,7 +937,12 @@ func (cc *CosmosProvider) GenerateConsensusProofs(msg provider.ChannelInfo, heig
 	return nil, nil
 }
 
-func (cc *CosmosProvider) GenerateConnectionProofs(msg provider.ChannelInfo, height uint64) ([]byte, error) {
+func (cc *CosmosProvider) generateConnectionProofs(
+	ctx context.Context,
+	msg provider.ChannelInfo,
+	height uint64,
+	hops []string,
+) ([]*chantypes.MultihopProof, error) {
 	/* TODO: this
 	assert(len(chains) > 2)
 
@@ -927,14 +983,20 @@ func (cc *CosmosProvider) ChannelProof(
 	ctx context.Context,
 	msg provider.ChannelInfo,
 	height uint64,
+	hops []string,
 ) (provider.ChannelProof, error) {
-	// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
 	channelRes, err := cc.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, err
 	}
+	proof := channelRes.Proof
+	if len(hops) > 0 {
+		if proof, err = cc.generateMultihopProof(ctx, msg, height, proof, hops); err != nil {
+			return provider.ChannelProof{}, err
+		}
+	}
 	return provider.ChannelProof{
-		Proof:       channelRes.Proof,
+		Proof:       proof,
 		ProofHeight: channelRes.ProofHeight,
 		Version:     channelRes.Channel.Version,
 		Ordering:    channelRes.Channel.Ordering,
