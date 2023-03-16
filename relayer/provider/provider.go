@@ -236,6 +236,9 @@ type ChainProvider interface {
 
 	Init(ctx context.Context) error
 
+	// AddQueryProvider adds a query provider for another chain
+	AddQueryProvider(chainID, connID, clientID string, queryProvider QueryProvider)
+
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 

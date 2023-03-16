@@ -122,6 +122,11 @@ type CosmosProvider struct {
 	cometLegacyEncoding bool
 }
 
+func (cc *CosmosProvider) AddQueryProvider(chainID, connID, clientID string, queryProvider provider.QueryProvider) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
 	return cc.PCfg
 }
