@@ -49,7 +49,7 @@ func TestParseIBCMessageFromEvent(t *testing.T) {
 }
 
 func TestDecode(t *testing.T) {
-	eventData := "0xef01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c4820745028705f6f94412638d"
+	eventData := "0xef01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c4028207458705f6f94412638d"
 	eventData = strings.TrimPrefix(eventData, "0x")
 	unfiltered, _ := hex.DecodeString(eventData)
 	packet, err := _parsePacket(unfiltered)

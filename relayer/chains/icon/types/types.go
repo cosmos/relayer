@@ -635,6 +635,6 @@ type Packet struct {
 }
 
 type Height struct {
-	RevisionHeight big.Int `json:"revisionHeight"`
 	RevisionNumber big.Int `json:"revisionNumber"`
+	RevisionHeight big.Int `json:"revisionHeight"`
 }
