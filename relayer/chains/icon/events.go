@@ -1,6 +1,10 @@
 package icon
 
-import "github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
+import (
+	"encoding/hex"
+
+	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
+)
 
 // Events
 var (
@@ -37,6 +41,14 @@ var (
 	EventTypeTimeoutPacket        = "timeout_packet"
 	EventTypeTimeoutPacketOnClose = "timeout_on_close_packet"
 )
+
+func MustConvertEventNameToBytes(eventName string) []byte {
+	input, err := hex.DecodeString(eventName)
+	if err != nil {
+		return nil
+	}
+	return input
+}
 
 func GetMonitorEventFilters(address string) []*types.EventFilter {
 

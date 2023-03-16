@@ -1,9 +1,8 @@
 package icon
 
 import (
-	"encoding/hex"
+	"bytes"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -61,22 +60,6 @@ import (
 
 // }
 
-type Packet struct {
-	Sequence           big.Int
-	SourcePort         string
-	SourceChannel      string
-	DestinationPort    string
-	DestinationChannel string
-	Data               []byte
-	Height             Height
-	Timestamp          big.Int
-}
-
-type Height struct {
-	RevisionHeight big.Int
-	RevisionNumber big.Int
-}
-
 type ibcMessage struct {
 	eventType string
 	info      ibcMessageInfo
@@ -93,7 +76,7 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	packetData := event.Indexed[1]
 	packet, err := _parsePacket(packetData)
 	if err != nil {
-		log.Error("Error parsing packet", zap.String("value", packetData))
+		log.Error("Error parsing packet", zap.ByteString("value", packetData))
 		return
 	}
 	pi.SourcePort = packet.SourcePort
@@ -105,7 +88,8 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight.Uint64()
 	pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber.Uint64()
 	pi.TimeoutTimestamp = packet.Timestamp.Uint64()
-	if eventType == EventTypeAcknowledgePacket {
+
+	if bytes.Equal(eventType, MustConvertEventNameToBytes(EventTypeAcknowledgePacket)) {
 		pi.Ack = []byte(event.Indexed[2])
 	}
 }
@@ -122,11 +106,11 @@ func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	counterpartyChannelId := event.Indexed[4]
 	version := event.Indexed[6]
 
-	ch.PortID = portId
-	ch.ChannelID = channelId
-	ch.CounterpartyPortID = counterpartyPortId
-	ch.CounterpartyChannelID = counterpartyChannelId
-	ch.Version = version
+	ch.PortID = string(portId[:])
+	ch.ChannelID = string(channelId[:])
+	ch.CounterpartyPortID = string(counterpartyPortId[:])
+	ch.CounterpartyChannelID = string(counterpartyChannelId[:])
+	ch.Version = string(version[:])
 }
 
 type connectionInfo provider.ConnectionInfo
@@ -135,10 +119,10 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	connectionId, clientId := event.Indexed[1], event.Indexed[2]
 	counterpartyConnectionId, counterpartyClientId := event.Indexed[3], event.Indexed[4]
 
-	co.ConnID = connectionId
-	co.ClientID = clientId
-	co.CounterpartyConnID = counterpartyConnectionId
-	co.CounterpartyClientID = counterpartyClientId
+	co.ConnID = string(connectionId[:])
+	co.ClientID = string(clientId[:])
+	co.CounterpartyConnID = string(counterpartyConnectionId[:])
+	co.CounterpartyClientID = string(counterpartyClientId[:])
 }
 
 type clientInfo struct {
@@ -157,7 +141,7 @@ func (c clientInfo) ClientState() provider.ClientState {
 // eventType_signature  ,rlpPacket
 func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	clientId := event.Indexed[1]
-	height := event.Indexed[3]
+	height := string(event.Indexed[3][:])
 
 	revisionSplit := strings.Split(height, "-")
 	if len(revisionSplit) != 2 {
@@ -188,7 +172,7 @@ func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		RevisionHeight: revisionHeight,
 		RevisionNumber: revisionNumber,
 	}
-	cl.clientID = clientId
+	cl.clientID = string(clientId[:])
 }
 
 func parseIBCMessageFromEvent(
@@ -196,7 +180,7 @@ func parseIBCMessageFromEvent(
 	event types.EventLog,
 	height uint64,
 ) *ibcMessage {
-	eventType := event.Indexed[0]
+	eventType := string(event.Indexed[0][:])
 
 	switch eventType {
 	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
@@ -243,11 +227,11 @@ func parseIBCMessageFromEvent(
 	return nil
 }
 
-func GetEventLogSignature(indexed []string) string {
+func GetEventLogSignature(indexed [][]byte) []byte {
 	return indexed[0]
 }
 
-func _parsePacket(str string) (*types.Packet, error) {
+func _parsePacket(str []byte) (*types.Packet, error) {
 	p := types.Packet{}
 	e := rlpDecodeHex(str, &p)
 	if e != nil {
@@ -257,13 +241,13 @@ func _parsePacket(str string) (*types.Packet, error) {
 	return &p, nil
 }
 
-func rlpDecodeHex(str string, out interface{}) error {
-	str = strings.TrimPrefix(str, "0x")
-	input, err := hex.DecodeString(str)
-	if err != nil {
-		return errors.Wrap(err, "hex.DecodeString ")
-	}
-	_, err = codec.RLP.UnmarshalFromBytes(input, out)
+func rlpDecodeHex(input []byte, out interface{}) error {
+	// str = strings.TrimPrefix(str, "0x")
+	// input, err := hex.DecodeString(str)
+	// if err != nil {
+	// 	return errors.Wrap(err, "hex.DecodeString ")
+	// }
+	_, err := codec.RLP.UnmarshalFromBytes(input, out)
 	if err != nil {
 		return errors.Wrap(err, "rlp.Decode ")
 	}

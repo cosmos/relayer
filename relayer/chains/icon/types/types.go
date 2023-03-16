@@ -82,8 +82,8 @@ type BlockHeader struct {
 
 type EventLog struct {
 	Addr    Address
-	Indexed []string
-	Data    []string
+	Indexed [][]byte
+	Data    [][]byte
 }
 
 type TransactionResult struct {
@@ -635,6 +635,6 @@ type Packet struct {
 }
 
 type Height struct {
-	RevisionNumber big.Int `json:"revisionNumber"`
 	RevisionHeight big.Int `json:"revisionHeight"`
+	RevisionNumber big.Int `json:"revisionNumber"`
 }
