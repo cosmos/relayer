@@ -16,19 +16,16 @@ func newPathEnd(pathName, chainID, clientID string) processor.PathEnd {
 	return processor.NewPathEnd(pathName, chainID, chainID, "", []processor.ChainChannelKey{})
 }
 
-func newRelayPathEnds(pathName string, hops []*Chain) [][2]*processor.PathEnd {
-	pathEnds := [][2]*processor.PathEnd{}
-	for _, hop := range hops {
+func newRelayPathEnds(pathName string, hops []*Chain) ([]*processor.PathEnd, []*processor.PathEnd) {
+	relayPathEndsSrcToDst := make([]*processor.PathEnd, len(hops))
+	relayPathEndsDstToSrc := make([]*processor.PathEnd, len(hops))
+	for i, hop := range hops {
 		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
 		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
-
-		pathEnds = append(pathEnds,
-			[2]*processor.PathEnd{
-				&pathEnd1,
-				&pathEnd2,
-			})
+		relayPathEndsSrcToDst[i] = &pathEnd1
+		relayPathEndsDstToSrc[i] = &pathEnd2
 	}
-	return pathEnds
+	return relayPathEndsSrcToDst, relayPathEndsDstToSrc
 }
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
@@ -71,11 +68,19 @@ func (c *Chain) CreateOpenChannels(
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
 
+	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
+	for i, hop := range hops {
+		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
+		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
+		relayPathEndsSrcToDst[i] = &pathEnd1
+		relayPathEndsDstToSrc[i] = &pathEnd2
+	}
 	pp := processor.NewPathProcessor(
 		c.log,
 		newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),
 		newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID),
-		newRelayPathEnds(pathName, hops),
+		relayPathEndsSrcToDst,
+		relayPathEndsDstToSrc,
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
@@ -145,6 +150,7 @@ func (c *Chain) CloseChannel(
 
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
+	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
 
 	return processor.NewEventProcessor().
 		WithChainProcessors(
@@ -155,7 +161,8 @@ func (c *Chain) CloseChannel(
 			c.log,
 			newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),
 			newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID),
-			newRelayPathEnds(pathName, hops),
+			relayPathEndsSrcToDst,
+			relayPathEndsDstToSrc,
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,

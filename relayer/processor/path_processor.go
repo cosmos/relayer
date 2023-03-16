@@ -56,7 +56,8 @@ type PathProcessor struct {
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
 
-	hops [][2]*PathEnd
+	hopsPathEnd1to2 []*pathEndRuntime
+	hopsPathEnd2to1 []*pathEndRuntime
 
 	memo string
 
@@ -92,7 +93,8 @@ func NewPathProcessor(
 	log *zap.Logger,
 	pathEnd1 PathEnd,
 	pathEnd2 PathEnd,
-	hops [][2]*PathEnd,
+	hops1to2 []*PathEnd,
+	hops2to1 []*PathEnd,
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
@@ -102,11 +104,20 @@ func NewPathProcessor(
 		// "disable" periodic flushing by using a large value.
 		flushInterval = 200 * 24 * 365 * time.Hour
 	}
+	hopsPathEnd1to2 := make([]*pathEndRuntime, len(hops1to2))
+	for i, hop := range hops1to2 {
+		hopsPathEnd1to2[i] = newPathEndRuntime(log, *hop, metrics)
+	}
+	hopsPathEnd2to1 := make([]*pathEndRuntime, len(hops2to1))
+	for i, hop := range hops1to2 {
+		hopsPathEnd2to1[i] = newPathEndRuntime(log, *hop, metrics)
+	}
 	return &PathProcessor{
 		log:                       log,
 		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
 		pathEnd2:                  newPathEndRuntime(log, pathEnd2, metrics),
-		hops:                      hops,
+		hopsPathEnd1to2:           hopsPathEnd1to2,
+		hopsPathEnd2to1:           hopsPathEnd2to1,
 		retryProcess:              make(chan struct{}, 2),
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,

@@ -81,7 +81,7 @@ func (mp *messageProcessor) processMessages(
 	ctx context.Context,
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
-	hops [][2]*PathEnd,
+	hops []*pathEndRuntime,
 ) error {
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
@@ -146,7 +146,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 
 // assembleMessages will assemble all messages in parallel. This typically involves proof queries for each.
 func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime,
-	hops [][2]*PathEnd) {
+	hops []*pathEndRuntime) {
 	var wg sync.WaitGroup
 
 	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
@@ -194,7 +194,7 @@ func (mp *messageProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
-	hops [][2]*PathEnd,
+	hops []*pathEndRuntime,
 	i int,
 	wg *sync.WaitGroup,
 ) {
