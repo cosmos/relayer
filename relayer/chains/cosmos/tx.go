@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/client"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -17,7 +18,6 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -853,6 +853,42 @@ func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pr
 	return NewCosmosMessage(msg), nil
 }
 
+type clientState struct {
+	srcID          string
+	dstHeight      ibcexported.Height
+	dstChainHeight int64
+	dstPrefix      commitmenttypes.MerklePrefix
+}
+
+// getClientState gets src's client state on dst.
+func getClientState(
+	ctx context.Context,
+	src provider.QueryProvider,
+	dst provider.QueryProvider,
+	connID string,
+	height uint64,
+) (*clientState, error) {
+	conn, err := src.QueryConnection(ctx, int64(height), connID)
+	if err != nil {
+		return nil, err
+	}
+	dstLatestHeight, err := dst.QueryLatestHeight(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Get height of chain0's client state on chain1
+	clientState1, err := dst.QueryClientState(ctx, dstLatestHeight, conn.Connection.ClientId)
+	if err != nil {
+		return nil, err
+	}
+	return &clientState{
+		srcID:          conn.Connection.ClientId,
+		dstHeight:      clientState1.GetLatestHeight(),
+		dstChainHeight: dstLatestHeight,
+		dstPrefix:      conn.Connection.Counterparty.Prefix,
+	}, nil
+}
+
 // generateMultihopProof generates proof of a key/value at the proofHeight on source chain.
 func (cc *CosmosProvider) generateMultihopProof(
 	ctx context.Context,
@@ -869,31 +905,29 @@ func (cc *CosmosProvider) generateMultihopProof(
 	}
 	chain0 := cc
 	chain1 := cc.queryProviders[hops[0]]
-	connectionHops := msg.ConnectionHops()
-	conn0, err := chain0.QueryConnection(ctx, int64(height), connectionHops[0])
-	if err != nil {
-		return nil, err
-	}
-	latestHeight1, err := chain1.QueryLatestHeight(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// Get height of chain0's client state on chain1
-	clientState1, err := chain1.QueryClientState(ctx, latestHeight1, conn0.Connection.ClientId)
-	if err != nil {
-		return nil, err
-	}
+	hopConnectionIDs := msg.ConnectionHops()
+
+	client01, err := getClientState(ctx, chain0, chain1, hopConnectionIDs[0], height)
+
 	// Ensure that chain0's client state is update to date
-	if clientState1.GetLatestHeight().GetRevisionHeight() < height {
+	// TODO: is it ok to exclude revision number?
+	if client01.dstHeight.GetRevisionHeight() < height {
 		// TODO: update
 		return nil, fmt.Errorf("chain0's client state is not up to date")
 	}
 
 	// Generate and assign consensus, clientState, and connection proofs
-	if multihopProof.ConsensusProofs, err = cc.generateConsensusProofs(ctx, msg, height, hops); err != nil {
+	hopQueryProviders := make([]provider.QueryProvider, len(hops))
+	for i, hop := range hops {
+		var found bool
+		if hopQueryProviders[i], found = cc.queryProviders[hop]; !found {
+			return nil, fmt.Errorf("query provider for chain %s not found", hop)
+		}
+	}
+	if multihopProof.ConsensusProofs, err = cc.generateConsensusProofs(ctx, msg, height, hopQueryProviders, hopConnectionIDs); err != nil {
 		return nil, err
 	}
-	if multihopProof.ConnectionProofs, err = cc.generateConnectionProofs(ctx, msg, height, hops); err != nil {
+	if multihopProof.ConnectionProofs, err = cc.generateConnectionProofs(ctx, msg, height, hopQueryProviders, hopConnectionIDs); err != nil {
 		return nil, err
 	}
 	return multihopProof.Marshal()
@@ -903,45 +937,78 @@ func (cc *CosmosProvider) generateConsensusProofs(
 	ctx context.Context,
 	msg provider.ChannelInfo,
 	height uint64,
-	hops []string,
+	hopQueryProviders []provider.QueryProvider,
+	hopConnectionIDs []string,
 ) ([]*chantypes.MultihopProof, error) {
-	connectionHops := msg.ConnectionHops()
-	// iterate all but the last two chains (connection hops doesn't include src and dest so ends up being the exact length)
-	for i := 0; i < len(connectionHops); i++ {
-		// TODO: pass in ctx for the various chains so we can query
-		//cc.QueryLatestHeight()
-		/* TODO: this
-		previousChain := chains[i]   // previous chains state root is on currentChain and is the source chain for i==0.
-		currentChain  := chains[i+1] // currentChain is where the proof is queried and generated
-		nextChain     := chains[i+2] // nextChain holds the state root of the currentChain
+	var ccQueryProvider provider.QueryProvider
+	ccQueryProvider = cc
+	chains := append([]provider.QueryProvider{ccQueryProvider}, hopQueryProviders...)
+	multihopProofs := make([]*chantypes.MultihopProof, len(chains)-1)
+	// Iterate all but the last two chains (connection hops doesn't include dst so ends up being off by one).
+	for i := 0; i < len(chains)-1; i++ {
+		// Previous chains state root is on currentChain and is the source chain for i==0.
+		previousChain := chains[i]
+		// CurrentChain is where the proof is queried and generated.
+		currentChain := chains[i+1]
+		// NextChain holds the state root of the currentChain.
+		nextChain := chains[i+2]
 
-		consensusHeight := GetClientStateHeight(currentChain, previousChain.ClientID) // height of previous chain client state on current chain
-		nextHeight := GetClientStateHeight(nextChain, currentChain)      // height of current chain state on next chain
+		// Previous chain client state on current chain.
+		currentClientState, err := getClientState(ctx, previousChain, currentChain, hopConnectionIDs[i], height)
+		if err != nil {
+			return nil, err
+		}
+		consensusHeight := currentClientState.dstHeight
 
-		// consensus state of previous chain on current chain at consensusHeight which is the height of previous chain client state on current chain
-		consensusState := GetConsensusState(currentChain, previousChain.ClientID, currentHeight)
+		// Current chain state on next chain.
+		nextClientState, err := getClientState(ctx, currentChain, nextChain, hopConnectionIDs[i+1],
+			currentClientState.dstHeight.GetRevisionHeight())
+		if err != nil {
+			return nil, err
+		}
+		proofHeight := nextClientState.dstHeight
 
-		// prefixed key for consensus state of previous chain
-		consensusKey := GetPrefixedConsensusStateKey(currentChain, currentHeight)
+		if consensusHeight.LT(proofHeight) {
+			// TODO: update
+			return nil, fmt.Errorf("consensus height is less than proof height")
+		}
 
-		// proof of previous chain's consensus state at currentHeight on currentChain at nextHeight
-		consensusProof := GetConsensusStateProof(currentChain, nextHeight, currentHeight, currentChain.ClientID)
+		// Consensus state of previous chain on current chain at consensusHeight which is the height of previous chain
+		// client state on current chain.
+		consensusStateResponse, err := currentChain.QueryClientConsensusState(ctx, currentClientState.dstChainHeight,
+			currentClientState.srcID, consensusHeight)
+		consensusState := consensusStateResponse.ConsensusState
 
-		proofs = append(consStateProofs, &ProofData{
-			Key:   &consensusKey,
-			Value: consensusState,
-			Proof: consensusProof,
-		})
-		*/
+		key := host.FullConsensusStateKey(currentClientState.srcID, consensusHeight)
+		consensusKey, err := commitmenttypes.ApplyPrefix(currentClientState.dstPrefix, commitmenttypes.NewMerklePath(string(key)))
+		if err != nil {
+			return nil, err
+		}
+
+		// Proof of previous chain's consensus state at consensusHeight on currentChain at nextHeight.
+		// TODO: do we need proofHeight's revision number?
+		consensusProofResponse, err := currentChain.QueryClientConsensusState(ctx, int64(proofHeight.GetRevisionHeight()),
+			nextClientState.srcID, consensusHeight)
+		if err != nil {
+			return nil, err
+		}
+		consensusProof := consensusProofResponse.Proof
+
+		multihopProofs[i] = &chantypes.MultihopProof{
+			PrefixedKey: &consensusKey,
+			Value:       consensusState.Value,
+			Proof:       consensusProof,
+		}
 	}
-	return nil, nil
+	return multihopProofs, nil
 }
 
 func (cc *CosmosProvider) generateConnectionProofs(
 	ctx context.Context,
 	msg provider.ChannelInfo,
 	height uint64,
-	hops []string,
+	hopQueryProviders []provider.QueryProvider,
+	hopConnectionIDs []string,
 ) ([]*chantypes.MultihopProof, error) {
 	/* TODO: this
 	assert(len(chains) > 2)
