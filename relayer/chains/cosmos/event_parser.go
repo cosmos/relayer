@@ -43,14 +43,14 @@ func (ccp *CosmosChainProcessor) ibcMessagesFromBlockEvents(
 func parseBase64Event(log *zap.Logger, event abci.Event) sdk.StringEvent {
 	evt := sdk.StringEvent{Type: event.Type}
 	for _, attr := range event.Attributes {
-		key, err := base64.StdEncoding.DecodeString(attr.Key)
+		key, err := base64.StdEncoding.DecodeString(string(attr.Key))
 		if err != nil {
-			log.Error("Failed to decode legacy key as base64", zap.String("base64", attr.Key), zap.Error(err))
+			log.Error("Failed to decode legacy key as base64", zap.String("base64", string(attr.Key)), zap.Error(err))
 			continue
 		}
-		value, err := base64.StdEncoding.DecodeString(attr.Value)
+		value, err := base64.StdEncoding.DecodeString(string(attr.Value))
 		if err != nil {
-			log.Error("Failed to decode legacy value as base64", zap.String("base64", attr.Value), zap.Error(err))
+			log.Error("Failed to decode legacy value as base64", zap.String("base64", string(attr.Value)), zap.Error(err))
 			continue
 		}
 		evt.Attributes = append(evt.Attributes, sdk.Attribute{

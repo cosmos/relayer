@@ -1,10 +1,10 @@
 package icon
 
 import (
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/db"
 	"github.com/icon-project/goloop/common/trie/ompt"
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 )
 
 func MptProve(key types.HexInt, proofs [][]byte, hash []byte) ([]byte, error) {

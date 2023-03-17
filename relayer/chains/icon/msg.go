@@ -1,7 +1,7 @@
 package icon
 
 import (
-	"github.com/icon-project/ibc-relayer/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 const defaultStepLimit = 13610920010

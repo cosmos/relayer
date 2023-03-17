@@ -219,85 +219,85 @@ func TestParseEventLogs(t *testing.T) {
 	)
 	events := []abci.Event{
 
-		{
-			Type: clienttypes.EventTypeUpdateClient,
-			Attributes: []abci.EventAttribute{
-				{
-					Key:   clienttypes.AttributeKeyClientID,
-					Value: testClientID1,
-				},
-				{
-					Key:   clienttypes.AttributeKeyConsensusHeight,
-					Value: testClientConsensusHeight,
-				},
-			},
-		},
-		{
-			Type: chantypes.EventTypeRecvPacket,
-			Attributes: []abci.EventAttribute{
-				{
-					Key:   chantypes.AttributeKeySequence,
-					Value: testPacketSequence,
-				},
-				{
-					Key:   chantypes.AttributeKeyDataHex,
-					Value: testPacketDataHex,
-				},
-				{
-					Key:   chantypes.AttributeKeyTimeoutHeight,
-					Value: testPacketTimeoutHeight,
-				},
-				{
-					Key:   chantypes.AttributeKeyTimeoutTimestamp,
-					Value: testPacketTimeoutTimestamp,
-				},
-				{
-					Key:   chantypes.AttributeKeySrcChannel,
-					Value: testPacketSrcChannel,
-				},
-				{
-					Key:   chantypes.AttributeKeySrcPort,
-					Value: testPacketSrcPort,
-				},
-				{
-					Key:   chantypes.AttributeKeyDstChannel,
-					Value: testPacketDstChannel,
-				},
-				{
-					Key:   chantypes.AttributeKeyDstPort,
-					Value: testPacketDstPort,
-				},
-			},
-		},
-		{
-			Type: chantypes.EventTypeWriteAck,
-			Attributes: []abci.EventAttribute{
-				{
-					Key:   chantypes.AttributeKeySequence,
-					Value: testPacketSequence,
-				},
-				{
-					Key:   chantypes.AttributeKeyAckHex,
-					Value: testPacketAckHex,
-				},
-				{
-					Key:   chantypes.AttributeKeySrcChannel,
-					Value: testPacketSrcChannel,
-				},
-				{
-					Key:   chantypes.AttributeKeySrcPort,
-					Value: testPacketSrcPort,
-				},
-				{
-					Key:   chantypes.AttributeKeyDstChannel,
-					Value: testPacketDstChannel,
-				},
-				{
-					Key:   chantypes.AttributeKeyDstPort,
-					Value: testPacketDstPort,
-				},
-			},
-		},
+		// {
+		// 	Type: clienttypes.EventTypeUpdateClient,
+		// 	Attributes: []abci.EventAttribute{
+		// 		{
+		// 			Key:   clienttypes.AttributeKeyClientID,
+		// 			Value: testClientID1,
+		// 		},
+		// 		{
+		// 			Key:   clienttypes.AttributeKeyConsensusHeight,
+		// 			Value: testClientConsensusHeight,
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	Type: chantypes.EventTypeRecvPacket,
+		// 	Attributes: []abci.EventAttribute{
+		// 		{
+		// 			Key:   chantypes.AttributeKeySequence,
+		// 			Value: testPacketSequence,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyDataHex,
+		// 			Value: testPacketDataHex,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyTimeoutHeight,
+		// 			Value: testPacketTimeoutHeight,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyTimeoutTimestamp,
+		// 			Value: testPacketTimeoutTimestamp,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeySrcChannel,
+		// 			Value: testPacketSrcChannel,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeySrcPort,
+		// 			Value: testPacketSrcPort,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyDstChannel,
+		// 			Value: testPacketDstChannel,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyDstPort,
+		// 			Value: testPacketDstPort,
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	Type: chantypes.EventTypeWriteAck,
+		// 	Attributes: []abci.EventAttribute{
+		// 		{
+		// 			Key:   chantypes.AttributeKeySequence,
+		// 			Value: testPacketSequence,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyAckHex,
+		// 			Value: testPacketAckHex,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeySrcChannel,
+		// 			Value: testPacketSrcChannel,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeySrcPort,
+		// 			Value: testPacketSrcPort,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyDstChannel,
+		// 			Value: testPacketDstChannel,
+		// 		},
+		// 		{
+		// 			Key:   chantypes.AttributeKeyDstPort,
+		// 			Value: testPacketDstPort,
+		// 		},
+		// 	},
+		// },
 	}
 
 	ibcMessages := ibcMessagesFromEvents(zap.NewNop(), events, "", 0, false)

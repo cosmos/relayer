@@ -6,8 +6,8 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 
-	"github.com/icon-project/ibc-relayer/relayer/processor"
-	"github.com/icon-project/ibc-relayer/relayer/provider"
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

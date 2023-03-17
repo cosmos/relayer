@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	glcrypto "github.com/icon-project/goloop/common/crypto"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
-	"github.com/icon-project/ibc-relayer/relayer/provider"
 )
 
 func (cp *IconProvider) CreateKeystore(path string) error {

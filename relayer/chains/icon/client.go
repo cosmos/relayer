@@ -16,8 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/icon-project/btp/chain/icon"
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
@@ -50,10 +49,10 @@ type IClient interface {
 	GetProofForResult(p *types.ProofResultParam) ([][]byte, error)
 	GetProofForEvents(p *types.ProofEventsParam) ([][][]byte, error)
 
-	GetBTPHeader(p *icon.BTPBlockParam) (string, error)
-	GetBTPMessage(p *icon.BTPBlockParam) ([]string, error)
-	GetBTPProof(p *icon.BTPBlockParam) (string, error)
-	GetBTPNetworkInfo(p *icon.BTPNetworkInfoParam) (*icon.BTPNetworkInfo, error)
+	GetBTPHeader(p *types.BTPBlockParam) (string, error)
+	GetBTPMessage(p *types.BTPBlockParam) ([]string, error)
+	GetBTPProof(p *types.BTPBlockParam) (string, error)
+	GetBTPNetworkInfo(p *types.BTPNetworkInfoParam) (*types.BTPNetworkInfo, error)
 
 	MonitorBlock(ctx context.Context, p *types.BlockRequest, cb func(conn *websocket.Conn, v *types.BlockNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error
 	MonitorBTP(ctx context.Context, p *types.BTPRequest, cb func(conn *websocket.Conn, v *types.BTPNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error

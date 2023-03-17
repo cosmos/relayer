@@ -8,9 +8,9 @@ import (
 
 	"cosmossdk.io/errors"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/goloop/common/codec"
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
-	"github.com/icon-project/ibc-relayer/relayer/provider"
 
 	"go.uber.org/zap"
 )

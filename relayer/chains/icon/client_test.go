@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 	"go.uber.org/zap"
 )
 

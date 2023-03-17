@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
-	"github.com/icon-project/ibc-relayer/relayer/processor"
-	"github.com/icon-project/ibc-relayer/relayer/provider"
 	"github.com/tendermint/tendermint/light"
 	"go.uber.org/zap"
 
@@ -62,6 +62,10 @@ func (pp IconProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
+}
+
+func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
+	return ""
 }
 
 // NewProvider should provide a new Icon provider
@@ -148,6 +152,11 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	// btpBlock timestamp, roothash, Nextvalidatorshash, messageRoothash
 
 	return nil
+}
+
+// TODO:
+func (h IconIBCHeader) NextValidatorsHash() []byte {
+	return []byte{}
 }
 
 func (h *IconIBCHeader) Reset()         { *h = IconIBCHeader{} }
@@ -241,6 +250,10 @@ func (icp *IconProvider) MsgUpgradeClient(srcClientId string, consRes *clienttyp
 	}
 
 	return NewIconMessage(clU, MethodUpdateClient), nil
+}
+
+func (icp *IconProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	return nil, nil
 }
 
 func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestBlock provider.LatestBlock) error {
@@ -777,4 +790,16 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([]string, error) {
 		return nil, err
 	}
 	return mgs, nil
+}
+
+// TODO:
+func (icp *IconProvider) SendMessagesToMempool(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
+
+	asyncCtx context.Context,
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
+	return nil
 }

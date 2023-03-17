@@ -3,7 +3,7 @@ package icon
 import (
 	"encoding/hex"
 
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 )
 
 // Events

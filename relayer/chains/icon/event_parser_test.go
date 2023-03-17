@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/gorilla/websocket"
-	"github.com/icon-project/ibc-relayer/relayer/chains/icon/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
