@@ -952,7 +952,6 @@ func (cc *CosmosProvider) generateConsensusProof(
 
 	consensusStateResponse, err := srcChain.QueryClientConsensusState(ctx, srcClientState.dstChainHeight,
 		srcClientState.srcID, consensusHeight)
-	consensusState := consensusStateResponse.ConsensusState
 
 	key := host.FullConsensusStateKey(srcClientState.srcID, consensusHeight)
 	consensusKey, err := commitmenttypes.ApplyPrefix(srcClientState.dstPrefix,
@@ -968,12 +967,54 @@ func (cc *CosmosProvider) generateConsensusProof(
 	if err != nil {
 		return nil, err
 	}
-	consensusProof := consensusProofResponse.Proof
 
 	return &chantypes.MultihopProof{
 		PrefixedKey: &consensusKey,
-		Value:       consensusState.Value,
-		Proof:       consensusProof,
+		// TODO: do we need to marshal the value?
+		Value: consensusStateResponse.ConsensusState.Value,
+		Proof: consensusProofResponse.Proof,
+	}, nil
+}
+
+func (cc *CosmosProvider) generateConnectionProof(
+	ctx context.Context,
+	srcChain provider.QueryProvider,
+	srcClientState,
+	dstClientState *clientState,
+	srcConnectionID string,
+) (*chantypes.MultihopProof, error) {
+	// Proof of current chain's connection to previous Chain.
+	connectionHeight := srcClientState.dstHeight
+	proofHeight := dstClientState.dstHeight
+	// TODO: do we need revision number?
+	connectionEndResponse, err := srcChain.QueryConnection(ctx, int64(connectionHeight.GetRevisionHeight()),
+		srcConnectionID)
+	if err != nil {
+		return nil, err
+	}
+	key := host.ConnectionKey(srcConnectionID)
+	connectionKey, err := commitmenttypes.ApplyPrefix(srcClientState.dstPrefix,
+		commitmenttypes.NewMerklePath(string(key)))
+	if err != nil {
+		return nil, err
+	}
+
+	// Query proof of the currentChain's connection with the previousChain at nextHeight (currentChain's state root
+	// height on nextChain).
+	// TODO: do we need revision number?
+	connectionProofResponse, err := srcChain.QueryConnection(ctx, int64(proofHeight.GetRevisionHeight()),
+		srcConnectionID)
+	if err != nil {
+		return nil, err
+	}
+	connectionEnd, err := connectionEndResponse.Connection.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	return &chantypes.MultihopProof{
+		PrefixedKey: &connectionKey,
+		Value:       connectionEnd,
+		Proof:       connectionProofResponse.Proof,
 	}, nil
 }
 
@@ -985,7 +1026,7 @@ func (cc *CosmosProvider) generateConsensusAndConnectionProofs(
 	hopConnectionIDs []string,
 ) ([]*chantypes.MultihopProof, []*chantypes.MultihopProof, error) {
 	consensusProofs := make([]*chantypes.MultihopProof, len(chains)-1)
-	//connectionProofs := make([]*chantypes.MultihopProof, len(chains)-1)
+	connectionProofs := make([]*chantypes.MultihopProof, len(chains)-1)
 	// Iterate all but the last hop (i.e., exclude the last hop and dst)
 	for i := 0; i < len(chains)-1; i++ {
 		// Previous chains state root is on currentChain and is the source chain for i==0.
@@ -1017,6 +1058,10 @@ func (cc *CosmosProvider) generateConsensusAndConnectionProofs(
 
 		if consensusProofs[i], err = cc.generateConsensusProof(ctx, currentChain, currentClientState,
 			nextClientState); err != nil {
+			return nil, nil, err
+		}
+		if connectionProofs[i], err = cc.generateConnectionProof(ctx, currentChain, currentClientState, nextClientState,
+			hopConnectionIDs[i+1]); err != nil {
 			return nil, nil, err
 		}
 	}
