@@ -541,6 +541,7 @@ func (cc *CosmosProvider) PacketCommitment(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
+	hops []string,
 ) (provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	commitment, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
@@ -567,8 +568,7 @@ func (cc *CosmosProvider) MsgRecvPacket(
 		return nil, err
 	}
 	msg := &chantypes.MsgRecvPacket{
-		Packet: msgTransfer.Packet(),
-		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
+		Packet:          msgTransfer.Packet(),
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
@@ -581,6 +581,7 @@ func (cc *CosmosProvider) PacketAcknowledgement(
 	ctx context.Context,
 	msgRecvPacket provider.PacketInfo,
 	height uint64,
+	hops []string,
 ) (provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	ack, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
@@ -607,10 +608,9 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 	msg := &chantypes.MsgAcknowledgement{
 		Packet:          msgRecvPacket.Packet(),
 		Acknowledgement: msgRecvPacket.Ack,
-		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
-		ProofAcked:  proof.Proof,
-		ProofHeight: proof.ProofHeight,
-		Signer:      signer,
+		ProofAcked:      proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -620,13 +620,19 @@ func (cc *CosmosProvider) PacketReceipt(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
+	hops []string,
 ) (provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet receipt: %w", err)
 	}
-
+	if len(hops) > 0 {
+		// TODO: get a hold of connection hops
+		//if proof, err = cc.generateMultihopProof(ctx, msg.ConnectionHops(), height, proof, hops); err != nil {
+		//	return provider.PacketProof{}, err
+		//}
+	}
 	return provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
@@ -640,6 +646,7 @@ func (cc *CosmosProvider) NextSeqRecv(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
+	hops []string,
 ) (provider.PacketProof, error) {
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
@@ -659,8 +666,7 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeout{
-		Packet: msgTransfer.Packet(),
-		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
+		Packet:           msgTransfer.Packet(),
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
@@ -676,8 +682,7 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 		return nil, err
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
-		Packet: msgTransfer.Packet(),
-		// TODO: replace proof with https://github.com/polymerdao/ibc-go/blob/v7.1.x-ibcx/proto/ibc/core/channel/v1/tx.proto#L281
+		Packet:           msgTransfer.Packet(),
 		ProofUnreceived:  proof.Proof,
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
@@ -892,7 +897,7 @@ func getClientState(
 // generateMultihopProof generates proof of a key/value at the proofHeight on source chain.
 func (cc *CosmosProvider) generateMultihopProof(
 	ctx context.Context,
-	msg provider.ChannelInfo,
+	hopConnectionIDs []string,
 	height uint64,
 	keyProof []byte,
 	hops []string,
@@ -905,7 +910,6 @@ func (cc *CosmosProvider) generateMultihopProof(
 	}
 	chain0 := cc
 	chain1 := cc.queryProviders[hops[0]]
-	hopConnectionIDs := msg.ConnectionHops()
 
 	client01, err := getClientState(ctx, chain0, chain1, hopConnectionIDs[0], height)
 
@@ -933,7 +937,7 @@ func (cc *CosmosProvider) generateMultihopProof(
 		return nil, fmt.Errorf("number of chains and connection IDs do not match")
 	}
 	if multihopProof.ConsensusProofs, multihopProof.ConnectionProofs, err = cc.generateConsensusAndConnectionProofs(ctx,
-		msg, height, chains, hopConnectionIDs); err != nil {
+		height, chains, hopConnectionIDs); err != nil {
 		return nil, err
 	}
 	return multihopProof.Marshal()
@@ -1020,7 +1024,6 @@ func (cc *CosmosProvider) generateConnectionProof(
 
 func (cc *CosmosProvider) generateConsensusAndConnectionProofs(
 	ctx context.Context,
-	msg provider.ChannelInfo,
 	height uint64,
 	chains []provider.QueryProvider,
 	hopConnectionIDs []string,
@@ -1080,7 +1083,7 @@ func (cc *CosmosProvider) ChannelProof(
 	}
 	proof := channelRes.Proof
 	if len(hops) > 0 {
-		if proof, err = cc.generateMultihopProof(ctx, msg, height, proof, hops); err != nil {
+		if proof, err = cc.generateMultihopProof(ctx, msg.ConnectionHops(), height, proof, hops); err != nil {
 			return provider.ChannelProof{}, err
 		}
 	}
@@ -1292,17 +1295,18 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 		Height: dsth,
 		Time:   dstTime,
 	}); err != nil {
+		// TODO: add hops
 		switch err.(type) {
 		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError, *provider.TimeoutOnCloseError:
 			var pp provider.PacketProof
 			switch order {
 			case chantypes.UNORDERED:
-				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth)
+				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth, nil)
 				if err != nil {
 					return nil, nil, err
 				}
 			case chantypes.ORDERED:
-				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth)
+				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth, nil)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -1324,8 +1328,8 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 			return nil, nil, err
 		}
 	}
-
-	pp, err := src.PacketCommitment(ctx, msgTransfer, srch)
+	// TODO: add hops
+	pp, err := src.PacketCommitment(ctx, msgTransfer, srch, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1345,7 +1349,8 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 		return nil, err
 	}
 
-	pp, err := dst.PacketAcknowledgement(ctx, msgRecvPacket, dsth)
+	// TODO: add hops
+	pp, err := dst.PacketAcknowledgement(ctx, msgRecvPacket, dsth, nil)
 	if err != nil {
 		return nil, err
 	}

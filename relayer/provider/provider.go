@@ -260,18 +260,18 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64, hops []string) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64, hops []string) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64, hops []string) (PacketProof, error)
 
 	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
 	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 	// exact same order as they were sent over the wire.
-	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64, hops []string) (PacketProof, error)
 
 	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
 	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)

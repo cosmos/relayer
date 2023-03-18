@@ -49,7 +49,7 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 	src, dst *pathEndRuntime,
 	hops []*pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
+	var packetProof func(context.Context, provider.PacketInfo, uint64, []string) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
 	// TODO: add hop chain query providers
 	switch msg.eventType {
@@ -84,8 +84,12 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 
 	var proof provider.PacketProof
 	var err error
-	// TODO: add hop chain IDs
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
+	hopChainIDs := make([]string, len(hops))
+	for i, hop := range hops {
+		hopChainIDs[i] = hop.chainProvider.ChainId()
+		src.chainProvider.AddQueryProvider(hop.chainProvider.ChainId(), hop.chainProvider)
+	}
+	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height, hopChainIDs)
 	if err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
@@ -147,29 +151,24 @@ func (msg channelIBCMessage) assemble(
 ) (provider.RelayerMessage, error) {
 	var chanProof func(context.Context, provider.ChannelInfo, uint64, []string) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
-	var proofChainProvider provider.ChainProvider
 	switch msg.eventType {
 	case chantypes.EventTypeChannelOpenInit:
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelOpenInit
 	case chantypes.EventTypeChannelOpenTry:
-		proofChainProvider = src.chainProvider
-		chanProof = proofChainProvider.ChannelProof
+		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenTry
 	case chantypes.EventTypeChannelOpenAck:
-		proofChainProvider = src.chainProvider
-		chanProof = proofChainProvider.ChannelProof
+		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenAck
 	case chantypes.EventTypeChannelOpenConfirm:
-		proofChainProvider = src.chainProvider
-		chanProof = proofChainProvider.ChannelProof
+		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
 	case chantypes.EventTypeChannelCloseInit:
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelCloseInit
 	case chantypes.EventTypeChannelCloseConfirm:
-		proofChainProvider = src.chainProvider
-		chanProof = proofChainProvider.ChannelProof
+		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
 	default:
 		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
@@ -180,7 +179,7 @@ func (msg channelIBCMessage) assemble(
 		hopChainIDs := make([]string, len(hops))
 		for i, hop := range hops {
 			hopChainIDs[i] = hop.chainProvider.ChainId()
-			proofChainProvider.AddQueryProvider(hop.chainProvider.ChainId(), hop.chainProvider)
+			src.chainProvider.AddQueryProvider(hop.chainProvider.ChainId(), hop.chainProvider)
 		}
 		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height, hopChainIDs)
 		if err != nil {
