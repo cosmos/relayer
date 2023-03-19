@@ -11,6 +11,7 @@ import (
 
 type msgHandlerParams struct {
 	mcp              *MockChainProcessor
+	height           int64
 	packetInfo       *chantypes.Packet
 	ibcMessagesCache processor.IBCMessagesCache
 }
@@ -31,9 +32,14 @@ func handleMsgTransfer(p msgHandlerParams) {
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
 	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeSendPacket, provider.PacketInfo{
+		Height:        uint64(p.height),
 		Sequence:      p.packetInfo.Sequence,
 		Data:          p.packetInfo.Data,
 		TimeoutHeight: p.packetInfo.TimeoutHeight,
+		SourcePort:    p.packetInfo.SourcePort,
+		SourceChannel: p.packetInfo.SourceChannel,
+		DestPort:      p.packetInfo.DestinationPort,
+		DestChannel:   p.packetInfo.DestinationChannel,
 	})
 	p.mcp.log.Debug("observed MsgTransfer",
 		zap.String("chain_id", p.mcp.chainID),
@@ -53,8 +59,13 @@ func handleMsgRecvPacket(p msgHandlerParams) {
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
 	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeRecvPacket, provider.PacketInfo{
-		Sequence: p.packetInfo.Sequence,
-		Data:     p.packetInfo.Data,
+		Height:        uint64(p.height),
+		Sequence:      p.packetInfo.Sequence,
+		Data:          p.packetInfo.Data,
+		SourcePort:    p.packetInfo.SourcePort,
+		SourceChannel: p.packetInfo.SourceChannel,
+		DestPort:      p.packetInfo.DestinationPort,
+		DestChannel:   p.packetInfo.DestinationChannel,
 	})
 	p.mcp.log.Debug("observed MsgRecvPacket",
 		zap.String("chain_id", p.mcp.chainID),
@@ -74,8 +85,13 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
 	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeAcknowledgePacket, provider.PacketInfo{
-		Sequence: p.packetInfo.Sequence,
-		Data:     p.packetInfo.Data,
+		Height:        uint64(p.height),
+		Sequence:      p.packetInfo.Sequence,
+		Data:          p.packetInfo.Data,
+		SourcePort:    p.packetInfo.SourcePort,
+		SourceChannel: p.packetInfo.SourceChannel,
+		DestPort:      p.packetInfo.DestinationPort,
+		DestChannel:   p.packetInfo.DestinationChannel,
 	})
 	p.mcp.log.Debug("observed MsgAcknowledgement",
 		zap.String("chain_id", p.mcp.chainID),

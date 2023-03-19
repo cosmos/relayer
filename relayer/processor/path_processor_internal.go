@@ -90,10 +90,10 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 
 	processRemovals := func() {
 		pathEndPacketFlowMessages.Src.messageCache.PacketFlow[k].DeleteMessages(toDeleteSrc)
-		pathEndPacketFlowMessages.Dst.messageCache.PacketFlow[k].DeleteMessages(toDeleteDst)
+		pathEndPacketFlowMessages.Dst.messageCache.PacketFlow[k.Counterparty()].DeleteMessages(toDeleteDst)
 		pathEndPacketFlowMessages.Dst.messageCache.ChannelHandshake.DeleteMessages(toDeleteDstChannel)
 		pathEndPacketFlowMessages.Src.packetProcessing[k].deleteMessages(toDeleteSrc)
-		pathEndPacketFlowMessages.Dst.packetProcessing[k].deleteMessages(toDeleteDst)
+		pathEndPacketFlowMessages.Dst.packetProcessing[k.Counterparty()].deleteMessages(toDeleteDst)
 		pathEndPacketFlowMessages.Dst.channelProcessing.deleteMessages(toDeleteDstChannel)
 		toDeleteSrc = make(map[string][]uint64)
 		toDeleteDst = make(map[string][]uint64)
@@ -144,7 +144,10 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 			} else {
 				// ordered channel, and we have a channel close confirm, so packet-flow and channel-close-flow is complete.
 				// remove all retention of this sequence number and this channel-close-confirm.
-				toDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(toDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
+				toDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(
+					toDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm],
+					k.Counterparty(),
+				)
 				deletePreInitIfMatches(info)
 				toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
 				toDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(toDeleteSrc[chantypes.EventTypeTimeoutPacket], seq)
