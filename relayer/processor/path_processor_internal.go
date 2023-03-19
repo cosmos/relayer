@@ -340,7 +340,6 @@ func (pp *PathProcessor) unrelayedConnectionHandshakeMessages(
 			res.DstMessages = append(res.DstMessages, msgOpenTry)
 		}
 
-		pp.log.Debug("found open init, deleting pre-init", zap.Any("key", connKey))
 		// MsgConnectionOpenInit does not have CounterpartyConnectionID
 		toDeleteSrc[preInitKey] = append(toDeleteSrc[preInitKey], connKey.PreInitKey())
 	}
