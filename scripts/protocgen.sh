@@ -21,5 +21,6 @@ buf generate --template proto/buf.gen.penumbra.yaml buf.build/penumbra-zone/penu
 
 #
 # Note: Proto files are suffixed with the current binary version.
+rm -rf github.com/cosmos/relayer/v2/relayer/chains/penumbra/client
 cp -r github.com/cosmos/relayer/v2/* ./
 rm -rf github.com
