@@ -292,7 +292,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 	// NOTE: currently we have to build 1 TX per action,
 	// due to how the penumbra state machine is
 	// constructed.
-	for _, msg := range cosmos.CosmosMsgs(msgs...) {
+	for _, msg := range PenumbraMsgs(msgs...) {
 		txBody := penumbratypes.TransactionBody{
 			Actions: make([]*penumbratypes.Action, 1),
 			Fee:     &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
