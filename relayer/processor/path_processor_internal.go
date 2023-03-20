@@ -781,6 +781,9 @@ func queryPacketCommitments(
 		for i, p := range c.Commitments {
 			commitments[k][i] = p.Sequence
 		}
+		sort.SliceStable(commitments[k], func(i, j int) bool {
+			return commitments[k][i] < commitments[k][j]
+		})
 		return nil
 	}
 }
