@@ -115,6 +115,7 @@ type CosmosProvider struct {
 	nextAccountSeq uint64
 	txMu           sync.Mutex
 
+
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
 	totalFeesMu sync.Mutex

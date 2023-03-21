@@ -386,6 +386,9 @@ type ChainProvider interface {
 		asyncCallback func(*RelayerTxResponse, error),
 	) error
 
+	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage,error)
+	
+
 	ChainName() string
 	ChainId() string
 	Type() string
@@ -514,3 +517,7 @@ func (t *TimeoutOnCloseError) Error() string {
 func NewTimeoutOnCloseError(msg string) *TimeoutOnCloseError {
 	return &TimeoutOnCloseError{msg}
 }
+
+
+
+
