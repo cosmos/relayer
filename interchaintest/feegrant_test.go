@@ -83,33 +83,33 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//In order to have this image locally you'd need to build it with heighliner, e.g.,
 	//from within the local "gaia" directory, run the following command:
 	//../heighliner/heighliner build -c gaia --local -f ../heighliner/chains.yaml
-	gaiaImage := ibc.DockerImage{
-		Repository: "gaia",
-		Version:    "local",
-		UidGid:     "1025:1025", //the heighliner user string. this isn't exposed on ibctest
-	}
+	// gaiaImage := ibc.DockerImage{
+	// 	Repository: "gaia",
+	// 	Version:    "local",
+	// 	UidGid:     "1025:1025", //the heighliner user string. this isn't exposed on ibctest
+	// }
 
-	gaiaChainSpec := &ibctestv5.ChainSpec{
-		ChainName:     "gaia",
-		NumValidators: &nv,
-		NumFullNodes:  &nf,
-		ChainConfig: ibc.ChainConfig{
-			Type: "cosmos",
-			Name: "gaia",
-			//ChainID:        "gaia-1", //I believe this will be auto-generated?
-			Images:         []ibc.DockerImage{gaiaImage},
-			Bin:            "gaiad",
-			Bech32Prefix:   "cosmos",
-			Denom:          "uatom",
-			GasPrices:      "0.01uatom",
-			TrustingPeriod: "504h",
-			GasAdjustment:  1.3,
-		}}
+	// gaiaChainSpec := &ibctestv5.ChainSpec{
+	// 	ChainName:     "gaia",
+	// 	NumValidators: &nv,
+	// 	NumFullNodes:  &nf,
+	// 	ChainConfig: ibc.ChainConfig{
+	// 		Type: "cosmos",
+	// 		Name: "gaia",
+	// 		//ChainID:        "gaia-1", //I believe this will be auto-generated?
+	// 		Images:         []ibc.DockerImage{gaiaImage},
+	// 		Bin:            "gaiad",
+	// 		Bech32Prefix:   "cosmos",
+	// 		Denom:          "uatom",
+	// 		GasPrices:      "0.01uatom",
+	// 		TrustingPeriod: "504h",
+	// 		GasAdjustment:  1.3,
+	// 	}}
 
 	// Chain Factory
 	cf := ibctestv5.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctestv5.ChainSpec{
-		//{Name: "gaia", ChainName: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
-		gaiaChainSpec,
+		{Name: "gaia", ChainName: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
+		//gaiaChainSpec,
 		{Name: "osmosis", ChainName: "osmosis", Version: "v14.0.1", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
@@ -198,13 +198,6 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	fmt.Printf("Wallet mnemonic: %s\n", mnemonic)
 
 	rand.Seed(time.Now().UnixNano())
-	// max := 50
-	// min := 10
-
-	// How many transfers to do
-	//numTransfers := rand.Intn(max-min) + min
-
-	//
 
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
@@ -307,8 +300,6 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	osmosisHeight, err := osmosis.Height(ctx)
 	require.NoError(t, err)
 
-	fmt.Printf("Before send ibc transfer")
-
 	var eg errgroup.Group
 	var gaiaTx ibc.Tx
 
@@ -326,18 +317,6 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		if err := gaiaTx.Validate(); err != nil {
 			return err
 		}
-
-		// gaiaCC := gaia.(*ibcCosmos.CosmosChain)
-		// txResp, err := gaiaCC.GetTransaction(tx.TxHash)
-		// if err != nil {
-		// 	return err
-		// }
-		// for _, evt := range txResp.Events {
-		// 	logger.Debug("TX EVENT", zap.String("type", evt.Type))
-		// 	for _, attr := range evt.Attributes {
-		// 		logger.Debug("TX EVENT ATTR", zap.String("attr key", string(attr.Key)), zap.String("attr val", string(attr.Value)))
-		// 	}
-		// }
 
 		_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, gaiaTx.Packet)
 		return err
