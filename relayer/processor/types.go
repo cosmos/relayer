@@ -213,13 +213,38 @@ func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-// ChannelStateCache maintains channel open state for multiple channels.
-type ChannelStateCache map[ChannelKey]bool
+type ChannelState struct {
+	Open           bool
+	ConnectionHops []string
+}
+
+// ChannelStateCache maintains channel state for multiple channels.
+type ChannelStateCache map[ChannelKey]*ChannelState
+
+func (c *ChannelStateCache) IsOpen(key ChannelKey) bool {
+	if c == nil {
+		return false
+	}
+	channel, found := (*c)[key]
+	return found && channel.Open
+}
+
+func (c *ChannelStateCache) SetOpen(key ChannelKey, open bool) {
+	state := &ChannelState{Open: open}
+	c.Set(key, state)
+}
+
+func (c *ChannelStateCache) Set(key ChannelKey, state *ChannelState) {
+	if c == nil {
+		*c = make(map[ChannelKey]*ChannelState)
+	}
+	(*c)[key] = state
+}
 
 // FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
-func (c ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
+func (c *ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
 	n := make(ChannelStateCache)
-	for k, v := range c {
+	for k, v := range *c {
 		connection, ok := channelConnections[k.ChannelID]
 		if !ok {
 			continue

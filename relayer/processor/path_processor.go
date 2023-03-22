@@ -167,9 +167,9 @@ func (pp *PathProcessor) OnConnectionMessage(chainID string, eventType string, o
 
 func (pp *PathProcessor) channelPairs() []channelPair {
 	// Channel keys are from pathEnd1's perspective
-	channels := make(map[ChannelKey]bool)
-	for k, open := range pp.pathEnd1.channelStateCache {
-		channels[k] = open
+	channels := ChannelStateCache{}
+	for k, state := range pp.pathEnd1.channelStateCache {
+		channels.Set(k, state)
 	}
 	for k, open := range pp.pathEnd2.channelStateCache {
 		channels[k.Counterparty()] = open

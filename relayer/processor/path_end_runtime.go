@@ -398,7 +398,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		)
 		return false
 	}
-	if !pathEnd.channelStateCache[k] {
+	if !pathEnd.channelStateCache.IsOpen(k) {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
 			zap.String("event_type", eventType),
