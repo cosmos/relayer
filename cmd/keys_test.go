@@ -42,6 +42,8 @@ func TestKeysRestore_Delete(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
+	slip44 := 118
+
 	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
@@ -49,7 +51,7 @@ func TestKeysRestore_Delete(t *testing.T) {
 			ChainID:        "testcosmos",
 			KeyringBackend: "test",
 			Timeout:        "10s",
-			Slip44:         118,
+			Slip44:         &slip44,
 		},
 	})
 
@@ -82,6 +84,8 @@ func TestKeysExport(t *testing.T) {
 
 	_ = sys.MustRun(t, "config", "init")
 
+	slip44 := 118
+
 	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
 		Type: "cosmos",
 		Value: cosmos.CosmosProviderConfig{
@@ -89,7 +93,7 @@ func TestKeysExport(t *testing.T) {
 			ChainID:        "testcosmos",
 			KeyringBackend: "test",
 			Timeout:        "10s",
-			Slip44:         118,
+			Slip44:         &slip44,
 		},
 	})
 
@@ -112,4 +116,69 @@ func TestKeysExport(t *testing.T) {
 	require.NoError(t, kr.ImportPrivKey("temp", armorOut, keys.DefaultKeyPass))
 
 	// TODO: confirm the imported address matches?
+}
+
+func TestKeysDefaultCoinType(t *testing.T) {
+	t.Parallel()
+
+	sys := relayertest.NewSystem(t)
+
+	_ = sys.MustRun(t, "config", "init")
+
+	slip44 := 118
+
+	sys.MustAddChain(t, "testChain", cmd.ProviderConfigWrapper{
+		Type: "cosmos",
+		Value: cosmos.CosmosProviderConfig{
+			AccountPrefix:  "cosmos",
+			ChainID:        "testcosmos-1",
+			KeyringBackend: "test",
+			Timeout:        "10s",
+			Slip44:         &slip44,
+		},
+	})
+
+	sys.MustAddChain(t, "testChain2", cmd.ProviderConfigWrapper{
+		Type: "cosmos",
+		Value: cosmos.CosmosProviderConfig{
+			AccountPrefix:  "cosmos",
+			ChainID:        "testcosmos-2",
+			KeyringBackend: "test",
+			Timeout:        "10s",
+		},
+	})
+
+	// Restore a key with mnemonic to the chain.
+	res := sys.MustRun(t, "keys", "restore", "testChain", "default", relayertest.ZeroMnemonic)
+	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
+	require.Empty(t, res.Stderr.String())
+
+	// Restore a key with mnemonic to the chain.
+	res = sys.MustRun(t, "keys", "restore", "testChain2", "default", relayertest.ZeroMnemonic)
+	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
+	require.Empty(t, res.Stderr.String())
+
+	// Export the key.
+	res = sys.MustRun(t, "keys", "export", "testChain", "default")
+	armorOut := res.Stdout.String()
+	require.Contains(t, armorOut, "BEGIN TENDERMINT PRIVATE KEY")
+	require.Empty(t, res.Stderr.String())
+
+	// Export the key.
+	res = sys.MustRun(t, "keys", "export", "testChain2", "default")
+	armorOut2 := res.Stdout.String()
+	require.Contains(t, armorOut, "BEGIN TENDERMINT PRIVATE KEY")
+	require.Empty(t, res.Stderr.String())
+
+	// Import the key to a temporary keyring.
+	registry := codectypes.NewInterfaceRegistry()
+	cryptocodec.RegisterInterfaces(registry)
+	cdc := codec.NewProtoCodec(registry)
+	kr := keyring.NewInMemory(cdc)
+	require.NoError(t, kr.ImportPrivKey("temp", armorOut, keys.DefaultKeyPass))
+
+	// This should fail due to same key
+	err := kr.ImportPrivKey("temp", armorOut2, keys.DefaultKeyPass)
+	require.Error(t, err, "same key was able to be imported twice")
+	require.Contains(t, err.Error(), "cannot overwrite key")
 }

@@ -168,6 +168,18 @@ func (k ChannelKey) MsgInitKey() ChannelKey {
 	}
 }
 
+// PreInitKey is used for comparing pre-init keys with other connection
+// handshake messages. Before the channel handshake,
+// do not have ChannelID or CounterpartyChannelID.
+func (k ChannelKey) PreInitKey() ChannelKey {
+	return ChannelKey{
+		ChannelID:             "",
+		PortID:                k.PortID,
+		CounterpartyChannelID: "",
+		CounterpartyPortID:    k.CounterpartyPortID,
+	}
+}
+
 func (k ChannelKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("channel_id", k.ChannelID)
 	enc.AddString("port_id", k.PortID)
@@ -200,6 +212,18 @@ func (connectionKey ConnectionKey) MsgInitKey() ConnectionKey {
 	return ConnectionKey{
 		ClientID:             connectionKey.ClientID,
 		ConnectionID:         connectionKey.ConnectionID,
+		CounterpartyClientID: connectionKey.CounterpartyClientID,
+		CounterpartyConnID:   "",
+	}
+}
+
+// PreInitKey is used for comparing  pre-init keys with other connection
+// handshake messages. Before starting a connection handshake,
+// do not have ConnectionID or CounterpartyConnectionID.
+func (connectionKey ConnectionKey) PreInitKey() ConnectionKey {
+	return ConnectionKey{
+		ClientID:             connectionKey.ClientID,
+		ConnectionID:         "",
 		CounterpartyClientID: connectionKey.CounterpartyClientID,
 		CounterpartyConnID:   "",
 	}

@@ -52,7 +52,7 @@ type CosmosProviderConfig struct {
 	SignModeStr    string                  `json:"sign-mode" yaml:"sign-mode"`
 	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
 	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
-	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
+	Slip44         *int                    `json:"coin-type" yaml:"coin-type"`
 	Broadcast      provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
