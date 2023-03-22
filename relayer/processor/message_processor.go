@@ -29,6 +29,8 @@ type messageProcessor struct {
 	connMsgs      []connectionMessageToTrack
 	chanMsgs      []channelMessageToTrack
 	clientICQMsgs []clientICQMessageToTrack
+
+	localhost bool
 }
 
 // trackMessage stores the message tracker in the correct slice and index based on the type.
@@ -67,12 +69,14 @@ func newMessageProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	localhost bool,
 ) *messageProcessor {
 	return &messageProcessor{
 		log:                       log,
 		metrics:                   metrics,
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		localhost:                 localhost,
 	}
 }
 
@@ -88,21 +92,16 @@ func (mp *messageProcessor) processMessages(
 		needsClientUpdate bool
 	)
 
-	mp.log.Info("CLIENT ID", zap.String("src-id", src.clientState.ClientID))
-	mp.log.Info("CLIENT ID", zap.String("dst-id", dst.clientState.ClientID))
-
-	fmt.Printf("SRC CLIENT STATE: %v \n", src.clientState)
-	fmt.Printf("DSR CLIENT STATE: %v \n", dst.clientState)
-
+	// Localhost IBC does not permit client updates
 	if src.clientState.ClientID != ibcexported.LocalhostClientID && dst.clientState.ClientID != ibcexported.LocalhostConnectionID {
 		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
 		if err != nil {
 			return err
 		}
-	}
 
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
+		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+			return err
+		}
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst)
@@ -161,10 +160,12 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
 	var wg sync.WaitGroup
 
-	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
-	for i, msg := range messages.connectionMessages {
-		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+	if !mp.localhost {
+		mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
+		for i, msg := range messages.connectionMessages {
+			wg.Add(1)
+			go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		}
 	}
 
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
@@ -173,10 +174,12 @@ func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathE
 		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
 	}
 
-	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
-	for i, msg := range messages.clientICQMessages {
-		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+	if !mp.localhost {
+		mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
+		for i, msg := range messages.clientICQMessages {
+			wg.Add(1)
+			go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		}
 	}
 
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
@@ -312,6 +315,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 	}
 
 	if len(batch) > 0 {
+		fmt.Printf("BATCH: %v \n", batch)
 		go mp.sendBatchMessages(ctx, src, dst, batch)
 	}
 
@@ -367,13 +371,27 @@ func (mp *messageProcessor) sendBatchMessages(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	// messages are batch with appended MsgUpdateClient
-	msgs := make([]provider.RelayerMessage, 1+len(batch))
-	msgs[0] = mp.msgUpdateClient
-	fields := []zapcore.Field{}
-	for i, t := range batch {
-		msgs[i+1] = t.assembledMsg()
-		fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
+	var (
+		msgs   []provider.RelayerMessage
+		fields []zapcore.Field
+	)
+
+	if mp.localhost {
+		msgs = make([]provider.RelayerMessage, len(batch))
+		fields = []zapcore.Field{}
+		for i, t := range batch {
+			msgs[i] = t.assembledMsg()
+			fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
+		}
+	} else {
+		// messages are batch with appended MsgUpdateClient
+		msgs = make([]provider.RelayerMessage, 1+len(batch))
+		msgs[0] = mp.msgUpdateClient
+		fields = []zapcore.Field{}
+		for i, t := range batch {
+			msgs[i+1] = t.assembledMsg()
+			fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
+		}
 	}
 
 	dst.log.Debug("Will relay messages", fields...)
@@ -424,7 +442,13 @@ func (mp *messageProcessor) sendSingleMessage(
 	src, dst *pathEndRuntime,
 	tracker messageToTrack,
 ) {
-	msgs := []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
+	var msgs []provider.RelayerMessage
+
+	if mp.localhost {
+		msgs = []provider.RelayerMessage{tracker.assembledMsg()}
+	} else {
+		msgs = []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
+	}
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
