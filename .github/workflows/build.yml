@@ -25,11 +25,12 @@ jobs:
 
       # checkout relayer
       - name: checkout relayer
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       # unit tests
       - name: run unit tests
         run: make test
+
       # build binary
       - name: build binary and move to upload location
         run: make build
