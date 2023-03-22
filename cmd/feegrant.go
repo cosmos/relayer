@@ -1,15 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 // feegrantConfigureCmd returns the fee grant configuration commands for this module
@@ -189,101 +185,4 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 		},
 	}
 	return paginationFlags(a.Viper, cmd, "feegrant")
-}
-
-func TestFeegrant(log *zap.Logger, home string, chain string, granterKeyOrAddr string, update bool, updateGrantees bool, numGrantees int, grantees []string) error {
-
-	var rootCmd = &cobra.Command{
-		Use:   appName,
-		Short: "This application makes data relay between IBC enabled chains easy!",
-		Long: strings.TrimSpace(`rly has:
-   1. Configuration management for Chains and Paths
-   2. Key management for managing multiple keys for multiple chains
-   3. Query and transaction functionality for IBC
-
-   NOTE: Most of the commands have aliases that make typing them much quicker 
-         (i.e. 'rly tx', 'rly q', etc...)`),
-	}
-
-	a := &appState{
-		Viper:    viper.New(),
-		HomePath: home,
-		Log:      log,
-	}
-
-	err := initConfig(rootCmd, a)
-	if err != nil {
-		return err
-	}
-
-	cosmosChain, ok := a.Config.Chains[chain]
-	if !ok {
-		return errChainNotFound(chain)
-	}
-
-	prov, ok := cosmosChain.ChainProvider.(*cosmos.CosmosProvider)
-	if !ok {
-		return errors.New("only CosmosProvider can be feegranted")
-	}
-
-	if prov.PCfg.FeeGrants != nil {
-		granterKeyOrAddr = prov.PCfg.FeeGrants.GranterKey
-	} else if granterKeyOrAddr == "" {
-		granterKeyOrAddr = prov.PCfg.Key
-	}
-
-	granterKey, err := prov.KeyFromKeyOrAddress(granterKeyOrAddr)
-	if err != nil {
-		return fmt.Errorf("could not get granter key from '%s'", granterKeyOrAddr)
-	}
-
-	if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && !update {
-		return fmt.Errorf("you specified granter '%s' which is different than configured feegranter '%s', but you did not specify the --overwrite-granter flag", granterKeyOrAddr, prov.PCfg.FeeGrants.GranterKey)
-	} else if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && update {
-		prov.PCfg.FeeGrants.GranterKey = granterKey
-		cfgErr := a.OverwriteConfig(a.Config)
-		cobra.CheckErr(cfgErr)
-	}
-
-	if prov.PCfg.FeeGrants == nil || updateGrantees || len(grantees) > 0 {
-		var feegrantErr error
-
-		//No list of grantees was provided, so we will use the default naming convention "grantee1, ... granteeN"
-		if grantees == nil {
-			feegrantErr = prov.ConfigureFeegrants(numGrantees, granterKey)
-		} else {
-			feegrantErr = prov.ConfigureWithGrantees(grantees, granterKey)
-		}
-
-		if feegrantErr != nil {
-			return feegrantErr
-		}
-
-		if feegrantErr != nil {
-			return feegrantErr
-		}
-
-		cfgErr := a.OverwriteConfig(a.Config)
-		cobra.CheckErr(cfgErr)
-	}
-
-	ctx := context.Background()
-	_, err = prov.EnsureBasicGrants(ctx, "")
-	if err != nil {
-		return fmt.Errorf("error writing grants on chain: '%s'", err.Error())
-	}
-
-	//Get latest height from the chain, mark feegrant configuration as verified up to that height.
-	//This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
-	if prov.PCfg.FeeGrants != nil {
-		fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
-		h, err := prov.QueryLatestHeight(ctx)
-		cobra.CheckErr(err)
-		prov.PCfg.FeeGrants.BlockHeightVerified = h
-		fmt.Printf("Feegrant chain height marked: %d\n", h)
-		cfgErr := a.OverwriteConfig(a.Config)
-		cobra.CheckErr(cfgErr)
-	}
-
-	return nil
 }
