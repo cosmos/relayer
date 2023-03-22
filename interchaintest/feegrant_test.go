@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -11,7 +12,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
+	ibcgo "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -161,18 +164,6 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 
 	// Tiny amount of funding, not enough to pay for a single TX fee (the GRANTER should be paying the fee)
 	granteeFundAmount := int64(10)
-
-	//Mnemonic from the juno repo test user
-	//gaiaGranterMnemonic := "clip hire initial neck maid actor venue client foam budget lock catalog sweet steak waste crater broccoli pipe steak sister coyote moment obvious choose"
-
-	//Other made up mnemonics. Local testnet only.
-	// osmosisGranterMnemonic := "deal faint choice forward valid practice secret lava harbor stadium train view improve tide cook sadness juice trap mansion smooth erupt version parrot canvas"
-	// gaiaGranteeMnemonic := "unusual car spray work spread column badge radar oxygen oblige roof patrol wheel sing damage advice flower forest segment park blue defense morning manage"
-	// gaiaGrantee2Mnemonic := "little pumpkin glimpse initial manual wool relief coach violin main sheriff law virtual inmate inmate mixture erode funny garbage kangaroo wait leave cloth climb"
-	// gaiaGrantee3Mnemonic := "pattern custom brand child fatal three body food fee soul gesture armor increase dynamic enforce vintage borrow admit slot gold affair rubber tide lava"
-	// osmosisGranteeMnemonic := "flight toilet early leaf hen dragon story relief indoor gap shoot firm topple start where illegal paper risk insect neutral busy olympic glory evoke"
-	// ibcTransferMnemonic := "flight toilet early leaf hen dragon story relief indoor gap shoot firm topple start where illegal paper risk insect neutral busy olympic glory evoke"
-
 	granteeKeyPrefix := "grantee1"
 	grantee2KeyPrefix := "grantee2"
 	grantee3KeyPrefix := "grantee3"
@@ -205,6 +196,15 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 
 	mnemonic := gaiaGranterWallet.Mnemonic()
 	fmt.Printf("Wallet mnemonic: %s\n", mnemonic)
+
+	rand.Seed(time.Now().UnixNano())
+	// max := 50
+	// min := 10
+
+	// How many transfers to do
+	//numTransfers := rand.Intn(max-min) + min
+
+	//
 
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
@@ -410,10 +410,6 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 				chain := cProv.PCfg.ChainID
 				feegrantInfo, isFeegrantedChain := feegrantedChains[chain]
 
-				// if isFeegrantedChain {
-				// 	require.Greater(t, cProv.PCfg.FeeGrants.BlockHeightVerified, 0)
-				// }
-
 				sdkConf := sdk.GetConfig()
 				sdkConf.SetBech32PrefixForAccount(cProv.PCfg.AccountPrefix, cProv.PCfg.AccountPrefix+"pub")
 				sdkConf.SetBech32PrefixForValidator(cProv.PCfg.AccountPrefix+"valoper", cProv.PCfg.AccountPrefix+"valoperpub")
@@ -453,6 +449,22 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 					//Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
 					require.Equal(t, granter.String(), feegrantInfo.granter)
 					require.NotEmpty(t, granter)
+
+					for _, msg := range fullTx.GetMsgs() {
+						msgType = types.MsgTypeURL(msg)
+						//We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
+						if msgType == "/ibc.core.channel.v1.MsgRecvPacket" {
+							c := msg.(*chantypes.MsgRecvPacket)
+							appData := c.Packet.GetData()
+							tokenTransfer := &ibcgo.FungibleTokenPacketData{}
+							err := tokenTransfer.Unmarshal(appData)
+							if err == nil {
+								fmt.Printf("%+v\n", tokenTransfer)
+							} else {
+								fmt.Println(string(appData))
+							}
+						}
+					}
 
 					//Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
 					//In addition, the grantee must be used in round robin fashion

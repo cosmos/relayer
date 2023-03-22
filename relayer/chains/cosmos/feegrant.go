@@ -201,7 +201,6 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 
 	//Pick the next managed grantee in the list as the TX signer
 	lastGranteeIdx := cc.PCfg.FeeGrants.GranteeLastSignerIndex
-	fmt.Printf("lastGranteeIdx: %d\n", lastGranteeIdx)
 
 	if lastGranteeIdx >= 0 && lastGranteeIdx <= len(cc.PCfg.FeeGrants.ManagedGrantees)-1 {
 		txSignerKey = cc.PCfg.FeeGrants.ManagedGrantees[lastGranteeIdx]
