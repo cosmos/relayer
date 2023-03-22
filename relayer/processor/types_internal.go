@@ -379,6 +379,7 @@ type pathEndPacketFlowMessages struct {
 	Src                       *pathEndRuntime
 	Dst                       *pathEndRuntime
 	ChannelKey                ChannelKey
+	SrcPreTransfer            PacketSequenceCache
 	SrcMsgTransfer            PacketSequenceCache
 	DstMsgRecvPacket          PacketSequenceCache
 	SrcMsgAcknowledgement     PacketSequenceCache
@@ -390,6 +391,7 @@ type pathEndPacketFlowMessages struct {
 type pathEndConnectionHandshakeMessages struct {
 	Src                         *pathEndRuntime
 	Dst                         *pathEndRuntime
+	SrcMsgConnectionPreInit     ConnectionMessageCache
 	SrcMsgConnectionOpenInit    ConnectionMessageCache
 	DstMsgConnectionOpenTry     ConnectionMessageCache
 	SrcMsgConnectionOpenAck     ConnectionMessageCache
@@ -399,6 +401,7 @@ type pathEndConnectionHandshakeMessages struct {
 type pathEndChannelHandshakeMessages struct {
 	Src                      *pathEndRuntime
 	Dst                      *pathEndRuntime
+	SrcMsgChannelPreInit     ChannelMessageCache
 	SrcMsgChannelOpenInit    ChannelMessageCache
 	DstMsgChannelOpenTry     ChannelMessageCache
 	SrcMsgChannelOpenAck     ChannelMessageCache
@@ -410,26 +413,16 @@ type pathEndPacketFlowResponse struct {
 	DstMessages []packetIBCMessage
 
 	DstChannelMessage []channelIBCMessage
-
-	ToDeleteSrc        map[string][]uint64
-	ToDeleteDst        map[string][]uint64
-	ToDeleteDstChannel map[string][]ChannelKey
 }
 
 type pathEndChannelHandshakeResponse struct {
 	SrcMessages []channelIBCMessage
 	DstMessages []channelIBCMessage
-
-	ToDeleteSrc map[string][]ChannelKey
-	ToDeleteDst map[string][]ChannelKey
 }
 
 type pathEndConnectionHandshakeResponse struct {
 	SrcMessages []connectionIBCMessage
 	DstMessages []connectionIBCMessage
-
-	ToDeleteSrc map[string][]ConnectionKey
-	ToDeleteDst map[string][]ConnectionKey
 }
 
 func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
@@ -438,24 +431,6 @@ func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
 		PortID:                p.SourcePort,
 		CounterpartyChannelID: p.DestChannel,
 		CounterpartyPortID:    p.DestPort,
-	}
-}
-
-func connectionInfoConnectionKey(c provider.ConnectionInfo) ConnectionKey {
-	return ConnectionKey{
-		ClientID:             c.ClientID,
-		ConnectionID:         c.ConnID,
-		CounterpartyClientID: c.CounterpartyClientID,
-		CounterpartyConnID:   c.CounterpartyConnID,
-	}
-}
-
-func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
-	return ChannelKey{
-		ChannelID:             c.ChannelID,
-		PortID:                c.PortID,
-		CounterpartyChannelID: c.CounterpartyChannelID,
-		CounterpartyPortID:    c.CounterpartyPortID,
 	}
 }
 

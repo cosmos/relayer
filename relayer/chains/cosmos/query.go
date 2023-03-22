@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -52,14 +53,55 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
-	if err != nil {
-		return nil, err
-	}
-	var ibcMsgs []ibcMessage
+	var eg errgroup.Group
 	chainID := cc.ChainId()
-	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+	var ibcMsgs []ibcMessage
+	var mu sync.Mutex
+
+	eg.Go(func() error {
+		res, err := cc.RPCClient.BlockSearch(ctx, query, &page, &limit, "")
+		if err != nil {
+			return err
+		}
+
+		var nestedEg errgroup.Group
+
+		for _, b := range res.Blocks {
+			b := b
+			nestedEg.Go(func() error {
+				block, err := cc.RPCClient.BlockResults(ctx, &b.Block.Height)
+				if err != nil {
+					return err
+				}
+
+				mu.Lock()
+				defer mu.Unlock()
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.BeginBlockEvents, chainID, 0, base64Encoded)...)
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.EndBlockEvents, chainID, 0, base64Encoded)...)
+
+				return nil
+			})
+		}
+		return nestedEg.Wait()
+	})
+
+	eg.Go(func() error {
+		res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+		if err != nil {
+			return err
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		for _, tx := range res.Txs {
+			ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+		}
+
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	return ibcMsgs, nil

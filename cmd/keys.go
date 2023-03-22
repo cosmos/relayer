@@ -81,8 +81,8 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 			}
 
 			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					coinType = int32(ccp.PCfg.Slip44)
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+					coinType = int32(*ccp.PCfg.Slip44)
 				} else {
 					coinType = int32(defaultCoinType)
 				}
@@ -135,8 +135,8 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 			}
 
 			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					coinType = int32(ccp.PCfg.Slip44)
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+					coinType = int32(*ccp.PCfg.Slip44)
 				} else {
 					coinType = int32(defaultCoinType)
 				}
