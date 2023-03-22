@@ -2,8 +2,10 @@ package penumbra
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -238,16 +240,40 @@ type ValidatorUpdate struct {
 }
 
 func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.MerkleRoot, error) {
+	status, err := cc.RPCClient.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	maxHeight := status.SyncInfo.LatestBlockHeight
+
+	// Generate a random block height to query between 1 and maxHeight
+	height := rand.Int63n(maxHeight-1) + 1
+
+	path := fmt.Sprintf("shielded_pool/anchor/%d", height)
+
 	req := abci.RequestQuery{
 		Path:   "state/key",
-		Height: 1,
-		Data:   []byte("shielded_pool/anchor/1"),
+		Height: maxHeight,
+		Data:   []byte(path),
 		Prove:  false,
 	}
 
 	res, err := cc.QueryABCI(ctx, req)
 	if err != nil {
-		return nil, err
+		path := fmt.Sprintf("sct/anchor/%d", height)
+
+		req := abci.RequestQuery{
+			Path:   "state/key",
+			Height: maxHeight,
+			Data:   []byte(path),
+			Prove:  false,
+		}
+		res, err := cc.QueryABCI(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
 	}
 
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
@@ -256,18 +282,69 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
+	fmt.Printf("tx.go events: %+v\n", resp.Events)
 	for _, event := range resp.Events {
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
-			attributes[string(attribute.Key)] = string(attribute.Value)
+			// The key and value are base64-encoded strings, so we first have to decode them:
+			key, err := base64.StdEncoding.DecodeString(string(attribute.Key))
+			if err != nil {
+				continue
+			}
+			value, err := base64.StdEncoding.DecodeString(string(attribute.Value))
+			if err != nil {
+				continue
+			}
+			attributes[string(key)] = string(value)
 		}
 		events = append(events, provider.RelayerEvent{
 			EventType:  event.Type,
 			Attributes: attributes,
 		})
 	}
+	fmt.Printf("parsed events: %+v\n", events)
 	return events
 
+}
+
+func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
+
+	// TODO: fee estimation, fee payments
+	// NOTE: we do not actually need to sign this tx currently, since there
+	// are no fees required on the testnet. future versions of penumbra
+	// will have a signing protocol for this.
+
+	txBody := penumbratypes.TransactionBody{
+		Actions: make([]*penumbratypes.Action, 0),
+		Fee:     &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
+	}
+
+	for _, msg := range PenumbraMsgs(msgs...) {
+		action, err := msgToPenumbraAction(msg)
+		if err != nil {
+			return nil, err
+		}
+		txBody.Actions = append(txBody.Actions, action)
+	}
+
+	anchor, err := cc.getAnchor(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := &penumbratypes.Transaction{
+		Body:       &txBody,
+		BindingSig: make([]byte, 64), // use the Cool Signature
+		Anchor:     anchor,
+	}
+
+	cc.log.Info("broadcasting penumbra tx")
+	txBytes, err := cosmosproto.Marshal(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return cc.RPCClient.BroadcastTxSync(ctx, txBytes)
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -284,73 +361,38 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 	var txhash string
 	var code uint32
 
-	// TODO: fee estimation, fee payments
-	// NOTE: we do not actually need to sign this tx currently, since there
-	// are no fees required on the testnet. future versions of penumbra
-	// will have a signing protocol for this.
+	syncRes, err := cc.sendMessagesInner(ctx, msgs, _memo)
+	if err != nil {
+		return nil, false, err
+	}
+	cc.log.Info("waiting for penumbra tx to commit", zap.String("syncRes", fmt.Sprintf("%+v", syncRes)))
 
-	// NOTE: currently we have to build 1 TX per action,
-	// due to how the penumbra state machine is
-	// constructed.
-	for _, msg := range PenumbraMsgs(msgs...) {
-		txBody := penumbratypes.TransactionBody{
-			Actions: make([]*penumbratypes.Action, 1),
-			Fee:     &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
-		}
-		action, err := msgToPenumbraAction(msg)
+	if err := retry.Do(func() error {
+		ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+		defer cancel()
+
+		res, err := cc.RPCClient.Tx(ctx, syncRes.Hash, false)
 		if err != nil {
-			return nil, false, err
+			return err
 		}
-		txBody.Actions[0] = action
+		cc.log.Info("got penumbra tx result", zap.String("res", fmt.Sprintf("%+v", res)))
 
-		anchor, err := cc.getAnchor(ctx)
-		if err != nil {
-			return nil, false, err
-		}
+		height = res.Height
+		txhash = syncRes.Hash.String()
+		code = res.TxResult.Code
 
-		tx := &penumbratypes.Transaction{
-			Body:       &txBody,
-			BindingSig: make([]byte, 64), // use the Cool Signature
-			Anchor:     anchor,
-		}
-
-		txBytes, err := cosmosproto.Marshal(tx)
-		if err != nil {
-			return nil, false, err
-		}
-
-		syncRes, err := cc.RPCClient.BroadcastTxSync(ctx, txBytes)
-		if err != nil {
-			return nil, false, err
-		}
-		cc.log.Info("waiting for penumbra tx to commit")
-
-		if err := retry.Do(func() error {
-			ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
-			defer cancel()
-
-			res, err := cc.RPCClient.Tx(ctx, syncRes.Hash, false)
-			if err != nil {
-				return err
-			}
-
-			height = res.Height
-			txhash = syncRes.Hash.String()
-			code = res.TxResult.Code
-
-			events = append(events, parseEventsFromABCIResponse(res.TxResult)...)
-			return nil
-		}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-			cc.log.Info(
-				"Error building or broadcasting transaction",
-				zap.String("chain_id", cc.PCfg.ChainID),
-				zap.Uint("attempt", n+1),
-				zap.Uint("max_attempts", rtyAttNum),
-				zap.Error(err),
-			)
-		})); err != nil {
-			return nil, false, err
-		}
+		events = append(events, parseEventsFromABCIResponse(res.TxResult)...)
+		return nil
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		cc.log.Info(
+			"Error building or broadcasting transaction",
+			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", rtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, false, err
 	}
 
 	rlyResp := &provider.RelayerTxResponse{
@@ -425,7 +467,6 @@ func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessag
 }
 
 func (cc *PenumbraProvider) MsgUpdateClient(srcClientId string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	fmt.Println("PENUMBRA update client")
 	acc, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -495,7 +536,6 @@ func (cc *PenumbraProvider) ConnectionOpenInit(srcClientId, dstClientId string, 
 }
 
 func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvider provider.QueryProvider, dstHeader ibcexported.ClientMessage, dstPrefix commitmenttypes.MerklePrefix, srcClientId, dstClientId, srcConnId, dstConnId string) ([]provider.RelayerMessage, error) {
-	fmt.Println("CONN OPEN TRY")
 	var (
 		acc string
 		err error
@@ -580,6 +620,7 @@ func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvi
 	if err != nil {
 		return nil, err
 	}
+	cc.log.Info("ConnectionOpenAck", zap.String("updateMsg", fmt.Sprintf("%+v", updateMsg)), zap.Any("proofHeight", proofHeight))
 
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
@@ -1313,12 +1354,8 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-var called = 0
 
 func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	if called != 0 {
-		panic("DUPLICATE CALL")
-	}
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1344,8 +1381,6 @@ func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionI
 		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
 		Signer:          signer,
 	}
-
-	called++
 
 	return cosmos.NewCosmosMessage(msg), nil
 }
@@ -2248,6 +2283,7 @@ func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provi
 }
 
 func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []provider.RelayerMessage, memo string, asyncCtx context.Context, asyncCallback func(*provider.RelayerTxResponse, error)) error {
-	//TODO implement me
-	panic("implement me")
+	sendRsp, err := cc.sendMessagesInner(ctx, msgs, memo)
+	cc.log.Info("send messages response", zap.Any("response", sendRsp), zap.Error(err))
+	return err
 }

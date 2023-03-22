@@ -727,7 +727,6 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 		return nil, err
 	}
 
-	fmt.Println("QUERIED CHANNEL WITH STATE: ", channel.State)
 
 
 	return &chantypes.QueryChannelResponse{

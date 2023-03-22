@@ -23,7 +23,6 @@ func (c *Chain) CreateOpenChannels(
 	memo string,
 	pathName string,
 ) error {
-	fmt.Println("CREATING CHANNELS")
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
 		return err

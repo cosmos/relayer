@@ -89,9 +89,11 @@ func (l latestClientState) update(clientInfo clientInfo) {
 		// height is less than latest, so no-op
 		return
 	}
+	// TODO: don't hardcode
+	tp := time.Hour * 2
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.clientID] = clientInfo.ClientState()
+	l[clientInfo.clientID] = clientInfo.ClientState(tp)
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -352,7 +354,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64)
+		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64, true)
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}
@@ -362,7 +364,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 				// tx was not successful
 				continue
 			}
-			messages := ibcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64)
+			messages := ibcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, true)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)

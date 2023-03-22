@@ -173,12 +173,7 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 		height--
 	}
 
-	// TODO: fix this at the query layer?
-	if height == 0 {
-		height, _ = cc.QueryLatestHeight(ctx)
-	}
-
-	fmt.Println("querying at height:", height, "with key:", string(key))
+	cc.log.Debug("Querying K/V", zap.String("ChainId", cc.ChainId()), zap.Int64("Height", height), zap.String("Key", string(key)))
 	req := abci.RequestQuery{
 		Path:   "state/key",
 		Height: height,
@@ -227,6 +222,7 @@ func (cc *PenumbraProvider) QueryClientStateResponse(ctx context.Context, height
 	if err != nil {
 		return nil, err
 	}
+	cc.log.Debug("QueryClientStateResponse", zap.Int64("Height", height), zap.Any("proofHeight", proofHeight), zap.String("Key", string(key)), zap.Any("ClientState", clientState))
 
 	anyClientState, err := clienttypes.PackClientState(clientState)
 	if err != nil {
@@ -526,6 +522,7 @@ func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, heig
 	if err := eg.Wait(); err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
+	cc.log.Info("GenerateConnHandshakeProof", zap.Int64("height", height), zap.Any("connId", connId), zap.Any("connectionStateRes", connectionStateRes))
 
 	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
 }
@@ -577,7 +574,6 @@ func (cc *PenumbraProvider) queryChannelABCI(ctx context.Context, height int64, 
 	if err := cdc.Unmarshal(value, &channel); err != nil {
 		return nil, err
 	}
-	fmt.Println("QUERIED CHANNEL WITH STATE: ", channel.State)
 
 	return &chantypes.QueryChannelResponse{
 		Channel:     &channel,
@@ -881,71 +877,6 @@ func (cc *PenumbraProvider) QueryConsensusStateABCI(ctx context.Context, clientI
 	}, nil
 }
 
-func parseIBCMessageFromEvent(
-	log *zap.Logger,
-	event sdk.StringEvent,
-	chainID string,
-	height uint64,
-) *ibcMessage {
-	switch event.Type {
-	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck,
-		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-		chantypes.EventTypeTimeoutPacketOnClose:
-		pi := &packetInfo{Height: height}
-		pi.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      pi,
-		}
-	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
-		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
-		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelCloseConfirm:
-		ci := &channelInfo{Height: height}
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
-	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
-		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-		ci := &connectionInfo{Height: height}
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
-	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-		clienttypes.EventTypeUpdateClientProposal:
-		ci := new(clientInfo)
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
-	}
-	return nil
-}
-
-// ibcMessagesFromTransaction parses all events within a transaction to find IBC messages
-func ibcMessagesFromEvents(
-	log *zap.Logger,
-	events []abci.Event,
-	chainID string,
-	height uint64,
-) (messages []ibcMessage) {
-	for _, event := range events {
-		evt := sdk.StringifyEvent(event)
-		m := parseIBCMessageFromEvent(log, evt, chainID, height)
-		if m == nil || m.info == nil {
-			// Not an IBC message, don't need to log here
-			continue
-		}
-		messages = append(messages, *m)
-	}
-	return messages
-}
-
 // queryIBCMessages returns an array of IBC messages given a tag
 func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
 	if query == "" {
@@ -967,7 +898,7 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 	var ibcMsgs []ibcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
+		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, true)...)
 	}
 
 	return ibcMsgs, nil

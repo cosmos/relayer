@@ -194,7 +194,6 @@ func (cc *PenumbraProvider) Address() (string, error) {
 }
 
 func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	fmt.Println("getting penumbra trusting period")
 	// TODO
 	return time.Hour * 2, nil
 	/*

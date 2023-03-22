@@ -27,6 +27,7 @@ func ParseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 // ParseConnectionIDFromEvents parses events emitted from a MsgConnectionOpenInit or
 // MsgConnectionOpenTry and returns the connection identifier.
 func ParseConnectionIDFromEvents(events []provider.RelayerEvent) (string, error) {
+	fmt.Printf("events.go events: %+v\n", events)
 	for _, event := range events {
 		if event.EventType == connectiontypes.EventTypeConnectionOpenInit || event.EventType == connectiontypes.EventTypeConnectionOpenTry {
 			for attributeKey, attributeValue := range event.Attributes {
@@ -42,7 +43,6 @@ func ParseConnectionIDFromEvents(events []provider.RelayerEvent) (string, error)
 // ParseChannelIDFromEvents parses events emitted from a MsgChannelOpenInit or
 // MsgChannelOpenTry and returns the channel identifier.
 func ParseChannelIDFromEvents(events []provider.RelayerEvent) (string, error) {
-	fmt.Println("EVENTS: ", events)
 	for _, event := range events {
 		if event.EventType == channeltypes.EventTypeChannelOpenInit || event.EventType == channeltypes.EventTypeChannelOpenTry {
 			for attributeKey, attributeValue := range event.Attributes {
