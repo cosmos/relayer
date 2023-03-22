@@ -78,6 +78,9 @@ func (msg packetIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
 	}
+	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+		packetProof = src.localhostSentinelProofPacket
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
 	defer cancel()
@@ -167,6 +170,10 @@ func (msg channelIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
 	}
+	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+		chanProof = src.localhostSentinelProofChannel
+	}
+
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {
@@ -239,17 +246,22 @@ func (msg connectionIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected connection message eventType for message assembly: %s", msg.eventType)
 	}
+	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+		connProof = src.localhostSentinelProofConnection
+	}
+
+	src.log.Info("About to build connection proof...")
 	var proof provider.ConnectionProof
 	var err error
 	if connProof != nil {
-		if src.clientState.ClientID == ibcexported.LocalhostClientID {
-
-		}
+		src.log.Info("Building connection proof...")
 		proof, err = connProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
 			return nil, fmt.Errorf("error querying connection proof: %w", err)
 		}
 	}
+
+	src.log.Info("About to assemble connection msg...")
 	return assembleMessage(msg.info, proof)
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -82,9 +83,22 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	if err != nil {
-		return err
+	var (
+		err               error
+		needsClientUpdate bool
+	)
+
+	mp.log.Info("CLIENT ID", zap.String("src-id", src.clientState.ClientID))
+	mp.log.Info("CLIENT ID", zap.String("dst-id", dst.clientState.ClientID))
+
+	fmt.Printf("SRC CLIENT STATE: %v \n", src.clientState)
+	fmt.Printf("DSR CLIENT STATE: %v \n", dst.clientState)
+
+	if src.clientState.ClientID != ibcexported.LocalhostClientID && dst.clientState.ClientID != ibcexported.LocalhostConnectionID {
+		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {

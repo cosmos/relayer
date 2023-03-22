@@ -86,12 +86,21 @@ func TestLocalhostIBC(t *testing.T) {
 	})
 
 	const relayerKey = "relayer-key"
+	const mnemonic = "all unit ordinary card sword document left illegal frog chuckle assume gift south settle can explain wagon beef story praise gorilla arch close good"
+
+	// create a new user account and wait a few blocks for it to be created on chain
+	user, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, 10_000_000, chainA)
+	require.NoError(t, err)
+	_ = user
+
+	err = testutil.WaitForBlocks(ctx, 5, chainA)
+	require.NoError(t, err)
+
 	err = r.AddChainConfiguration(ctx, eRep, chainA.Config(), relayerKey, chainA.GetHostRPCAddress(), chainA.GetHostGRPCAddress())
 	require.NoError(t, err)
 
-	wallet, err := r.AddKey(ctx, eRep, chainA.Config().ChainID, relayerKey, chainA.Config().CoinType)
+	err = r.RestoreKey(ctx, eRep, chainA.Config().ChainID, relayerKey, chainA.Config().CoinType, mnemonic)
 	require.NoError(t, err)
-	_ = wallet
 
 	err = r.GeneratePath(ctx, eRep, chainA.Config().ChainID, chainA.Config().ChainID, pathLocalhost)
 	require.NoError(t, err)
@@ -106,16 +115,16 @@ func TestLocalhostIBC(t *testing.T) {
 	res := r.Exec(ctx, eRep, updateCmd, nil)
 	require.NoError(t, res.Err)
 
-	err = r.CreateClients(ctx, eRep, pathLocalhost, ibc.CreateClientOptions{TrustingPeriod: "1h"})
-	require.NoError(t, err)
-
-	err = r.CreateConnections(ctx, eRep, pathLocalhost)
-	require.NoError(t, err)
+	//err = r.CreateClients(ctx, eRep, pathLocalhost, ibc.CreateClientOptions{TrustingPeriod: "1h"})
+	//require.NoError(t, err)
+	//
+	//err = r.CreateConnections(ctx, eRep, pathLocalhost)
+	//require.NoError(t, err)
 
 	height, err := chainA.Height(ctx)
 	require.NoError(t, err)
 
-	err = r.CreateChannel(ctx, eRep, pathLocalhost, ibc.CreateChannelOptions{})
+	err = r.CreateChannel(ctx, eRep, pathLocalhost, ibc.DefaultChannelOpts())
 	require.NoError(t, err)
 
 	_, err = ictestcosmos.PollForMessage[chantypes.MsgChannelOpenConfirm](
@@ -127,12 +136,6 @@ func TestLocalhostIBC(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-
-	// create a new user account and wait a few blocks for it to be created on chain
-	user := interchaintest.GetAndFundTestUsers(t, ctx, "user-1", 10_000_000, chainA)[0]
-	err = testutil.WaitForBlocks(ctx, 5, chainA)
-
-	_ = user
 
 	// Start the relayer
 	require.NoError(t, r.StartRelayer(ctx, eRep, pathLocalhost))

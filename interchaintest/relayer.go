@@ -92,7 +92,6 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 	}
 
 	var w *interchaintestcosmos.CosmosWallet
-	fmt.Println(res.Stdout.String())
 	if err := json.Unmarshal(res.Stdout.Bytes(), &w); err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -71,6 +72,9 @@ type PathProcessor struct {
 
 	sentInitialMsg bool
 
+	// true if this is a localhost IBC connection
+	localhost bool
+
 	metrics *PrometheusMetrics
 }
 
@@ -95,6 +99,11 @@ func NewPathProcessor(
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
 ) *PathProcessor {
+	var isLocalhost bool
+	if pathEnd1.ClientID == ibcexported.LocalhostClientID {
+		isLocalhost = true
+	}
+
 	pp := &PathProcessor{
 		log:                       log,
 		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
@@ -104,6 +113,7 @@ func NewPathProcessor(
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
+		localhost:                 isLocalhost,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
@@ -198,9 +208,19 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 	}
 	if pp.pathEnd1.info.ChainID == chainProvider.ChainId() {
 		pp.pathEnd1.chainProvider = chainProvider
+
+		if pp.localhost {
+			pp.pathEnd2.chainProvider = chainProvider
+		}
+
 		return true
 	} else if pp.pathEnd2.info.ChainID == chainProvider.ChainId() {
 		pp.pathEnd2.chainProvider = chainProvider
+
+		if pp.localhost {
+			pp.pathEnd2.chainProvider = chainProvider
+		}
+
 		return true
 	}
 	return false
@@ -257,6 +277,12 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 
 // ChainProcessors call this method when they have new IBC messages
 func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorCacheData) {
+	if pp.localhost {
+		pp.pathEnd1.incomingCacheData <- cacheData
+		pp.pathEnd2.incomingCacheData <- cacheData
+		return
+	}
+
 	if pp.pathEnd1.info.ChainID == chainID {
 		pp.pathEnd1.incomingCacheData <- cacheData
 	} else if pp.pathEnd2.info.ChainID == chainID {
@@ -314,8 +340,12 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
-		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
-			continue
+		if pp.pathEnd1.info.ClientID != ibcexported.LocalhostClientID {
+			if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
+				pp.log.Info("About to process signals...")
+
+				continue
+			}
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
@@ -327,6 +357,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		// process latest message cache state from both pathEnds
+		pp.log.Info("About to process msgs...")
 		if err := pp.processLatestMessages(ctx); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
