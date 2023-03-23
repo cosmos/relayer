@@ -6,6 +6,7 @@ require (
 	cosmossdk.io/simapp v0.0.0-20230224204036-a6adb0821462
 	github.com/cometbft/cometbft v0.37.0
 	github.com/cosmos/cosmos-sdk v0.47.0
+	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go/v7 v7.0.0
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.19+incompatible
