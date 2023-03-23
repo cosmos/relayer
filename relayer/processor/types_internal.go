@@ -51,7 +51,6 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 ) (provider.RelayerMessage, error) {
 	var packetProof func(context.Context, provider.PacketInfo, uint64, []string, []string) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
-	// TODO: add hop chain query providers
 	switch msg.eventType {
 	case chantypes.EventTypeRecvPacket:
 		packetProof = src.chainProvider.PacketCommitment

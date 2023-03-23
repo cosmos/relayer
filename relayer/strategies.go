@@ -67,9 +67,21 @@ func StartRelayer(
 				filterSrc = append(filterSrc, ruleSrc)
 				filterDst = append(filterDst, ruleDst)
 			}
+			hopsSrcToDst := make([]*processor.PathEnd, len(p.Hops))
+			hopsDstToSrc := make([]*processor.PathEnd, len(p.Hops))
+			for j, hop := range p.Hops {
+				srcToDst := processor.NewPathEnd(pathName, hop.ChainID, hop.PathEnds[0].ClientID, filter.Rule,
+					filterSrc)
+				hopsSrcToDst[j] = &srcToDst
+				dstToSrc := processor.NewPathEnd(pathName, hop.ChainID, hop.PathEnds[1].ClientID, filter.Rule,
+					filterSrc)
+				hopsDstToSrc[j] = &dstToSrc
+			}
 			ePaths[i] = path{
-				src: processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, filter.Rule, filterSrc),
-				dst: processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, filter.Rule, filterDst),
+				src:          processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, filter.Rule, filterSrc),
+				dst:          processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, filter.Rule, filterDst),
+				hopsSrcToDst: hopsSrcToDst,
+				hopsDstToSrc: hopsDstToSrc,
 			}
 		}
 
@@ -107,9 +119,10 @@ func StartRelayer(
 // TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
 // as the stateless and stateful/event-based relaying mechanisms are consolidated.
 type path struct {
-	src processor.PathEnd
-	dst processor.PathEnd
-	// TODO: add hops here
+	src          processor.PathEnd
+	dst          processor.PathEnd
+	hopsSrcToDst []*processor.PathEnd
+	hopsDstToSrc []*processor.PathEnd
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
@@ -149,8 +162,8 @@ func relayerStartEventProcessor(
 				log,
 				p.src,
 				p.dst,
-				nil, // TODO: extract hops if any
-				nil, // TODO: extract hops if any
+				p.hopsSrcToDst,
+				p.hopsDstToSrc,
 				metrics,
 				memo,
 				clientUpdateThresholdTime,

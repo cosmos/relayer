@@ -143,7 +143,6 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 				for k := range pathEnd.connectionStateCache {
 					if k.ConnectionID == ci.ConnID {
 						ci.CounterpartyConnID = k.CounterpartyConnID
-						// TODO: get a hold of the other connections
 						break
 					}
 				}
