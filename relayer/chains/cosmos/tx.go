@@ -1063,11 +1063,11 @@ func (cc *CosmosProvider) generateConsensusAndConnectionProofs(
 			return nil, nil, fmt.Errorf("consensus height is less than proof height")
 		}
 
-		if consensusProofs[i], err = cc.generateConsensusProof(ctx, currentChain, currentClientState,
+		if consensusProofs[len(chains)-1-i], err = cc.generateConsensusProof(ctx, currentChain, currentClientState,
 			nextClientState); err != nil {
 			return nil, nil, err
 		}
-		if connectionProofs[i], err = cc.generateConnectionProof(ctx, currentChain, currentClientState, nextClientState,
+		if connectionProofs[len(chains)-1-i], err = cc.generateConnectionProof(ctx, currentChain, currentClientState, nextClientState,
 			hopConnectionIDs[i+1]); err != nil {
 			return nil, nil, err
 		}
