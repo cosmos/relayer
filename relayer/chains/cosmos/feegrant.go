@@ -40,7 +40,7 @@ func (cc *CosmosProvider) GetValidBasicGrants() ([]*feegrant.Grant, error) {
 		case "/cosmos.feegrant.v1beta1.BasicAllowance":
 			//var feegrantAllowance feegrant.BasicAllowance
 			var feegrantAllowance feegrant.FeeAllowanceI
-			e := cc.Codec.InterfaceRegistry.UnpackAny(grant.Allowance, &feegrantAllowance)
+			e := cc.Cdc.InterfaceRegistry.UnpackAny(grant.Allowance, &feegrantAllowance)
 			if e != nil {
 				return nil, e
 			}
@@ -87,7 +87,7 @@ func (cc *CosmosProvider) GetGranteeValidBasicGrants(granteeKey string) ([]*feeg
 			switch grant.Allowance.TypeUrl {
 			case "/cosmos.feegrant.v1beta1.BasicAllowance":
 				var feegrantAllowance feegrant.FeeAllowanceI
-				e := cc.Codec.InterfaceRegistry.UnpackAny(grant.Allowance, &feegrantAllowance)
+				e := cc.Cdc.InterfaceRegistry.UnpackAny(grant.Allowance, &feegrantAllowance)
 				if e != nil {
 					return nil, e
 				}

@@ -400,10 +400,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 				require.Nil(t, err)
 
 				require.Nil(t, err)
-				dc := cProv.Codec.TxConfig.TxDecoder()
+				dc := cProv.Cdc.TxConfig.TxDecoder()
 				tx, err := dc(txResp.Tx)
 				require.Nil(t, err)
-				builder, err := cProv.Codec.TxConfig.WrapTxBuilder(tx)
+				builder, err := cProv.Cdc.TxConfig.WrapTxBuilder(tx)
 				require.Nil(t, err)
 				txFinder := builder.(protoTxProvider)
 				fullTx := txFinder.GetProtoTx()

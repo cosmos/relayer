@@ -9,22 +9,19 @@ import (
 	"sync"
 	"time"
 
+	provtypes "github.com/cometbft/cometbft/light/provider"
+	prov "github.com/cometbft/cometbft/light/provider/http"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	provtypes "github.com/tendermint/tendermint/light/provider"
-	prov "github.com/tendermint/tendermint/light/provider/http"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
 )
@@ -35,7 +32,7 @@ var (
 	_ provider.ProviderConfig = &CosmosProviderConfig{}
 )
 
-const tendermintEncodingThreshold = "v0.37.0-alpha"
+const cometEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
 	KeyDirectory   string                  `json:"key-directory" yaml:"key-directory"`
@@ -55,7 +52,7 @@ type CosmosProviderConfig struct {
 	SignModeStr    string                  `json:"sign-mode" yaml:"sign-mode"`
 	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
 	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
-	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
+	Slip44         *int                    `json:"coin-type" yaml:"coin-type"`
 	Broadcast      provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 
 	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
@@ -111,7 +108,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		walletStateMap: map[string]*WalletState{},
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
-		Codec: MakeCodec(pc.Modules, pc.ExtraCodecs),
+		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
 	}
 
 	return cp, nil
@@ -127,7 +124,7 @@ type CosmosProvider struct {
 	LightProvider  provtypes.Provider
 	Input          io.Reader
 	Output         io.Writer
-	Codec          Codec
+	Cdc            Codec
 	// TODO: GRPC Client type?
 
 	//nextAccountSeq uint64
@@ -144,34 +141,13 @@ type CosmosProvider struct {
 
 	metrics *processor.PrometheusMetrics
 
-	// for tendermint < v0.37, decode tm events as base64
-	tendermintLegacyEncoding bool
+	// for comet < v0.37, decode tm events as base64
+	cometLegacyEncoding bool
 }
 
 type WalletState struct {
 	NextAccountSequence uint64
 	Mu                  sync.Mutex
-}
-
-type CosmosIBCHeader struct {
-	SignedHeader *tmtypes.SignedHeader
-	ValidatorSet *tmtypes.ValidatorSet
-}
-
-func (h CosmosIBCHeader) Height() uint64 {
-	return uint64(h.SignedHeader.Height)
-}
-
-func (h CosmosIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return &tmclient.ConsensusState{
-		Timestamp:          h.SignedHeader.Time,
-		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
-		NextValidatorsHash: h.SignedHeader.NextValidatorsHash,
-	}
-}
-
-func (h CosmosIBCHeader) NextValidatorsHash() []byte {
-	return h.SignedHeader.NextValidatorsHash
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
@@ -280,7 +256,7 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, er
 
 // Sprint returns the json representation of the specified proto message.
 func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
-	out, err := cc.Codec.Marshaler.MarshalJSON(toPrint)
+	out, err := cc.Cdc.Marshaler.MarshalJSON(toPrint)
 	if err != nil {
 		return "", err
 	}
@@ -291,7 +267,7 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 // Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
 // NOTE: Init must be called after creating a new instance of CosmosProvider.
 func (cc *CosmosProvider) Init(ctx context.Context) error {
-	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Codec.Marshaler, cc.KeyringOptions...)
+	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, cc.KeyringOptions...)
 	if err != nil {
 		return err
 	}
@@ -322,7 +298,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.setTendermintVersion(cc.log, status.NodeInfo.Version)
+	cc.setCometVersion(cc.log, status.NodeInfo.Version)
 
 	return nil
 }
@@ -373,12 +349,12 @@ func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, 
 	}
 }
 
-func (cc *CosmosProvider) setTendermintVersion(log *zap.Logger, version string) {
-	cc.tendermintLegacyEncoding = cc.legacyEncodedEvents(log, version)
+func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
 }
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, tendermintEncodingThreshold) < 0
+	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

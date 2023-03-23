@@ -8,8 +8,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	abci "github.com/cometbft/cometbft/abci/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -30,9 +34,6 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	abci "github.com/tendermint/tendermint/abci/types"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
-	tmtypes "github.com/tendermint/tendermint/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
@@ -56,14 +57,55 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
-	if err != nil {
-		return nil, err
-	}
-	var ibcMsgs []ibcMessage
+	var eg errgroup.Group
 	chainID := cc.ChainId()
-	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+	var ibcMsgs []ibcMessage
+	var mu sync.Mutex
+
+	eg.Go(func() error {
+		res, err := cc.RPCClient.BlockSearch(ctx, query, &page, &limit, "")
+		if err != nil {
+			return err
+		}
+
+		var nestedEg errgroup.Group
+
+		for _, b := range res.Blocks {
+			b := b
+			nestedEg.Go(func() error {
+				block, err := cc.RPCClient.BlockResults(ctx, &b.Block.Height)
+				if err != nil {
+					return err
+				}
+
+				mu.Lock()
+				defer mu.Unlock()
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.BeginBlockEvents, chainID, 0, base64Encoded)...)
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.EndBlockEvents, chainID, 0, base64Encoded)...)
+
+				return nil
+			})
+		}
+		return nestedEg.Wait()
+	})
+
+	eg.Go(func() error {
+		res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+		if err != nil {
+			return err
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		for _, tx := range res.Txs {
+			ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+		}
+
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	return ibcMsgs, nil
@@ -353,7 +395,7 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	proofBz, err := cdc.Marshal(&merkleProof)
 	if err != nil {
@@ -378,7 +420,7 @@ func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height i
 		return nil, sdkerrors.Wrap(clienttypes.ErrClientNotFound, srcClientId)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	clientState, err := clienttypes.UnmarshalClientState(cdc, value)
 	if err != nil {
@@ -427,7 +469,7 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	cs, err := clienttypes.UnmarshalConsensusState(cdc, value)
 	if err != nil {
@@ -464,7 +506,7 @@ func (cc *CosmosProvider) QueryUpgradeProof(ctx context.Context, key []byte, hei
 		return nil, clienttypes.Height{}, err
 	}
 
-	proof, err := cc.Codec.Marshaler.Marshal(&merkleProof)
+	proof, err := cc.Cdc.Marshaler.Marshal(&merkleProof)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
@@ -624,7 +666,7 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 		return nil, sdkerrors.Wrap(conntypes.ErrConnectionNotFound, connectionID)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	var connection conntypes.ConnectionEnd
 	if err := cdc.Unmarshal(value, &connection); err != nil {
@@ -770,7 +812,7 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portID, channelID)
 	}
 
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	var channel chantypes.Channel
 	if err := cdc.Unmarshal(value, &channel); err != nil {
@@ -1128,39 +1170,6 @@ func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultSta
 	return status, nil
 }
 
-// QueryHeaderAtHeight returns the header at a given height
-func (cc *CosmosProvider) QueryHeaderAtHeight(ctx context.Context, height int64) (ibcexported.ClientMessage, error) {
-	var (
-		page    = 1
-		perPage = 100000
-	)
-	if height <= 0 {
-		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
-	}
-
-	res, err := cc.RPCClient.Commit(ctx, &height)
-	if err != nil {
-		return nil, err
-	}
-
-	val, err := cc.RPCClient.Validators(ctx, &height, &page, &perPage)
-	if err != nil {
-		return nil, err
-	}
-
-	protoVal, err := tmtypes.NewValidatorSet(val.Validators).ToProto()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmclient.Header{
-		// NOTE: This is not a SignedHeader
-		// We are missing a light.Commit type here
-		SignedHeader: res.SignedHeader.ToProto(),
-		ValidatorSet: protoVal,
-	}, nil
-}
-
 // QueryDenomTrace takes a denom from IBC and queries the information about it
 func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
 	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
@@ -1231,7 +1240,7 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 	}
 
 	// TODO do we really want to create a new codec? ChainClient exposes proto.Marshaler
-	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	cs, err := clienttypes.UnmarshalConsensusState(cdc, value)
 	if err != nil {

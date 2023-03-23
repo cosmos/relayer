@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
+	"time"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
-	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/encoding"
@@ -16,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	"github.com/cosmos/cosmos-sdk/types/tx"
@@ -74,8 +78,8 @@ func (cc *CosmosProvider) Invoke(ctx context.Context, method string, req, reply 
 		*header.HeaderAddr = outMd
 	}
 
-	if cc.Codec.InterfaceRegistry != nil {
-		return types.UnpackInterfaces(reply, cc.Codec.Marshaler)
+	if cc.Cdc.InterfaceRegistry != nil {
+		return types.UnpackInterfaces(reply, cc.Cdc.Marshaler)
 	}
 
 	return nil
@@ -148,13 +152,49 @@ func (cc *CosmosProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broadc
 		return nil, status.Error(codes.InvalidArgument, "invalid empty tx")
 	}
 
-	resp, err := cc.BroadcastTx(ctx, req.TxBytes)
-	if err != nil {
+	var (
+		blockTimeout = defaultBroadcastWaitTimeout
+		err          error
+		rlyResp      *provider.RelayerTxResponse
+		callbackErr  error
+		wg           sync.WaitGroup
+	)
+
+	if cc.PCfg.BlockTimeout != "" {
+		blockTimeout, err = time.ParseDuration(cc.PCfg.BlockTimeout)
+		if err != nil {
+			// Did you call Validate() method on CosmosProviderConfig struct
+			// before coming here?
+			return nil, err
+		}
+	}
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		rlyResp = rtr
+		callbackErr = err
+		wg.Done()
+	}
+
+	wg.Add(1)
+
+	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, blockTimeout, []func(*provider.RelayerTxResponse, error){callback}); err != nil {
 		return nil, err
 	}
 
+	wg.Wait()
+
+	if callbackErr != nil {
+		return nil, callbackErr
+	}
+
 	return &tx.BroadcastTxResponse{
-		TxResponse: resp,
+		TxResponse: &sdk.TxResponse{
+			Height:    rlyResp.Height,
+			TxHash:    rlyResp.TxHash,
+			Codespace: rlyResp.Codespace,
+			Code:      rlyResp.Code,
+			Data:      rlyResp.Data,
+		},
 	}, nil
 }
 

@@ -1,10 +1,12 @@
 package stride
 
 import (
+	"cosmossdk.io/api/tendermint/crypto"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	proto "github.com/cosmos/gogoproto/proto"
 )
 
 // Originally sourced from https://github.com/Stride-Labs/stride/blob/v5.1.1/x/interchainquery/types/codec.go
@@ -25,7 +27,16 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 	)
 }
 
+func RegisterCometTypes() {
+	proto.RegisterType((*crypto.Proof)(nil), "cometbft.crypto.Proof")
+	proto.RegisterType((*crypto.ValueOp)(nil), "cometbft.crypto.ValueOp")
+	proto.RegisterType((*crypto.DominoOp)(nil), "cometbft.crypto.DominoOp")
+	proto.RegisterType((*crypto.ProofOp)(nil), "cometbft.crypto.ProofOp")
+	proto.RegisterType((*crypto.ProofOps)(nil), "cometbft.crypto.ProofOps")
+}
+
 func init() {
+	RegisterCometTypes()
 	RegisterLegacyAminoCodec(amino)
 	cryptocodec.RegisterCrypto(amino)
 	amino.Seal()

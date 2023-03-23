@@ -18,5 +18,5 @@ done
 # move proto files to the right places
 #
 # Note: Proto files are suffixed with the current binary version.
-cp -r github.com/cosmos/relayer/* ./
+cp -r github.com/cosmos/relayer/v2/* ./
 rm -rf github.com

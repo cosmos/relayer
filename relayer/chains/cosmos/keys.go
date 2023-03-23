@@ -38,7 +38,7 @@ func KeyringAlgoOptions() keyring.Option {
 
 // CreateKeystore initializes a new instance of a keyring at the specified path in the local filesystem.
 func (cc *CosmosProvider) CreateKeystore(path string) error {
-	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Codec.Marshaler, KeyringAlgoOptions())
+	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, KeyringAlgoOptions())
 	if err != nil {
 		return err
 	}

@@ -156,6 +156,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.EventType]; ok {
 				handler(msgHandlerParams{
+					height:           i,
 					mcp:              mcp,
 					packetInfo:       m.PacketInfo,
 					ibcMessagesCache: ibcMessagesCache,
@@ -175,6 +176,10 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		for _, pp := range mcp.pathProcessors {
 			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
 			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
+				LatestBlock: provider.LatestBlock{
+					Height: uint64(i),
+					Time:   time.Now(),
+				},
 				IBCMessagesCache:  ibcMessagesCache,
 				InSync:            mcp.inSync,
 				ChannelStateCache: channelStateCache,

@@ -13,7 +13,7 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	tmcrypto "github.com/tendermint/tendermint/crypto"
+	tmcrypto "github.com/cometbft/cometbft/crypto"
 )
 
 const (

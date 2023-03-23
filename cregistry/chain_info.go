@@ -55,7 +55,7 @@ type ChainInfo struct {
 	Genesis      struct {
 		GenesisURL string `json:"genesis_url"`
 	} `json:"genesis"`
-	Slip44   int `json:"slip44"`
+	Slip44   *int `json:"slip44"`
 	Codebase struct {
 		GitRepo            string   `json:"git_repo"`
 		RecommendedVersion string   `json:"recommended_version"`
