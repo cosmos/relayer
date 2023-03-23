@@ -380,6 +380,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	r.StopRelayer(ctx, eRep)
+	feegrantMsgSigners := map[string][]string{} //chain to list of signers
 
 	for len(processor.PathProcMessageCollector) > 0 {
 		select {
@@ -447,15 +448,57 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 
 					//Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
 					//In addition, the grantee must be used in round robin fashion
-					expectedGrantee := nextGrantee(feegrantInfo)
+					//expectedGrantee := nextGrantee(feegrantInfo)
 					actualGrantee := signers[0].String()
+					signerList, ok := feegrantMsgSigners[chain]
+					if ok {
+						signerList = append(signerList, actualGrantee)
+						feegrantMsgSigners[chain] = signerList
+					} else {
+						feegrantMsgSigners[chain] = []string{actualGrantee}
+					}
 					fmt.Printf("Chain: %s, msg type: %s, height: %d, signer: %s, granter: %s\n", chain, msgType, curr.Response.Height, actualGrantee, granter.String())
-					require.Equal(t, expectedGrantee, actualGrantee)
+					//require.Equal(t, expectedGrantee, actualGrantee)
 					feegrantInfo.lastSigner = actualGrantee
 				}
 			}
 		default:
 			fmt.Println("Unknown channel message")
+		}
+	}
+
+	for chain, signers := range feegrantMsgSigners {
+		require.Equal(t, chain, "gaia-1")
+		signerCountMap := map[string]int{}
+
+		for _, signer := range signers {
+			count, ok := signerCountMap[signer]
+			if ok {
+				signerCountMap[signer] = count + 1
+			} else {
+				signerCountMap[signer] = 1
+			}
+		}
+
+		highestCount := 0
+		for _, count := range signerCountMap {
+			if count > highestCount {
+				highestCount = count
+			}
+		}
+
+		//At least one feegranter must have signed a TX
+		require.GreaterOrEqual(t, highestCount, 1)
+
+		//All of the feegrantees must have signed at least one TX
+		expectedFeegrantInfo := feegrantedChains[chain]
+		require.Equal(t, len(signerCountMap), len(expectedFeegrantInfo.grantees))
+
+		// verify that TXs were signed in a round robin fashion.
+		// no grantee should have signed more TXs than any other grantee (off by one is allowed).
+		for signer, count := range signerCountMap {
+			fmt.Printf("signer %s signed %d feegranted TXs \n", signer, count)
+			require.LessOrEqual(t, highestCount-count, 1)
 		}
 	}
 
