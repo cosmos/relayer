@@ -241,6 +241,17 @@ func (c *ChannelStateCache) Set(key ChannelKey, state *ChannelState) {
 	(*c)[key] = state
 }
 
+func (c *ChannelStateCache) GetConnectionHops(key ChannelKey) []string {
+	if c == nil {
+		return nil
+	}
+	channel, found := (*c)[key]
+	if !found {
+		return nil
+	}
+	return channel.ConnectionHops
+}
+
 // FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
 func (c *ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
 	n := make(ChannelStateCache)

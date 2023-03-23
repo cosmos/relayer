@@ -93,6 +93,7 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
+	// TODO: use an ibc-go provided encoding when it becomes available
 	connectionHops := ""
 	for i, hop := range hops {
 		if i > 0 {
@@ -114,10 +115,9 @@ func (c *Chain) CreateOpenChannels(
 				Info: provider.ChannelInfo{
 					PortID:             srcPortID,
 					CounterpartyPortID: dstPortID,
-					// TODO: find out when this converts to protobuf and split again
-					ConnID:  connectionHops,
-					Version: version,
-					Order:   OrderFromString(order),
+					ConnID:             connectionHops,
+					Version:            version,
+					Order:              OrderFromString(order),
 				},
 			},
 			Termination: &processor.ChannelMessage{

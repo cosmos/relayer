@@ -139,6 +139,7 @@ type ChannelInfo struct {
 }
 
 // ConnectionHops splits the list of connection hops to turn it into an array.
+// TODO: use an ibc-go provided decoder for this when it becomes available
 func (c ChannelInfo) ConnectionHops() []string {
 	return strings.Split(c.ConnID, ".")
 }
@@ -260,18 +261,18 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64, hops []string) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64, hops []string) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64, hops []string) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
 
 	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
 	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 	// exact same order as they were sent over the wire.
-	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64, hops []string) (PacketProof, error)
+	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
 
 	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
 	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)
@@ -329,9 +330,9 @@ type ChainProvider interface {
 
 	// [Begin] Channel handshake IBC message assembly
 
-	// ChannelProof queries for proof of a channel state. If the channel is multi-hop, the hops represent the chain IDs
-	// of the intermediate hops.
-	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64, hops []string) (ChannelProof, error)
+	// ChannelProof queries for proof of a channel state. If the channel is multi-hop, the chainIDs are for the
+	// intermediate hops.
+	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64, chainIDs []string) (ChannelProof, error)
 
 	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
 	// ready to write to the chain. The channel proof is not needed here, but it needs

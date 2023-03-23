@@ -541,7 +541,7 @@ func (cc *CosmosProvider) PacketCommitment(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
-	hops []string,
+	chainIDs, connectionHops []string,
 ) (provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	commitment, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
@@ -552,7 +552,9 @@ func (cc *CosmosProvider) PacketCommitment(
 	if len(commitment) == 0 {
 		return provider.PacketProof{}, chantypes.ErrPacketCommitmentNotFound
 	}
-
+	if proof, err = cc.generateMultihopProof(ctx, connectionHops, height, proof, chainIDs); err != nil {
+		return provider.PacketProof{}, err
+	}
 	return provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
@@ -581,7 +583,7 @@ func (cc *CosmosProvider) PacketAcknowledgement(
 	ctx context.Context,
 	msgRecvPacket provider.PacketInfo,
 	height uint64,
-	hops []string,
+	chainIDs, connectionHops []string,
 ) (provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	ack, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
@@ -590,6 +592,9 @@ func (cc *CosmosProvider) PacketAcknowledgement(
 	}
 	if len(ack) == 0 {
 		return provider.PacketProof{}, chantypes.ErrInvalidAcknowledgement
+	}
+	if proof, err = cc.generateMultihopProof(ctx, connectionHops, height, proof, chainIDs); err != nil {
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       proof,
@@ -620,18 +625,15 @@ func (cc *CosmosProvider) PacketReceipt(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
-	hops []string,
+	chainIDs, connectionHops []string,
 ) (provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet receipt: %w", err)
 	}
-	if len(hops) > 0 {
-		// TODO: get a hold of connection hops
-		//if proof, err = cc.generateMultihopProof(ctx, msg.ConnectionHops(), height, proof, hops); err != nil {
-		//	return provider.PacketProof{}, err
-		//}
+	if proof, err = cc.generateMultihopProof(ctx, connectionHops, height, proof, chainIDs); err != nil {
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       proof,
@@ -646,14 +648,16 @@ func (cc *CosmosProvider) NextSeqRecv(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
-	hops []string,
+	chainIDs, connectionHops []string,
 ) (provider.PacketProof, error) {
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
 		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for next sequence receive: %w", err)
 	}
-
+	if proof, err = cc.generateMultihopProof(ctx, connectionHops, height, proof, chainIDs); err != nil {
+		return provider.PacketProof{}, err
+	}
 	return provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
@@ -897,21 +901,21 @@ func getClientState(
 // generateMultihopProof generates proof of a key/value at the proofHeight on source chain.
 func (cc *CosmosProvider) generateMultihopProof(
 	ctx context.Context,
-	hopConnectionIDs []string,
+	connectionHops []string,
 	height uint64,
 	keyProof []byte,
-	hops []string,
+	chainIDs []string,
 ) ([]byte, error) {
-	if len(hops) == 0 {
+	if len(chainIDs) == 0 {
 		return keyProof, nil
 	}
 	multihopProof := chantypes.MsgMultihopProofs{
 		KeyProof: &chantypes.MultihopProof{Proof: keyProof},
 	}
 	chain0 := cc
-	chain1 := cc.queryProviders[hops[0]]
+	chain1 := cc.queryProviders[chainIDs[0]]
 
-	client01, err := getClientState(ctx, chain0, chain1, hopConnectionIDs[0], height)
+	client01, err := getClientState(ctx, chain0, chain1, connectionHops[0], height)
 
 	// Ensure that chain0's client state is update to date
 	// TODO: is it ok to exclude revision number?
@@ -921,11 +925,11 @@ func (cc *CosmosProvider) generateMultihopProof(
 	}
 
 	// Generate and assign consensus, clientState, and connection proofs
-	hopQueryProviders := make([]provider.QueryProvider, len(hops))
-	for i, hop := range hops {
+	hopQueryProviders := make([]provider.QueryProvider, len(chainIDs))
+	for i, chainID := range chainIDs {
 		var found bool
-		if hopQueryProviders[i], found = cc.queryProviders[hop]; !found {
-			return nil, fmt.Errorf("query provider for chain %s not found", hop)
+		if hopQueryProviders[i], found = cc.queryProviders[chainID]; !found {
+			return nil, fmt.Errorf("query provider for chain %s not found", chainID)
 		}
 	}
 	var ccQueryProvider provider.QueryProvider
@@ -933,11 +937,11 @@ func (cc *CosmosProvider) generateMultihopProof(
 	chains := append([]provider.QueryProvider{ccQueryProvider}, hopQueryProviders...)
 	// Normally they would be off by one (N chains, N-1 connections between then) but we don't have dst here, so they
 	// should match in length.
-	if len(chains) != len(hopConnectionIDs) {
+	if len(chains) != len(connectionHops) {
 		return nil, fmt.Errorf("number of chains and connection IDs do not match")
 	}
 	if multihopProof.ConsensusProofs, multihopProof.ConnectionProofs, err = cc.generateConsensusAndConnectionProofs(ctx,
-		height, chains, hopConnectionIDs); err != nil {
+		height, chains, connectionHops); err != nil {
 		return nil, err
 	}
 	return multihopProof.Marshal()
@@ -1075,17 +1079,15 @@ func (cc *CosmosProvider) ChannelProof(
 	ctx context.Context,
 	msg provider.ChannelInfo,
 	height uint64,
-	hops []string,
+	chainIDs []string,
 ) (provider.ChannelProof, error) {
 	channelRes, err := cc.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, err
 	}
-	proof := channelRes.Proof
-	if len(hops) > 0 {
-		if proof, err = cc.generateMultihopProof(ctx, msg.ConnectionHops(), height, proof, hops); err != nil {
-			return provider.ChannelProof{}, err
-		}
+	proof, err := cc.generateMultihopProof(ctx, msg.ConnectionHops(), height, channelRes.Proof, chainIDs)
+	if err != nil {
+		return provider.ChannelProof{}, err
 	}
 	return provider.ChannelProof{
 		Proof:       proof,
@@ -1274,6 +1276,7 @@ func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ib
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
+// TODO: add hops if we want to support legacy processor
 func (cc *CosmosProvider) RelayPacketFromSequence(
 	ctx context.Context,
 	src provider.ChainProvider,
@@ -1295,18 +1298,17 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 		Height: dsth,
 		Time:   dstTime,
 	}); err != nil {
-		// TODO: add hops
 		switch err.(type) {
 		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError, *provider.TimeoutOnCloseError:
 			var pp provider.PacketProof
 			switch order {
 			case chantypes.UNORDERED:
-				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth, nil)
+				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth, nil, nil)
 				if err != nil {
 					return nil, nil, err
 				}
 			case chantypes.ORDERED:
-				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth, nil)
+				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth, nil, nil)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -1328,8 +1330,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 			return nil, nil, err
 		}
 	}
-	// TODO: add hops
-	pp, err := src.PacketCommitment(ctx, msgTransfer, srch, nil)
+	pp, err := src.PacketCommitment(ctx, msgTransfer, srch, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1343,14 +1344,14 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 }
 
 // AcknowledgementFromSequence relays an acknowledgement with a given seq on src, source is the sending chain, destination is the receiving chain
+// TODO: add hops if we want to support legacy processor
 func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanId, dstPortId, srcChanId, srcPortId string) (provider.RelayerMessage, error) {
 	msgRecvPacket, err := dst.QueryRecvPacket(ctx, dstChanId, dstPortId, seq)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: add hops
-	pp, err := dst.PacketAcknowledgement(ctx, msgRecvPacket, dsth, nil)
+	pp, err := dst.PacketAcknowledgement(ctx, msgRecvPacket, dsth, nil, nil)
 	if err != nil {
 		return nil, err
 	}

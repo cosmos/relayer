@@ -49,7 +49,7 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 	src, dst *pathEndRuntime,
 	hops []*pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var packetProof func(context.Context, provider.PacketInfo, uint64, []string) (provider.PacketProof, error)
+	var packetProof func(context.Context, provider.PacketInfo, uint64, []string, []string) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
 	// TODO: add hop chain query providers
 	switch msg.eventType {
@@ -89,7 +89,12 @@ func (msg packetIBCMessage) assemble(ctx context.Context,
 		hopChainIDs[i] = hop.chainProvider.ChainId()
 		src.chainProvider.AddQueryProvider(hop.chainProvider.ChainId(), hop.chainProvider)
 	}
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height, hopChainIDs)
+	channelKey, err := msg.channelKey()
+	if err != nil {
+		return nil, err
+	}
+	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height, hopChainIDs,
+		src.channelStateCache.GetConnectionHops(channelKey))
 	if err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
