@@ -997,7 +997,7 @@ func queuePendingRecvAndAcks(
 		}
 
 		if len(unacked) > 0 {
-			src.log.Debug("Will flush MsgAcknowledgement", zap.String("channel", k.ChannelID), zap.String("port", k.PortID), zap.Uint64s("sequences", unrecv))
+			src.log.Debug("Will flush MsgAcknowledgement", zap.Object("channel", k), zap.Uint64s("sequences", unacked))
 		} else {
 			src.log.Debug("No MsgAcknowledgement to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
 		}
@@ -1007,28 +1007,21 @@ func queuePendingRecvAndAcks(
 			if err != nil {
 				return err
 			}
-			srcMu.Lock()
-			if _, ok := srcCache[k]; !ok {
-				srcCache[k] = make(PacketMessagesCache)
-			}
-			if _, ok := srcCache[k][chantypes.EventTypeSendPacket]; !ok {
-				srcCache[k][chantypes.EventTypeSendPacket] = make(PacketSequenceCache)
-			}
-			srcCache[k][chantypes.EventTypeSendPacket][seq] = recvPacket
-			srcMu.Unlock()
 
 			dstMu.Lock()
-			if _, ok := dstCache[k]; !ok {
-				dstCache[k] = make(PacketMessagesCache)
+
+			ck := k.Counterparty()
+			if _, ok := dstCache[ck]; !ok {
+				dstCache[ck] = make(PacketMessagesCache)
 			}
-			if _, ok := dstCache[k][chantypes.EventTypeRecvPacket]; !ok {
-				dstCache[k][chantypes.EventTypeRecvPacket] = make(PacketSequenceCache)
+			if _, ok := dstCache[ck][chantypes.EventTypeRecvPacket]; !ok {
+				dstCache[ck][chantypes.EventTypeRecvPacket] = make(PacketSequenceCache)
 			}
-			if _, ok := dstCache[k][chantypes.EventTypeWriteAck]; !ok {
-				dstCache[k][chantypes.EventTypeWriteAck] = make(PacketSequenceCache)
+			if _, ok := dstCache[ck][chantypes.EventTypeWriteAck]; !ok {
+				dstCache[ck][chantypes.EventTypeWriteAck] = make(PacketSequenceCache)
 			}
-			dstCache[k][chantypes.EventTypeRecvPacket][seq] = recvPacket
-			dstCache[k][chantypes.EventTypeWriteAck][seq] = recvPacket
+			dstCache[ck][chantypes.EventTypeRecvPacket][seq] = recvPacket
+			dstCache[ck][chantypes.EventTypeWriteAck][seq] = recvPacket
 			dstMu.Unlock()
 		}
 		return nil
