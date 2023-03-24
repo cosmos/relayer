@@ -1112,7 +1112,7 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 				PortId:    msgOpenInit.PortID,
 				ChannelId: msgOpenInit.ChannelID,
 			},
-			ConnectionHops: msgOpenInit.ConnectionHops(),
+			ConnectionHops: msgOpenInit.CounterpartyConnectionHops(),
 			// In the future, may need to separate this from the CounterpartyVersion.
 			// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
 			// Using same version as counterparty for now.

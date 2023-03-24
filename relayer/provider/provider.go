@@ -144,6 +144,12 @@ func (c ChannelInfo) ConnectionHops() []string {
 	return strings.Split(c.ConnID, ".")
 }
 
+// CounterpartyConnectionHops splits the list of counterparty connection hops to turn it into an array.
+// TODO: use an ibc-go provided decoder for this when it becomes available
+func (c ChannelInfo) CounterpartyConnectionHops() []string {
+	return strings.Split(c.CounterpartyConnID, ".")
+}
+
 // ClientICQQueryID string wrapper for query ID.
 type ClientICQQueryID string
 

@@ -131,9 +131,11 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	// get ibc chans
 	osmosisChans, err := r.GetChannels(ctx, eRep, osmosisCfg.ChainID)
 	require.NoError(t, err)
+	require.Len(t, osmosisChans, 1)
 
 	junoChans, err := r.GetChannels(ctx, eRep, junoCfg.ChainID)
 	require.NoError(t, err)
+	require.Len(t, junoChans, 1)
 
 	osmosisIBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChans[0].Counterparty.PortID, osmosisChans[0].Counterparty.ChannelID, osmosisCfg.Denom)).IBCDenom()
 	junoIBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(junoChans[0].Counterparty.PortID, junoChans[0].Counterparty.ChannelID, junoCfg.Denom)).IBCDenom()

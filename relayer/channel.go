@@ -110,6 +110,8 @@ func (c *Chain) CreateOpenChannels(
 		},
 	}
 	c.log.Info("Initializing channel",
+		zap.String("chain_id", c.PathEnd.ChainID),
+		zap.String("port_id", srcPortID),
 		zap.String("conn_id", connectionHops),
 	)
 	return processor.NewEventProcessor().
