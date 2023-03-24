@@ -1041,10 +1041,16 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 
 	// Query remaining packet commitments on both chains
 	var eg errgroup.Group
-	for k := range pp.pathEnd1.channelStateCache {
+	for k, open := range pp.pathEnd1.channelStateCache {
+		if !open {
+			continue
+		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
-	for k := range pp.pathEnd2.channelStateCache {
+	for k, open := range pp.pathEnd2.channelStateCache {
+		if !open {
+			continue
+		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd2, k, commitments2, &commitments2Mu))
 	}
 
@@ -1080,7 +1086,10 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 	if _, ok := pp.messageLifecycle.(*FlushLifecycle); !ok {
 		return false
 	}
-	for _, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
+	for k, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
+		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+			continue
+		}
 		for _, c := range packetMessagesCache {
 			if len(c) > 0 {
 				return false
@@ -1088,16 +1097,23 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 		}
 	}
 	for _, c := range pp.pathEnd1.messageCache.ChannelHandshake {
-		if len(c) > 0 {
-			return false
+		for k := range pp.pathEnd1.channelStateCache {
+			if _, ok := c[k]; ok {
+				return false
+			}
 		}
 	}
 	for _, c := range pp.pathEnd1.messageCache.ConnectionHandshake {
-		if len(c) > 0 {
-			return false
+		for k := range pp.pathEnd1.connectionStateCache {
+			if _, ok := c[k]; ok {
+				return false
+			}
 		}
 	}
-	for _, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
+	for k, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
+		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+			continue
+		}
 		for _, c := range packetMessagesCache {
 			if len(c) > 0 {
 				return false
@@ -1105,13 +1121,17 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 		}
 	}
 	for _, c := range pp.pathEnd2.messageCache.ChannelHandshake {
-		if len(c) > 0 {
-			return false
+		for k := range pp.pathEnd1.channelStateCache {
+			if _, ok := c[k]; ok {
+				return false
+			}
 		}
 	}
 	for _, c := range pp.pathEnd2.messageCache.ConnectionHandshake {
-		if len(c) > 0 {
-			return false
+		for k := range pp.pathEnd1.connectionStateCache {
+			if _, ok := c[k]; ok {
+				return false
+			}
 		}
 	}
 	pp.log.Info("Found termination condition for flush, all caches cleared")
