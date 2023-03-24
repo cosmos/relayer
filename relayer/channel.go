@@ -94,13 +94,24 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_port_id", dstPortID),
 	)
 	// TODO: use an ibc-go provided encoding when it becomes available
-	connectionHops := ""
-	for i, hop := range hops {
-		if i > 0 {
-			connectionHops += "."
-		}
-		connectionHops += hop.PathEnd.ConnectionID
+	connectionHops := c.PathEnd.ConnectionID
+	for _, hop := range hops {
+		connectionHops += "." + hop.PathEnd.ConnectionID
 	}
+	openInitMsg := &processor.ChannelMessage{
+		ChainID:   c.PathEnd.ChainID,
+		EventType: chantypes.EventTypeChannelOpenInit,
+		Info: provider.ChannelInfo{
+			PortID:             srcPortID,
+			CounterpartyPortID: dstPortID,
+			ConnID:             connectionHops,
+			Version:            version,
+			Order:              OrderFromString(order),
+		},
+	}
+	c.log.Info("Initializing channel",
+		zap.String("conn_id", connectionHops),
+	)
 	return processor.NewEventProcessor().
 		WithChainProcessors(
 			c.chainProcessor(c.log, nil),
@@ -109,17 +120,7 @@ func (c *Chain) CreateOpenChannels(
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
-			Initial: &processor.ChannelMessage{
-				ChainID:   c.PathEnd.ChainID,
-				EventType: chantypes.EventTypeChannelOpenInit,
-				Info: provider.ChannelInfo{
-					PortID:             srcPortID,
-					CounterpartyPortID: dstPortID,
-					ConnID:             connectionHops,
-					Version:            version,
-					Order:              OrderFromString(order),
-				},
-			},
+			Initial: openInitMsg,
 			Termination: &processor.ChannelMessage{
 				ChainID:   dst.PathEnd.ChainID,
 				EventType: chantypes.EventTypeChannelOpenConfirm,
