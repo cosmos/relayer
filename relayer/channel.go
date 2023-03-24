@@ -13,7 +13,7 @@ import (
 )
 
 func newPathEnd(pathName, chainID, clientID string) processor.PathEnd {
-	return processor.NewPathEnd(pathName, chainID, chainID, "", []processor.ChainChannelKey{})
+	return processor.NewPathEnd(pathName, chainID, clientID, "", []processor.ChainChannelKey{})
 }
 
 func newRelayPathEnds(pathName string, hops []*Chain) ([]*processor.PathEnd, []*processor.PathEnd) {
