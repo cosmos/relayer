@@ -483,7 +483,10 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
-	k := ConnectionInfoConnectionKey(message.info).Counterparty()
+	k := ConnectionInfoConnectionKey(message.info)
+	if eventType != chantypes.EventTypeChannelOpenInit {
+		k = k.Counterparty()
+	}
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
 			zap.Inline(k),
@@ -555,7 +558,10 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
-	channelKey := ChannelInfoChannelKey(message.info).Counterparty()
+	channelKey := ChannelInfoChannelKey(message.info)
+	if eventType != chantypes.EventTypeChannelOpenInit {
+		channelKey = channelKey.Counterparty()
+	}
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
