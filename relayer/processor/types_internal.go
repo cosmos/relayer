@@ -408,6 +408,14 @@ type pathEndChannelHandshakeMessages struct {
 	DstMsgChannelOpenConfirm ChannelMessageCache
 }
 
+type pathEndChannelCloseMessages struct {
+	Src                       *pathEndRuntime
+	Dst                       *pathEndRuntime
+	SrcMsgChannelPreInit      ChannelMessageCache
+	SrcMsgChannelCloseInit    ChannelMessageCache
+	DstMsgChannelCloseConfirm ChannelMessageCache
+}
+
 type pathEndPacketFlowResponse struct {
 	SrcMessages []packetIBCMessage
 	DstMessages []packetIBCMessage

@@ -488,6 +488,76 @@ func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
 	return res
 }
 
+func (pp *PathProcessor) unrelayedChannelCloseMessages(
+	pathEndChannelCloseMessages pathEndChannelCloseMessages,
+) pathEndChannelHandshakeResponse {
+	var (
+		res         pathEndChannelHandshakeResponse
+		toDeleteSrc = make(map[string][]ChannelKey)
+		toDeleteDst = make(map[string][]ChannelKey)
+	)
+	processRemovals := func() {
+		pathEndChannelCloseMessages.Src.messageCache.ChannelHandshake.DeleteMessages(toDeleteSrc)
+		pathEndChannelCloseMessages.Dst.messageCache.ChannelHandshake.DeleteMessages(toDeleteDst)
+		pathEndChannelCloseMessages.Src.channelProcessing.deleteMessages(toDeleteSrc)
+		pathEndChannelCloseMessages.Dst.channelProcessing.deleteMessages(toDeleteDst)
+		toDeleteSrc = make(map[string][]ChannelKey)
+		toDeleteDst = make(map[string][]ChannelKey)
+	}
+
+	for chanKey := range pathEndChannelCloseMessages.DstMsgChannelCloseConfirm {
+		// found open confirm, channel handshake complete. remove all retention
+
+		counterpartyKey := chanKey.Counterparty()
+		toDeleteDst[chantypes.EventTypeChannelCloseConfirm] = append(
+			toDeleteDst[chantypes.EventTypeChannelCloseConfirm],
+			chanKey,
+		)
+		// MsgChannelCloseInit does not have CounterpartyChannelID // TODO: confirm this
+		toDeleteSrc[chantypes.EventTypeChannelCloseInit] = append(
+			toDeleteSrc[chantypes.EventTypeChannelCloseInit],
+			counterpartyKey.MsgInitKey(),
+		)
+		// TODO: confirm this should use PreInitKey
+		toDeleteSrc[preInitKey] = append(toDeleteSrc[preInitKey], counterpartyKey.PreInitKey())
+	}
+
+	processRemovals()
+
+	for chanKey, info := range pathEndChannelCloseMessages.SrcMsgChannelCloseInit {
+		// need to send a close confirm to dst
+		msgCloseConfirm := channelIBCMessage{
+			eventType: chantypes.EventTypeChannelCloseConfirm,
+			info:      info,
+		}
+		if pathEndChannelCloseMessages.Dst.shouldSendChannelMessage(
+			msgCloseConfirm, pathEndChannelCloseMessages.Src,
+		) {
+			res.DstMessages = append(res.DstMessages, msgCloseConfirm)
+		}
+
+		// TODO: confirm this should use PreInitKey
+		toDeleteSrc[preInitKey] = append(toDeleteSrc[preInitKey], chanKey.PreInitKey())
+	}
+
+	processRemovals()
+
+	for _, info := range pathEndChannelCloseMessages.SrcMsgChannelPreInit {
+		// need to send a close init to src
+		msgCloseInit := channelIBCMessage{
+			eventType: chantypes.EventTypeChannelCloseInit,
+			info:      info,
+		}
+		if pathEndChannelCloseMessages.Src.shouldSendChannelMessage(
+			msgCloseInit, pathEndChannelCloseMessages.Dst,
+		) {
+			res.SrcMessages = append(res.SrcMessages, msgCloseInit)
+		}
+	}
+
+	return res
+}
+
 func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
 ClientICQLoop:
 	for queryID, queryMsg := range queryMessages {
@@ -558,6 +628,9 @@ var observedEventTypeForDesiredMessage = map[string]string{
 	chantypes.EventTypeChannelOpenAck:     chantypes.EventTypeChannelOpenTry,
 	chantypes.EventTypeChannelOpenTry:     chantypes.EventTypeChannelOpenInit,
 	chantypes.EventTypeChannelOpenInit:    preInitKey,
+
+	chantypes.EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseInit,
+	chantypes.EventTypeChannelCloseInit:    preInitKey,
 
 	chantypes.EventTypeAcknowledgePacket: chantypes.EventTypeRecvPacket,
 	chantypes.EventTypeRecvPacket:        chantypes.EventTypeSendPacket,
@@ -724,6 +797,23 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	pathEnd1ChannelHandshakeRes := pp.unrelayedChannelHandshakeMessages(pathEnd1ChannelHandshakeMessages)
 	pathEnd2ChannelHandshakeRes := pp.unrelayedChannelHandshakeMessages(pathEnd2ChannelHandshakeMessages)
 
+	pathEnd1ChannelCloseMessages := pathEndChannelCloseMessages{
+		Src:                       pp.pathEnd1,
+		Dst:                       pp.pathEnd2,
+		SrcMsgChannelPreInit:      pp.pathEnd1.messageCache.ChannelHandshake[preInitKey],
+		SrcMsgChannelCloseInit:    pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
+		DstMsgChannelCloseConfirm: pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
+	}
+	pathEnd2ChannelCloseMessages := pathEndChannelCloseMessages{
+		Src:                       pp.pathEnd2,
+		Dst:                       pp.pathEnd1,
+		SrcMsgChannelPreInit:      pp.pathEnd2.messageCache.ChannelHandshake[preInitKey],
+		SrcMsgChannelCloseInit:    pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
+		DstMsgChannelCloseConfirm: pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
+	}
+	pathEnd1ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd1ChannelCloseMessages)
+	pathEnd2ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd2ChannelCloseMessages)
+
 	// process the packet flows for both path ends to determine what needs to be relayed
 	pathEnd1ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
 	pathEnd2ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
@@ -791,7 +881,10 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 
 	// concatenate applicable messages for pathend
 	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
-	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes)
+	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(
+		pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes,
+		pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes,
+	)
 
 	pathEnd1PacketMessages, pathEnd2PacketMessages, pathEnd1ChanCloseMessages, pathEnd2ChanCloseMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChanCloseMessages...)
@@ -836,21 +929,31 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	return eg.Wait()
 }
 
-func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
-	pathEnd1ChannelSrcLen := len(pathEnd1ChannelHandshakeRes.SrcMessages)
-	pathEnd1ChannelDstLen := len(pathEnd1ChannelHandshakeRes.DstMessages)
-	pathEnd2ChannelDstLen := len(pathEnd2ChannelHandshakeRes.DstMessages)
-	pathEnd2ChannelSrcLen := len(pathEnd2ChannelHandshakeRes.SrcMessages)
-	pathEnd1ChannelMessages := make([]channelIBCMessage, 0, pathEnd1ChannelSrcLen+pathEnd2ChannelDstLen)
-	pathEnd2ChannelMessages := make([]channelIBCMessage, 0, pathEnd2ChannelSrcLen+pathEnd1ChannelDstLen)
+func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
+	pathEnd1ChannelOpenSrcLen := len(pathEnd1ChannelHandshakeRes.SrcMessages)
+	pathEnd1ChannelOpenDstLen := len(pathEnd1ChannelHandshakeRes.DstMessages)
+	pathEnd2ChannelOpenDstLen := len(pathEnd2ChannelHandshakeRes.DstMessages)
+	pathEnd2ChannelOpenSrcLen := len(pathEnd2ChannelHandshakeRes.SrcMessages)
+
+	pathEnd1ChannelCloseSrcLen := len(pathEnd1ChannelHandshakeRes.SrcMessages)
+	pathEnd1ChannelCloseDstLen := len(pathEnd1ChannelHandshakeRes.DstMessages)
+	pathEnd2ChannelCloseDstLen := len(pathEnd2ChannelHandshakeRes.DstMessages)
+	pathEnd2ChannelCloseSrcLen := len(pathEnd2ChannelHandshakeRes.SrcMessages)
+
+	pathEnd1ChannelMessages := make([]channelIBCMessage, 0, pathEnd1ChannelOpenSrcLen+pathEnd2ChannelOpenDstLen+pathEnd1ChannelCloseSrcLen+pathEnd2ChannelCloseDstLen)
+	pathEnd2ChannelMessages := make([]channelIBCMessage, 0, pathEnd2ChannelOpenSrcLen+pathEnd1ChannelOpenDstLen+pathEnd2ChannelCloseSrcLen+pathEnd1ChannelCloseDstLen)
 
 	// pathEnd1 channel messages come from pathEnd1 src and pathEnd2 dst
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd2ChannelHandshakeRes.DstMessages...)
+	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd2ChannelCloseRes.DstMessages...)
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChannelHandshakeRes.SrcMessages...)
+	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChannelCloseRes.SrcMessages...)
 
 	// pathEnd2 channel messages come from pathEnd2 src and pathEnd1 dst
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd1ChannelHandshakeRes.DstMessages...)
+	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd1ChannelCloseRes.DstMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChannelHandshakeRes.SrcMessages...)
+	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChannelCloseRes.SrcMessages...)
 
 	return pathEnd1ChannelMessages, pathEnd2ChannelMessages
 }
