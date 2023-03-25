@@ -1045,10 +1045,24 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 		if !open {
 			continue
 		}
+		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
+			ChainID:             pp.pathEnd1.info.ChainID,
+			CounterpartyChainID: pp.pathEnd2.info.ChainID,
+			ChannelKey:          k,
+		}) {
+			continue
+		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
 	for k, open := range pp.pathEnd2.channelStateCache {
 		if !open {
+			continue
+		}
+		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
+			ChainID:             pp.pathEnd2.info.ChainID,
+			CounterpartyChainID: pp.pathEnd1.info.ChainID,
+			ChannelKey:          k,
+		}) {
 			continue
 		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd2, k, commitments2, &commitments2Mu))
