@@ -117,6 +117,12 @@ func (c *Chain) CloseChannel(
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
 
+	c.log.Info("Starting event processor for channel close",
+		zap.String("src_chain_id", c.PathEnd.ChainID),
+		zap.String("src_port_id", srcPortID),
+		zap.String("dst_chain_id", dst.PathEnd.ChainID),
+	)
+
 	return processor.NewEventProcessor().
 		WithChainProcessors(
 			c.chainProcessor(c.log, nil),
@@ -137,6 +143,7 @@ func (c *Chain) CloseChannel(
 				ChainID:   c.PathEnd.ChainID,
 				EventType: chantypes.EventTypeChannelCloseInit,
 				Info: provider.ChannelInfo{
+					ConnID:    c.PathEnd.ConnectionID,
 					PortID:    srcPortID,
 					ChannelID: srcChanID,
 				},

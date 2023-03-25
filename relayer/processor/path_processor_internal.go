@@ -17,7 +17,10 @@ import (
 // preInitKey is used to declare intent to initialize a connection or channel handshake
 // i.e. a MsgConnectionOpenInit or a MsgChannelOpenInit should be broadcasted to start
 // the handshake if this key exists in the relevant cache.
-const preInitKey = "pre_init"
+const (
+	preInitKey  = "pre_init"
+	preCloseKey = "pre_close"
+)
 
 // getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
 // otherwise returns all which should be sent.
@@ -518,8 +521,8 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 			toDeleteSrc[chantypes.EventTypeChannelCloseInit],
 			counterpartyKey.MsgInitKey(),
 		)
-		// TODO: confirm this should use PreInitKey
-		toDeleteSrc[preInitKey] = append(toDeleteSrc[preInitKey], counterpartyKey.PreInitKey())
+		// TODO: confirm chankey does not need modification
+		toDeleteSrc[preCloseKey] = append(toDeleteSrc[preCloseKey], counterpartyKey)
 	}
 
 	processRemovals()
@@ -536,8 +539,8 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 			res.DstMessages = append(res.DstMessages, msgCloseConfirm)
 		}
 
-		// TODO: confirm this should use PreInitKey
-		toDeleteSrc[preInitKey] = append(toDeleteSrc[preInitKey], chanKey.PreInitKey())
+		// TODO: confirm chankey does not need modification
+		toDeleteSrc[preCloseKey] = append(toDeleteSrc[preCloseKey], chanKey)
 	}
 
 	processRemovals()
@@ -630,7 +633,7 @@ var observedEventTypeForDesiredMessage = map[string]string{
 	chantypes.EventTypeChannelOpenInit:    preInitKey,
 
 	chantypes.EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseInit,
-	chantypes.EventTypeChannelCloseInit:    preInitKey,
+	chantypes.EventTypeChannelCloseInit:    preCloseKey,
 
 	chantypes.EventTypeAcknowledgePacket: chantypes.EventTypeRecvPacket,
 	chantypes.EventTypeRecvPacket:        chantypes.EventTypeSendPacket,
@@ -800,14 +803,14 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	pathEnd1ChannelCloseMessages := pathEndChannelCloseMessages{
 		Src:                       pp.pathEnd1,
 		Dst:                       pp.pathEnd2,
-		SrcMsgChannelPreInit:      pp.pathEnd1.messageCache.ChannelHandshake[preInitKey],
+		SrcMsgChannelPreInit:      pp.pathEnd1.messageCache.ChannelHandshake[preCloseKey],
 		SrcMsgChannelCloseInit:    pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
 		DstMsgChannelCloseConfirm: pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
 	}
 	pathEnd2ChannelCloseMessages := pathEndChannelCloseMessages{
 		Src:                       pp.pathEnd2,
 		Dst:                       pp.pathEnd1,
-		SrcMsgChannelPreInit:      pp.pathEnd2.messageCache.ChannelHandshake[preInitKey],
+		SrcMsgChannelPreInit:      pp.pathEnd2.messageCache.ChannelHandshake[preCloseKey],
 		SrcMsgChannelCloseInit:    pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
 		DstMsgChannelCloseConfirm: pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
 	}
