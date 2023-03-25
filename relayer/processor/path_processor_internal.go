@@ -126,39 +126,21 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 	for seq, info := range pathEndPacketFlowMessages.SrcMsgTimeout {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
+		toDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(toDeleteSrc[chantypes.EventTypeTimeoutPacket], seq)
 		if info.ChannelOrder == chantypes.ORDERED.String() {
-			// For ordered channel packets, flow is not done until channel-close-confirm is observed.
-			if pathEndPacketFlowMessages.DstMsgChannelCloseConfirm == nil {
-				// have not observed a channel-close-confirm yet for this channel, send it if ready.
-				// will come back through here next block if not yet ready.
-				closeChan := channelIBCMessage{
-					eventType: chantypes.EventTypeChannelCloseConfirm,
-					info: provider.ChannelInfo{
-						Height:                info.Height,
-						PortID:                info.SourcePort,
-						ChannelID:             info.SourceChannel,
-						CounterpartyPortID:    info.DestPort,
-						CounterpartyChannelID: info.DestChannel,
-						Order:                 orderFromString(info.ChannelOrder),
-					},
-				}
-
-				if pathEndPacketFlowMessages.Dst.shouldSendChannelMessage(closeChan, pathEndPacketFlowMessages.Src) {
-					res.DstChannelMessage = append(res.DstChannelMessage, closeChan)
-				}
-			} else {
-				// ordered channel, and we have a channel close confirm, so packet-flow and channel-close-flow is complete.
-				// remove all retention of this sequence number and this channel-close-confirm.
-				toDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(
-					toDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm],
-					k.Counterparty(),
-				)
-				toDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(toDeleteSrc[chantypes.EventTypeTimeoutPacket], seq)
+			// Channel is now closed on src.
+			// enqueue channel close init observation to be handled by channel close correlation
+			if _, ok := pathEndPacketFlowMessages.Src.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit]; !ok {
+				pathEndPacketFlowMessages.Src.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit] = make(ChannelMessageCache)
 			}
-		} else {
-			// unordered channel, and we have a timeout for this packet, so packet flow is complete
-			// remove all retention of this sequence number
-			toDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(toDeleteSrc[chantypes.EventTypeTimeoutPacket], seq)
+			pathEndPacketFlowMessages.Src.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit][k] = provider.ChannelInfo{
+				Height:                info.Height,
+				PortID:                info.SourcePort,
+				ChannelID:             info.SourceChannel,
+				CounterpartyPortID:    info.DestPort,
+				CounterpartyChannelID: info.DestChannel,
+				Order:                 orderFromString(info.ChannelOrder),
+			}
 		}
 	}
 
@@ -632,15 +614,12 @@ var observedEventTypeForDesiredMessage = map[string]string{
 	chantypes.EventTypeChannelOpenTry:     chantypes.EventTypeChannelOpenInit,
 	chantypes.EventTypeChannelOpenInit:    preInitKey,
 
-	chantypes.EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseInit,
-	chantypes.EventTypeChannelCloseInit:    preCloseKey,
-
 	chantypes.EventTypeAcknowledgePacket: chantypes.EventTypeRecvPacket,
 	chantypes.EventTypeRecvPacket:        chantypes.EventTypeSendPacket,
 	chantypes.EventTypeSendPacket:        preInitKey,
 }
 
-func (pp *PathProcessor) queuePreInitMessages() {
+func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 	if pp.messageLifecycle == nil || pp.sentInitialMsg {
 		return
 	}
@@ -658,6 +637,7 @@ func (pp *PathProcessor) queuePreInitMessages() {
 				zap.Inline(channelKey),
 				zap.Error(err),
 			)
+			cancel()
 			return
 		}
 		if !pp.IsRelayedChannel(m.Initial.ChainID, channelKey) {
@@ -669,6 +649,7 @@ func (pp *PathProcessor) queuePreInitMessages() {
 				"Failed to queue initial connection message, event type not handled",
 				zap.String("event_type", m.Initial.EventType),
 			)
+			cancel()
 			return
 		}
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
@@ -698,6 +679,7 @@ func (pp *PathProcessor) queuePreInitMessages() {
 				"Failed to queue initial connection message, event type not handled",
 				zap.String("event_type", m.Initial.EventType),
 			)
+			cancel()
 			return
 		}
 		connKey := ConnectionInfoConnectionKey(m.Initial.Info)
@@ -728,6 +710,7 @@ func (pp *PathProcessor) queuePreInitMessages() {
 				"Failed to queue initial channel message, event type not handled",
 				zap.String("event_type", m.Initial.EventType),
 			)
+			cancel()
 			return
 		}
 		chanKey := ChannelInfoChannelKey(m.Initial.Info)
@@ -736,7 +719,6 @@ func (pp *PathProcessor) queuePreInitMessages() {
 			if !ok {
 				pp.pathEnd1.messageCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
 			}
-
 			pp.pathEnd1.messageCache.ChannelHandshake[eventType][chanKey] = m.Initial.Info
 		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
 			_, ok = pp.pathEnd2.messageCache.ChannelHandshake[eventType]
@@ -745,18 +727,81 @@ func (pp *PathProcessor) queuePreInitMessages() {
 			}
 			pp.pathEnd2.messageCache.ChannelHandshake[eventType][chanKey] = m.Initial.Info
 		}
+	case *ChannelCloseLifecycle:
+		pp.sentInitialMsg = true
+
+		if !pp.IsRelevantConnection(pp.pathEnd1.info.ChainID, m.SrcConnID) {
+			return
+		}
+
+		for k, open := range pp.pathEnd1.channelStateCache {
+			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
+				if open {
+					// channel is still open on pathEnd1
+					break
+				}
+				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
+					pp.log.Info("Channel already closed on both sides")
+					cancel()
+					return
+				}
+				// queue channel close init on pathEnd1
+				if _, ok := pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit]; !ok {
+					pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit] = make(ChannelMessageCache)
+				}
+				pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit][k] = provider.ChannelInfo{
+					PortID:                k.PortID,
+					ChannelID:             k.ChannelID,
+					CounterpartyPortID:    k.CounterpartyPortID,
+					CounterpartyChannelID: k.CounterpartyChannelID,
+					ConnID:                m.SrcConnID,
+				}
+				return
+			}
+		}
+
+		for k, open := range pp.pathEnd2.channelStateCache {
+			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
+				if open {
+					// channel is still open on pathEnd2
+					break
+				}
+				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
+					pp.log.Info("Channel already closed on both sides")
+					cancel()
+					return
+				}
+				// queue channel close init on pathEnd2
+				if _, ok := pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit]; !ok {
+					pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit] = make(ChannelMessageCache)
+				}
+				pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit][k] = provider.ChannelInfo{
+					PortID:                k.PortID,
+					ChannelID:             k.ChannelID,
+					CounterpartyPortID:    k.CounterpartyPortID,
+					CounterpartyChannelID: k.CounterpartyChannelID,
+					ConnID:                m.DstConnID,
+				}
+			}
+		}
+
+		pp.log.Error("This channel is unable to be closed. Channel must already be closed on one chain.",
+			zap.String("src_channel_id", m.SrcChannelID),
+			zap.String("src_port_id", m.SrcPortID),
+		)
+		cancel()
 	}
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func()) error {
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
 
 	channelPairs := pp.channelPairs()
 
-	pp.queuePreInitMessages()
+	pp.queuePreInitMessages(cancel)
 
 	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
 		Src:                         pp.pathEnd1,
@@ -799,23 +844,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	}
 	pathEnd1ChannelHandshakeRes := pp.unrelayedChannelHandshakeMessages(pathEnd1ChannelHandshakeMessages)
 	pathEnd2ChannelHandshakeRes := pp.unrelayedChannelHandshakeMessages(pathEnd2ChannelHandshakeMessages)
-
-	pathEnd1ChannelCloseMessages := pathEndChannelCloseMessages{
-		Src:                       pp.pathEnd1,
-		Dst:                       pp.pathEnd2,
-		SrcMsgChannelPreInit:      pp.pathEnd1.messageCache.ChannelHandshake[preCloseKey],
-		SrcMsgChannelCloseInit:    pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
-		DstMsgChannelCloseConfirm: pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
-	}
-	pathEnd2ChannelCloseMessages := pathEndChannelCloseMessages{
-		Src:                       pp.pathEnd2,
-		Dst:                       pp.pathEnd1,
-		SrcMsgChannelPreInit:      pp.pathEnd2.messageCache.ChannelHandshake[preCloseKey],
-		SrcMsgChannelCloseInit:    pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
-		DstMsgChannelCloseConfirm: pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
-	}
-	pathEnd1ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd1ChannelCloseMessages)
-	pathEnd2ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd2ChannelCloseMessages)
 
 	// process the packet flows for both path ends to determine what needs to be relayed
 	pathEnd1ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
@@ -881,6 +909,23 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		pathEnd1ProcessRes[i] = pp.unrelayedPacketFlowMessages(ctx, pathEnd1PacketFlowMessages)
 		pathEnd2ProcessRes[i] = pp.unrelayedPacketFlowMessages(ctx, pathEnd2PacketFlowMessages)
 	}
+
+	pathEnd1ChannelCloseMessages := pathEndChannelCloseMessages{
+		Src:                       pp.pathEnd1,
+		Dst:                       pp.pathEnd2,
+		SrcMsgChannelPreInit:      pp.pathEnd1.messageCache.ChannelHandshake[preCloseKey],
+		SrcMsgChannelCloseInit:    pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
+		DstMsgChannelCloseConfirm: pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
+	}
+	pathEnd2ChannelCloseMessages := pathEndChannelCloseMessages{
+		Src:                       pp.pathEnd2,
+		Dst:                       pp.pathEnd1,
+		SrcMsgChannelPreInit:      pp.pathEnd2.messageCache.ChannelHandshake[preCloseKey],
+		SrcMsgChannelCloseInit:    pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseInit],
+		DstMsgChannelCloseConfirm: pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm],
+	}
+	pathEnd1ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd1ChannelCloseMessages)
+	pathEnd2ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd2ChannelCloseMessages)
 
 	// concatenate applicable messages for pathend
 	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
@@ -1186,9 +1231,7 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 
 // shouldTerminateForFlushComplete will determine if the relayer should exit
 // when FlushLifecycle is used. It will exit when all of the message caches are cleared.
-func (pp *PathProcessor) shouldTerminateForFlushComplete(
-	ctx context.Context, cancel func(),
-) bool {
+func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 	if _, ok := pp.messageLifecycle.(*FlushLifecycle); !ok {
 		return false
 	}

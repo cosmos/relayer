@@ -72,6 +72,18 @@ type ChannelMessageLifecycle struct {
 
 func (t *ChannelMessageLifecycle) messageLifecycler() {}
 
+// ChannelCloseLifecycle is used as a stop condition for the PathProcessor.
+// It will attempt to finish closing the channel and terminate once the channel is closed.
+type ChannelCloseLifecycle struct {
+	SrcChainID   string
+	SrcChannelID string
+	SrcPortID    string
+	SrcConnID    string
+	DstConnID    string
+}
+
+func (t *ChannelCloseLifecycle) messageLifecycler() {}
+
 // IBCMessagesCache holds cached messages for packet flows, connection handshakes,
 // and channel handshakes. The PathProcessors use this for message correlation to determine
 // when messages should be sent and are pruned when flows/handshakes are complete.
