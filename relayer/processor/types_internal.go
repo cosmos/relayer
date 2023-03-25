@@ -376,16 +376,15 @@ type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type pathEndPacketFlowMessages struct {
-	Src                       *pathEndRuntime
-	Dst                       *pathEndRuntime
-	ChannelKey                ChannelKey
-	SrcPreTransfer            PacketSequenceCache
-	SrcMsgTransfer            PacketSequenceCache
-	DstMsgRecvPacket          PacketSequenceCache
-	SrcMsgAcknowledgement     PacketSequenceCache
-	SrcMsgTimeout             PacketSequenceCache
-	SrcMsgTimeoutOnClose      PacketSequenceCache
-	DstMsgChannelCloseConfirm *provider.ChannelInfo
+	Src                   *pathEndRuntime
+	Dst                   *pathEndRuntime
+	ChannelKey            ChannelKey
+	SrcPreTransfer        PacketSequenceCache
+	SrcMsgTransfer        PacketSequenceCache
+	DstMsgRecvPacket      PacketSequenceCache
+	SrcMsgAcknowledgement PacketSequenceCache
+	SrcMsgTimeout         PacketSequenceCache
+	SrcMsgTimeoutOnClose  PacketSequenceCache
 }
 
 type pathEndConnectionHandshakeMessages struct {
