@@ -182,4 +182,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/cosmos/cosmos-sdk => github.com/KyleMoser/cosmos-sdk v0.37.0-rc3-cachefix
+replace github.com/cosmos/cosmos-sdk => github.com/KyleMoser/cosmos-sdk v0.47.0-cachefix

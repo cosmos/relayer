@@ -256,4 +256,4 @@ replace (
 	github.com/vedhavyas/go-subkey => github.com/strangelove-ventures/go-subkey v1.0.7
 )
 
-replace github.com/cosmos/cosmos-sdk => github.com/KyleMoser/cosmos-sdk v0.37.0-rc3-cachefix
+replace github.com/cosmos/cosmos-sdk => github.com/KyleMoser/cosmos-sdk v0.47.0-cachefix
