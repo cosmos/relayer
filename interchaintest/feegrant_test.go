@@ -468,7 +468,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	}
 
 	for chain, signers := range feegrantMsgSigners {
-		require.Equal(t, chain, "gaia-1")
+		require.Equal(t, chain, gaia.Config().ChainID)
 		signerCountMap := map[string]int{}
 
 		for _, signer := range signers {
