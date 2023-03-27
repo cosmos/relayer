@@ -1113,7 +1113,7 @@ func queuePendingRecvAndAcks(
 				var newUnrecv []uint64
 
 				for _, seq := range unrecv {
-					if seq == nextSeqRecv.NextSequenceReceive {
+					if seq >= nextSeqRecv.NextSequenceReceive {
 						newUnrecv = append(newUnrecv, seq)
 						break
 					}
