@@ -3,7 +3,6 @@ package interchaintest
 import (
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/docker/docker/client"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
 	"github.com/strangelove-ventures/interchaintest/v7/label"
@@ -34,8 +33,6 @@ func (rf RelayerFactory) Build(
 	_ *client.Client,
 	networkID string,
 ) ibc.Relayer {
-	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
-	sdk.SetAddrCacheEnabled(false)
 	return NewRelayer(t, rf.config)
 }
 

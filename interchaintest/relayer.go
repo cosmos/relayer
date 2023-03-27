@@ -38,6 +38,9 @@ func NewRelayer(
 	t *testing.T,
 	config RelayerConfig,
 ) ibc.Relayer {
+	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+	types.SetAddrCacheEnabled(false)
+
 	r := &Relayer{
 		t:      t,
 		home:   t.TempDir(),
