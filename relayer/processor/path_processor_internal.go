@@ -1089,15 +1089,51 @@ func queuePendingRecvAndAcks(
 			return nil
 		}
 
-		unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, k.CounterpartyChannelID, k.CounterpartyPortID, seqs)
+		dstChan, dstPort := k.CounterpartyChannelID, k.CounterpartyPortID
+
+		unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 		if err != nil {
 			return err
 		}
 
+		dstHeight := int64(dst.latestBlock.Height)
+
 		if len(unrecv) > 0 {
-			src.log.Debug("Will flush MsgRecvPacket", zap.String("channel", k.ChannelID), zap.String("port", k.PortID), zap.Uint64s("sequences", unrecv))
+			channel, err := dst.chainProvider.QueryChannel(ctx, dstHeight, dstChan, dstPort)
+			if err != nil {
+				return err
+			}
+
+			if channel.Channel.Ordering == chantypes.ORDERED {
+				nextSeqRecv, err := dst.chainProvider.QueryNextSeqRecv(ctx, dstHeight, dstChan, dstPort)
+				if err != nil {
+					return err
+				}
+
+				var newUnrecv []uint64
+
+				for _, seq := range unrecv {
+					if seq == nextSeqRecv.NextSequenceReceive {
+						newUnrecv = append(newUnrecv, seq)
+						break
+					}
+				}
+
+				unrecv = newUnrecv
+			}
+		}
+
+		if len(unrecv) > 0 {
+			src.log.Debug("Will flush MsgRecvPacket",
+				zap.String("channel", k.ChannelID),
+				zap.String("port", k.PortID),
+				zap.Uint64s("sequences", unrecv),
+			)
 		} else {
-			src.log.Debug("No MsgRecvPacket to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+			src.log.Debug("No MsgRecvPacket to flush",
+				zap.String("channel", k.ChannelID),
+				zap.String("port", k.PortID),
+			)
 		}
 
 		for _, seq := range unrecv {
