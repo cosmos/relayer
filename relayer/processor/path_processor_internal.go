@@ -491,7 +491,7 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 	}
 
 	for chanKey := range pathEndChannelCloseMessages.DstMsgChannelCloseConfirm {
-		// found open confirm, channel handshake complete. remove all retention
+		// found close confirm, channel handshake complete. remove all retention
 
 		counterpartyKey := chanKey.Counterparty()
 		toDeleteDst[chantypes.EventTypeChannelCloseConfirm] = append(
