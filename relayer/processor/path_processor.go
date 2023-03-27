@@ -180,7 +180,7 @@ func (pp *PathProcessor) channelPairs() []channelPair {
 	}
 	pairs := make([]channelPair, len(channels))
 	i := 0
-	for k, _ := range channels {
+	for k := range channels {
 		pairs[i] = channelPair{
 			pathEnd1ChannelKey: k,
 			pathEnd2ChannelKey: k.Counterparty(),
@@ -321,13 +321,13 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		if pp.shouldFlush() && !pp.initialFlushComplete {
 			pp.flush(ctx)
 			pp.initialFlushComplete = true
-		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
+		} else if pp.shouldTerminateForFlushComplete() {
 			cancel()
 			return
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx); err != nil {
+		if err := pp.processLatestMessages(ctx, cancel); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()
