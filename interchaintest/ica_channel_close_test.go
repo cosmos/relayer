@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,9 +18,9 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// TestScenarioInterchainAccounts is a test case that performs simulations and assertions around some basic
-// features and packet flows surrounding interchain accounts. See: https://github.com/cosmos/interchain-accounts-demo
-func TestScenarioInterchainAccounts(t *testing.T) {
+// TestScenarioICAChannelClose is very similar to the TestScenarioInterchainAccounts,
+// but instead it tests manually closing the channel using the relayer CLI.
+func TestScenarioICAChannelClose(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
@@ -85,10 +84,11 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 		})
 
 	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
-		TestName:         t.Name(),
-		Client:           client,
-		NetworkID:        network,
-		SkipPathCreation: true,
+		TestName:          t.Name(),
+		Client:            client,
+		NetworkID:         network,
+		SkipPathCreation:  true,
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 	}))
 
 	// Fund a user account on chain1 and chain2
@@ -254,12 +254,14 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	// Wait for approximately one minute to allow packet timeout threshold to be hit
 	time.Sleep(70 * time.Second)
 
-	// Restart the relayer and wait for NextSeqRecv proof to be delivered and packet timed out
-	err = r.StartRelayer(ctx, eRep, pathName)
+	chain1Chans, err := r.GetChannels(ctx, eRep, chain1.Config().ChainID)
 	require.NoError(t, err)
+	require.Equal(t, 1, len(chain1Chans))
 
-	err = testutil.WaitForBlocks(ctx, 15, chain1, chain2)
-	require.NoError(t, err)
+	// Close the channel using the channel close CLI method
+	res := r.Exec(ctx, eRep, []string{"tx", "channel-close", pathName, chain1Chans[0].ChannelID, chain1Chans[0].PortID}, nil)
+	require.NoError(t, res.Err)
+	require.Zero(t, res.ExitCode)
 
 	// Assert that the packet timed out and that the acc balances are correct
 	chain2Bal, err = chain2.GetBalance(ctx, chain2Addr, chain2.Config().Denom)
@@ -271,7 +273,7 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	require.Equal(t, icaOrigBal, icaBal)
 
 	// Assert that the channel ends are both closed
-	chain1Chans, err := r.GetChannels(ctx, eRep, chain1.Config().ChainID)
+	chain1Chans, err = r.GetChannels(ctx, eRep, chain1.Config().ChainID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chain1Chans))
 	require.Subset(t, []string{"STATE_CLOSED", "Closed"}, []string{chain1Chans[0].State})
@@ -280,6 +282,10 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(chain2Chans))
 	require.Subset(t, []string{"STATE_CLOSED", "Closed"}, []string{chain2Chans[0].State})
+
+	// Restart the relayer for the next channel handshake
+	err = r.StartRelayer(ctx, eRep, pathName)
+	require.NoError(t, err)
 
 	// Attempt to open another channel for the same ICA
 	_, _, err = chain1.Exec(ctx, registerICA, nil)
@@ -306,15 +312,4 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(chain2Chans))
 	require.Subset(t, []string{"STATE_OPEN", "Open"}, []string{chain2Chans[1].State})
-}
-
-// parseInterchainAccountField takes a slice of bytes which should be returned when querying for an ICA via
-// the 'intertx interchainaccounts' cmd and splices out the actual address portion.
-func parseInterchainAccountField(stdout []byte) string {
-	// After querying an ICA the stdout should look like the following,
-	// interchain_account_address: cosmos1p76n3mnanllea4d3av0v0e42tjj03cae06xq8fwn9at587rqp23qvxsv0j
-	// So we split the string at the : and then grab the address and return.
-	parts := strings.SplitN(string(stdout), ":", 2)
-	icaAddr := strings.TrimSpace(parts[1])
-	return icaAddr
 }
