@@ -285,7 +285,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	feegrantedChains := map[string]*chainFeegrantInfo{}
 	feegrantedChains[gaia.Config().ChainID] = &chainFeegrantInfo{granter: gaiaGranterAddr, grantees: []string{gaiaGranteeAddr, gaiaGrantee2Addr, gaiaGrantee3Addr}}
 
-	time.Sleep(7 * time.Second) //commit a block
+	time.Sleep(14 * time.Second) //commit a couple blocks
 	r.StartRelayer(ctx, eRep, ibcPath)
 
 	// Send Transaction
@@ -318,7 +318,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 			return err
 		}
 
-		_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, gaiaTx.Packet)
+		_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+20, gaiaTx.Packet)
 		return err
 	})
 
@@ -336,7 +336,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+20, tx.Packet)
 		return err
 	})
 
@@ -354,7 +354,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+20, tx.Packet)
 		return err
 	})
 
@@ -372,7 +372,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		if err := tx.Validate(); err != nil {
 			return err
 		}
-		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
+		_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+20, tx.Packet)
 		return err
 	})
 
