@@ -3,6 +3,9 @@ package icon
 import (
 	"encoding/hex"
 
+	clientTypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 )
 
@@ -41,6 +44,39 @@ var (
 	EventTypeTimeoutPacket        = "timeout_packet"
 	EventTypeTimeoutPacketOnClose = "timeout_on_close_packet"
 )
+var iconEventNameToEventTypeMap = map[string]string{
+	// packet Events
+	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
+	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
+	EventTypeWriteAck:             chantypes.EventTypeWriteAck,
+	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
+	EventTypeTimeoutPacket:        chantypes.EventTypeTimeoutPacket,
+	EventTypeTimeoutPacketOnClose: chantypes.EventTypeTimeoutPacketOnClose,
+
+	// channel events
+	EventTypeChannelOpenInit:     chantypes.EventTypeChannelOpenInit,
+	EventTypeChannelOpenTry:      chantypes.EventTypeChannelOpenTry,
+	EventTypeChannelOpenAck:      chantypes.EventTypeChannelOpenAck,
+	EventTypeChannelOpenConfirm:  chantypes.EventTypeChannelOpenConfirm,
+	EventTypeChannelCloseInit:    chantypes.EventTypeChannelCloseInit,
+	EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseConfirm,
+	EventTypeChannelClosed:       chantypes.EventTypeChannelClosed,
+
+	// connection Events
+	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
+	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
+	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
+
+	// client Events
+	EventTypeCreateClient:          clientTypes.EventTypeCreateClient,
+	EventTypeUpdateClient:          clientTypes.EventTypeUpdateClient,
+	EventTypeUpgradeClient:         clientTypes.EventTypeUpgradeClient,
+	EventTypeSubmitMisbehaviour:    clientTypes.EventTypeSubmitMisbehaviour,
+	EventTypeUpdateClientProposal:  clientTypes.EventTypeUpdateClientProposal,
+	EventTypeUpgradeChain:          clientTypes.EventTypeUpgradeChain,
+	EventTypeUpgradeClientProposal: clientTypes.EventTypeUpgradeClientProposal,
+}
 
 func MustConvertEventNameToBytes(eventName string) []byte {
 	input, err := hex.DecodeString(eventName)

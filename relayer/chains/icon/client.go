@@ -63,7 +63,6 @@ type IClient interface {
 
 	GetLastBlock() (*types.Block, error)
 	GetBlockHeaderByHeight(height int64) (*types.BlockHeader, error)
-	GetCommitVoteListByHeight(height int64) (*types.CommitVoteList, error)
 	GetValidatorsByHash(hash common.HexHash) ([]common.Address, error)
 }
 
@@ -461,20 +460,6 @@ func (c *Client) GetBlockHeaderByHeight(height int64) (*types.BlockHeader, error
 		return nil, err
 	}
 	return &blockHeader, nil
-}
-
-func (c *Client) GetCommitVoteListByHeight(height int64) (*types.CommitVoteList, error) {
-	p := &types.BlockHeightParam{Height: types.NewHexInt(height)}
-	b, err := c.GetVotesByHeight(p)
-	if err != nil {
-		return nil, err
-	}
-	var cvl types.CommitVoteList
-	_, err = codec.RLP.UnmarshalFromBytes(b, &cvl)
-	if err != nil {
-		return nil, err
-	}
-	return &cvl, nil
 }
 
 func (c *Client) GetValidatorsByHash(hash common.HexHash) ([]common.Address, error) {

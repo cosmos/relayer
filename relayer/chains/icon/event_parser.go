@@ -2,7 +2,6 @@ package icon
 
 import (
 	"bytes"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -62,6 +61,7 @@ import (
 
 type ibcMessage struct {
 	eventType string
+	eventName string
 	info      ibcMessageInfo
 }
 
@@ -135,6 +135,7 @@ func (c clientInfo) ClientState() provider.ClientState {
 	return provider.ClientState{
 		ClientID:        c.clientID,
 		ConsensusHeight: c.consensusHeight,
+		Header:          c.header,
 	}
 }
 
@@ -180,17 +181,18 @@ func parseIBCMessageFromEvent(
 	event types.EventLog,
 	height uint64,
 ) *ibcMessage {
-	eventType := string(event.Indexed[0][:])
+	eventName := string(event.Indexed[0][:])
+	eventType := getEventTypeFromEventName(eventName)
 
-	switch eventType {
+	switch eventName {
 	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
 
-		pi := &packetInfo{Height: height}
-		pi.parseAttrs(log, event)
-
+		info := &packetInfo{Height: height}
+		info.parseAttrs(log, event)
 		return &ibcMessage{
-			eventType: eventType,
-			info:      pi,
+			eventType,
+			eventName,
+			info,
 		}
 	case EventTypeChannelOpenInit, EventTypeChannelOpenTry,
 		EventTypeChannelOpenAck, EventTypeConnectionOpenConfirm,
@@ -201,16 +203,17 @@ func parseIBCMessageFromEvent(
 
 		return &ibcMessage{
 			eventType: eventType,
+			eventName: eventName,
 			info:      ci,
 		}
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry,
 		EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event)
 
 		return &ibcMessage{
 			eventType: eventType,
+			eventName: eventName,
 			info:      ci,
 		}
 	case EventTypeCreateClient, EventTypeUpdateClient:
@@ -220,11 +223,16 @@ func parseIBCMessageFromEvent(
 
 		return &ibcMessage{
 			eventType: eventType,
+			eventName: eventName,
 			info:      ci,
 		}
 
 	}
 	return nil
+}
+
+func getEventTypeFromEventName(eventName string) string {
+	return iconEventNameToEventTypeMap[eventName]
 }
 
 func GetEventLogSignature(indexed [][]byte) []byte {
@@ -237,7 +245,6 @@ func _parsePacket(str []byte) (*types.Packet, error) {
 	if e != nil {
 		return nil, e
 	}
-	fmt.Printf("packetData decoded: %v \n", p)
 	return &p, nil
 }
 

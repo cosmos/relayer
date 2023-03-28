@@ -17,12 +17,12 @@ func (icp *IconChainProcessor) handleMessage(ctx context.Context, m ibcMessage, 
 	switch t := m.info.(type) {
 	case *packetInfo:
 		icp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
-		// case *channelInfo:
-		// 	ccp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
-		// case *connectionInfo:
-		// 	ccp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
-		// case *clientInfo:
-		// 	ccp.handleClientMessage(ctx, m.eventType, *t)
+		case *channelInfo:
+			icp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
+		case *connectionInfo:
+			icp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
+		case *clientInfo:
+			icp.handleClientMessage(ctx, m.eventType, *t)
 	}
 }
 
