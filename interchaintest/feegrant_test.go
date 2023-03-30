@@ -18,7 +18,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	ibctestv5 "github.com/strangelove-ventures/interchaintest/v7"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
@@ -35,21 +34,8 @@ type protoTxProvider interface {
 }
 
 type chainFeegrantInfo struct {
-	granter    string
-	grantees   []string
-	lastSigner string //whichever grantee signed the last known TX on chain
-}
-
-func nextGrantee(gi *chainFeegrantInfo) string {
-	for i, grantee := range gi.grantees {
-		if gi.lastSigner == grantee && i < len(gi.grantees)-1 {
-			return gi.grantees[i+1]
-		} else if gi.lastSigner == grantee {
-			return gi.grantees[0]
-		}
-	}
-
-	return gi.grantees[0]
+	granter  string
+	grantees []string
 }
 
 func genMnemonic(t *testing.T) string {
@@ -89,7 +75,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	// 	UidGid:     "1025:1025", //the heighliner user string. this isn't exposed on ibctest
 	// }
 
-	// gaiaChainSpec := &ibctestv5.ChainSpec{
+	// gaiaChainSpec := &interchaintest.ChainSpec{
 	// 	ChainName:     "gaia",
 	// 	NumValidators: &nv,
 	// 	NumFullNodes:  &nf,
@@ -107,7 +93,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	// 	}}
 
 	// Chain Factory
-	cf := ibctestv5.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctestv5.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{Name: "gaia", ChainName: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
 		//gaiaChainSpec,
 		{Name: "osmosis", ChainName: "osmosis", Version: "v14.0.1", NumValidators: &nv, NumFullNodes: &nf},
@@ -127,11 +113,11 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
-	ic := ibctestv5.NewInterchain().
+	ic := interchaintest.NewInterchain().
 		AddChain(gaia).
 		AddChain(osmosis).
 		AddRelayer(r, "relayer").
-		AddLink(ibctestv5.InterchainLink{
+		AddLink(interchaintest.InterchainLink{
 			Chain1:  gaia,
 			Chain2:  osmosis,
 			Relayer: r,
@@ -142,10 +128,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	rep := testreporter.NewNopReporter()
 	eRep := rep.RelayerExecReporter(t)
 
-	client, network := ibctestv5.DockerSetup(t)
+	client, network := interchaintest.DockerSetup(t)
 
 	// Build interchain
-	require.NoError(t, ic.Build(ctx, eRep, ibctestv5.InterchainBuildOptions{
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:  t.Name(),
 		Client:    client,
 		NetworkID: network,
@@ -458,8 +444,6 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 						feegrantMsgSigners[chain] = []string{actualGrantee}
 					}
 					fmt.Printf("Chain: %s, msg type: %s, height: %d, signer: %s, granter: %s\n", chain, msgType, curr.Response.Height, actualGrantee, granter.String())
-					//require.Equal(t, expectedGrantee, actualGrantee)
-					feegrantInfo.lastSigner = actualGrantee
 				}
 			}
 		default:

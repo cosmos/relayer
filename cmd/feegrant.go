@@ -83,10 +83,6 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 					return feegrantErr
 				}
 
-				if feegrantErr != nil {
-					return feegrantErr
-				}
-
 				cfgErr := a.OverwriteConfig(a.Config)
 				cobra.CheckErr(cfgErr)
 			}
