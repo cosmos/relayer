@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
@@ -139,15 +138,13 @@ type ChannelInfo struct {
 }
 
 // ConnectionHops splits the list of connection hops to turn it into an array.
-// TODO: use an ibc-go provided decoder for this when it becomes available
 func (c ChannelInfo) ConnectionHops() []string {
-	return strings.Split(c.ConnID, ".")
+	return chantypes.ParseConnectionID(c.ConnID)
 }
 
 // CounterpartyConnectionHops splits the list of counterparty connection hops to turn it into an array.
-// TODO: use an ibc-go provided decoder for this when it becomes available
 func (c ChannelInfo) CounterpartyConnectionHops() []string {
-	return strings.Split(c.CounterpartyConnID, ".")
+	return chantypes.ParseConnectionID(c.CounterpartyConnID)
 }
 
 // ClientICQQueryID string wrapper for query ID.

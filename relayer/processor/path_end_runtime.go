@@ -142,23 +142,19 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry. It needs the list of counterparty
 				// connection IDs for the connection hops in reverse order, since the direction is reversed compared to
 				// MsgChanOpenInit.
-				counterpartyHops := ""
 				hops := ci.ConnectionHops()
+				hopConnectionIDs := []string{}
 				for i := len(hops) - 1; i >= 0; i-- {
 					hop := hops[i]
 					// TODO: this is O(n^2) we should have a better lookup for connections
 					for k := range pathEnd.connectionStateCache {
 						if k.ConnectionID == hop {
-							if i > 0 {
-								// TODO: use ibc-go provided encoder for this when it becomes available
-								counterpartyHops += "."
-							}
-							counterpartyHops += k.CounterpartyConnID
+							hopConnectionIDs = append(hopConnectionIDs, k.CounterpartyConnID)
 							break
 						}
 					}
 				}
-				ci.CounterpartyConnID = counterpartyHops
+				ci.CounterpartyConnID = chantypes.FormatConnectionID(hopConnectionIDs)
 			}
 			newCmc[k] = ci
 		}

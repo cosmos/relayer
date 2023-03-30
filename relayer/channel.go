@@ -93,11 +93,12 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
-	// TODO: use an ibc-go provided encoding when it becomes available
-	connectionHops := c.PathEnd.ConnectionID
-	for _, hop := range hops {
-		connectionHops += "." + hop.PathEnd.ConnectionID
+	hopConnectionIDs := make([]string, len(hops)+1)
+	hopConnectionIDs[0] = c.PathEnd.ConnectionID
+	for i, hop := range hops {
+		hopConnectionIDs[i+1] = hop.PathEnd.ConnectionID
 	}
+	connectionHops := chantypes.FormatConnectionID(hopConnectionIDs)
 	openInitMsg := &processor.ChannelMessage{
 		ChainID:   c.PathEnd.ChainID,
 		EventType: chantypes.EventTypeChannelOpenInit,

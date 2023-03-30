@@ -5,7 +5,7 @@ go 1.19
 require (
 	cosmossdk.io/simapp v0.0.0-20230224204036-a6adb0821462
 	github.com/cometbft/cometbft v0.37.0
-	github.com/cosmos/cosmos-sdk v0.47.0-rc3
+	github.com/cosmos/cosmos-sdk v0.47.0
 	github.com/cosmos/ibc-go/v7 v7.0.0
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.19+incompatible
@@ -247,7 +247,7 @@ require (
 replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/ChainSafe/go-schnorrkel/1 => github.com/ChainSafe/go-schnorrkel v1.0.0
-	github.com/cosmos/ibc-go/v7 => github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230314224428-95e614f92b82 // polymer/multihop-v7
+	github.com/cosmos/ibc-go/v7 => github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230330202353-a8901cff0fb4
 	// For this nested module, you always want to replace the parent reference with the current worktree.
 	github.com/cosmos/relayer/v2 => ../
 
