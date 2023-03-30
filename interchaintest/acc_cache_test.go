@@ -1,15 +1,12 @@
 package interchaintest
 
 import (
-	"context"
 	"testing"
 
+	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	ibctestv7 "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 // See https://github.com/cosmos/cosmos-sdk/issues/15317 for description of bug.
@@ -19,40 +16,9 @@ import (
 func TestAccCacheBugfix(t *testing.T) {
 	types.SetAddrCacheEnabled(false)
 
-	testMnemonic := "clip hire initial neck maid actor venue client foam budget lock catalog sweet steak waste crater broccoli pipe steak sister coyote moment obvious choose"
-	nv := 1
-	nf := 0
-
-	// Chain Factory
-	cf := ibctestv7.NewBuiltinChainFactory(zaptest.NewLogger(t), []*ibctestv7.ChainSpec{
-		{Name: "osmosis", ChainName: "osmosis", Version: "v14.0.1", NumValidators: &nv, NumFullNodes: &nf},
-	})
-
-	ctx := context.Background()
-	chains, err := cf.Chains(t.Name())
-	require.NoError(t, err)
-	osmosis := chains[0]
-
-	// Prep Interchain
-	ic := ibctestv7.NewInterchain().AddChain(osmosis)
-
-	// Reporter/logs
-	rep := testreporter.NewNopReporter()
-	eRep := rep.RelayerExecReporter(t)
-
-	client, network := ibctestv7.DockerSetup(t)
-
-	// Build interchain
-	require.NoError(t, ic.Build(ctx, eRep, ibctestv7.InterchainBuildOptions{
-		TestName:  t.Name(),
-		Client:    client,
-		NetworkID: network,
-
-		SkipPathCreation: false,
-	}))
-
-	user, err := osmosis.BuildWallet(ctx, "default", testMnemonic)
-	require.NoError(t, err)
+	// Use a random key
+	priv := ed25519.GenPrivKey()
+	pub := priv.PubKey()
 
 	//Set to 'osmo'
 	prefix := "osmo"
@@ -61,7 +27,7 @@ func TestAccCacheBugfix(t *testing.T) {
 	sdkConf.SetBech32PrefixForValidator(prefix+"valoper", prefix+"valoperpub")
 	sdkConf.SetBech32PrefixForConsensusNode(prefix+"valcons", prefix+"valconspub")
 
-	addrOsmo := sdk.AccAddress(user.Address())
+	addrOsmo := sdk.AccAddress(pub.Address())
 	osmoAddrBech32 := addrOsmo.String()
 
 	//Set to 'cosmos'
@@ -70,7 +36,7 @@ func TestAccCacheBugfix(t *testing.T) {
 	sdkConf.SetBech32PrefixForValidator(prefix+"valoper", prefix+"valoperpub")
 	sdkConf.SetBech32PrefixForConsensusNode(prefix+"valcons", prefix+"valconspub")
 
-	addrCosmos := sdk.AccAddress(user.Address())
+	addrCosmos := sdk.AccAddress(pub.Address())
 	cosmosAddrBech32 := addrCosmos.String()
 
 	//If the addresses are equal, the AccAddress caching caused a bug
