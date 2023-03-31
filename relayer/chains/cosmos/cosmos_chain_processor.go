@@ -77,6 +77,7 @@ const (
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
+	blockMaxRetries                  = 5
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -180,11 +181,12 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
-	latestHeight              int64
-	latestQueriedBlock        int64
-	minQueryLoopDuration      time.Duration
-	lastBalanceUpdate         time.Time
-	balanceUpdateWaitDuration time.Duration
+	latestHeight                int64
+	latestQueriedBlock          int64
+	retriesAtLatestQueriedBlock int
+	minQueryLoopDuration        time.Duration
+	lastBalanceUpdate           time.Time
+	balanceUpdateWaitDuration   time.Duration
 }
 
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
@@ -374,8 +376,19 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		if err := eg.Wait(); err != nil {
 			ccp.log.Warn("Error querying block data", zap.Error(err))
+
+			persistence.retriesAtLatestQueriedBlock++
+			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
+				ccp.log.Warn("Reached max retries querying for block, skipping", zap.Int64("height", i))
+				// skip this block. now depends on flush to pickup anything missed in the block.
+				persistence.latestQueriedBlock = i
+				persistence.retriesAtLatestQueriedBlock = 0
+				continue
+			}
 			break
 		}
+
+		persistence.retriesAtLatestQueriedBlock = 0
 
 		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 

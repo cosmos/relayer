@@ -15,6 +15,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.6
 	github.com/cosmos/ibc-go/v7 v7.0.0
+	github.com/cosmos/ics23/go v0.9.1-0.20221207100636-b1abd8678aab
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/gofrs/flock v0.8.1
 	github.com/gogo/protobuf v1.3.2
@@ -34,6 +35,7 @@ require (
 	golang.org/x/term v0.6.0
 	golang.org/x/text v0.8.0
 	google.golang.org/grpc v1.53.0
+	google.golang.org/protobuf v1.29.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -69,7 +71,6 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v0.20.0 // indirect
-	github.com/cosmos/ics23/go v0.9.1-0.20221207100636-b1abd8678aab // indirect
 	github.com/cosmos/ledger-cosmos-go v0.12.2 // indirect
 	github.com/cosmos/rosetta-sdk-go v0.10.0 // indirect
 	github.com/creachadair/taskgroup v0.4.2 // indirect
@@ -175,7 +176,6 @@ require (
 	google.golang.org/api v0.110.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230216225411-c8e22ba71e44 // indirect
-	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
 	pgregory.net/rapid v0.5.5 // indirect

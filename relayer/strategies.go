@@ -13,6 +13,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"go.uber.org/zap"
 )
@@ -119,6 +120,8 @@ type path struct {
 func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.ChainProvider.(type) {
+	case *penumbraprocessor.PenumbraProvider:
+		return penumbraprocessor.NewPenumbraChainProcessor(log, p)
 	case *cosmos.CosmosProvider:
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	default:
