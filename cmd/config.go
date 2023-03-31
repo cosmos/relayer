@@ -87,14 +87,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(a.Config.Wrapped())
+				out, err := json.Marshal(a.config.Wrapped())
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(a.Config.Wrapped())
+				out, err := yaml.Marshal(a.config.Wrapped())
 				if err != nil {
 					return err
 				}
@@ -104,7 +104,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 		},
 	}
 
-	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
+	return yamlFlag(a.viper, jsonFlag(a.viper, cmd))
 }
 
 // Command for initializing an empty config at the --home location
@@ -165,7 +165,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 			return fmt.Errorf("config already exists: %s", cfgPath)
 		},
 	}
-	cmd = memoFlag(a.Viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -182,7 +182,7 @@ func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, 
 		return err
 	}
 
-	return a.PerformConfigLockingOperation(ctx, func() error {
+	return a.performConfigLockingOperation(ctx, func() error {
 		for _, f := range files {
 			pth := filepath.Join(dir, f.Name())
 			if f.IsDir() {
@@ -203,16 +203,16 @@ func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, 
 			}
 			chainName := strings.Split(f.Name(), ".")[0]
 			prov, err := pcw.Value.NewProvider(
-				a.Log.With(zap.String("provider_type", pcw.Type)),
-				a.HomePath, a.Debug, chainName,
+				a.log.With(zap.String("provider_type", pcw.Type)),
+				a.homePath, a.debug, chainName,
 			)
 			if err != nil {
 				fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
 				continue
 			}
 
-			c := relayer.NewChain(a.Log, prov, a.Debug)
-			if err = a.Config.AddChain(c); err != nil {
+			c := relayer.NewChain(a.log, prov, a.debug)
+			if err = a.config.AddChain(c); err != nil {
 				fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
 				continue
 			}
@@ -233,7 +233,7 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 	if err != nil {
 		return err
 	}
-	return a.PerformConfigLockingOperation(ctx, func() error {
+	return a.performConfigLockingOperation(ctx, func() error {
 		for _, f := range files {
 			pth := filepath.Join(dir, f.Name())
 			if f.IsDir() {
@@ -252,11 +252,11 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
-			if err := a.Config.ValidatePath(ctx, stderr, p); err != nil {
+			if err := a.config.ValidatePath(ctx, stderr, p); err != nil {
 				return fmt.Errorf("failed to validate path %s: %w", pth, err)
 			}
 
-			if err := a.Config.AddPath(pthName, p); err != nil {
+			if err := a.config.AddPath(pthName, p); err != nil {
 				return fmt.Errorf("failed to add path %s: %w", pth, err)
 			}
 
@@ -536,7 +536,7 @@ func (c *Config) DeleteChain(chain string) {
 }
 
 // validateConfig is used to validate the GlobalConfig values
-func validateConfig(c *Config) error {
+func (c *Config) validateConfig() error {
 	_, err := time.ParseDuration(c.Global.Timeout)
 	if err != nil {
 		return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)

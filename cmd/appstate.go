@@ -22,28 +22,28 @@ type appState struct {
 	// Log is the root logger of the application.
 	// Consumers are expected to store and use local copies of the logger
 	// after modifying with the .With method.
-	Log *zap.Logger
+	log *zap.Logger
 
-	Viper *viper.Viper
+	viper *viper.Viper
 
-	HomePath string
-	Debug    bool
-	Config   *Config
+	homePath string
+	debug    bool
+	config   *Config
+}
+
+func (a *appState) configPath() string {
+	return path.Join(a.homePath, "config", "config.yaml")
 }
 
 // initConfig reads config file into a.Config if file is present.
 func (a *appState) initConfig(ctx context.Context) error {
-	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
+	cfgPath := a.configPath()
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
 		return nil
 	}
-	a.Viper.SetConfigFile(cfgPath)
-	if err := a.Viper.ReadInConfig(); err != nil {
-		return err
-	}
 	// read the config file bytes
-	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
+	file, err := os.ReadFile(cfgPath)
 	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
 	}
@@ -66,8 +66,8 @@ func (a *appState) initConfig(ctx context.Context) error {
 	chains := make(relayer.Chains)
 	for chainName, pcfg := range cfgWrapper.ProviderConfigs {
 		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
-			a.Log.With(zap.String("provider_type", pcfg.Type)),
-			a.HomePath, a.Debug, chainName,
+			a.log.With(zap.String("provider_type", pcfg.Type)),
+			a.homePath, a.debug, chainName,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to build ChainProviders: %w", err)
@@ -77,27 +77,29 @@ func (a *appState) initConfig(ctx context.Context) error {
 			return fmt.Errorf("failed to initialize provider: %w", err)
 		}
 
-		chain := relayer.NewChain(a.Log, prov, a.Debug)
+		chain := relayer.NewChain(a.log, prov, a.debug)
 		chains[chainName] = chain
 	}
 
-	a.Config = &Config{
+	newCfg := &Config{
 		Global: cfgWrapper.Global,
 		Chains: chains,
 		Paths:  cfgWrapper.Paths,
 	}
 
 	// ensure config has []*relayer.Chain used for all chain operations
-	if err := validateConfig(a.Config); err != nil {
+	if err := newCfg.validateConfig(); err != nil {
 		return fmt.Errorf("error parsing chain config: %w", err)
 	}
+
+	a.config = newCfg
 
 	return nil
 }
 
-// AddPathFromFile modifies a.config.Paths to include the content stored in the given file.
+// addPathFromFile modifies a.config.Paths to include the content stored in the given file.
 // If a non-nil error is returned, a.config.Paths is not modified.
-func (a *appState) AddPathFromFile(ctx context.Context, stderr io.Writer, file, name string) error {
+func (a *appState) addPathFromFile(ctx context.Context, stderr io.Writer, file, name string) error {
 	if _, err := os.Stat(file); err != nil {
 		return err
 	}
@@ -112,17 +114,22 @@ func (a *appState) AddPathFromFile(ctx context.Context, stderr io.Writer, file, 
 		return err
 	}
 
-	if err = a.Config.ValidatePath(ctx, stderr, p); err != nil {
+	if err = a.config.ValidatePath(ctx, stderr, p); err != nil {
 		return err
 	}
 
-	return a.Config.Paths.Add(name, p)
+	return a.config.Paths.Add(name, p)
 }
 
-// AddPathFromUserInput manually prompts the user to specify all the path details.
+// addPathFromUserInput manually prompts the user to specify all the path details.
 // It returns any input or validation errors.
 // If the path was successfully added, it returns nil.
-func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, stderr io.Writer, src, dst, name string) error {
+func (a *appState) addPathFromUserInput(
+	ctx context.Context,
+	stdin io.Reader,
+	stderr io.Writer,
+	src, dst, name string,
+) error {
 	// TODO: confirm name is available before going through input.
 
 	var (
@@ -182,15 +189,15 @@ func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, st
 		return err
 	}
 
-	if err := a.Config.ValidatePath(ctx, stderr, path); err != nil {
+	if err := a.config.ValidatePath(ctx, stderr, path); err != nil {
 		return err
 	}
 
-	return a.Config.Paths.Add(name, path)
+	return a.config.Paths.Add(name, path)
 }
 
-func (a *appState) PerformConfigLockingOperation(ctx context.Context, operation func() error) error {
-	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
+func (a *appState) performConfigLockingOperation(ctx context.Context, operation func() error) error {
+	lockFilePath := path.Join(a.homePath, "config", "config.lock")
 	fileLock := flock.New(lockFilePath)
 	_, err := fileLock.TryLock()
 	if err != nil {
@@ -198,7 +205,7 @@ func (a *appState) PerformConfigLockingOperation(ctx context.Context, operation 
 	}
 	defer func() {
 		if err := fileLock.Unlock(); err != nil {
-			a.Log.Error("error unlocking config file lock, please manually delete",
+			a.log.Error("error unlocking config file lock, please manually delete",
 				zap.String("filepath", lockFilePath),
 			)
 		}
@@ -210,21 +217,23 @@ func (a *appState) PerformConfigLockingOperation(ctx context.Context, operation 
 		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
+	// perform the operation that requires config flock.
 	if err := operation(); err != nil {
 		return err
 	}
 
-	if err := validateConfig(a.Config); err != nil {
+	// validate config after changes have been made.
+	if err := a.config.validateConfig(); err != nil {
 		return fmt.Errorf("error parsing chain config: %w", err)
 	}
 
 	// marshal the new config
-	out, err := yaml.Marshal(a.Config.Wrapped())
+	out, err := yaml.Marshal(a.config.Wrapped())
 	if err != nil {
 		return err
 	}
 
-	cfgPath := a.Viper.ConfigFileUsed()
+	cfgPath := a.configPath()
 
 	// Overwrite the config file.
 	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
@@ -234,9 +243,9 @@ func (a *appState) PerformConfigLockingOperation(ctx context.Context, operation 
 	return nil
 }
 
-// OverwriteConfigOnTheFly overwrites the config file concurrently,
+// updatePathConfig overwrites the config file concurrently,
 // locking to read, modify, then write the config.
-func (a *appState) OverwriteConfigOnTheFly(
+func (a *appState) updatePathConfig(
 	ctx context.Context,
 	pathName string,
 	clientSrc, clientDst string,
@@ -246,8 +255,8 @@ func (a *appState) OverwriteConfigOnTheFly(
 		return errors.New("empty path name not allowed")
 	}
 
-	return a.PerformConfigLockingOperation(ctx, func() error {
-		path, ok := a.Config.Paths[pathName]
+	return a.performConfigLockingOperation(ctx, func() error {
+		path, ok := a.config.Paths[pathName]
 		if !ok {
 			return fmt.Errorf("config does not exist for that path: %s", pathName)
 		}

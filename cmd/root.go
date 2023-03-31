@@ -57,9 +57,9 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	// Use a local app state instance scoped to the new root command,
 	// so that tests don't concurrently access the state.
 	a := &appState{
-		Viper: viper.New(),
+		viper: viper.New(),
 
-		Log: log,
+		log: log,
 	}
 
 	// RootCmd represents the base command when called without any subcommands
@@ -78,12 +78,12 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		// Inside persistent pre-run because this takes effect after flags are parsed.
 		if log == nil {
-			log, err := newRootLogger(a.Viper.GetString("log-format"), a.Viper.GetBool("debug"))
+			log, err := newRootLogger(a.viper.GetString("log-format"), a.viper.GetBool("debug"))
 			if err != nil {
 				return err
 			}
 
-			a.Log = log
+			a.log = log
 		}
 
 		// reads `homeDir/config/config.yaml` into `a.Config`
@@ -92,23 +92,23 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
 		// Force syncing the logs before exit, if anything is buffered.
-		a.Log.Sync()
+		_ = a.log.Sync()
 	}
 
 	// Register --home flag
-	rootCmd.PersistentFlags().StringVar(&a.HomePath, flagHome, defaultHome, "set home directory")
-	if err := a.Viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
+	rootCmd.PersistentFlags().StringVar(&a.homePath, flagHome, defaultHome, "set home directory")
+	if err := a.viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
 		panic(err)
 	}
 
 	// Register --debug flag
-	rootCmd.PersistentFlags().BoolVarP(&a.Debug, "debug", "d", false, "debug output")
-	if err := a.Viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
+	rootCmd.PersistentFlags().BoolVarP(&a.debug, "debug", "d", false, "debug output")
+	if err := a.viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
 		panic(err)
 	}
 
 	rootCmd.PersistentFlags().String("log-format", "auto", "log output format (auto, logfmt, json, or console)")
-	if err := a.Viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
+	if err := a.viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
 		panic(err)
 	}
 

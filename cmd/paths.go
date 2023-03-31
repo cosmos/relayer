@@ -49,11 +49,11 @@ func pathsDeleteCmd(a *appState) *cobra.Command {
 $ %s paths delete demo-path
 $ %s pth d path-name`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
-				if _, err := a.Config.Paths.Get(args[0]); err != nil {
+			return a.performConfigLockingOperation(cmd.Context(), func() error {
+				if _, err := a.config.Paths.Get(args[0]); err != nil {
 					return err
 				}
-				delete(a.Config.Paths, args[0])
+				delete(a.config.Paths, args[0])
 				return nil
 			})
 		},
@@ -78,14 +78,14 @@ $ %s pth l`, appName, appName, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case yml:
-				out, err := yaml.Marshal(a.Config.Paths)
+				out, err := yaml.Marshal(a.config.Paths)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			case jsn:
-				out, err := json.Marshal(a.Config.Paths)
+				out, err := json.Marshal(a.config.Paths)
 				if err != nil {
 					return err
 				}
@@ -93,8 +93,8 @@ $ %s pth l`, appName, appName, appName)),
 				return nil
 			default:
 				i := 0
-				for k, pth := range a.Config.Paths {
-					chains, err := a.Config.Chains.Gets(pth.Src.ChainID, pth.Dst.ChainID)
+				for k, pth := range a.config.Paths {
+					chains, err := a.config.Chains.Gets(pth.Src.ChainID, pth.Dst.ChainID)
 					if err != nil {
 						return err
 					}
@@ -109,7 +109,7 @@ $ %s pth l`, appName, appName, appName)),
 			}
 		},
 	}
-	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
+	return yamlFlag(a.viper, jsonFlag(a.viper, cmd))
 }
 
 func printPath(stdout io.Writer, i int, k string, pth *relayer.Path, chains, clients, connection string) {
@@ -135,11 +135,11 @@ $ %s paths show demo-path --yaml
 $ %s paths show demo-path --json
 $ %s pth s path-name`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			p, err := a.Config.Paths.Get(args[0])
+			p, err := a.config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
-			chains, err := a.Config.Chains.Gets(p.Src.ChainID, p.Dst.ChainID)
+			chains, err := a.config.Chains.Gets(p.Src.ChainID, p.Dst.ChainID)
 			if err != nil {
 				return err
 			}
@@ -170,7 +170,7 @@ $ %s pth s path-name`, appName, appName, appName)),
 			return nil
 		},
 	}
-	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
+	return yamlFlag(a.viper, jsonFlag(a.viper, cmd))
 }
 
 func pathsAddCmd(a *appState) *cobra.Command {
@@ -186,8 +186,8 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 
-			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
-				_, err := a.Config.Chains.Gets(src, dst)
+			return a.performConfigLockingOperation(cmd.Context(), func() error {
+				_, err := a.config.Chains.Gets(src, dst)
 				if err != nil {
 					return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 				}
@@ -198,11 +198,11 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 				}
 
 				if file != "" {
-					if err := a.AddPathFromFile(cmd.Context(), cmd.ErrOrStderr(), file, args[2]); err != nil {
+					if err := a.addPathFromFile(cmd.Context(), cmd.ErrOrStderr(), file, args[2]); err != nil {
 						return err
 					}
 				} else {
-					if err := a.AddPathFromUserInput(cmd.Context(), cmd.InOrStdin(), cmd.ErrOrStderr(), src, dst, args[2]); err != nil {
+					if err := a.addPathFromUserInput(cmd.Context(), cmd.InOrStdin(), cmd.ErrOrStderr(), src, dst, args[2]); err != nil {
 						return err
 					}
 				}
@@ -210,7 +210,7 @@ $ %s pth a ibc-0 ibc-1 demo-path`, appName, appName, appName)),
 			})
 		},
 	}
-	return fileFlag(a.Viper, cmd)
+	return fileFlag(a.viper, cmd)
 }
 
 func pathsAddDirCmd(a *appState) *cobra.Command {
@@ -243,8 +243,8 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 
-			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
-				_, err := a.Config.Chains.Gets(src, dst)
+			return a.performConfigLockingOperation(cmd.Context(), func() error {
+				_, err := a.config.Chains.Gets(src, dst)
 				if err != nil {
 					return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 				}
@@ -255,14 +255,14 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 				}
 
 				name := args[2]
-				if err = a.Config.Paths.Add(name, p); err != nil {
+				if err = a.config.Paths.Add(name, p); err != nil {
 					return err
 				}
 				return nil
 			})
 		},
 	}
-	return channelParameterFlags(a.Viper, cmd)
+	return channelParameterFlags(a.viper, cmd)
 }
 
 func pathsUpdateCmd(a *appState) *cobra.Command {
@@ -283,8 +283,8 @@ $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-i
 
 			flags := cmd.Flags()
 
-			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
-				p := a.Config.Paths.MustGet(name)
+			return a.performConfigLockingOperation(cmd.Context(), func() error {
+				p := a.config.Paths.MustGet(name)
 
 				actionTaken := false
 
@@ -355,7 +355,7 @@ $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-i
 			})
 		},
 	}
-	cmd = pathFilterFlags(a.Viper, cmd)
+	cmd = pathFilterFlags(a.viper, cmd)
 	return cmd
 }
 
@@ -372,9 +372,9 @@ $ %s pth fch`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
 
-			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
+			return a.performConfigLockingOperation(cmd.Context(), func() error {
 				chains := []string{}
-				for chainName := range a.Config.Chains {
+				for chainName := range a.config.Chains {
 					chains = append(chains, chainName)
 				}
 
@@ -396,7 +396,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 
 				client := github.NewClient(nil)
 				for pthName := range chainCombinations {
-					_, exist := a.Config.Paths[pthName]
+					_, exist := a.config.Paths[pthName]
 					if exist && !overwrite {
 						fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
 						continue
@@ -430,12 +430,12 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					dstChainName := ibc.Chain2.ChainName
 
 					srcPathEnd := &relayer.PathEnd{
-						ChainID:      a.Config.Chains[srcChainName].ChainID(),
+						ChainID:      a.config.Chains[srcChainName].ChainID(),
 						ClientID:     ibc.Chain1.ClientID,
 						ConnectionID: ibc.Chain1.ConnectionID,
 					}
 					dstPathEnd := &relayer.PathEnd{
-						ChainID:      a.Config.Chains[dstChainName].ChainID(),
+						ChainID:      a.config.Chains[dstChainName].ChainID(),
 						ClientID:     ibc.Chain2.ClientID,
 						ConnectionID: ibc.Chain2.ConnectionID,
 					}
@@ -445,7 +445,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					}
 					client.Close()
 
-					if err = a.Config.AddPath(pthName, newPath); err != nil {
+					if err = a.config.AddPath(pthName, newPath); err != nil {
 						return fmt.Errorf("failed to add path %s: %w", pthName, err)
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "added:  %s\n", pthName)
@@ -455,5 +455,5 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			})
 		},
 	}
-	return OverwriteConfigFlag(a.Viper, cmd)
+	return OverwriteConfigFlag(a.viper, cmd)
 }
