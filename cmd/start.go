@@ -50,7 +50,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 
 			if len(args) > 0 {
 				for i, pathName := range args {
-					path := a.Config.Paths.MustGet(pathName)
+					path := a.config.Paths.MustGet(pathName)
 					paths[i] = relayer.NamedPath{
 						Name: pathName,
 						Path: path,
@@ -61,7 +61,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 					chains[path.Dst.ChainID] = nil
 				}
 			} else {
-				for n, path := range a.Config.Paths {
+				for n, path := range a.config.Paths {
 					paths = append(paths, relayer.NamedPath{
 						Name: n,
 						Path: path,
@@ -79,7 +79,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			}
 
 			// get chain configurations
-			chains, err := a.Config.Chains.Gets(chainIDs...)
+			chains, err := a.config.Chains.Gets(chainIDs...)
 			if err != nil {
 				return err
 			}
@@ -95,7 +95,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 
 			var prometheusMetrics *processor.PrometheusMetrics
 
-			debugAddr := a.Config.Global.APIListenPort
+			debugAddr := a.config.Global.APIListenPort
 
 			debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
@@ -107,14 +107,14 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			}
 
 			if debugAddr == "" {
-				a.Log.Info("Skipping debug server due to empty debug address flag")
+				a.log.Info("Skipping debug server due to empty debug address flag")
 			} else {
 				ln, err := net.Listen("tcp", debugAddr)
 				if err != nil {
-					a.Log.Error("Failed to listen on debug address. If you have another relayer process open, use --" + flagDebugAddr + " to pick a different address.")
+					a.log.Error("Failed to listen on debug address. If you have another relayer process open, use --" + flagDebugAddr + " to pick a different address.")
 					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
 				}
-				log := a.Log.With(zap.String("sys", "debughttp"))
+				log := a.log.With(zap.String("sys", "debughttp"))
 				log.Info("Debug server listening", zap.String("addr", debugAddr))
 				prometheusMetrics = processor.NewPrometheusMetrics()
 				relaydebug.StartDebugServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
@@ -146,11 +146,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
-				a.Log,
+				a.log,
 				chains,
 				paths,
 				maxTxSize, maxMsgLength,
-				a.Config.memo(cmd),
+				a.config.memo(cmd),
 				clientUpdateThresholdTime,
 				flushInterval,
 				nil,
@@ -164,7 +164,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
 			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
-				a.Log.Warn(
+				a.log.Warn(
 					"Relayer start error",
 					zap.Error(err),
 				)
@@ -173,13 +173,13 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			return nil
 		},
 	}
-	cmd = updateTimeFlags(a.Viper, cmd)
-	cmd = strategyFlag(a.Viper, cmd)
-	cmd = debugServerFlags(a.Viper, cmd)
-	cmd = processorFlag(a.Viper, cmd)
-	cmd = initBlockFlag(a.Viper, cmd)
-	cmd = flushIntervalFlag(a.Viper, cmd)
-	cmd = memoFlag(a.Viper, cmd)
+	cmd = updateTimeFlags(a.viper, cmd)
+	cmd = strategyFlag(a.viper, cmd)
+	cmd = debugServerFlags(a.viper, cmd)
+	cmd = processorFlag(a.viper, cmd)
+	cmd = initBlockFlag(a.viper, cmd)
+	cmd = flushIntervalFlag(a.viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
 	return cmd
 }
 
