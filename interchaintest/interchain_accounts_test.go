@@ -272,12 +272,17 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	err = r.StartRelayer(ctx, eRep, pathName)
 	require.NoError(t, err)
 
-	c2h, err = chain2.Height(ctx)
+	c1h, err = chain1.Height(ctx)
 	require.NoError(t, err)
 
-	// Wait for channel open confirm
-	_, err = cosmos.PollForMessage(ctx, chain2, ir,
-		c2h, c2h+30, channelFound)
+	timeoutFound := func(found *chantypes.MsgTimeout) bool {
+		return found.Packet.Sequence == 2 &&
+			found.Packet.SourcePort == "icacontroller-"+chain1Addr &&
+			found.Packet.DestinationPort == "icahost"
+	}
+
+	// Wait for timeout
+	_, err = cosmos.PollForMessage(ctx, chain1, ir, c1h, c1h+10, timeoutFound)
 	require.NoError(t, err)
 
 	// Assert that the packet timed out and that the acc balances are correct
@@ -305,7 +310,12 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for channel handshake to finish
-	err = testutil.WaitForBlocks(ctx, 15, chain1, chain2)
+	c2h, err = chain2.Height(ctx)
+	require.NoError(t, err)
+
+	// Wait for channel open confirm
+	_, err = cosmos.PollForMessage(ctx, chain2, ir,
+		c2h, c2h+30, channelFound)
 	require.NoError(t, err)
 
 	// Assert that a new channel has been opened and the same ICA is in use
