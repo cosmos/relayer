@@ -32,6 +32,7 @@ func TestWasmBuild(t *testing.T) {
 			{
 				Repository: "ghcr.io/polymerdao/wasm",
 				Version:    "v0.40.0-rc.0-ibcx",
+				UidGid:     "1025:1025",
 			},
 		},
 		Bin:            "wasmd",
