@@ -327,6 +327,34 @@ type ConfigInputWrapper struct {
 	Paths           relayer.Paths                         `yaml:"paths"`
 }
 
+// RuntimeConfig converts the input disk config into the relayer runtime config.
+func (c *ConfigInputWrapper) RuntimeConfig(ctx context.Context, a *appState) (*Config, error) {
+	// build providers for each chain
+	chains := make(relayer.Chains)
+	for chainName, pcfg := range c.ProviderConfigs {
+		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
+			a.log.With(zap.String("provider_type", pcfg.Type)),
+			a.homePath, a.debug, chainName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build ChainProviders: %w", err)
+		}
+
+		if err := prov.Init(ctx); err != nil {
+			return nil, fmt.Errorf("failed to initialize provider: %w", err)
+		}
+
+		chain := relayer.NewChain(a.log, prov, a.debug)
+		chains[chainName] = chain
+	}
+
+	return &Config{
+		Global: c.Global,
+		Chains: chains,
+		Paths:  c.Paths,
+	}, nil
+}
+
 type ProviderConfigs map[string]*ProviderConfigWrapper
 
 // ProviderConfigWrapper is an intermediary type for parsing arbitrary ProviderConfigs from json files and writing to json/yaml files
@@ -540,6 +568,13 @@ func (c *Config) validateConfig() error {
 	_, err := time.ParseDuration(c.Global.Timeout)
 	if err != nil {
 		return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
+	}
+
+	// verify that the channel filter rule is valid for every path in the config
+	for _, p := range c.Paths {
+		if err := p.ValidateChannelFilterRule(); err != nil {
+			return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
+		}
 	}
 
 	return nil

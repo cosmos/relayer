@@ -10,7 +10,6 @@ import (
 	"path"
 
 	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gofrs/flock"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -35,13 +34,15 @@ func (a *appState) configPath() string {
 	return path.Join(a.homePath, "config", "config.yaml")
 }
 
-// initConfig reads config file into a.Config if file is present.
-func (a *appState) initConfig(ctx context.Context) error {
+// loadConfigFile reads config file into a.Config if file is present.
+func (a *appState) loadConfigFile(ctx context.Context) error {
 	cfgPath := a.configPath()
+
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
 		return nil
 	}
+
 	// read the config file bytes
 	file, err := os.ReadFile(cfgPath)
 	if err != nil {
@@ -55,43 +56,18 @@ func (a *appState) initConfig(ctx context.Context) error {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
-	// verify that the channel filter rule is valid for every path in the config
-	for _, p := range cfgWrapper.Paths {
-		if err := p.ValidateChannelFilterRule(); err != nil {
-			return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
-		}
+	// retrieve the runtime configuration from the disk configuration.
+	newCfg, err := cfgWrapper.RuntimeConfig(ctx, a)
+	if err != nil {
+		return err
 	}
 
-	// build the config struct
-	chains := make(relayer.Chains)
-	for chainName, pcfg := range cfgWrapper.ProviderConfigs {
-		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
-			a.log.With(zap.String("provider_type", pcfg.Type)),
-			a.homePath, a.debug, chainName,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to build ChainProviders: %w", err)
-		}
-
-		if err := prov.Init(ctx); err != nil {
-			return fmt.Errorf("failed to initialize provider: %w", err)
-		}
-
-		chain := relayer.NewChain(a.log, prov, a.debug)
-		chains[chainName] = chain
-	}
-
-	newCfg := &Config{
-		Global: cfgWrapper.Global,
-		Chains: chains,
-		Paths:  cfgWrapper.Paths,
-	}
-
-	// ensure config has []*relayer.Chain used for all chain operations
+	// validate runtime configuration
 	if err := newCfg.validateConfig(); err != nil {
 		return fmt.Errorf("error parsing chain config: %w", err)
 	}
 
+	// save runtime configuration in app state
 	a.config = newCfg
 
 	return nil
@@ -213,7 +189,7 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 
 	// load config from file and validate it. don't want to miss
 	// any changes that may have been made while unlocked.
-	if err := a.initConfig(ctx); err != nil {
+	if err := a.loadConfigFile(ctx); err != nil {
 		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
