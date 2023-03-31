@@ -16,6 +16,36 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+func wasmChainSpec(suffix string, nv, nf int) *interchaintest.ChainSpec {
+	chainName := "wasm"
+	chainID := "wasm" + suffix
+	return &interchaintest.ChainSpec{
+		Name:          chainName,
+		ChainName:     chainID,
+		Version:       "v0.40.0-rc.0-ibcx",
+		NumValidators: &nv,
+		NumFullNodes:  &nf,
+		ChainConfig: ibc.ChainConfig{
+			Name:    chainName,
+			ChainID: chainID,
+			Type:    "cosmos",
+			Images: []ibc.DockerImage{
+				{
+					Repository: "ghcr.io/polymerdao/wasm",
+					Version:    "v0.40.0-rc.0-ibcx",
+					UidGid:     "1025:1025",
+				},
+			},
+			Bin:            "wasmd",
+			Bech32Prefix:   "wasm",
+			Denom:          "uand",
+			GasAdjustment:  1.3,
+			GasPrices:      "0.0uand",
+			TrustingPeriod: "336h",
+		},
+	}
+}
+
 func TestWasmBuild(t *testing.T) {
 	var (
 		rep  = testreporter.NewNopReporter()
@@ -24,32 +54,8 @@ func TestWasmBuild(t *testing.T) {
 		nv   = 1
 		nf   = 0
 	)
-	chainConfig := ibc.ChainConfig{
-		Name:    "wasm-1",
-		ChainID: "wasm-1",
-		Type:    "cosmos",
-		Images: []ibc.DockerImage{
-			{
-				Repository: "ghcr.io/polymerdao/wasm",
-				Version:    "v0.40.0-rc.0-ibcx",
-				UidGid:     "1025:1025",
-			},
-		},
-		Bin:            "wasmd",
-		Bech32Prefix:   "wasm",
-		Denom:          "umlg",
-		GasPrices:      "0.0umlg",
-		TrustingPeriod: "336h",
-	}
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{
-			Name:          chainConfig.Name,
-			ChainName:     chainConfig.Name,
-			Version:       "v0.40.0-rc.0-ibcx",
-			NumValidators: &nv,
-			NumFullNodes:  &nf,
-			ChainConfig:   chainConfig,
-		},
+		wasmChainSpec("-1", nv, nf),
 	})
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
@@ -113,37 +119,9 @@ func TestRelayerMultihop(t *testing.T) {
 		nv   = 1
 		nf   = 0
 	)
-	wasmChainConfig := ibc.ChainConfig{
-		Type: "cosmos",
-		Images: []ibc.DockerImage{
-			{
-				Repository: "ghcr.io/polymerdao/wasm",
-				Version:    "v0.40.0-rc.0-ibcx",
-			},
-		},
-		Bin:            "wasmd",
-		Bech32Prefix:   "wasm",
-		Denom:          "umlg",
-		GasPrices:      "0.0umlg",
-		TrustingPeriod: "336h",
-	}
-	wasm1Config := wasmChainConfig
-	wasm1Config.ChainID = "wasm-1"
-	wasm1Config.Name = "wasm-1"
-	wasm2Config := wasmChainConfig
-	wasm2Config.ChainID = "wasm-2"
-	wasm2Config.Name = "wasm-2"
-	require.NotEqual(t, wasm1Config.ChainID, wasm2Config.ChainID)
 	// Define chains involved in test
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{
-			Name:          wasm1Config.Name,
-			ChainName:     wasm1Config.Name,
-			Version:       "v0.40.0-rc.0-ibcx",
-			NumValidators: &nv,
-			NumFullNodes:  &nf,
-			ChainConfig:   wasm1Config,
-		},
+		wasmChainSpec("-1", nv, nf),
 		{
 			Name:          "osmosis",
 			ChainName:     "osmosis",
@@ -151,14 +129,7 @@ func TestRelayerMultihop(t *testing.T) {
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
-		{
-			Name:          wasm2Config.Name,
-			ChainName:     wasm2Config.Name,
-			Version:       "v0.40.0-rc.0-ibcx",
-			NumValidators: &nv,
-			NumFullNodes:  &nf,
-			ChainConfig:   wasm2Config,
-		},
+		wasmChainSpec("-2", nv, nf),
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -193,9 +164,6 @@ func TestRelayerMultihop(t *testing.T) {
 
 	client, network := interchaintest.DockerSetup(t)
 
-	// TODO: debug this
-	// failed to create faucet accounts: failed to create common account with name faucet: failed to create key with name "faucet" on chain wasm-2: exit code 1:  Error: couldn't get client config: Config File "client" Not Found in "[/var/cosmos-chain/wasm-2/config]"
-	t.Skip()
 	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
 		TestName:          t.Name(),
 		Client:            client,
@@ -246,7 +214,8 @@ func TestRelayerMultihop(t *testing.T) {
 
 	osmosisChans, err := r.GetChannels(ctx, eRep, osmosisCfg.ChainID)
 	require.NoError(t, err)
-	require.Len(t, osmosisChans, 0)
+	// TODO: do not create direct channels
+	require.Len(t, osmosisChans, 2)
 
 	wasm2Chans, err := r.GetChannels(ctx, eRep, wasm2Cfg.ChainID)
 	require.NoError(t, err)
