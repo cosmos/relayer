@@ -130,12 +130,14 @@ func chainsDeleteCmd(a *appState) *cobra.Command {
 $ %s chains delete ibc-0
 $ %s ch d ibc-0`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, ok := a.Config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-			a.Config.DeleteChain(args[0])
-			return a.OverwriteConfig(a.Config)
+			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
+				_, ok := a.Config.Chains[args[0]]
+				if !ok {
+					return errChainNotFound(args[0])
+				}
+				a.Config.DeleteChain(args[0])
+				return nil
+			})
 		},
 	}
 	return cmd
@@ -287,40 +289,37 @@ func chainsAddCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("config not initialized, consider running `rly config init`")
 			}
 
-			// default behavior fetch from chain registry
-			// still allow for adding config from url or file
-			switch {
-			case file != "":
-				var chainName string
-				switch len(args) {
-				case 0:
-					chainName = strings.Split(filepath.Base(file), ".")[0]
-				case 1:
-					chainName = args[0]
+			return a.PerformConfigLockingOperation(cmd.Context(), func() error {
+				// default behavior fetch from chain registry
+				// still allow for adding config from url or file
+				switch {
+				case file != "":
+					var chainName string
+					switch len(args) {
+					case 0:
+						chainName = strings.Split(filepath.Base(file), ".")[0]
+					case 1:
+						chainName = args[0]
+					default:
+						return errors.New("one chain name is required")
+					}
+					if err := addChainFromFile(a, chainName, file); err != nil {
+						return err
+					}
+				case url != "":
+					if len(args) != 1 {
+						return errors.New("one chain name is required")
+					}
+					if err := addChainFromURL(a, args[0], url); err != nil {
+						return err
+					}
 				default:
-					return errors.New("one chain name is required")
+					if err := addChainsFromRegistry(cmd.Context(), a, args); err != nil {
+						return err
+					}
 				}
-				if err := addChainFromFile(a, chainName, file); err != nil {
-					return err
-				}
-			case url != "":
-				if len(args) != 1 {
-					return errors.New("one chain name is required")
-				}
-				if err := addChainFromURL(a, args[0], url); err != nil {
-					return err
-				}
-			default:
-				if err := addChainsFromRegistry(cmd.Context(), a, args); err != nil {
-					return err
-				}
-			}
-
-			if err := validateConfig(a.Config); err != nil {
-				return err
-			}
-
-			return a.OverwriteConfig(a.Config)
+				return nil
+			})
 		},
 	}
 
@@ -340,10 +339,7 @@ func chainsAddDirCmd(a *appState) *cobra.Command {
 $ %s chains add-dir configs/demo/chains
 $ %s ch ad testnet/chains/`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			if err := addChainsFromDirectory(cmd.ErrOrStderr(), a, args[0]); err != nil {
-				return err
-			}
-			return a.OverwriteConfig(a.Config)
+			return addChainsFromDirectory(cmd.Context(), cmd.ErrOrStderr(), a, args[0])
 		},
 	}
 

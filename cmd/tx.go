@@ -103,7 +103,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 			if clientSrc != "" || clientDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, path, clientSrc, clientDst, "", ""); err != nil {
+				if err := a.OverwriteConfigOnTheFly(cmd.Context(), path, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
@@ -220,7 +220,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				clientDst = clientID
 			}
 			if clientID != "" {
-				if err = a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
+				if err = a.OverwriteConfigOnTheFly(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
@@ -380,7 +380,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 			if clientSrc != "" || clientDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
+				if err := a.OverwriteConfigOnTheFly(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
@@ -390,7 +390,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 			if connectionSrc != "" || connectionDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
+				if err := a.OverwriteConfigOnTheFly(cmd.Context(), pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
 				}
 			}
@@ -651,7 +651,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return fmt.Errorf("error creating clients: %w", err)
 			}
 			if clientSrc != "" || clientDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
+				if err := a.OverwriteConfigOnTheFly(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
@@ -662,7 +662,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return fmt.Errorf("error creating connections: %w", err)
 			}
 			if connectionSrc != "" || connectionDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
+				if err := a.OverwriteConfigOnTheFly(cmd.Context(), pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
 				}
 			}

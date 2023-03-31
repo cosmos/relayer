@@ -10,8 +10,8 @@ import (
 	"path"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gofrs/flock"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -29,6 +29,70 @@ type appState struct {
 	HomePath string
 	Debug    bool
 	Config   *Config
+}
+
+// initConfig reads config file into a.Config if file is present.
+func (a *appState) initConfig(ctx context.Context) error {
+	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
+	if _, err := os.Stat(cfgPath); err != nil {
+		// don't return error if file doesn't exist
+		return nil
+	}
+	a.Viper.SetConfigFile(cfgPath)
+	if err := a.Viper.ReadInConfig(); err != nil {
+		return err
+	}
+	// read the config file bytes
+	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
+	if err != nil {
+		return fmt.Errorf("error reading file:", err)
+	}
+
+	// unmarshall them into the wrapper struct
+	cfgWrapper := &ConfigInputWrapper{}
+	err = yaml.Unmarshal(file, cfgWrapper)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling config:", err)
+	}
+
+	// verify that the channel filter rule is valid for every path in the config
+	for _, p := range cfgWrapper.Paths {
+		if err := p.ValidateChannelFilterRule(); err != nil {
+			return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
+		}
+	}
+
+	// build the config struct
+	chains := make(relayer.Chains)
+	for chainName, pcfg := range cfgWrapper.ProviderConfigs {
+		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
+			a.Log.With(zap.String("provider_type", pcfg.Type)),
+			a.HomePath, a.Debug, chainName,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to build ChainProviders: %w", err)
+		}
+
+		if err := prov.Init(ctx); err != nil {
+			return fmt.Errorf("failed to initialize provider: %w", err)
+		}
+
+		chain := relayer.NewChain(a.Log, prov, a.Debug)
+		chains[chainName] = chain
+	}
+
+	a.Config = &Config{
+		Global: cfgWrapper.Global,
+		Chains: chains,
+		Paths:  cfgWrapper.Paths,
+	}
+
+	// ensure config has []*relayer.Chain used for all chain operations
+	if err := validateConfig(a.Config); err != nil {
+		return fmt.Errorf("error parsing chain config: %w", err)
+	}
+
+	return nil
 }
 
 // AddPathFromFile modifies a.config.Paths to include the content stored in the given file.
@@ -125,57 +189,7 @@ func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, st
 	return a.Config.Paths.Add(name, path)
 }
 
-// OverwriteConfig overwrites the config files on disk with the serialization of cfg,
-// and it replaces a.Config with cfg.
-//
-// It is possible to use a brand new Config argument,
-// but typically the argument is a.Config.
-func (a *appState) OverwriteConfig(cfg *Config) error {
-	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
-	if _, err := os.Stat(cfgPath); err != nil {
-		return fmt.Errorf("failed to check existence of config file at %s: %w", cfgPath, err)
-	}
-
-	a.Viper.SetConfigFile(cfgPath)
-	if err := a.Viper.ReadInConfig(); err != nil {
-		// TODO: if we failed to read in the new config, should we restore the old config?
-		return fmt.Errorf("failed to read config file at %s: %w", cfgPath, err)
-	}
-
-	// ensure validateConfig runs properly
-	if err := validateConfig(cfg); err != nil {
-		return fmt.Errorf("failed to validate config at %s: %w", cfgPath, err)
-	}
-
-	// marshal the new config
-	out, err := yaml.Marshal(cfg.Wrapped())
-	if err != nil {
-		return err
-	}
-
-	// Overwrite the config file.
-	if err := os.WriteFile(a.Viper.ConfigFileUsed(), out, 0600); err != nil {
-		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
-	}
-
-	// Write the config back into the app state.
-	a.Config = cfg
-	return nil
-}
-
-// OverwriteConfigOnTheFly overwrites the config file concurrently,
-// locking to read, modify, then write the config.
-func (a *appState) OverwriteConfigOnTheFly(
-	cmd *cobra.Command,
-	pathName string,
-	clientSrc, clientDst string,
-	connectionSrc, connectionDst string,
-) error {
-	if pathName == "" {
-		return errors.New("empty path name not allowed")
-	}
-
-	// use lock file to guard concurrent access to config.yaml
+func (a *appState) PerformConfigLockingOperation(ctx context.Context, operation func() error) error {
 	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
 	fileLock := flock.New(lockFilePath)
 	_, err := fileLock.TryLock()
@@ -192,25 +206,16 @@ func (a *appState) OverwriteConfigOnTheFly(
 
 	// load config from file and validate it. don't want to miss
 	// any changes that may have been made while unlocked.
-	if err := initConfig(cmd, a); err != nil {
+	if err := a.initConfig(ctx); err != nil {
 		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
-	path, ok := a.Config.Paths[pathName]
-	if !ok {
-		return fmt.Errorf("config does not exist for that path: %s", pathName)
+	if err := operation(); err != nil {
+		return err
 	}
-	if clientSrc != "" {
-		path.Src.ClientID = clientSrc
-	}
-	if clientDst != "" {
-		path.Dst.ClientID = clientDst
-	}
-	if connectionSrc != "" {
-		path.Src.ConnectionID = connectionSrc
-	}
-	if connectionDst != "" {
-		path.Dst.ConnectionID = connectionDst
+
+	if err := validateConfig(a.Config); err != nil {
+		return fmt.Errorf("error parsing chain config: %w", err)
 	}
 
 	// marshal the new config
@@ -227,4 +232,37 @@ func (a *appState) OverwriteConfigOnTheFly(
 	}
 
 	return nil
+}
+
+// OverwriteConfigOnTheFly overwrites the config file concurrently,
+// locking to read, modify, then write the config.
+func (a *appState) OverwriteConfigOnTheFly(
+	ctx context.Context,
+	pathName string,
+	clientSrc, clientDst string,
+	connectionSrc, connectionDst string,
+) error {
+	if pathName == "" {
+		return errors.New("empty path name not allowed")
+	}
+
+	return a.PerformConfigLockingOperation(ctx, func() error {
+		path, ok := a.Config.Paths[pathName]
+		if !ok {
+			return fmt.Errorf("config does not exist for that path: %s", pathName)
+		}
+		if clientSrc != "" {
+			path.Src.ClientID = clientSrc
+		}
+		if clientDst != "" {
+			path.Dst.ClientID = clientDst
+		}
+		if connectionSrc != "" {
+			path.Src.ConnectionID = connectionSrc
+		}
+		if connectionDst != "" {
+			path.Dst.ConnectionID = connectionDst
+		}
+		return nil
+	})
 }

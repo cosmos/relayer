@@ -175,48 +175,51 @@ $ %s cfg i`, appName, defaultHome, appName)),
 // If any files fail to parse or otherwise are not able to be added to a's chains,
 // the error is logged.
 // An error is only returned if the directory cannot be read at all.
-func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
+func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		pth := filepath.Join(dir, f.Name())
-		if f.IsDir() {
-			fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
-			continue
-		}
 
-		byt, err := os.ReadFile(pth)
-		if err != nil {
-			fmt.Fprintf(stderr, "failed to read file %s. Err: %v skipping...\n", pth, err)
-			continue
-		}
+	return a.PerformConfigLockingOperation(ctx, func() error {
+		for _, f := range files {
+			pth := filepath.Join(dir, f.Name())
+			if f.IsDir() {
+				fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
+				continue
+			}
 
-		var pcw ProviderConfigWrapper
-		if err = json.Unmarshal(byt, &pcw); err != nil {
-			fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
-			continue
-		}
-		chainName := strings.Split(f.Name(), ".")[0]
-		prov, err := pcw.Value.NewProvider(
-			a.Log.With(zap.String("provider_type", pcw.Type)),
-			a.HomePath, a.Debug, chainName,
-		)
-		if err != nil {
-			fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
-			continue
-		}
+			byt, err := os.ReadFile(pth)
+			if err != nil {
+				fmt.Fprintf(stderr, "failed to read file %s. Err: %v skipping...\n", pth, err)
+				continue
+			}
 
-		c := relayer.NewChain(a.Log, prov, a.Debug)
-		if err = a.Config.AddChain(c); err != nil {
-			fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
-			continue
+			var pcw ProviderConfigWrapper
+			if err = json.Unmarshal(byt, &pcw); err != nil {
+				fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
+				continue
+			}
+			chainName := strings.Split(f.Name(), ".")[0]
+			prov, err := pcw.Value.NewProvider(
+				a.Log.With(zap.String("provider_type", pcw.Type)),
+				a.HomePath, a.Debug, chainName,
+			)
+			if err != nil {
+				fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
+				continue
+			}
+
+			c := relayer.NewChain(a.Log, prov, a.Debug)
+			if err = a.Config.AddChain(c); err != nil {
+				fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
+				continue
+			}
+			fmt.Fprintf(stderr, "added chain %s...\n", c.ChainProvider.ChainId())
 		}
-		fmt.Fprintf(stderr, "added chain %s...\n", c.ChainProvider.ChainId())
-	}
-	return nil
+		return nil
+	})
 }
 
 // addPathsFromDirectory parses all the files containing JSON-encoded paths in dir,
@@ -230,36 +233,38 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		pth := filepath.Join(dir, f.Name())
-		if f.IsDir() {
-			fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
-			continue
+	return a.PerformConfigLockingOperation(ctx, func() error {
+		for _, f := range files {
+			pth := filepath.Join(dir, f.Name())
+			if f.IsDir() {
+				fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
+				continue
+			}
+
+			byt, err := os.ReadFile(pth)
+			if err != nil {
+				return fmt.Errorf("failed to read file %s: %w", pth, err)
+			}
+
+			p := &relayer.Path{}
+			if err = json.Unmarshal(byt, p); err != nil {
+				return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+			}
+
+			pthName := strings.Split(f.Name(), ".")[0]
+			if err := a.Config.ValidatePath(ctx, stderr, p); err != nil {
+				return fmt.Errorf("failed to validate path %s: %w", pth, err)
+			}
+
+			if err := a.Config.AddPath(pthName, p); err != nil {
+				return fmt.Errorf("failed to add path %s: %w", pth, err)
+			}
+
+			fmt.Fprintf(stderr, "added path %s...\n\n", pthName)
 		}
 
-		byt, err := os.ReadFile(pth)
-		if err != nil {
-			return fmt.Errorf("failed to read file %s: %w", pth, err)
-		}
-
-		p := &relayer.Path{}
-		if err = json.Unmarshal(byt, p); err != nil {
-			return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
-		}
-
-		pthName := strings.Split(f.Name(), ".")[0]
-		if err := a.Config.ValidatePath(ctx, stderr, p); err != nil {
-			return fmt.Errorf("failed to validate path %s: %w", pth, err)
-		}
-
-		if err := a.Config.AddPath(pthName, p); err != nil {
-			return fmt.Errorf("failed to add path %s: %w", pth, err)
-		}
-
-		fmt.Fprintf(stderr, "added path %s...\n\n", pthName)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // Wrapped converts the Config struct into a ConfigOutputWrapper struct
@@ -535,81 +540,6 @@ func validateConfig(c *Config) error {
 	_, err := time.ParseDuration(c.Global.Timeout)
 	if err != nil {
 		return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
-	}
-
-	return nil
-}
-
-// initConfig reads config file into a.Config if file is present.
-func initConfig(cmd *cobra.Command, a *appState) error {
-	if a.HomePath == "" {
-		var err error
-		a.HomePath, err = cmd.PersistentFlags().GetString(flagHome)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
-	if _, err := os.Stat(cfgPath); err != nil {
-		// don't return error if file doesn't exist
-		return nil
-	}
-	a.Viper.SetConfigFile(cfgPath)
-	if err := a.Viper.ReadInConfig(); err != nil {
-		return err
-	}
-	// read the config file bytes
-	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
-	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Error reading file:", err)
-		return err
-	}
-
-	// unmarshall them into the wrapper struct
-	cfgWrapper := &ConfigInputWrapper{}
-	err = yaml.Unmarshal(file, cfgWrapper)
-	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Error unmarshalling config:", err)
-		return err
-	}
-
-	// verify that the channel filter rule is valid for every path in the config
-	for _, p := range cfgWrapper.Paths {
-		if err := p.ValidateChannelFilterRule(); err != nil {
-			return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
-		}
-	}
-
-	// build the config struct
-	chains := make(relayer.Chains)
-	for chainName, pcfg := range cfgWrapper.ProviderConfigs {
-		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
-			a.Log.With(zap.String("provider_type", pcfg.Type)),
-			a.HomePath, a.Debug, chainName,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to build ChainProviders: %w", err)
-		}
-
-		if err := prov.Init(cmd.Context()); err != nil {
-			return fmt.Errorf("failed to initialize provider: %w", err)
-		}
-
-		chain := relayer.NewChain(a.Log, prov, a.Debug)
-		chains[chainName] = chain
-	}
-
-	a.Config = &Config{
-		Global: cfgWrapper.Global,
-		Chains: chains,
-		Paths:  cfgWrapper.Paths,
-	}
-
-	// ensure config has []*relayer.Chain used for all chain operations
-	if err := validateConfig(a.Config); err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Error parsing chain config:", err)
-		return err
 	}
 
 	return nil

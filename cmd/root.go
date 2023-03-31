@@ -87,7 +87,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 		}
 
 		// reads `homeDir/config/config.yaml` into `a.Config`
-		return initConfig(rootCmd, a)
+		return a.initConfig(rootCmd.Context())
 	}
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
