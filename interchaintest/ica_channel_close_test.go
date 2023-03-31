@@ -85,11 +85,12 @@ func TestScenarioICAChannelClose(t *testing.T) {
 		})
 
 	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
-		TestName:          t.Name(),
-		Client:            client,
-		NetworkID:         network,
-		SkipPathCreation:  true,
-		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
+		TestName:         t.Name(),
+		Client:           client,
+		NetworkID:        network,
+		SkipPathCreation: true,
+		// Uncomment this to load blocks, txs, msgs, and events into sqlite db as test runs
+		// BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 	}))
 
 	// Fund a user account on chain1 and chain2

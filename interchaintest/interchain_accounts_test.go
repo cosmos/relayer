@@ -90,6 +90,8 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 		Client:           client,
 		NetworkID:        network,
 		SkipPathCreation: true,
+		// Uncomment this to load blocks, txs, msgs, and events into sqlite db as test runs
+		// BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 	}))
 
 	// Fund a user account on chain1 and chain2
