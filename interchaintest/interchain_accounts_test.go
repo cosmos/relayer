@@ -272,17 +272,15 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	err = r.StartRelayer(ctx, eRep, pathName)
 	require.NoError(t, err)
 
-	c1h, err = chain1.Height(ctx)
+	c2h, err = chain2.Height(ctx)
 	require.NoError(t, err)
 
-	timeoutFound := func(found *chantypes.MsgTimeout) bool {
-		return found.Packet.Sequence == 2 &&
-			found.Packet.SourcePort == "icacontroller-"+chain1Addr &&
-			found.Packet.DestinationPort == "icahost"
+	chanCloseFound := func(found *chantypes.MsgChannelCloseConfirm) bool {
+		return found.PortId == "icahost"
 	}
 
-	// Wait for timeout
-	_, err = cosmos.PollForMessage(ctx, chain1, ir, c1h, c1h+10, timeoutFound)
+	// Wait for channel close confirm
+	_, err = cosmos.PollForMessage(ctx, chain2, ir, c2h, c2h+30, chanCloseFound)
 	require.NoError(t, err)
 
 	// Assert that the packet timed out and that the acc balances are correct
