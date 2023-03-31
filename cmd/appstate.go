@@ -45,14 +45,14 @@ func (a *appState) initConfig(ctx context.Context) error {
 	// read the config file bytes
 	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
 	if err != nil {
-		return fmt.Errorf("error reading file:", err)
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	// unmarshall them into the wrapper struct
 	cfgWrapper := &ConfigInputWrapper{}
 	err = yaml.Unmarshal(file, cfgWrapper)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling config:", err)
+		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
 	// verify that the channel filter rule is valid for every path in the config
