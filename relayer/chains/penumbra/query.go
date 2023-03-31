@@ -522,7 +522,7 @@ func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, heig
 	if err := eg.Wait(); err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
-	cc.log.Info("GenerateConnHandshakeProof", zap.Int64("height", height), zap.Any("connId", connId), zap.Any("connectionStateRes", connectionStateRes))
+	cc.log.Debug("GenerateConnHandshakeProof", zap.Int64("height", height), zap.Any("connId", connId), zap.Any("connectionStateRes", connectionStateRes))
 
 	return clientState, clientStateRes.Proof, consensusStateRes.Proof, connectionStateRes.Proof, connectionStateRes.ProofHeight, nil
 }

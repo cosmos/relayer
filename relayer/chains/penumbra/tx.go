@@ -282,7 +282,6 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
-	fmt.Printf("tx.go events: %+v\n", resp.Events)
 	for _, event := range resp.Events {
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
@@ -302,7 +301,6 @@ func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.Relayer
 			Attributes: attributes,
 		})
 	}
-	fmt.Printf("parsed events: %+v\n", events)
 	return events
 
 }
@@ -338,7 +336,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 		Anchor:     anchor,
 	}
 
-	cc.log.Info("broadcasting penumbra tx")
+	cc.log.Debug("Broadcasting penumbra tx")
 	txBytes, err := cosmosproto.Marshal(tx)
 	if err != nil {
 		return nil, err
@@ -365,7 +363,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 	if err != nil {
 		return nil, false, err
 	}
-	cc.log.Info("waiting for penumbra tx to commit", zap.String("syncRes", fmt.Sprintf("%+v", syncRes)))
+	cc.log.Debug("Waiting for penumbra tx to commit", zap.String("syncRes", fmt.Sprintf("%+v", syncRes)))
 
 	if err := retry.Do(func() error {
 		ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
@@ -375,7 +373,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 		if err != nil {
 			return err
 		}
-		cc.log.Info("got penumbra tx result", zap.String("res", fmt.Sprintf("%+v", res)))
+		cc.log.Debug("Received penumbra tx result", zap.String("res", fmt.Sprintf("%+v", res)))
 
 		height = res.Height
 		txhash = syncRes.Hash.String()
@@ -620,7 +618,7 @@ func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvi
 	if err != nil {
 		return nil, err
 	}
-	cc.log.Info("ConnectionOpenAck", zap.String("updateMsg", fmt.Sprintf("%+v", updateMsg)), zap.Any("proofHeight", proofHeight))
+	cc.log.Debug("ConnectionOpenAck", zap.String("updateMsg", fmt.Sprintf("%+v", updateMsg)), zap.Any("proofHeight", proofHeight))
 
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
@@ -1932,58 +1930,6 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
-/*
-fn apphash_spec() -> ics23::ProofSpec {
-    ics23::ProofSpec {
-        // the leaf hash is simply H(key || value)
-        leaf_spec: Some(ics23::LeafOp {
-            prefix: vec![],
-            hash: ics23::HashOp::Sha256.into(),
-            length: ics23::LengthOp::NoPrefix.into(),
-            prehash_key: ics23::HashOp::NoHash.into(),
-            prehash_value: ics23::HashOp::NoHash.into(),
-        }),
-        // NOTE: we don't actually use any InnerOps.
-        inner_spec: Some(ics23::InnerSpec {
-            hash: ics23::HashOp::Sha256.into(),
-            child_order: vec![0, 1],
-            child_size: 32,
-            empty_child: vec![],
-            min_prefix_length: 0,
-            max_prefix_length: 0,
-        }),
-        min_depth: 0,
-        max_depth: 1,
-    }
-}
-
-pub fn ics23_spec() -> ics23::ProofSpec {
-    ics23::ProofSpec {
-        leaf_spec: Some(ics23::LeafOp {
-            hash: ics23::HashOp::Sha256.into(),
-            prehash_key: ics23::HashOp::Sha256.into(),
-            prehash_value: ics23::HashOp::Sha256.into(),
-            length: ics23::LengthOp::NoPrefix.into(),
-            prefix: b"JMT::LeafNode".to_vec(),
-        }),
-        inner_spec: Some(ics23::InnerSpec {
-            // This is the only field we're sure about
-            hash: ics23::HashOp::Sha256.into(),
-            // These fields are apparently used for neighbor tests in range proofs,
-            // and could be wrong:
-            child_order: vec![0, 1], //where exactly does this need to be true?
-            min_prefix_length: 16,   //what is this?
-            max_prefix_length: 48,   //and this?
-            child_size: 32,
-            empty_child: vec![], //check JMT repo to determine if special value used here
-        }),
-        // TODO: check this
-        min_depth: 0,
-        // TODO:
-        max_depth: 64,
-    }
-*/
-
 var JmtSpec = &ics23.ProofSpec{
 	LeafSpec: &ics23.LeafOp{
 		Hash:         ics23.HashOp_SHA256,
@@ -2284,6 +2230,6 @@ func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provi
 
 func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []provider.RelayerMessage, memo string, asyncCtx context.Context, asyncCallback func(*provider.RelayerTxResponse, error)) error {
 	sendRsp, err := cc.sendMessagesInner(ctx, msgs, memo)
-	cc.log.Info("send messages response", zap.Any("response", sendRsp), zap.Error(err))
+	cc.log.Debug("Received response from sending messages", zap.Any("response", sendRsp), zap.Error(err))
 	return err
 }

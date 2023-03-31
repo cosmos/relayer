@@ -510,7 +510,6 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 // parseClientIDFromEvents parses events emitted from a MsgCreateClient and returns the
 // client identifier.
 func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
-	fmt.Printf("client.go events: %+v\n", events)
 	for _, event := range events {
 		if event.EventType == clienttypes.EventTypeCreateClient {
 			for attributeKey, attributeValue := range event.Attributes {
