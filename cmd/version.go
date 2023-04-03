@@ -76,5 +76,5 @@ $ %s v`,
 		},
 	}
 
-	return jsonFlag(a.Viper, versionCmd)
+	return jsonFlag(a.viper, versionCmd)
 }
