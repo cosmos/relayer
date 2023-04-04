@@ -257,8 +257,9 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 				newHop := &relayer.PathHop{
 					ChainID: hop,
 					PathEnds: [2]*relayer.PathEnd{
-						&relayer.PathEnd{ChainID: lastChainID},
-						&relayer.PathEnd{},
+						{
+							ChainID: lastChainID,
+						}, {},
 					},
 				}
 				if i > 0 {

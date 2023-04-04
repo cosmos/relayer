@@ -418,9 +418,9 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 	}
 	hops := []*relayer.Chain{}
 	for _, hop := range pth.Hops {
-		hopChain, found := chains[hop.ChainID]
-		if !found {
-			return nil, "", "", nil, fmt.Errorf("chain %s not found", hop.ChainID)
+		hopChain, err := c.Chains.Get(hop.ChainID)
+		if err != nil {
+			return nil, "", "", nil, err
 		}
 		if err = hopChain.SetRelayPaths(hop.PathEnds); err != nil {
 			return nil, "", "", nil, err
