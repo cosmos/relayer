@@ -740,8 +740,8 @@ func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 
 func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	pr := types.BTPBlockParam{
-		Height:       types.NewHexInt(height),
-		BTPNetworkID: types.NewHexInt(icp.PCfg.BTPNetworkID),
+		Height:    types.NewHexInt(height),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {

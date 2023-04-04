@@ -216,9 +216,9 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 
 	// request parameters
 	reqBTPBlocks := &types.BTPRequest{
-		Height:       types.NewHexInt((persistence.lastQueriedHeight)),
-		BTPNetworkID: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
-		ProofFlag:    types.NewHexInt(0),
+		Height:    types.NewHexInt((persistence.lastQueriedHeight)),
+		NetworkID: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
+		ProofFlag: types.NewHexInt(0),
 	}
 	reqIconBlocks := &types.BlockRequest{
 		Height:       types.NewHexInt(int64(persistence.lastQueriedHeight)),
