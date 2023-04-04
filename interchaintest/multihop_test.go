@@ -284,9 +284,9 @@ func TestRelayerMultihop(t *testing.T) {
 	// Build the network; spin up the chains and configure the relayer
 	const pathWasm1Osmosis = "wasm1-osmosis"
 	const pathOsmosisWasm2 = "osmosis-wasm2"
+	const pathWasm1Wasm2 = "wasm1-wasm2"
 	const relayerName = "relayer"
 
-	// TODO: create connections but not channels
 	ic := interchaintest.NewInterchain().
 		AddChain(wasm1).
 		AddChain(osmosis).
@@ -303,6 +303,12 @@ func TestRelayerMultihop(t *testing.T) {
 			Chain2:  wasm2,
 			Relayer: r,
 			Path:    pathOsmosisWasm2,
+		}).
+		AddLink(interchaintest.InterchainLink{
+			Chain1:  wasm1,
+			Chain2:  wasm2,
+			Relayer: r,
+			Path:    pathWasm1Wasm2,
 		})
 
 	client, network := interchaintest.DockerSetup(t)
@@ -313,14 +319,38 @@ func TestRelayerMultihop(t *testing.T) {
 		NetworkID:         network,
 		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 
-		SkipPathCreation: false,
+		SkipPathCreation: true,
 	}))
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
 
+	// Create clients and connections
+
+	// Single hop wasm1 -> osmosis
+	err = r.GeneratePath(ctx, eRep, wasm1.Config().ChainID, osmosis.Config().ChainID, pathWasm1Osmosis)
+	require.NoError(t, err)
+	err = r.CreateClients(ctx, eRep, pathWasm1Osmosis, ibc.DefaultClientOpts())
+	require.NoError(t, err)
+	err = r.CreateConnections(ctx, eRep, pathWasm1Osmosis)
+	require.NoError(t, err)
+
+	// Single hop osmosis -> wasm2
+	err = r.GeneratePath(ctx, eRep, osmosis.Config().ChainID, wasm2.Config().ChainID, pathOsmosisWasm2)
+	require.NoError(t, err)
+	err = r.CreateClients(ctx, eRep, pathOsmosisWasm2, ibc.DefaultClientOpts())
+	require.NoError(t, err)
+	err = r.CreateConnections(ctx, eRep, pathOsmosisWasm2)
+	require.NoError(t, err)
+
+	// Multihop wasm1 -> wasm2
+	err = r.GeneratePath(ctx, eRep, wasm1.Config().ChainID, wasm2.Config().ChainID, pathWasm1Wasm2,
+		osmosis.Config().ChainID)
+	require.NoError(t, err)
+	err = r.CreateChannel(ctx, eRep, pathWasm1Wasm2, ibc.DefaultChannelOpts())
+
 	// Start the relayers
-	err = r.StartRelayer(ctx, eRep, pathWasm1Osmosis, pathOsmosisWasm2)
+	err = r.StartRelayer(ctx, eRep, pathWasm1Osmosis, pathOsmosisWasm2, pathWasm1Wasm2)
 	require.NoError(t, err)
 
 	t.Cleanup(
@@ -331,6 +361,10 @@ func TestRelayerMultihop(t *testing.T) {
 			}
 		},
 	)
+
+	// Wait a few blocks for the relayer to start.
+	err = testutil.WaitForBlocks(ctx, 2, wasm1, osmosis, wasm2)
+	require.NoError(t, err)
 
 	// Fund user accounts, so we can query balances and make assertions.
 	const userFunds = int64(10_000_000)
