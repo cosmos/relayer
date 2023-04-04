@@ -282,8 +282,8 @@ func (c *Config) Wrapped() *ConfigOutputWrapper {
 }
 
 // rlyMemo returns a formatted message memo string
-// that includes "rly" and the version, e.g. "rly(v2.0.0)"
-// or "My custom memo | rly(v2.0.0)"
+// that includes "rly" and the version, e.g. "rly(v2.3.0)"
+// or "My custom memo | rly(v2.3.0)"
 func rlyMemo(memo string) string {
 	if memo == "-" {
 		// omit memo entirely
