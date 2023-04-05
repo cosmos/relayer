@@ -36,7 +36,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain := args[0]
-			cosmosChain, ok := a.Config.Chains[chain]
+			cosmosChain, ok := a.config.Chains[chain]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -64,8 +64,10 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && !update {
 				return fmt.Errorf("you specified granter '%s' which is different than configured feegranter '%s', but you did not specify the --overwrite-granter flag", granterKeyOrAddr, prov.PCfg.FeeGrants.GranterKey)
 			} else if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && update {
-				prov.PCfg.FeeGrants.GranterKey = granterKey
-				cfgErr := a.OverwriteConfig(a.Config)
+				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
+					prov.PCfg.FeeGrants.GranterKey = granterKey
+					return nil
+				})
 				cobra.CheckErr(cfgErr)
 			}
 
@@ -83,7 +85,9 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 					return feegrantErr
 				}
 
-				cfgErr := a.OverwriteConfig(a.Config)
+				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
+					return nil
+				})
 				cobra.CheckErr(cfgErr)
 			}
 
@@ -104,9 +108,12 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
 				h, err := prov.QueryLatestHeight(ctx)
 				cobra.CheckErr(err)
-				prov.PCfg.FeeGrants.BlockHeightVerified = h
-				fmt.Printf("Feegrant chain height marked: %d\n", h)
-				cfgErr := a.OverwriteConfig(a.Config)
+
+				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
+					prov.PCfg.FeeGrants.BlockHeightVerified = h
+					fmt.Printf("Feegrant chain height marked: %d\n", h)
+					return nil
+				})
 				cobra.CheckErr(cfgErr)
 			}
 
@@ -119,7 +126,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 	cmd.Flags().StringSliceVar(&grantees, "grantees", []string{}, "comma separated list of grantee key names (keys are created if they do not exist)")
 	cmd.MarkFlagsMutuallyExclusive("num-grantees", "grantees")
 
-	memoFlag(a.Viper, cmd)
+	memoFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -130,7 +137,7 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain := args[0]
-			cosmosChain, ok := a.Config.Chains[chain]
+			cosmosChain, ok := a.config.Chains[chain]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -180,5 +187,5 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 			return nil
 		},
 	}
-	return paginationFlags(a.Viper, cmd, "feegrant")
+	return paginationFlags(a.viper, cmd, "feegrant")
 }
