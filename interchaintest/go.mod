@@ -9,7 +9,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/ibc-go/v7 v7.0.0
 	github.com/cosmos/relayer/v2 v2.0.0
-	github.com/docker/docker v20.10.19+incompatible
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/moby/moby v20.10.22+incompatible
 	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230324180345-a06599d2eb8c
@@ -170,7 +170,7 @@ require (
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc2 // indirect
-	github.com/opencontainers/runc v1.1.3 // indirect
+	github.com/opencontainers/runc v1.1.5 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/petermattis/goid v0.0.0-20221215004737-a150e88a970d // indirect
