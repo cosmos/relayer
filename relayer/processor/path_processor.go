@@ -95,11 +95,7 @@ func NewPathProcessor(
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
 ) *PathProcessor {
-	if flushInterval == 0 {
-		// "disable" periodic flushing by using a large value.
-		flushInterval = 200 * 24 * 365 * time.Hour
-	}
-	return &PathProcessor{
+	pp := &PathProcessor{
 		log:                       log,
 		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
 		pathEnd2:                  newPathEndRuntime(log, pathEnd2, metrics),
@@ -109,10 +105,33 @@ func NewPathProcessor(
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
 	}
+	if flushInterval == 0 {
+		pp.disablePeriodicFlush()
+	}
+	return pp
+}
+
+// disablePeriodicFlush will "disable" periodic flushing by using a large value.
+func (pp *PathProcessor) disablePeriodicFlush() {
+	pp.flushInterval = 200 * 24 * 365 * time.Hour
 }
 
 func (pp *PathProcessor) SetMessageLifecycle(messageLifecycle MessageLifecycle) {
 	pp.messageLifecycle = messageLifecycle
+	if !pp.shouldFlush() {
+		// disable flushing when termination conditions are set, e.g. connection/channel handshakes
+		pp.disablePeriodicFlush()
+	}
+}
+
+func (pp *PathProcessor) shouldFlush() bool {
+	if pp.messageLifecycle == nil {
+		return true
+	}
+	if _, ok := pp.messageLifecycle.(*FlushLifecycle); ok {
+		return true
+	}
+	return false
 }
 
 // TEST USE ONLY
@@ -161,7 +180,7 @@ func (pp *PathProcessor) channelPairs() []channelPair {
 	}
 	pairs := make([]channelPair, len(channels))
 	i := 0
-	for k, _ := range channels {
+	for k := range channels {
 		pairs[i] = channelPair{
 			pathEnd1ChannelKey: k,
 			pathEnd2ChannelKey: k.Counterparty(),
@@ -299,16 +318,16 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			continue
 		}
 
-		if !pp.initialFlushComplete {
+		if pp.shouldFlush() && !pp.initialFlushComplete {
 			pp.flush(ctx)
 			pp.initialFlushComplete = true
-		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
+		} else if pp.shouldTerminateForFlushComplete() {
 			cancel()
 			return
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx); err != nil {
+		if err := pp.processLatestMessages(ctx, cancel); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

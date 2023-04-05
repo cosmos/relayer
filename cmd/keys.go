@@ -67,7 +67,7 @@ $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
 $ %s k a cosmoshub testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -85,8 +85,8 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 			}
 
 			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					coinType = int32(ccp.PCfg.Slip44)
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+					coinType = int32(*ccp.PCfg.Slip44)
 				} else {
 					coinType = int32(defaultCoinType)
 				}
@@ -138,7 +138,7 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -155,8 +155,8 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 			}
 
 			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					coinType = int32(ccp.PCfg.Slip44)
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+					coinType = int32(*ccp.PCfg.Slip44)
 				} else {
 					coinType = int32(defaultCoinType)
 				}
@@ -202,7 +202,7 @@ $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
 $ %s k d cosmoshub default`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -229,7 +229,7 @@ $ %s k d cosmoshub default`, appName, appName, appName)),
 		},
 	}
 
-	return skipConfirm(a.Viper, cmd)
+	return skipConfirm(a.viper, cmd)
 }
 
 func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
@@ -237,7 +237,7 @@ func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 
 	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
-		a.Log.Fatal("Failed to read input", zap.Error(err))
+		a.log.Fatal("Failed to read input", zap.Error(err))
 	}
 
 	switch strings.ToLower(response) {
@@ -264,7 +264,7 @@ $ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 
-			chain, ok := a.Config.Chains[chainName]
+			chain, ok := a.config.Chains[chainName]
 			if !ok {
 				return errChainNotFound(chainName)
 			}
@@ -301,7 +301,7 @@ $ %s keys show ibc-0
 $ %s keys show ibc-1 key2
 $ %s k s ibc-2 testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -342,7 +342,7 @@ $ %s keys export ibc-0 testkey
 $ %s k e cosmoshub testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}

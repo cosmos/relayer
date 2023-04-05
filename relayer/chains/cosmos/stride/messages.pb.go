@@ -5,10 +5,10 @@ package stride
 
 import (
 	fmt "fmt"
+	crypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
 	_ "github.com/cosmos/cosmos-proto"
 	proto "github.com/cosmos/gogoproto/proto"
 	_ "github.com/gogo/protobuf/gogoproto"
-	crypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
 	io "io"
 	math "math"
 	math_bits "math/bits"

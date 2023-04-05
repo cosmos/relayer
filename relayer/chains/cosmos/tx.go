@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -80,105 +81,22 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 // of that transaction will be logged. A boolean indicating if a transaction was successfully
 // sent and executed successfully is returned.
 func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	var resp *sdk.TxResponse
-	var fees sdk.Coins
+	var (
+		rlyResp     *provider.RelayerTxResponse
+		callbackErr error
+		wg          sync.WaitGroup
+	)
 
-	// Guard against account sequence number mismatch errors by locking for the specific wallet for
-	// the account sequence query all the way through the transaction broadcast success/fail.
-	cc.txMu.Lock()
-	defer cc.txMu.Unlock()
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		rlyResp = rtr
+		callbackErr = err
+		wg.Done()
+	}
+
+	wg.Add(1)
 
 	if err := retry.Do(func() error {
-		txBytes, sequence, f, err := cc.buildMessages(ctx, msgs, memo)
-		fees = f
-		if err != nil {
-			errMsg := err.Error()
-
-			// Account sequence mismatch errors can happen on the simulated transaction also.
-			if strings.Contains(errMsg, sdkerrors.ErrWrongSequence.Error()) {
-				cc.handleAccountSequenceMismatchError(err)
-				return err
-			}
-
-			// Occasionally the client will be out of date,
-			// and we will receive an RPC error like:
-			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: channel handshake open try failed: failed channel state verification for client (07-tendermint-0): client state height < proof height ({0 58} < {0 59}), please ensure the client has been updated: invalid height: invalid request
-			// or
-			//     rpc error: code = InvalidArgument desc = failed to execute message; message index: 1: receive packet verification failed: couldn't verify counterparty packet commitment: failed packet commitment verification for client (07-tendermint-0): client state height < proof height ({0 142} < {0 143}), please ensure the client has been updated: invalid height: invalid request
-			//
-			// No amount of retrying will fix this. The client needs to be updated.
-			// Unfortunately, the entirety of that error message originates on the server,
-			// so there is not an obvious way to access a more structured error value.
-			//
-			// If this logic should ever fail due to the string values of the error messages on the server
-			// changing from the client's version of the library,
-			// at worst this will run more unnecessary retries.
-			if strings.Contains(errMsg, sdkerrors.ErrInvalidHeight.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid height error",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// On a fast retry, it is possible to have an invalid connection state.
-			// Retrying that message also won't fix the underlying state mismatch,
-			// so log it and mark it as unrecoverable.
-			if strings.Contains(errMsg, conntypes.ErrInvalidConnectionState.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid connection state",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// Also possible to have an invalid channel state on a fast retry.
-			if strings.Contains(errMsg, chantypes.ErrInvalidChannelState.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid channel state",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// If the message reported an invalid proof, back off.
-			// NOTE: this error string ("invalid proof") will match other errors too,
-			// but presumably it is safe to stop retrying in those cases as well.
-			if strings.Contains(errMsg, commitmenttypes.ErrInvalidProof.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid proof",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			// Invalid packets should not be retried either.
-			if strings.Contains(errMsg, chantypes.ErrInvalidPacket.Error()) {
-				cc.log.Info(
-					"Skipping retry due to invalid packet",
-					zap.Error(err),
-				)
-				return retry.Unrecoverable(err)
-			}
-
-			return err
-		}
-
-		resp, err = cc.BroadcastTx(ctx, txBytes)
-		if err != nil {
-			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-				cc.handleAccountSequenceMismatchError(err)
-				return err
-			}
-
-			// Don't retry if BroadcastTx resulted in any other error.
-			return retry.Unrecoverable(err)
-		}
-
-		// we had a successful tx with this sequence, so update it to the next
-		cc.updateNextAccountSequence(sequence + 1)
-
-		return nil
+		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		cc.log.Info(
 			"Error building or broadcasting transaction",
@@ -187,32 +105,21 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			zap.Uint("max_attempts", rtyAttNum),
 			zap.Error(err),
 		)
-	})); err != nil || resp == nil {
+	})); err != nil {
 		return nil, false, err
 	}
 
-	rlyResp := &provider.RelayerTxResponse{
-		Height:    resp.Height,
-		TxHash:    resp.TxHash,
-		Codespace: resp.Codespace,
-		Code:      resp.Code,
-		Data:      resp.Data,
-		Events:    parseEventsFromTxResponse(resp),
+	wg.Wait()
+
+	if callbackErr != nil {
+		return rlyResp, false, callbackErr
 	}
 
-	// transaction was executed, log the success or failure using the tx response code
-	// NOTE: error is nil, logic should use the returned error to determine if the
-	// transaction was successfully executed.
 	if rlyResp.Code != 0 {
-		cc.LogFailedTx(rlyResp, nil, msgs)
-		cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
-		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", resp.Code)
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", rlyResp.Code)
 	}
 
-	cc.LogSuccessTx(resp, msgs)
-	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
-
-	return rlyResp, true, nil
+	return rlyResp, true, callbackErr
 }
 
 // SendMessagesToMempool simulates and broadcasts a transaction with the given msgs and memo.
@@ -281,8 +188,10 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
-	if err != nil {
-		if res == nil {
+	isErr := err != nil
+	isFailed := res != nil && res.Code != 0
+	if isErr || isFailed {
+		if isErr && res == nil {
 			// There are some cases where BroadcastTxSync will return an error but the associated
 			// ResultBroadcastTx will be nil.
 			return err
@@ -292,6 +201,12 @@ func (cc *CosmosProvider) broadcastTx(
 			Codespace: res.Codespace,
 			Code:      res.Code,
 			Data:      res.Data.String(),
+		}
+		if isFailed {
+			err = cc.sdkError(res.Codespace, res.Code)
+			if err == nil {
+				err = fmt.Errorf("transaction failed to execute")
+			}
 		}
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
@@ -385,7 +300,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 
 // mkTxResult decodes a comet transaction into an SDK TxResponse.
 func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
-	txbz, err := cc.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	txbz, err := cc.Cdc.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +396,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	// Generate the transaction bytes
 	if err := retry.Do(func() error {
 		var err error
-		txBytes, err = cc.Codec.TxConfig.TxEncoder()(tx)
+		txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
 		if err != nil {
 			return err
 		}
@@ -1046,14 +961,14 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 }
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
+	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: CosmosIBCHeader, actual: %T", trustedHeader)
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
 	}
 
-	latestCosmosHeader, ok := latestHeader.(CosmosIBCHeader)
+	latestCosmosHeader, ok := latestHeader.(provider.TendermintIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC header type, expected: CosmosIBCHeader, actual: %T", latestHeader)
+		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
 	}
 
 	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
@@ -1108,6 +1023,20 @@ func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provide
 		ProofOps:    proof.ProofOps,
 		Height:      proof.Height,
 		FromAddress: signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := clienttypes.NewMsgSubmitMisbehaviour(clientID, misbehaviour, signer)
+	if err != nil {
+		return nil, err
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -1199,7 +1128,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 	return msg, nil
 }
 
-// QueryIBCHeader returns the IBC compatible block header (CosmosIBCHeader) at a specific height.
+// QueryIBCHeader returns the IBC compatible block header (TendermintIBCHeader) at a specific height.
 func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")
@@ -1210,7 +1139,7 @@ func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider
 		return nil, err
 	}
 
-	return CosmosIBCHeader{
+	return provider.TendermintIBCHeader{
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
@@ -1252,7 +1181,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 			return err
 		}
 
-		trustedValidators = ibcHeader.(CosmosIBCHeader).ValidatorSet
+		trustedValidators = ibcHeader.(provider.TendermintIBCHeader).ValidatorSet
 		return err
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, fmt.Errorf(
@@ -1363,9 +1292,9 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 	}
 
 	cliCtx := client.Context{}.WithClient(cc.RPCClient).
-		WithInterfaceRegistry(cc.Codec.InterfaceRegistry).
+		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
 		WithChainID(cc.PCfg.ChainID).
-		WithCodec(cc.Codec.Marshaler)
+		WithCodec(cc.Cdc.Marshaler)
 
 	// Set the account number and sequence on the transaction factory and retry if fail
 	if err = retry.Do(func() error {
@@ -1455,7 +1384,7 @@ func (cc *CosmosProvider) TxFactory() tx.Factory {
 	return tx.Factory{}.
 		WithAccountRetriever(cc).
 		WithChainID(cc.PCfg.ChainID).
-		WithTxConfig(cc.Codec.TxConfig).
+		WithTxConfig(cc.Cdc.TxConfig).
 		WithGasAdjustment(cc.PCfg.GasAdjustment).
 		WithGasPrices(cc.PCfg.GasPrices).
 		WithKeybase(cc.Keybase).

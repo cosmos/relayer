@@ -158,7 +158,7 @@ func (r *Relayer) GetClients(ctx context.Context, _ ibc.RelayerExecReporter, cha
 		if strings.TrimSpace(client) == "" {
 			continue
 		}
-		var clientOutput *ibc.ClientOutput
+		clientOutput := &ibc.ClientOutput{}
 		if err := json.Unmarshal([]byte(client), clientOutput); err != nil {
 			return nil, fmt.Errorf("failed to parse client %q: %w", client, err)
 		}

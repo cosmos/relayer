@@ -49,7 +49,7 @@ func (cc *CosmosProvider) GetAccountWithHeight(clientCtx client.Context, addr sd
 	}
 
 	var acc authtypes.AccountI
-	if err := cc.Codec.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
+	if err := cc.Cdc.InterfaceRegistry.UnpackAny(res.Account, &acc); err != nil {
 		return nil, 0, err
 	}
 
