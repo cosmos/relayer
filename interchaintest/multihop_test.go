@@ -149,7 +149,6 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	const pathWasmOsmosis = "wasm-osmosis"
 	const relayerName = "relayer"
 
-	// TODO: create connections but not channels
 	ic := interchaintest.NewInterchain().
 		AddChain(wasm).
 		AddChain(osmosis).
@@ -169,11 +168,25 @@ func TestRelayerPathWithWasm(t *testing.T) {
 		NetworkID:         network,
 		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 
-		SkipPathCreation: false,
+		SkipPathCreation: true,
 	}))
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
+
+	// Create clients/connections/channels
+	err = r.GeneratePath(ctx, eRep, wasm.Config().ChainID, osmosis.Config().ChainID, pathWasmOsmosis)
+	require.NoError(t, err)
+	err = r.CreateClients(ctx, eRep, pathWasmOsmosis, ibc.DefaultClientOpts())
+	require.NoError(t, err)
+	// Wait a few blocks for the clients to be created.
+	err = testutil.WaitForBlocks(ctx, 2, wasm, osmosis)
+	err = r.CreateConnections(ctx, eRep, pathWasmOsmosis)
+	require.NoError(t, err)
+	// Wait a few blocks for the connections to be created.
+	err = testutil.WaitForBlocks(ctx, 2, wasm, osmosis)
+	err = r.CreateChannel(ctx, eRep, pathWasmOsmosis, ibc.DefaultChannelOpts())
+	require.NoError(t, err)
 
 	// Start the relayers
 	err = r.StartRelayer(ctx, eRep, pathWasmOsmosis)
@@ -354,6 +367,10 @@ func TestRelayerMultihop(t *testing.T) {
 		osmosis.Config().ChainID)
 	require.NoError(t, err)
 
+	// Create multihop channel
+	// TODO: fix this
+	// logger.go:130: 2023-04-05T15:59:34.294-0700	ERROR	Error fetching client state	{"chain_name": "wasm-1", "chain_id": "wasm-1", "client_id": "", "error": ": light client not found", "errorVerbose": "\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosProvider).QueryClientStateResponse\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/query.go:287\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosProvider).queryTMClientState\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/tx.go:1440\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosChainProcessor).clientState\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/cosmos_chain_processor.go:168\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosChainProcessor).queryCycle\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/cosmos_chain_processor.go:435\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosChainProcessor).Run\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/cosmos_chain_processor.go:246\ngithub.com/cosmos/relayer/v2/relayer/processor.EventProcessor.Run.func2\n\t/Users/giuseppe/Developer/relayer/relayer/processor/event_processor.go:98\ngolang.org/x/sync/errgroup.(*Group).Go.func1\n\t/Users/giuseppe/Developer/go/pkg/mod/golang.org/x/sync@v0.1.0/errgroup/errgroup.go:75\n: light client not found"}
+	// logger.go:130: 2023-04-05T15:59:35.494-0700	ERROR	Error fetching client state	{"chain_name": "wasm-2", "chain_id": "wasm-2", "client_id": "", "error": ": light client not found", "errorVerbose": "\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosProvider).QueryClientStateResponse\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/query.go:287\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosProvider).queryTMClientState\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/tx.go:1440\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosChainProcessor).clientState\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/cosmos_chain_processor.go:168\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosChainProcessor).queryCycle\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/cosmos_chain_processor.go:435\ngithub.com/cosmos/relayer/v2/relayer/chains/cosmos.(*CosmosChainProcessor).Run\n\t/Users/giuseppe/Developer/relayer/relayer/chains/cosmos/cosmos_chain_processor.go:246\ngithub.com/cosmos/relayer/v2/relayer/processor.EventProcessor.Run.func2\n\t/Users/giuseppe/Developer/relayer/relayer/processor/event_processor.go:98\ngolang.org/x/sync/errgroup.(*Group).Go.func1\n\t/Users/giuseppe/Developer/go/pkg/mod/golang.org/x/sync@v0.1.0/errgroup/errgroup.go:75\n: light client not found"}
 	err = r.CreateChannel(ctx, eRep, pathWasm1Wasm2, ibc.DefaultChannelOpts())
 	require.NoError(t, err)
 	// Wait a few blocks for the channel to be created.
