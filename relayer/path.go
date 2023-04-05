@@ -47,6 +47,16 @@ func (p Paths) MustGet(name string) *Path {
 	return pth
 }
 
+// Find finds a path between two chains
+func (p Paths) Find(src, dst string) *Path {
+	for _, path := range p {
+		if path.Src.ChainID == src && path.Dst.ChainID == dst {
+			return path
+		}
+	}
+	return nil
+}
+
 // Add adds a path by its name
 func (p Paths) Add(name string, path *Path) error {
 	if _, found := p[name]; found {

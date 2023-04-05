@@ -96,7 +96,7 @@ func (c *Chain) CreateOpenChannels(
 	hopConnectionIDs := make([]string, len(hops)+1)
 	hopConnectionIDs[0] = c.PathEnd.ConnectionID
 	for i, hop := range hops {
-		hopConnectionIDs[i+1] = hop.PathEnd.ConnectionID
+		hopConnectionIDs[i+1] = hop.RelayPathEnds[1].ConnectionID
 	}
 	connectionHops := chantypes.FormatConnectionID(hopConnectionIDs)
 	openInitMsg := &processor.ChannelMessage{

@@ -417,7 +417,8 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 		return nil, "", "", nil, err
 	}
 	hops := []*relayer.Chain{}
-	for _, hop := range pth.Hops {
+	lastChain := chains[src]
+	for i, hop := range pth.Hops {
 		hopChain, err := c.Chains.Get(hop.ChainID)
 		if err != nil {
 			return nil, "", "", nil, err
@@ -426,6 +427,32 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 			return nil, "", "", nil, err
 		}
 		hops = append(hops, hopChain)
+		// Find a path between adjacent chains and populate clients and connections
+		pth = c.Paths.Find(lastChain.ChainID(), hopChain.ChainID())
+		if pth != nil {
+			hopChain.RelayPathEnds[0].ClientID = pth.Dst.ClientID
+			hopChain.RelayPathEnds[0].ConnectionID = pth.Dst.ConnectionID
+			if i == 0 {
+				lastChain.PathEnd.ClientID = pth.Src.ClientID
+				lastChain.PathEnd.ConnectionID = pth.Src.ConnectionID
+			} else {
+				lastChain.RelayPathEnds[1].ClientID = pth.Src.ClientID
+				lastChain.RelayPathEnds[1].ConnectionID = pth.Src.ConnectionID
+			}
+		}
+		chains[hop.ChainID] = hopChain
+		lastChain = hopChain
+		// Connect the last hop to the destination
+		if i == len(pth.Hops)-1 {
+			dstChain := chains[dst]
+			pth = c.Paths.Find(hopChain.ChainID(), dst)
+			if pth != nil {
+				hopChain.RelayPathEnds[1].ClientID = pth.Src.ClientID
+				hopChain.RelayPathEnds[1].ConnectionID = pth.Src.ConnectionID
+				dstChain.PathEnd.ClientID = pth.Dst.ClientID
+				dstChain.PathEnd.ConnectionID = pth.Dst.ConnectionID
+			}
+		}
 	}
 	if err = chains[dst].SetPath(pth.Dst); err != nil {
 		return nil, "", "", nil, err

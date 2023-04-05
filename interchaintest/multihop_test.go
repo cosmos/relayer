@@ -352,13 +352,16 @@ func TestRelayerMultihop(t *testing.T) {
 	err = r.GeneratePath(ctx, eRep, wasm1.Config().ChainID, wasm2.Config().ChainID, pathWasm1Wasm2,
 		osmosis.Config().ChainID)
 	require.NoError(t, err)
+
 	err = r.CreateChannel(ctx, eRep, pathWasm1Wasm2, ibc.DefaultChannelOpts())
+	require.NoError(t, err)
+	// Wait a few blocks for the channel to be created.
+	err = testutil.WaitForBlocks(ctx, 2, osmosis, wasm2)
 	require.NoError(t, err)
 
 	// Start the relayers
 	err = r.StartRelayer(ctx, eRep, pathWasm1Osmosis, pathOsmosisWasm2, pathWasm1Wasm2)
 	require.NoError(t, err)
-
 	t.Cleanup(
 		func() {
 			err := r.StopRelayer(ctx, eRep)
@@ -389,6 +392,4 @@ func TestRelayerMultihop(t *testing.T) {
 
 	wasm2Address := wasm2User.FormattedAddress()
 	require.NotEmpty(t, wasm2Address)
-
-	// TODO: create multihop channel
 }
