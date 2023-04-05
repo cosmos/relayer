@@ -74,7 +74,7 @@ const (
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
-	defaultMinQueryLoopDuration      = 1 * time.Second
+	defaultMinQueryLoopDuration      = 50 * time.Millisecond
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
 	blockMaxRetries                  = 5

@@ -1,4 +1,4 @@
-package ibc
+package sei_test
 
 import (
 	"context"
@@ -37,10 +37,48 @@ func TestSeiStrideConformance(t *testing.T) {
 	seiConfigFileOverrides[filepath.Join("config", "config.toml")] = seiConfigTomlOverrides
 
 	nf := 0
+	nv := 2
 
 	cf := interchaintest.NewBuiltinChainFactory(log, []*interchaintest.ChainSpec{
-		{Name: "stride", Version: "v6.0.0"},
-		{Name: "sei", Version: "2.0.44beta", NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{
+		{
+			Name:          "stride",
+			ChainName:     "stride",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig: ibc.ChainConfig{
+				Type:    "cosmos",
+				Name:    "stride",
+				ChainID: "stride-1",
+				Images: []ibc.DockerImage{{
+					Repository: "ghcr.io/strangelove-ventures/heighliner/stride",
+					Version:    "v6.0.0",
+					UidGid:     "1025:1025",
+				}},
+				Bin:            "strided",
+				Bech32Prefix:   "stride",
+				Denom:          "ustrd",
+				GasPrices:      "0.0ustrd",
+				TrustingPeriod: "504h",
+				GasAdjustment:  1.1,
+			}},
+		{Name: "sei", ChainName: "sei", Version: "2.0.44beta", NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{
+			Type:           "cosmos",
+			Name:           "sei",
+			ChainID:        "sei-1",
+			Bin:            "seid",
+			Bech32Prefix:   "sei",
+			Denom:          "usei",
+			GasPrices:      "0.0usei",
+			GasAdjustment:  1.2,
+			TrustingPeriod: "504h",
+			Images: []ibc.DockerImage{
+				{
+					Repository: "ghcr.io/strangelove-ventures/heighliner/sei",
+					UidGid:     "1025:1025",
+					Version:    "2.0.44beta",
+				},
+			},
+			CoinType:            "118",
 			SigningAlgorithm:    "sr25519",
 			ConfigFileOverrides: seiConfigFileOverrides,
 		}},
