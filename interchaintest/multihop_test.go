@@ -280,6 +280,7 @@ func TestRelayerMultihop(t *testing.T) {
 	require.NoError(t, err)
 
 	wasm1, osmosis, wasm2 := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain), chains[2].(*cosmos.CosmosChain)
+	wasm1Cfg, osmosisCfg, wasm2Cfg := wasm1.Config(), osmosis.Config(), wasm2.Config()
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathWasm1Osmosis = "wasm1-osmosis"
@@ -392,4 +393,54 @@ func TestRelayerMultihop(t *testing.T) {
 
 	wasm2Address := wasm2User.FormattedAddress()
 	require.NotEmpty(t, wasm2Address)
+
+	// get ibc chans
+	wasm1Chans, err := r.GetChannels(ctx, eRep, wasm1Cfg.ChainID)
+	require.NoError(t, err)
+	require.Len(t, wasm1Chans, 1)
+
+	osmosisChans, err := r.GetChannels(ctx, eRep, osmosisCfg.ChainID)
+	require.NoError(t, err)
+	require.Len(t, osmosisChans, 0)
+
+	wasm2Chans, err := r.GetChannels(ctx, eRep, wasm2Cfg.ChainID)
+	require.NoError(t, err)
+	require.Len(t, wasm2Chans, 1)
+
+	wasm1IBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(wasm1Chans[0].Counterparty.PortID, wasm1Chans[0].Counterparty.ChannelID, wasm1Cfg.Denom)).IBCDenom()
+	wasm2IBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(wasm2Chans[0].Counterparty.PortID, wasm2Chans[0].Counterparty.ChannelID, wasm2Cfg.Denom)).IBCDenom()
+
+	const transferAmount = int64(1_000_000)
+
+	wasm1Height, err := wasm1.Height(ctx)
+	require.NoError(t, err)
+	// Fund wasm2 user with ibc denom from wasm1
+	tx, err := wasm1.SendIBCTransfer(ctx, wasm1Chans[0].ChannelID, wasm1User.KeyName(), ibc.WalletAmount{
+		Amount:  transferAmount,
+		Denom:   wasm1Cfg.Denom,
+		Address: wasm2Address,
+	}, ibc.TransferOptions{})
+	require.NoError(t, err)
+	_, err = testutil.PollForAck(ctx, wasm1, wasm1Height, wasm1Height+10, tx.Packet)
+	require.NoError(t, err)
+
+	wasm2Height, err := wasm2.Height(ctx)
+	require.NoError(t, err)
+	// Fund wasm1 user with ibc denom from wasm2
+	tx, err = wasm2.SendIBCTransfer(ctx, wasm2Chans[0].ChannelID, wasm2User.KeyName(), ibc.WalletAmount{
+		Amount:  transferAmount,
+		Denom:   wasm2Cfg.Denom,
+		Address: wasm1Address,
+	}, ibc.TransferOptions{})
+	require.NoError(t, err)
+	_, err = testutil.PollForAck(ctx, wasm2, wasm2Height, wasm2Height+10, tx.Packet)
+	require.NoError(t, err)
+
+	wasm1OnWasm2Balance, err := wasm2.GetBalance(ctx, wasm2Address, wasm1IBCDenom)
+	require.NoError(t, err)
+	require.Equal(t, transferAmount, wasm1OnWasm2Balance)
+
+	wasm2OnWasm1Balance, err := wasm1.GetBalance(ctx, wasm1Address, wasm2IBCDenom)
+	require.NoError(t, err)
+	require.Equal(t, transferAmount, wasm2OnWasm1Balance)
 }

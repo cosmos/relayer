@@ -428,31 +428,30 @@ func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string,
 		}
 		hops = append(hops, hopChain)
 		// Find a path between adjacent chains and populate clients and connections
-		pth = c.Paths.Find(lastChain.ChainID(), hopChain.ChainID())
-		if pth != nil {
-			hopChain.RelayPathEnds[0].ClientID = pth.Dst.ClientID
-			hopChain.RelayPathEnds[0].ConnectionID = pth.Dst.ConnectionID
+		pthPrevToCurrHop := c.Paths.Find(lastChain.ChainID(), hopChain.ChainID())
+		if pthPrevToCurrHop != nil {
+			hopChain.RelayPathEnds[0].ClientID = pthPrevToCurrHop.Dst.ClientID
+			hopChain.RelayPathEnds[0].ConnectionID = pthPrevToCurrHop.Dst.ConnectionID
 			if i == 0 {
-				lastChain.PathEnd.ClientID = pth.Src.ClientID
-				lastChain.PathEnd.ConnectionID = pth.Src.ConnectionID
+				lastChain.PathEnd.ClientID = pthPrevToCurrHop.Src.ClientID
+				lastChain.PathEnd.ConnectionID = pthPrevToCurrHop.Src.ConnectionID
 			} else {
-				lastChain.RelayPathEnds[1].ClientID = pth.Src.ClientID
-				lastChain.RelayPathEnds[1].ConnectionID = pth.Src.ConnectionID
+				lastChain.RelayPathEnds[1].ClientID = pthPrevToCurrHop.Src.ClientID
+				lastChain.RelayPathEnds[1].ConnectionID = pthPrevToCurrHop.Src.ConnectionID
+			}
+		}
+		// Connect the last hop to the destination
+		if i == len(pth.Hops)-1 {
+			pthHopToDst := c.Paths.Find(hopChain.ChainID(), dst)
+			if pthHopToDst != nil {
+				hopChain.RelayPathEnds[1].ClientID = pthHopToDst.Src.ClientID
+				hopChain.RelayPathEnds[1].ConnectionID = pthHopToDst.Src.ConnectionID
+				pth.Dst.ClientID = pthHopToDst.Dst.ClientID
+				pth.Dst.ConnectionID = pthHopToDst.Dst.ConnectionID
 			}
 		}
 		chains[hop.ChainID] = hopChain
 		lastChain = hopChain
-		// Connect the last hop to the destination
-		if i == len(pth.Hops)-1 {
-			dstChain := chains[dst]
-			pth = c.Paths.Find(hopChain.ChainID(), dst)
-			if pth != nil {
-				hopChain.RelayPathEnds[1].ClientID = pth.Src.ClientID
-				hopChain.RelayPathEnds[1].ConnectionID = pth.Src.ConnectionID
-				dstChain.PathEnd.ClientID = pth.Dst.ClientID
-				dstChain.PathEnd.ConnectionID = pth.Dst.ConnectionID
-			}
-		}
 	}
 	if err = chains[dst].SetPath(pth.Dst); err != nil {
 		return nil, "", "", nil, err
