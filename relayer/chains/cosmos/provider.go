@@ -54,6 +54,7 @@ type CosmosProviderConfig struct {
 	Modules          []module.AppModuleBasic `json:"-" yaml:"-"`
 	Slip44           *int                    `json:"coin-type" yaml:"coin-type"`
 	SigningAlgorithm string                  `json:"signing-algorithm" yaml:"signing-algorithm"`
+	MinLoopDuration  time.Duration           `json:"min-loop-duration" yaml:"min-loop-duration"`
 	Broadcast        provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 

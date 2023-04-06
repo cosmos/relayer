@@ -74,7 +74,7 @@ func (c *Chain) CreateOpenChannels(
 			dst.chainProcessor(c.log, nil),
 		).
 		WithPathProcessors(pp).
-		WithInitialBlockHistory(100).
+		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
 			Initial: &processor.ChannelMessage{
 				ChainID:   c.PathEnd.ChainID,
