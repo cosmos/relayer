@@ -391,6 +391,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		base64Encoded := ccp.chainProvider.cometLegacyEncoding
 
+		// TODO: separate multihop messages from single hop
 		blockMsgs := ccp.ibcMessagesFromBlockEvents(
 			blockRes.BeginBlockEvents,
 			blockRes.EndBlockEvents,
@@ -431,6 +432,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	for _, pp := range ccp.pathProcessors {
+		// TODO: account for multihop paths that don't have client ID
 		clientID := pp.RelevantClientID(chainID)
 		clientState, err := ccp.clientState(ctx, clientID)
 		if err != nil {
