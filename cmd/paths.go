@@ -254,19 +254,33 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 			p.Hops = make([]*relayer.PathHop, len(hops))
 			lastChainID := p.Src.ChainID
 			for i, hop := range hops {
+				// TODO: this logic is similar to Config.ChainsFromPath(), look into consolidating
+				pthPrevToCurrHop := a.Config.Paths.Find(lastChainID, hop)
 				newHop := &relayer.PathHop{
 					ChainID: hop,
 					PathEnds: [2]*relayer.PathEnd{
 						{
-							ChainID: lastChainID,
+							ChainID:      lastChainID,
+							ClientID:     pthPrevToCurrHop.Dst.ClientID,
+							ConnectionID: pthPrevToCurrHop.Dst.ConnectionID,
 						}, {},
 					},
 				}
-				if i > 0 {
+				if i == 0 {
+					p.Src.ClientID = pthPrevToCurrHop.Src.ClientID
+					p.Src.ConnectionID = pthPrevToCurrHop.Src.ConnectionID
+				} else {
 					p.Hops[i-1].PathEnds[1].ChainID = newHop.ChainID
+					p.Hops[i-1].PathEnds[1].ClientID = pthPrevToCurrHop.Src.ClientID
+					p.Hops[i-1].PathEnds[1].ConnectionID = pthPrevToCurrHop.Src.ConnectionID
 				}
 				if i == len(hops)-1 {
 					newHop.PathEnds[1].ChainID = p.Dst.ChainID
+					pthCurrHopToDst := a.Config.Paths.Find(hop, p.Dst.ChainID)
+					newHop.PathEnds[1].ClientID = pthCurrHopToDst.Src.ClientID
+					newHop.PathEnds[1].ConnectionID = pthCurrHopToDst.Src.ConnectionID
+					p.Dst.ClientID = pthCurrHopToDst.Dst.ClientID
+					p.Dst.ConnectionID = pthCurrHopToDst.Dst.ConnectionID
 				}
 				p.Hops[i] = newHop
 				lastChainID = newHop.ChainID
