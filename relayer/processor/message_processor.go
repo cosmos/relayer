@@ -83,18 +83,22 @@ func (mp *messageProcessor) processMessages(
 	src, dst *pathEndRuntime,
 	hops []*pathEndRuntime,
 ) error {
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	if err != nil {
-		return err
-	}
-
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
+	var needsClientUpdate bool
+	// We defer client updates for multihop paths to the underlying single hop paths
+	if len(hops) == 0 {
+		var err error
+		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
+		if err != nil {
+			return err
+		}
+		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+			return err
+		}
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst, hops)
 
-	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
+	return mp.trackAndSendMessages(ctx, src, dst, hops, needsClientUpdate)
 }
 
 // shouldUpdateClientNow determines if an update client message should be sent
@@ -280,6 +284,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 func (mp *messageProcessor) trackAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	hops []*pathEndRuntime,
 	needsClientUpdate bool,
 ) error {
 	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
@@ -298,7 +303,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 	}
 
 	if len(batch) > 0 {
-		go mp.sendBatchMessages(ctx, src, dst, batch)
+		go mp.sendBatchMessages(ctx, src, dst, hops, batch)
 	}
 
 	if mp.assembledCount() > 0 {
@@ -348,17 +353,26 @@ func (mp *messageProcessor) sendClientUpdate(
 func (mp *messageProcessor) sendBatchMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	hops []*pathEndRuntime,
 	batch []messageToTrack,
 ) {
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
+	var updateOffset int
+	var updateClientMsg *provider.RelayerMessage
+	if len(hops) == 0 {
+		updateOffset++
+		updateClientMsg = &mp.msgUpdateClient
+	}
 	// messages are batch with appended MsgUpdateClient
-	msgs := make([]provider.RelayerMessage, 1+len(batch))
-	msgs[0] = mp.msgUpdateClient
+	msgs := make([]provider.RelayerMessage, len(batch)+updateOffset)
+	if updateClientMsg != nil {
+		msgs[0] = mp.msgUpdateClient
+	}
 	fields := []zapcore.Field{}
 	for i, t := range batch {
-		msgs[i+1] = t.assembledMsg()
+		msgs[i+updateOffset] = t.assembledMsg()
 		fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
 	}
 

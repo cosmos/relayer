@@ -431,6 +431,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	for _, pp := range ccp.pathProcessors {
+		// TODO: this ends up matching twice for multihop messages, add logic to deduplicate
 		clientID := pp.RelevantClientID(chainID)
 		clientState, err := ccp.clientState(ctx, clientID)
 		if err != nil {
