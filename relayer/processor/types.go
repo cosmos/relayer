@@ -260,7 +260,8 @@ func (c *ChannelStateCache) FilterForClient(clientID string, channelConnections 
 		if !ok {
 			continue
 		}
-		client, ok := connectionClients[connection]
+		connectionHops := chantypes.ParseConnectionID(connection)
+		client, ok := connectionClients[connectionHops[0]]
 		if !ok {
 			continue
 		}
