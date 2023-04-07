@@ -154,9 +154,14 @@ type queryCyclePersistence struct {
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
 func (pcp *PenumbraChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+	minQueryLoopDuration := pcp.chainProvider.PCfg.MinLoopDuration
+	if minQueryLoopDuration == 0 {
+		minQueryLoopDuration = defaultMinQueryLoopDuration
+	}
+
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration: defaultMinQueryLoopDuration,
+		minQueryLoopDuration: minQueryLoopDuration,
 	}
 
 	// Infinite retry to get initial latest height
