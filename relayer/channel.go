@@ -70,8 +70,8 @@ func (c *Chain) CreateOpenChannels(
 
 	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
 	for i, hop := range hops {
-		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
-		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
+		pathEnd1 := newPathEnd(pathName, hop.ChainProvider.ChainId(), hop.RelayPathEnds[0].ClientID)
+		pathEnd2 := newPathEnd(pathName, hop.ChainProvider.ChainId(), hop.RelayPathEnds[1].ClientID)
 		relayPathEndsSrcToDst[i] = &pathEnd1
 		relayPathEndsDstToSrc[i] = &pathEnd2
 	}
