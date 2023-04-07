@@ -76,8 +76,9 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 }
 
 func (pathEnd *pathEndRuntime) isRelevantConnection(connectionID string) bool {
+	connectionHops := chantypes.ParseConnectionID(connectionID)
 	for k := range pathEnd.connectionStateCache {
-		if k.ConnectionID == connectionID {
+		if k.ConnectionID == connectionHops[0] {
 			return true
 		}
 	}
