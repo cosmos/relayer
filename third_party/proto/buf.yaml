@@ -1,0 +1,6 @@
+version: v1
+lint:
+  ignore:
+    - cometbft
+    - gogoproto
+    - cosmos_proto

@@ -31,7 +31,7 @@ ifeq ($(OS),Windows_NT)
 	@go build -mod=readonly $(BUILD_FLAGS) -o build/rly.exe main.go
 else
 	@echo "building rly binary..."
-	@go build  $(BUILD_FLAGS) -o build/rly main.go
+	@go build -mod=readonly $(BUILD_FLAGS) -o build/rly main.go
 endif
 
 build-zip: go.sum
