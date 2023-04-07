@@ -56,6 +56,7 @@ type PathProcessor struct {
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
 
+	// TODO: Do we need two separate lists?
 	hopsPathEnd1to2 []*pathEndRuntime
 	hopsPathEnd2to1 []*pathEndRuntime
 
@@ -199,7 +200,20 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 		pp.pathEnd2.chainProvider = chainProvider
 		return true
 	}
-	return false
+	var found bool
+	for _, pathEnd := range pp.hopsPathEnd1to2 {
+		if pathEnd.info.ChainID == chainProvider.ChainId() {
+			pathEnd.chainProvider = chainProvider
+			found = true
+		}
+	}
+	for _, pathEnd := range pp.hopsPathEnd2to1 {
+		if pathEnd.info.ChainID == chainProvider.ChainId() {
+			pathEnd.chainProvider = chainProvider
+			found = true
+		}
+	}
+	return found
 }
 
 func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey) bool {
