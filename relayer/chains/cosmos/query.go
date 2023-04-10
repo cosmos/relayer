@@ -720,7 +720,12 @@ func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, heigh
 			return nil, err
 		}
 
-		connections.Connections = append(connections.Connections, res.Connections...)
+		for _, conn := range res.Connections {
+			if conn.ClientId == clientid {
+				connections.Connections = append(connections.Connections, conn)
+			}
+		}
+
 		next := res.GetPagination().GetNextKey()
 		if len(next) == 0 {
 			break
@@ -817,8 +822,6 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 	if err := cdc.Unmarshal(value, &channel); err != nil {
 		return nil, err
 	}
-
-
 
 	return &chantypes.QueryChannelResponse{
 		Channel:     &channel,
