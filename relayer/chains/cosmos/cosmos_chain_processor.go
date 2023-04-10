@@ -193,9 +193,14 @@ type queryCyclePersistence struct {
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
 func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+	minQueryLoopDuration := ccp.chainProvider.PCfg.MinLoopDuration
+	if minQueryLoopDuration == 0 {
+		minQueryLoopDuration = defaultMinQueryLoopDuration
+	}
+
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration:      defaultMinQueryLoopDuration,
+		minQueryLoopDuration:      minQueryLoopDuration,
 		lastBalanceUpdate:         time.Unix(0, 0),
 		balanceUpdateWaitDuration: defaultBalanceUpdateWaitDuration,
 	}
@@ -320,9 +325,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
+	// This debug log is very noisy, but is helpful when debugging new chains.
+	// ccp.log.Debug("Queried latest height",
+	// 	zap.Int64("latest_height", persistence.latestHeight),
+	// )
 
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)

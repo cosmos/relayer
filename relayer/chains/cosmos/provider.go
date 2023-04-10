@@ -55,6 +55,7 @@ type CosmosProviderConfig struct {
 	Slip44           *int                    `json:"coin-type" yaml:"coin-type"`
 	SigningAlgorithm string                  `json:"signing-algorithm" yaml:"signing-algorithm"`
 	Broadcast        provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
+	MinLoopDuration  time.Duration           `json:"min-loop-duration" yaml:"min-loop-duration"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
