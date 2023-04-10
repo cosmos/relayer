@@ -115,11 +115,15 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("port_id", srcPortID),
 		zap.String("conn_id", connectionHops),
 	)
+	chainProcessors := []processor.ChainProcessor{
+		c.chainProcessor(c.log, nil),
+		dst.chainProcessor(c.log, nil),
+	}
+	for _, hop := range hops {
+		chainProcessors = append(chainProcessors, hop.chainProcessor(c.log, nil))
+	}
 	return processor.NewEventProcessor().
-		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
-		).
+		WithChainProcessors(chainProcessors...).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
@@ -155,12 +159,15 @@ func (c *Chain) CloseChannel(
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
 	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
-
+	chainProcessors := []processor.ChainProcessor{
+		c.chainProcessor(c.log, nil),
+		dst.chainProcessor(c.log, nil),
+	}
+	for _, hop := range hops {
+		chainProcessors = append(chainProcessors, hop.chainProcessor(c.log, nil))
+	}
 	return processor.NewEventProcessor().
-		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
-		).
+		WithChainProcessors(chainProcessors...).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
 			newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),

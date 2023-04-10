@@ -66,7 +66,6 @@ func (ep EventProcessorBuilder) Build() EventProcessor {
 	for _, chainProcessor := range ep.chainProcessors {
 		pathProcessorsForThisChain := PathProcessors{}
 		for _, pathProcessor := range ep.pathProcessors {
-			// TODO: we need to make sure this ends up getting chain providers for the intermediate hops
 			if pathProcessor.SetChainProviderIfApplicable(chainProcessor.Provider()) {
 				pathProcessorsForThisChain = append(pathProcessorsForThisChain, pathProcessor)
 			}

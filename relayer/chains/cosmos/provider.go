@@ -91,6 +91,8 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
+
+		queryProviders: map[string]provider.QueryProvider{},
 	}
 
 	return cp, nil

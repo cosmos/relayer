@@ -154,6 +154,17 @@ func (pp *PathProcessor) RelevantClientID(chainID string) string {
 	if pp.pathEnd2.info.ChainID == chainID {
 		return pp.pathEnd2.info.ClientID
 	}
+	for _, hop := range pp.hopsPathEnd1to2 {
+		if hop.info.ChainID == chainID {
+			return hop.info.ClientID
+		}
+	}
+	// TODO: do we need both directions for this?
+	for _, hop := range pp.hopsPathEnd2to1 {
+		if hop.info.ChainID == chainID {
+			return hop.info.ClientID
+		}
+	}
 	panic(fmt.Errorf("no relevant client ID for chain ID: %s", chainID))
 }
 

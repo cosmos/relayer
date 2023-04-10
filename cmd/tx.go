@@ -770,6 +770,9 @@ $ %s tx flush demo-path channel-0`,
 				// collect unique chain IDs
 				chains[path.Src.ChainID] = nil
 				chains[path.Dst.ChainID] = nil
+				for _, h := range path.Hops {
+					chains[h.ChainID] = nil
+				}
 			} else {
 				for n, path := range a.Config.Paths {
 					paths = append(paths, relayer.NamedPath{
@@ -780,6 +783,9 @@ $ %s tx flush demo-path channel-0`,
 					// collect unique chain IDs
 					chains[path.Src.ChainID] = nil
 					chains[path.Dst.ChainID] = nil
+					for _, h := range path.Hops {
+						chains[h.ChainID] = nil
+					}
 				}
 			}
 
