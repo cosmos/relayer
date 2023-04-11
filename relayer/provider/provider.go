@@ -420,6 +420,7 @@ type ChainProvider interface {
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
 type QueryProvider interface {
+	ChainId() string
 	// chain
 	BlockTime(ctx context.Context, height int64) (time.Time, error)
 	QueryTx(ctx context.Context, hashHex string) (*RelayerTxResponse, error)
@@ -574,4 +575,25 @@ func (h TendermintIBCHeader) TMHeader() (*tendermint.Header, error) {
 		TrustedHeight:     h.TrustedHeight,
 		TrustedValidators: trustedVals,
 	}, nil
+}
+
+type ClientOutdatedError struct {
+	srcChainID     string
+	dstChainID     string
+	height         uint64
+	requiredHeight uint64
+}
+
+func (c *ClientOutdatedError) Error() string {
+	return fmt.Sprintf("client for chain %q on chain %q is outdated (required: %d, actual: %d)", c.srcChainID,
+		c.dstChainID, c.height, c.requiredHeight)
+}
+
+func NewClientOutdatedError(srcChainID, dstChainID string, height, requiredHeight uint64) *ClientOutdatedError {
+	return &ClientOutdatedError{
+		srcChainID:     srcChainID,
+		dstChainID:     dstChainID,
+		height:         height,
+		requiredHeight: requiredHeight,
+	}
 }
