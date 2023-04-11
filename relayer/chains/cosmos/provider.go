@@ -213,9 +213,9 @@ func (cc *CosmosProvider) MustEncodeAccAddr(addr sdk.AccAddress) string {
 func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.AccAddress, err error) {
 	switch {
 	case keyOrAddress == "":
-		out, err = cc.GetKeyAddress()
+		out, err = cc.GetKeyAddress(cc.PCfg.Key)
 	case cc.KeyExists(keyOrAddress):
-		out, err = cc.GetKeyAddress()
+		out, err = cc.GetKeyAddress(keyOrAddress)
 	default:
 		out, err = sdk.GetFromBech32(keyOrAddress, cc.PCfg.AccountPrefix)
 	}

@@ -239,12 +239,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	defer sdkConfigMutex.Unlock()
 
 	rand.Seed(time.Now().UnixNano())
-	logId := rand.Int()
-	signingKeyAcc, _ := cc.GetKeyAddressForKey(signingKey)
-	signingAddr, _ := cc.EncodeBech32AccAddr(signingKeyAcc)
 	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
-	feegrantAddr, _ := cc.EncodeBech32AccAddr(feegrantKeyAcc)
-	fmt.Printf("[Lens:%d] SIGNER: %s, signer addr: %s, FEEGRANTER: %s, feegrant addr: %s, chain: %s, \n", logId, signingKey, signingAddr, feegranterKey, feegrantAddr, cc.PCfg.ChainID)
 
 	txf, err := cc.PrepareFactory(cc.TxFactory(), signingKey)
 	if err != nil {
@@ -260,9 +255,10 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		_, adjusted, err = cc.CalculateGas(ctx, txf, signingKey, msgs...)
 
 		if err != nil {
-			fmt.Printf("[Lens:%d] err CalculateGas: %s\n", logId, err.Error())
 			return nil, err
 		}
+
+		adjusted = uint64(float64(adjusted) * cc.PCfg.GasAdjustment)
 	}
 
 	//Cannot feegrant your own TX

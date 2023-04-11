@@ -396,24 +396,28 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 				fullTx := txFinder.GetProtoTx()
 				isFeegrantedMsg := false
 
+				msgs := ""
 				msgType := ""
 				for _, m := range fullTx.GetMsgs() {
 					msgType = types.MsgTypeURL(m)
 					//We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
 					if msgType == "/ibc.core.channel.v1.MsgRecvPacket" || msgType == "/ibc.core.channel.v1.MsgAcknowledgement" {
 						isFeegrantedMsg = true
-						break
+						msgs += msgType + ", "
+					} else {
+						msgs += msgType + ", "
 					}
 				}
 
 				//It's required that TXs be feegranted in a round robin fashion for this chain and message type
 				if isFeegrantedChain && isFeegrantedMsg {
+					fmt.Printf("Msg types: %+v\n", msgs)
 					signers := fullTx.GetSigners()
 					require.Equal(t, len(signers), 1)
 					granter := fullTx.FeeGranter()
 
 					//Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
-					require.Equal(t, granter.String(), feegrantInfo.granter)
+					require.Equal(t, feegrantInfo.granter, granter.String())
 					require.NotEmpty(t, granter)
 
 					for _, msg := range fullTx.GetMsgs() {

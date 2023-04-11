@@ -86,6 +86,9 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				}
 
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
+					chain := a.config.Chains[chain]
+					oldProv := chain.ChainProvider.(*cosmos.CosmosProvider)
+					oldProv.PCfg.FeeGrants = prov.PCfg.FeeGrants
 					return nil
 				})
 				cobra.CheckErr(cfgErr)
@@ -110,7 +113,10 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				cobra.CheckErr(err)
 
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
-					prov.PCfg.FeeGrants.BlockHeightVerified = h
+					chain := a.config.Chains[chain]
+					oldProv := chain.ChainProvider.(*cosmos.CosmosProvider)
+					oldProv.PCfg.FeeGrants = prov.PCfg.FeeGrants
+					oldProv.PCfg.FeeGrants.BlockHeightVerified = h
 					fmt.Printf("Feegrant chain height marked: %d\n", h)
 					return nil
 				})

@@ -182,8 +182,8 @@ func (cc *CosmosProvider) ExportPrivKeyArmor(keyName string) (armor string, err 
 }
 
 // GetKeyAddress returns the account address representation for the currently configured key.
-func (cc *CosmosProvider) GetKeyAddress() (sdk.AccAddress, error) {
-	info, err := cc.Keybase.Key(cc.PCfg.Key)
+func (cc *CosmosProvider) GetKeyAddress(key string) (sdk.AccAddress, error) {
+	info, err := cc.Keybase.Key(key)
 	if err != nil {
 		return nil, err
 	}
