@@ -864,6 +864,206 @@ func (m *Value) GetAssetId() *AssetId {
 	return nil
 }
 
+// Represents a value of a known or unknown denomination.
+//
+// Note: unlike some other View types, we don't just store the underlying
+// `Value` message together with an additional `Denom`.  Instead, we record
+// either an `Amount` and `Denom` (only) or an `Amount` and `AssetId`.  This is
+// because we don't want to allow a situation where the supplied `Denom` doesn't
+// match the `AssetId`, and a consumer of the API that doesn't check is tricked.
+// This way, the `Denom` will always match, because the consumer is forced to
+// recompute it themselves if they want it.
+type ValueView struct {
+	// Types that are valid to be assigned to ValueView:
+	//
+	//	*ValueView_KnownDenom_
+	//	*ValueView_UnknownDenom_
+	ValueView isValueView_ValueView `protobuf_oneof:"value_view"`
+}
+
+func (m *ValueView) Reset()         { *m = ValueView{} }
+func (m *ValueView) String() string { return proto.CompactTextString(m) }
+func (*ValueView) ProtoMessage()    {}
+func (*ValueView) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{15}
+}
+func (m *ValueView) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValueView) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValueView.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ValueView) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueView.Merge(m, src)
+}
+func (m *ValueView) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValueView) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueView.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueView proto.InternalMessageInfo
+
+type isValueView_ValueView interface {
+	isValueView_ValueView()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type ValueView_KnownDenom_ struct {
+	KnownDenom *ValueView_KnownDenom `protobuf:"bytes,1,opt,name=known_denom,json=knownDenom,proto3,oneof" json:"known_denom,omitempty"`
+}
+type ValueView_UnknownDenom_ struct {
+	UnknownDenom *ValueView_UnknownDenom `protobuf:"bytes,2,opt,name=unknown_denom,json=unknownDenom,proto3,oneof" json:"unknown_denom,omitempty"`
+}
+
+func (*ValueView_KnownDenom_) isValueView_ValueView()   {}
+func (*ValueView_UnknownDenom_) isValueView_ValueView() {}
+
+func (m *ValueView) GetValueView() isValueView_ValueView {
+	if m != nil {
+		return m.ValueView
+	}
+	return nil
+}
+
+func (m *ValueView) GetKnownDenom() *ValueView_KnownDenom {
+	if x, ok := m.GetValueView().(*ValueView_KnownDenom_); ok {
+		return x.KnownDenom
+	}
+	return nil
+}
+
+func (m *ValueView) GetUnknownDenom() *ValueView_UnknownDenom {
+	if x, ok := m.GetValueView().(*ValueView_UnknownDenom_); ok {
+		return x.UnknownDenom
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*ValueView) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*ValueView_KnownDenom_)(nil),
+		(*ValueView_UnknownDenom_)(nil),
+	}
+}
+
+// A value whose asset ID has a known denomination.
+type ValueView_KnownDenom struct {
+	Amount *Amount `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	Denom  *Denom  `protobuf:"bytes,2,opt,name=denom,proto3" json:"denom,omitempty"`
+}
+
+func (m *ValueView_KnownDenom) Reset()         { *m = ValueView_KnownDenom{} }
+func (m *ValueView_KnownDenom) String() string { return proto.CompactTextString(m) }
+func (*ValueView_KnownDenom) ProtoMessage()    {}
+func (*ValueView_KnownDenom) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{15, 0}
+}
+func (m *ValueView_KnownDenom) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValueView_KnownDenom) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValueView_KnownDenom.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ValueView_KnownDenom) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueView_KnownDenom.Merge(m, src)
+}
+func (m *ValueView_KnownDenom) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValueView_KnownDenom) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueView_KnownDenom.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueView_KnownDenom proto.InternalMessageInfo
+
+func (m *ValueView_KnownDenom) GetAmount() *Amount {
+	if m != nil {
+		return m.Amount
+	}
+	return nil
+}
+
+func (m *ValueView_KnownDenom) GetDenom() *Denom {
+	if m != nil {
+		return m.Denom
+	}
+	return nil
+}
+
+type ValueView_UnknownDenom struct {
+	Amount  *Amount  `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	AssetId *AssetId `protobuf:"bytes,2,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
+}
+
+func (m *ValueView_UnknownDenom) Reset()         { *m = ValueView_UnknownDenom{} }
+func (m *ValueView_UnknownDenom) String() string { return proto.CompactTextString(m) }
+func (*ValueView_UnknownDenom) ProtoMessage()    {}
+func (*ValueView_UnknownDenom) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{15, 1}
+}
+func (m *ValueView_UnknownDenom) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValueView_UnknownDenom) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValueView_UnknownDenom.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ValueView_UnknownDenom) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueView_UnknownDenom.Merge(m, src)
+}
+func (m *ValueView_UnknownDenom) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValueView_UnknownDenom) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueView_UnknownDenom.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueView_UnknownDenom proto.InternalMessageInfo
+
+func (m *ValueView_UnknownDenom) GetAmount() *Amount {
+	if m != nil {
+		return m.Amount
+	}
+	return nil
+}
+
+func (m *ValueView_UnknownDenom) GetAssetId() *AssetId {
+	if m != nil {
+		return m.AssetId
+	}
+	return nil
+}
+
 type MerkleRoot struct {
 	Inner []byte `protobuf:"bytes,1,opt,name=inner,proto3" json:"inner,omitempty"`
 }
@@ -872,7 +1072,7 @@ func (m *MerkleRoot) Reset()         { *m = MerkleRoot{} }
 func (m *MerkleRoot) String() string { return proto.CompactTextString(m) }
 func (*MerkleRoot) ProtoMessage()    {}
 func (*MerkleRoot) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{15}
+	return fileDescriptor_5c23a0b4440af102, []int{16}
 }
 func (m *MerkleRoot) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -917,7 +1117,7 @@ func (m *Asset) Reset()         { *m = Asset{} }
 func (m *Asset) String() string { return proto.CompactTextString(m) }
 func (*Asset) ProtoMessage()    {}
 func (*Asset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{16}
+	return fileDescriptor_5c23a0b4440af102, []int{17}
 }
 func (m *Asset) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -969,7 +1169,7 @@ func (m *IdentityKey) Reset()         { *m = IdentityKey{} }
 func (m *IdentityKey) String() string { return proto.CompactTextString(m) }
 func (*IdentityKey) ProtoMessage()    {}
 func (*IdentityKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{17}
+	return fileDescriptor_5c23a0b4440af102, []int{18}
 }
 func (m *IdentityKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1014,7 +1214,7 @@ func (m *GovernanceKey) Reset()         { *m = GovernanceKey{} }
 func (m *GovernanceKey) String() string { return proto.CompactTextString(m) }
 func (*GovernanceKey) ProtoMessage()    {}
 func (*GovernanceKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{18}
+	return fileDescriptor_5c23a0b4440af102, []int{19}
 }
 func (m *GovernanceKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1058,7 +1258,7 @@ func (m *ConsensusKey) Reset()         { *m = ConsensusKey{} }
 func (m *ConsensusKey) String() string { return proto.CompactTextString(m) }
 func (*ConsensusKey) ProtoMessage()    {}
 func (*ConsensusKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{19}
+	return fileDescriptor_5c23a0b4440af102, []int{20}
 }
 func (m *ConsensusKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1104,7 +1304,7 @@ func (m *Note) Reset()         { *m = Note{} }
 func (m *Note) String() string { return proto.CompactTextString(m) }
 func (*Note) ProtoMessage()    {}
 func (*Note) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{20}
+	return fileDescriptor_5c23a0b4440af102, []int{21}
 }
 func (m *Note) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1154,6 +1354,66 @@ func (m *Note) GetAddress() *Address {
 	return nil
 }
 
+type NoteView struct {
+	Value   *ValueView   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Rseed   []byte       `protobuf:"bytes,2,opt,name=rseed,proto3" json:"rseed,omitempty"`
+	Address *AddressView `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *NoteView) Reset()         { *m = NoteView{} }
+func (m *NoteView) String() string { return proto.CompactTextString(m) }
+func (*NoteView) ProtoMessage()    {}
+func (*NoteView) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5c23a0b4440af102, []int{22}
+}
+func (m *NoteView) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *NoteView) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_NoteView.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *NoteView) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NoteView.Merge(m, src)
+}
+func (m *NoteView) XXX_Size() int {
+	return m.Size()
+}
+func (m *NoteView) XXX_DiscardUnknown() {
+	xxx_messageInfo_NoteView.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NoteView proto.InternalMessageInfo
+
+func (m *NoteView) GetValue() *ValueView {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+func (m *NoteView) GetRseed() []byte {
+	if m != nil {
+		return m.Rseed
+	}
+	return nil
+}
+
+func (m *NoteView) GetAddress() *AddressView {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
 // An encrypted note.
 // 132 = 1(type) + 11(d) + 8(amount) + 32(asset_id) + 32(rcm) + 32(pk_d) + 16(MAC) bytes.
 type NoteCiphertext struct {
@@ -1164,7 +1424,7 @@ func (m *NoteCiphertext) Reset()         { *m = NoteCiphertext{} }
 func (m *NoteCiphertext) String() string { return proto.CompactTextString(m) }
 func (*NoteCiphertext) ProtoMessage()    {}
 func (*NoteCiphertext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{21}
+	return fileDescriptor_5c23a0b4440af102, []int{23}
 }
 func (m *NoteCiphertext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1208,7 +1468,7 @@ func (m *Nullifier) Reset()         { *m = Nullifier{} }
 func (m *Nullifier) String() string { return proto.CompactTextString(m) }
 func (*Nullifier) ProtoMessage()    {}
 func (*Nullifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{22}
+	return fileDescriptor_5c23a0b4440af102, []int{24}
 }
 func (m *Nullifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1252,7 +1512,7 @@ func (m *SpendAuthSignature) Reset()         { *m = SpendAuthSignature{} }
 func (m *SpendAuthSignature) String() string { return proto.CompactTextString(m) }
 func (*SpendAuthSignature) ProtoMessage()    {}
 func (*SpendAuthSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{23}
+	return fileDescriptor_5c23a0b4440af102, []int{25}
 }
 func (m *SpendAuthSignature) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1296,7 +1556,7 @@ func (m *BindingSignature) Reset()         { *m = BindingSignature{} }
 func (m *BindingSignature) String() string { return proto.CompactTextString(m) }
 func (*BindingSignature) ProtoMessage()    {}
 func (*BindingSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{24}
+	return fileDescriptor_5c23a0b4440af102, []int{26}
 }
 func (m *BindingSignature) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1348,7 +1608,7 @@ func (m *NotePayload) Reset()         { *m = NotePayload{} }
 func (m *NotePayload) String() string { return proto.CompactTextString(m) }
 func (*NotePayload) ProtoMessage()    {}
 func (*NotePayload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{25}
+	return fileDescriptor_5c23a0b4440af102, []int{27}
 }
 func (m *NotePayload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1409,7 +1669,7 @@ func (m *StateCommitmentProof) Reset()         { *m = StateCommitmentProof{} }
 func (m *StateCommitmentProof) String() string { return proto.CompactTextString(m) }
 func (*StateCommitmentProof) ProtoMessage()    {}
 func (*StateCommitmentProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{26}
+	return fileDescriptor_5c23a0b4440af102, []int{28}
 }
 func (m *StateCommitmentProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1470,7 +1730,7 @@ func (m *MerklePathChunk) Reset()         { *m = MerklePathChunk{} }
 func (m *MerklePathChunk) String() string { return proto.CompactTextString(m) }
 func (*MerklePathChunk) ProtoMessage()    {}
 func (*MerklePathChunk) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{27}
+	return fileDescriptor_5c23a0b4440af102, []int{29}
 }
 func (m *MerklePathChunk) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1529,7 +1789,7 @@ func (m *Clue) Reset()         { *m = Clue{} }
 func (m *Clue) String() string { return proto.CompactTextString(m) }
 func (*Clue) ProtoMessage()    {}
 func (*Clue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{28}
+	return fileDescriptor_5c23a0b4440af102, []int{30}
 }
 func (m *Clue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1574,7 +1834,7 @@ func (m *EffectHash) Reset()         { *m = EffectHash{} }
 func (m *EffectHash) String() string { return proto.CompactTextString(m) }
 func (*EffectHash) ProtoMessage()    {}
 func (*EffectHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{29}
+	return fileDescriptor_5c23a0b4440af102, []int{31}
 }
 func (m *EffectHash) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1619,7 +1879,7 @@ func (m *ZKOutputProof) Reset()         { *m = ZKOutputProof{} }
 func (m *ZKOutputProof) String() string { return proto.CompactTextString(m) }
 func (*ZKOutputProof) ProtoMessage()    {}
 func (*ZKOutputProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{30}
+	return fileDescriptor_5c23a0b4440af102, []int{32}
 }
 func (m *ZKOutputProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1664,7 +1924,7 @@ func (m *ZKSpendProof) Reset()         { *m = ZKSpendProof{} }
 func (m *ZKSpendProof) String() string { return proto.CompactTextString(m) }
 func (*ZKSpendProof) ProtoMessage()    {}
 func (*ZKSpendProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{31}
+	return fileDescriptor_5c23a0b4440af102, []int{33}
 }
 func (m *ZKSpendProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1709,7 +1969,7 @@ func (m *ZKSwapProof) Reset()         { *m = ZKSwapProof{} }
 func (m *ZKSwapProof) String() string { return proto.CompactTextString(m) }
 func (*ZKSwapProof) ProtoMessage()    {}
 func (*ZKSwapProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5c23a0b4440af102, []int{32}
+	return fileDescriptor_5c23a0b4440af102, []int{34}
 }
 func (m *ZKSwapProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1763,12 +2023,16 @@ func init() {
 	proto.RegisterType((*Amount)(nil), "penumbra.core.crypto.v1alpha1.Amount")
 	proto.RegisterType((*Denom)(nil), "penumbra.core.crypto.v1alpha1.Denom")
 	proto.RegisterType((*Value)(nil), "penumbra.core.crypto.v1alpha1.Value")
+	proto.RegisterType((*ValueView)(nil), "penumbra.core.crypto.v1alpha1.ValueView")
+	proto.RegisterType((*ValueView_KnownDenom)(nil), "penumbra.core.crypto.v1alpha1.ValueView.KnownDenom")
+	proto.RegisterType((*ValueView_UnknownDenom)(nil), "penumbra.core.crypto.v1alpha1.ValueView.UnknownDenom")
 	proto.RegisterType((*MerkleRoot)(nil), "penumbra.core.crypto.v1alpha1.MerkleRoot")
 	proto.RegisterType((*Asset)(nil), "penumbra.core.crypto.v1alpha1.Asset")
 	proto.RegisterType((*IdentityKey)(nil), "penumbra.core.crypto.v1alpha1.IdentityKey")
 	proto.RegisterType((*GovernanceKey)(nil), "penumbra.core.crypto.v1alpha1.GovernanceKey")
 	proto.RegisterType((*ConsensusKey)(nil), "penumbra.core.crypto.v1alpha1.ConsensusKey")
 	proto.RegisterType((*Note)(nil), "penumbra.core.crypto.v1alpha1.Note")
+	proto.RegisterType((*NoteView)(nil), "penumbra.core.crypto.v1alpha1.NoteView")
 	proto.RegisterType((*NoteCiphertext)(nil), "penumbra.core.crypto.v1alpha1.NoteCiphertext")
 	proto.RegisterType((*Nullifier)(nil), "penumbra.core.crypto.v1alpha1.Nullifier")
 	proto.RegisterType((*SpendAuthSignature)(nil), "penumbra.core.crypto.v1alpha1.SpendAuthSignature")
@@ -1788,74 +2052,81 @@ func init() {
 }
 
 var fileDescriptor_5c23a0b4440af102 = []byte{
-	// 1060 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x56, 0x4f, 0x6f, 0xe3, 0x44,
-	0x14, 0xaf, 0x9d, 0xb6, 0x69, 0x5f, 0xd2, 0x74, 0xb1, 0x7a, 0xa8, 0x0a, 0xcd, 0x76, 0xdd, 0x6e,
-	0xd9, 0x5d, 0x20, 0x51, 0x5b, 0x89, 0x43, 0x10, 0x12, 0x4d, 0x96, 0x6d, 0x4b, 0xb4, 0xdd, 0xc8,
-	0x45, 0x5d, 0x54, 0x55, 0x8a, 0xa6, 0xf6, 0x6b, 0x3c, 0x8a, 0x33, 0x63, 0xec, 0x71, 0xba, 0x81,
-	0x0f, 0x80, 0xb8, 0x71, 0xe6, 0xc8, 0x91, 0x6f, 0xc0, 0x37, 0x40, 0x9c, 0xf6, 0xb8, 0x47, 0x68,
-	0x0f, 0x48, 0x9c, 0xf8, 0x08, 0x68, 0xec, 0x71, 0x36, 0xad, 0xd6, 0x49, 0x01, 0x21, 0x71, 0x9b,
-	0x37, 0xef, 0xf7, 0x7e, 0xf3, 0xfe, 0xdb, 0xf0, 0xc8, 0x47, 0x16, 0xf5, 0xce, 0x02, 0x52, 0xb5,
-	0x79, 0x80, 0x55, 0x3b, 0x18, 0xf8, 0x82, 0x57, 0xfb, 0x5b, 0xc4, 0xf3, 0x5d, 0xb2, 0xa5, 0xe4,
-	0x8a, 0x1f, 0x70, 0xc1, 0x8d, 0xd5, 0x14, 0x5b, 0x91, 0xd8, 0x8a, 0xd2, 0xa5, 0x58, 0xf3, 0x1b,
-	0x0d, 0x72, 0x4f, 0x10, 0x8d, 0x8f, 0x61, 0x96, 0xf4, 0x78, 0xc4, 0xc4, 0xb2, 0xb6, 0xa6, 0x3d,
-	0x28, 0x6c, 0xdf, 0xaf, 0x8c, 0xb5, 0xab, 0xec, 0xc6, 0x60, 0x4b, 0x19, 0x19, 0xbb, 0x30, 0x47,
-	0xc2, 0x10, 0x45, 0x9b, 0x3a, 0xcb, 0x7a, 0x4c, 0xb0, 0x39, 0x89, 0x40, 0xc2, 0x0f, 0x1c, 0x2b,
-	0x4f, 0x92, 0x83, 0x79, 0x17, 0xf2, 0xbb, 0x8e, 0x13, 0x60, 0x18, 0x1a, 0x4b, 0x30, 0x43, 0x19,
-	0xc3, 0x20, 0xf6, 0xa5, 0x68, 0x25, 0x82, 0xf9, 0x67, 0x0e, 0x0a, 0x0a, 0x71, 0x4c, 0xf1, 0xc2,
-	0x38, 0x84, 0x7c, 0x9f, 0x86, 0xf4, 0xcc, 0x43, 0xe5, 0xf3, 0xf6, 0xa4, 0x27, 0x5f, 0x1b, 0x57,
-	0x8e, 0x13, 0xcb, 0xfd, 0x29, 0x2b, 0x25, 0x31, 0x9a, 0x30, 0xcb, 0x7d, 0xf2, 0x65, 0x84, 0x2a,
-	0x82, 0xad, 0xbf, 0x41, 0xf7, 0x2c, 0x36, 0xdc, 0x9f, 0xb2, 0x14, 0xc5, 0xca, 0xef, 0x1a, 0xe4,
-	0xd5, 0x1b, 0xc6, 0x27, 0x90, 0x27, 0x09, 0x56, 0x39, 0xba, 0x79, 0x3b, 0x66, 0x2b, 0x35, 0x33,
-	0x76, 0x65, 0x42, 0x1c, 0x7c, 0xa1, 0x3c, 0x7b, 0xef, 0x76, 0xf6, 0x07, 0xd2, 0xc4, 0x4a, 0x2c,
-	0x8d, 0xe7, 0x70, 0x87, 0xd8, 0xb6, 0x2c, 0x56, 0xbb, 0x13, 0xf0, 0xc8, 0x97, 0x95, 0xca, 0xc5,
-	0x6c, 0x1f, 0x4c, 0x62, 0x4b, 0xcc, 0xf6, 0xa4, 0xd5, 0x81, 0x63, 0x95, 0xc8, 0x35, 0x79, 0xe5,
-	0x33, 0x98, 0x4d, 0xa2, 0xff, 0xf7, 0x71, 0xd6, 0x4b, 0x50, 0x54, 0xc7, 0x76, 0x9f, 0xe2, 0x85,
-	0xb9, 0x06, 0x73, 0x47, 0x3e, 0x32, 0xa7, 0x89, 0x83, 0x8c, 0xa6, 0x78, 0x1f, 0x96, 0x62, 0xc4,
-	0x31, 0x06, 0xf4, 0x9c, 0xda, 0x44, 0x50, 0xce, 0xb2, 0xd1, 0x9b, 0x50, 0x7a, 0x12, 0x79, 0x9e,
-	0x2c, 0x19, 0x65, 0x9d, 0xb1, 0xb8, 0xeb, 0x51, 0x67, 0xe0, 0xd6, 0xa1, 0xf0, 0x98, 0xf6, 0x31,
-	0x08, 0xe9, 0x39, 0xc5, 0x20, 0x03, 0xb4, 0x0f, 0xc5, 0xd1, 0x82, 0x18, 0xcb, 0x90, 0x57, 0x29,
-	0x8c, 0xcb, 0xb9, 0x60, 0xa5, 0xa2, 0x51, 0x06, 0x08, 0x08, 0x73, 0x78, 0x8f, 0x7e, 0x85, 0x41,
-	0x5c, 0x9d, 0xa2, 0x35, 0x72, 0x63, 0xbe, 0x0b, 0x8b, 0x47, 0x82, 0x08, 0x6c, 0xf0, 0x5e, 0x8f,
-	0x8a, 0x1e, 0x32, 0x91, 0xf1, 0xe4, 0x43, 0x78, 0xab, 0x4e, 0x3c, 0xc2, 0xec, 0xc9, 0x50, 0x39,
-	0x76, 0xc9, 0x04, 0x66, 0x00, 0x1e, 0xc0, 0x6c, 0x32, 0xec, 0x46, 0x09, 0x74, 0x8f, 0xc7, 0xca,
-	0x69, 0x4b, 0xf7, 0xb8, 0x94, 0x5d, 0x1a, 0xc7, 0x30, 0x6d, 0xe9, 0x2e, 0x35, 0x57, 0x61, 0xe6,
-	0x31, 0x32, 0xde, 0x93, 0x44, 0x8e, 0x3c, 0xc4, 0xd8, 0x79, 0x2b, 0x11, 0xcc, 0x6f, 0x35, 0x98,
-	0x39, 0x26, 0x5e, 0xf4, 0x7f, 0x58, 0x36, 0x26, 0xc0, 0x53, 0x0c, 0xba, 0x1e, 0x5a, 0x9c, 0x67,
-	0x65, 0xe6, 0x6b, 0x98, 0x89, 0xed, 0x8c, 0x0f, 0x41, 0xa7, 0xce, 0x6d, 0x5b, 0x5a, 0xbd, 0xa4,
-	0x53, 0xc7, 0xa8, 0xa5, 0x69, 0x48, 0x9c, 0xdc, 0x98, 0x60, 0x1a, 0xe7, 0x2e, 0x4d, 0xd6, 0x2a,
-	0x14, 0x0e, 0x1c, 0x64, 0x82, 0x8a, 0x81, 0x6c, 0xd3, 0x12, 0xe8, 0xb4, 0xab, 0xdc, 0xd3, 0x69,
-	0xd7, 0xbc, 0x0b, 0x0b, 0x7b, 0xbc, 0x8f, 0x01, 0x93, 0x35, 0x56, 0x80, 0xce, 0x10, 0xd0, 0xe9,
-	0x9a, 0x1b, 0x50, 0x6c, 0x70, 0x16, 0x22, 0x0b, 0xa3, 0x30, 0xbb, 0xcf, 0xbf, 0xd7, 0x60, 0xfa,
-	0x90, 0x0b, 0x94, 0xae, 0xf6, 0x65, 0x69, 0x54, 0x94, 0x93, 0x5c, 0x8d, 0xcb, 0x68, 0x25, 0x26,
-	0x92, 0x3a, 0x08, 0x11, 0x93, 0x5a, 0x14, 0xad, 0x44, 0x18, 0x5d, 0x06, 0xb9, 0x7f, 0xb4, 0x0c,
-	0xe4, 0x10, 0x4a, 0xdf, 0x1a, 0xd4, 0x77, 0x31, 0x10, 0xf8, 0x22, 0xab, 0x4e, 0xf7, 0x60, 0xfe,
-	0x30, 0xf2, 0xbc, 0x71, 0x23, 0xf8, 0x08, 0x8c, 0x78, 0x4b, 0xec, 0x46, 0xc2, 0x3d, 0xa2, 0x1d,
-	0x46, 0x44, 0x14, 0x60, 0x66, 0xbf, 0xdf, 0xa9, 0x53, 0xe6, 0x50, 0xd6, 0x99, 0x84, 0xfc, 0x4d,
-	0x83, 0x82, 0xf4, 0xb0, 0x45, 0x06, 0x1e, 0x27, 0x8e, 0xf1, 0x1c, 0x16, 0x19, 0x17, 0xd8, 0xb6,
-	0x87, 0x33, 0xa7, 0xd2, 0x59, 0x99, 0x10, 0xfa, 0x8d, 0xa1, 0xb6, 0x4a, 0x92, 0x66, 0x64, 0x72,
-	0xd7, 0x61, 0x01, 0x7d, 0x17, 0x7b, 0x18, 0x10, 0xaf, 0xdd, 0xc5, 0x81, 0xca, 0x74, 0x71, 0x78,
-	0x29, 0x2b, 0xfc, 0x39, 0x94, 0x90, 0xc5, 0xcc, 0xe8, 0xb4, 0x25, 0xc1, 0x2d, 0xd7, 0xfb, 0xf5,
-	0x1c, 0x5b, 0x0b, 0x43, 0x12, 0xa9, 0x30, 0x5f, 0x69, 0xb0, 0x74, 0xc3, 0xbd, 0x56, 0xc0, 0xf9,
-	0xf9, 0x7f, 0x17, 0xec, 0x0a, 0xcc, 0xf9, 0x3c, 0xa4, 0x72, 0x91, 0xab, 0xdd, 0x32, 0x94, 0x8d,
-	0x26, 0xcc, 0x93, 0x48, 0xb8, 0x6d, 0x9f, 0x08, 0x77, 0x39, 0xb7, 0x96, 0xbb, 0xc5, 0x73, 0xc9,
-	0x98, 0xb7, 0x88, 0x70, 0x1b, 0x6e, 0xc4, 0xba, 0xd6, 0x9c, 0x24, 0x90, 0xa2, 0xe9, 0xc2, 0xe2,
-	0x0d, 0xa5, 0xf1, 0x36, 0xcc, 0xcb, 0x4f, 0x36, 0x65, 0x9d, 0xf6, 0x96, 0xaa, 0xf5, 0x9c, 0xba,
-	0xd8, 0x1a, 0x55, 0x6e, 0xab, 0x0a, 0xa4, 0xca, 0xed, 0x51, 0xe5, 0x8e, 0xda, 0xdc, 0xa9, 0x72,
-	0xc7, 0x7c, 0x07, 0xa6, 0x1b, 0x6a, 0x52, 0xde, 0xd0, 0x46, 0x26, 0xc0, 0xa7, 0xe7, 0xe7, 0x68,
-	0x8b, 0x7d, 0x12, 0xba, 0x19, 0x98, 0xfb, 0xb0, 0x70, 0xd2, 0x7c, 0x16, 0x09, 0x3f, 0x52, 0xe9,
-	0x7f, 0x33, 0x6c, 0x03, 0x8a, 0x27, 0xcd, 0xb8, 0xd3, 0xc7, 0xa1, 0xd6, 0xa1, 0x70, 0xd2, 0x3c,
-	0xba, 0x20, 0xfe, 0x18, 0x50, 0xfd, 0x27, 0xfd, 0xe7, 0xcb, 0xb2, 0xf6, 0xf2, 0xb2, 0xac, 0xfd,
-	0x7a, 0x59, 0xd6, 0xbe, 0xbb, 0x2a, 0x4f, 0xbd, 0xbc, 0x2a, 0x4f, 0xbd, 0xba, 0x2a, 0x4f, 0xc1,
-	0x3d, 0x9b, 0xf7, 0xc6, 0x67, 0xbd, 0x5e, 0x68, 0xc4, 0x17, 0x2d, 0xf9, 0x0b, 0xda, 0xd2, 0x4e,
-	0xbe, 0xe8, 0x50, 0xe1, 0x46, 0x67, 0x15, 0x9b, 0xf7, 0xaa, 0x36, 0x0f, 0x7b, 0x3c, 0xac, 0x06,
-	0xe8, 0x91, 0x01, 0x06, 0xd5, 0xfe, 0xf6, 0xf0, 0x68, 0xbb, 0x84, 0xb2, 0xb0, 0x3a, 0xf6, 0xe7,
-	0xf6, 0xa3, 0x44, 0x4e, 0xc5, 0x1f, 0xf4, 0x5c, 0xab, 0xd1, 0xf8, 0x51, 0x5f, 0x6d, 0xa5, 0xee,
-	0x34, 0xa4, 0x3b, 0xc9, 0xeb, 0x95, 0x63, 0x85, 0xfa, 0xe5, 0xb5, 0xfe, 0x54, 0xea, 0x4f, 0x13,
-	0xfd, 0x69, 0xaa, 0xbf, 0xd4, 0x1f, 0x8e, 0xd5, 0x9f, 0xee, 0xb5, 0xea, 0x4f, 0x51, 0x10, 0x87,
-	0x08, 0xf2, 0x87, 0xbe, 0x96, 0x62, 0x6b, 0x35, 0x09, 0xae, 0xd5, 0x12, 0x74, 0xad, 0x96, 0xc2,
-	0xcf, 0x66, 0xe3, 0x5f, 0xef, 0x9d, 0xbf, 0x02, 0x00, 0x00, 0xff, 0xff, 0x3a, 0x9c, 0x41, 0xcd,
-	0xa8, 0x0b, 0x00, 0x00,
+	// 1182 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x57, 0xcf, 0x6f, 0xe3, 0xc4,
+	0x17, 0x8f, 0x9d, 0xb6, 0x49, 0x5f, 0x7e, 0xec, 0x7e, 0xad, 0x1e, 0xaa, 0x7e, 0x69, 0xb6, 0xeb,
+	0x76, 0x4b, 0xb7, 0x40, 0xa2, 0xa6, 0x82, 0x43, 0x10, 0x88, 0x26, 0x65, 0xdb, 0x12, 0x6d, 0x37,
+	0x72, 0x21, 0x8b, 0xaa, 0x4a, 0xd1, 0xd4, 0x9e, 0xc6, 0xa3, 0x38, 0x33, 0xc6, 0x1e, 0xa7, 0x1b,
+	0xf8, 0x03, 0x56, 0xdc, 0xf6, 0xcc, 0x91, 0x03, 0x07, 0xfe, 0x03, 0xfe, 0x03, 0xc4, 0x69, 0x8f,
+	0x7b, 0x84, 0xf6, 0x80, 0x84, 0x38, 0xf0, 0x27, 0xa0, 0xb1, 0xc7, 0x69, 0x5a, 0x6d, 0x7e, 0x40,
+	0x85, 0xe0, 0xe6, 0xe7, 0xf7, 0x79, 0x9f, 0xf9, 0xbc, 0xf7, 0x66, 0xde, 0xd8, 0xb0, 0xe9, 0x62,
+	0x1a, 0x74, 0x4f, 0x3d, 0x54, 0x32, 0x99, 0x87, 0x4b, 0xa6, 0xd7, 0x77, 0x39, 0x2b, 0xf5, 0xb6,
+	0x90, 0xe3, 0xda, 0x68, 0x4b, 0xda, 0x45, 0xd7, 0x63, 0x9c, 0x69, 0xcb, 0x31, 0xb6, 0x28, 0xb0,
+	0x45, 0xe9, 0x8b, 0xb1, 0xfa, 0x73, 0x05, 0x92, 0x8f, 0x30, 0xd6, 0x3e, 0x80, 0x39, 0xd4, 0x65,
+	0x01, 0xe5, 0x8b, 0xca, 0x8a, 0xb2, 0x91, 0x29, 0x3f, 0x28, 0x8e, 0x8d, 0x2b, 0xee, 0x84, 0x60,
+	0x43, 0x06, 0x69, 0x3b, 0x90, 0x46, 0xbe, 0x8f, 0x79, 0x8b, 0x58, 0x8b, 0x6a, 0x48, 0xb0, 0x3e,
+	0x89, 0x40, 0xc0, 0x0f, 0x2c, 0x23, 0x85, 0xa2, 0x07, 0xfd, 0x1e, 0xa4, 0x76, 0x2c, 0xcb, 0xc3,
+	0xbe, 0xaf, 0x2d, 0xc0, 0x2c, 0xa1, 0x14, 0x7b, 0xa1, 0x96, 0xac, 0x11, 0x19, 0xfa, 0x1f, 0x49,
+	0xc8, 0x48, 0x44, 0x93, 0xe0, 0x73, 0xed, 0x10, 0x52, 0x3d, 0xe2, 0x93, 0x53, 0x07, 0x4b, 0xcd,
+	0xe5, 0x49, 0x4b, 0x5e, 0x05, 0x17, 0x9b, 0x51, 0xe4, 0x7e, 0xc2, 0x88, 0x49, 0xb4, 0x3a, 0xcc,
+	0x31, 0x17, 0x7d, 0x11, 0x60, 0x99, 0xc1, 0xd6, 0x5f, 0xa0, 0x7b, 0x12, 0x06, 0xee, 0x27, 0x0c,
+	0x49, 0xb1, 0xf4, 0xab, 0x02, 0x29, 0xb9, 0x86, 0xf6, 0x11, 0xa4, 0x50, 0x84, 0x95, 0x42, 0xd7,
+	0xa7, 0x63, 0x36, 0xe2, 0x30, 0x6d, 0x47, 0x14, 0xc4, 0xc2, 0xcf, 0xa4, 0xb2, 0xb7, 0xa6, 0x8b,
+	0x3f, 0x10, 0x21, 0x46, 0x14, 0xa9, 0x3d, 0x85, 0xbb, 0xc8, 0x34, 0x45, 0xb3, 0x5a, 0x6d, 0x8f,
+	0x05, 0xae, 0xe8, 0x54, 0x32, 0x64, 0x7b, 0x67, 0x12, 0x5b, 0x14, 0xb6, 0x27, 0xa2, 0x0e, 0x2c,
+	0x23, 0x8f, 0xae, 0xd9, 0x4b, 0x9f, 0xc0, 0x5c, 0x94, 0xfd, 0xed, 0xf3, 0xac, 0xe6, 0x21, 0x2b,
+	0x1f, 0x5b, 0x3d, 0x82, 0xcf, 0xf5, 0x15, 0x48, 0x1f, 0xb9, 0x98, 0x5a, 0x75, 0xdc, 0x1f, 0xb1,
+	0x29, 0xde, 0x86, 0x85, 0x10, 0xd1, 0xc4, 0x1e, 0x39, 0x23, 0x26, 0xe2, 0x84, 0xd1, 0xd1, 0xe8,
+	0x75, 0xc8, 0x3f, 0x0a, 0x1c, 0x47, 0xb4, 0x8c, 0xd0, 0xf6, 0x58, 0xdc, 0xf5, 0xac, 0x47, 0xe0,
+	0x56, 0x21, 0xb3, 0x4b, 0x7a, 0xd8, 0xf3, 0xc9, 0x19, 0xc1, 0xde, 0x08, 0xd0, 0x3e, 0x64, 0x87,
+	0x1b, 0xa2, 0x2d, 0x42, 0x4a, 0x96, 0x30, 0x6c, 0x67, 0xce, 0x88, 0x4d, 0xad, 0x00, 0xe0, 0x21,
+	0x6a, 0xb1, 0x2e, 0xf9, 0x12, 0x7b, 0x61, 0x77, 0xb2, 0xc6, 0xd0, 0x1b, 0xfd, 0x4d, 0xb8, 0x73,
+	0xc4, 0x11, 0xc7, 0x35, 0xd6, 0xed, 0x12, 0xde, 0xc5, 0x94, 0x8f, 0x58, 0xf2, 0x21, 0xfc, 0xaf,
+	0x8a, 0x1c, 0x44, 0xcd, 0xc9, 0x50, 0x71, 0xec, 0xa2, 0x13, 0x38, 0x02, 0xb0, 0x01, 0x73, 0xd1,
+	0x61, 0xd7, 0xf2, 0xa0, 0x3a, 0x2c, 0x74, 0xce, 0x18, 0xaa, 0xc3, 0x84, 0x6d, 0x93, 0x30, 0x87,
+	0x19, 0x43, 0xb5, 0x89, 0xbe, 0x0c, 0xb3, 0xbb, 0x98, 0xb2, 0xae, 0x20, 0xb2, 0xc4, 0x43, 0x88,
+	0x9d, 0x37, 0x22, 0x43, 0xff, 0x5a, 0x81, 0xd9, 0x26, 0x72, 0x82, 0xff, 0xc2, 0xb0, 0xf9, 0x3d,
+	0x09, 0xf3, 0xa1, 0x96, 0x70, 0x92, 0x34, 0x21, 0xd3, 0xa1, 0xec, 0x9c, 0xb6, 0xae, 0x54, 0x67,
+	0xca, 0xdb, 0x13, 0x38, 0x07, 0xe1, 0xc5, 0xba, 0x88, 0x0d, 0x33, 0xdf, 0x4f, 0x18, 0xd0, 0x19,
+	0x58, 0xda, 0x09, 0xe4, 0x02, 0x3a, 0xcc, 0x1c, 0xa9, 0x7d, 0x77, 0x6a, 0xe6, 0xcf, 0x68, 0x67,
+	0x98, 0x3b, 0x1b, 0x0c, 0xd9, 0x4b, 0xcf, 0x15, 0x80, 0xab, 0xa5, 0x6f, 0x5b, 0xd4, 0x4a, 0xdc,
+	0xb3, 0x48, 0xe3, 0xda, 0x84, 0xe8, 0x70, 0x4d, 0xd9, 0xd9, 0xa5, 0x17, 0x0a, 0x64, 0x87, 0xa5,
+	0xfe, 0xfb, 0x0d, 0xae, 0x66, 0x01, 0x7a, 0xa2, 0x8c, 0xd1, 0x1c, 0xd1, 0x01, 0x1e, 0x63, 0xaf,
+	0xe3, 0x60, 0x83, 0xb1, 0x51, 0x07, 0xe1, 0x2b, 0x98, 0x0d, 0x59, 0xb4, 0xf7, 0x40, 0x25, 0xd6,
+	0xb4, 0x13, 0x4c, 0xae, 0xab, 0x12, 0xeb, 0x36, 0x15, 0xd4, 0x97, 0x21, 0x73, 0x60, 0x61, 0xca,
+	0x09, 0xef, 0x8b, 0xa9, 0x94, 0x07, 0x95, 0x74, 0xa4, 0x3c, 0x95, 0x74, 0xf4, 0x7b, 0x90, 0xdb,
+	0x63, 0x3d, 0xec, 0x51, 0x71, 0xa4, 0x25, 0xa0, 0x3d, 0x00, 0xb4, 0x3b, 0xfa, 0x1a, 0x64, 0x6b,
+	0x8c, 0xfa, 0x98, 0xfa, 0x81, 0x3f, 0x7a, 0xac, 0x7d, 0xa3, 0xc0, 0xcc, 0x21, 0xe3, 0x58, 0x48,
+	0x0d, 0xab, 0x23, 0xb3, 0x5c, 0x9b, 0x66, 0x43, 0x1a, 0x51, 0x88, 0xa0, 0xf6, 0x7c, 0x8c, 0xa3,
+	0xce, 0x64, 0x8d, 0xc8, 0x18, 0x9e, 0xfd, 0xc9, 0xbf, 0x35, 0xfb, 0xf5, 0xef, 0x14, 0x48, 0x0b,
+	0x71, 0xe1, 0x89, 0xfc, 0xf0, 0xba, 0xc0, 0x8d, 0x69, 0x4f, 0xcc, 0x78, 0x91, 0xbb, 0x37, 0x45,
+	0x6e, 0x4e, 0x7f, 0xc5, 0x5f, 0x09, 0x5d, 0x87, 0xbc, 0xd0, 0x59, 0x23, 0xae, 0x8d, 0x3d, 0x8e,
+	0x9f, 0x8d, 0xda, 0x50, 0xf7, 0x61, 0xfe, 0x30, 0x70, 0x9c, 0x71, 0x57, 0xc3, 0x26, 0x68, 0xe1,
+	0xed, 0xb5, 0x13, 0x70, 0xfb, 0x88, 0xb4, 0x29, 0xe2, 0x81, 0x87, 0x47, 0xce, 0xe1, 0xbb, 0x55,
+	0x42, 0x2d, 0x42, 0xdb, 0x93, 0x90, 0xbf, 0x28, 0x90, 0x11, 0x0a, 0x1b, 0xa8, 0xef, 0x30, 0x64,
+	0x69, 0x4f, 0xe1, 0x0e, 0x65, 0x1c, 0xb7, 0xcc, 0xc1, 0x5d, 0x20, 0xcb, 0x5a, 0x9c, 0x90, 0xfe,
+	0x8d, 0xcb, 0xc6, 0xc8, 0x0b, 0x9a, 0xa1, 0x1b, 0x65, 0x15, 0x72, 0xd8, 0xb5, 0x71, 0x17, 0x7b,
+	0xc8, 0x69, 0x75, 0x70, 0x5f, 0x56, 0x3b, 0x3b, 0x78, 0x29, 0xb6, 0xe2, 0xa7, 0x90, 0xc7, 0x34,
+	0x64, 0xc6, 0x56, 0x4b, 0x10, 0x4c, 0xf9, 0xd9, 0x71, 0xbd, 0xc6, 0x46, 0x6e, 0x40, 0x22, 0x1c,
+	0xfa, 0x2b, 0x05, 0x16, 0x6e, 0xc8, 0x6b, 0x78, 0x8c, 0x9d, 0xfd, 0x73, 0xc9, 0x2e, 0x41, 0xda,
+	0x65, 0x3e, 0x11, 0x1f, 0x18, 0xf2, 0xce, 0x1b, 0xd8, 0x5a, 0x1d, 0xe6, 0x51, 0xc0, 0xed, 0x96,
+	0x8b, 0xb8, 0xbd, 0x98, 0x5c, 0x49, 0x4e, 0xb1, 0x5c, 0x34, 0x8f, 0x1a, 0x88, 0xdb, 0x35, 0x3b,
+	0xa0, 0x1d, 0x23, 0x2d, 0x08, 0x84, 0xa9, 0xdb, 0x70, 0xe7, 0x86, 0x53, 0xfb, 0x3f, 0xcc, 0x8b,
+	0x4f, 0x49, 0x42, 0xdb, 0xad, 0x2d, 0xd9, 0xeb, 0xb4, 0x7c, 0xb1, 0x35, 0xec, 0x2c, 0xcb, 0x0e,
+	0xc4, 0xce, 0xf2, 0xb0, 0x73, 0x5b, 0x7e, 0x51, 0xc4, 0xce, 0x6d, 0xfd, 0x0d, 0x98, 0xa9, 0xc9,
+	0xd3, 0xf2, 0x9a, 0x6d, 0xa4, 0x03, 0x7c, 0x7c, 0x76, 0x86, 0x4d, 0xbe, 0x8f, 0x7c, 0x7b, 0x04,
+	0xe6, 0x01, 0xe4, 0x8e, 0xeb, 0x4f, 0x02, 0xee, 0x06, 0xb2, 0xfc, 0xaf, 0x87, 0xad, 0x41, 0xf6,
+	0xb8, 0x1e, 0xee, 0xf4, 0x71, 0xa8, 0x55, 0xc8, 0x1c, 0xd7, 0x8f, 0xce, 0x91, 0x3b, 0x06, 0x54,
+	0xfd, 0x41, 0xfd, 0xf1, 0xa2, 0xa0, 0xbc, 0xbc, 0x28, 0x28, 0x3f, 0x5f, 0x14, 0x94, 0x17, 0x97,
+	0x85, 0xc4, 0xcb, 0xcb, 0x42, 0xe2, 0xd5, 0x65, 0x21, 0x01, 0xf7, 0x4d, 0xd6, 0x1d, 0x5f, 0xf5,
+	0x6a, 0xa6, 0x16, 0xbe, 0x68, 0x88, 0x5f, 0xa3, 0x86, 0x72, 0xfc, 0x79, 0x9b, 0x70, 0x3b, 0x38,
+	0x2d, 0x9a, 0xac, 0x5b, 0x32, 0x99, 0xdf, 0x65, 0x7e, 0xc9, 0xc3, 0x0e, 0xea, 0x63, 0xaf, 0xd4,
+	0x2b, 0x0f, 0x1e, 0x4d, 0x1b, 0x11, 0xea, 0x97, 0xc6, 0xfe, 0x74, 0xbd, 0x1f, 0xd9, 0xb1, 0xf9,
+	0xad, 0x9a, 0x6c, 0xd4, 0x6a, 0xdf, 0xab, 0xcb, 0x8d, 0x58, 0x4e, 0x4d, 0xc8, 0x89, 0x56, 0x2f,
+	0x36, 0x25, 0xea, 0xa7, 0x2b, 0xff, 0x89, 0xf0, 0x9f, 0x44, 0xfe, 0x93, 0xd8, 0x7f, 0xa1, 0x3e,
+	0x1c, 0xeb, 0x3f, 0xd9, 0x6b, 0x54, 0x1f, 0x63, 0x8e, 0x2c, 0xc4, 0xd1, 0x6f, 0xea, 0x4a, 0x8c,
+	0xad, 0x54, 0x04, 0xb8, 0x52, 0x89, 0xd0, 0x95, 0x4a, 0x0c, 0x3f, 0x9d, 0x0b, 0x7f, 0x09, 0xb7,
+	0xff, 0x0c, 0x00, 0x00, 0xff, 0xff, 0x4f, 0x4e, 0x9d, 0x9e, 0x40, 0x0e, 0x00, 0x00,
 }
 
 func (m *Fee) Marshal() (dAtA []byte, err error) {
@@ -2488,6 +2759,174 @@ func (m *Value) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ValueView) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ValueView) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValueView) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ValueView != nil {
+		{
+			size := m.ValueView.Size()
+			i -= size
+			if _, err := m.ValueView.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ValueView_KnownDenom_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValueView_KnownDenom_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.KnownDenom != nil {
+		{
+			size, err := m.KnownDenom.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *ValueView_UnknownDenom_) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValueView_UnknownDenom_) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.UnknownDenom != nil {
+		{
+			size, err := m.UnknownDenom.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *ValueView_KnownDenom) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ValueView_KnownDenom) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValueView_KnownDenom) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Denom != nil {
+		{
+			size, err := m.Denom.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Amount != nil {
+		{
+			size, err := m.Amount.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ValueView_UnknownDenom) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ValueView_UnknownDenom) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ValueView_UnknownDenom) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AssetId != nil {
+		{
+			size, err := m.AssetId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Amount != nil {
+		{
+			size, err := m.Amount.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *MerkleRoot) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2671,6 +3110,60 @@ func (m *Note) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *Note) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Address != nil {
+		{
+			size, err := m.Address.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Rseed) > 0 {
+		i -= len(m.Rseed)
+		copy(dAtA[i:], m.Rseed)
+		i = encodeVarintCrypto(dAtA, i, uint64(len(m.Rseed)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Value != nil {
+		{
+			size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCrypto(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *NoteView) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *NoteView) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NoteView) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -3407,6 +3900,76 @@ func (m *Value) Size() (n int) {
 	return n
 }
 
+func (m *ValueView) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ValueView != nil {
+		n += m.ValueView.Size()
+	}
+	return n
+}
+
+func (m *ValueView_KnownDenom_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.KnownDenom != nil {
+		l = m.KnownDenom.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+func (m *ValueView_UnknownDenom_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.UnknownDenom != nil {
+		l = m.UnknownDenom.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+func (m *ValueView_KnownDenom) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Amount != nil {
+		l = m.Amount.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	if m.Denom != nil {
+		l = m.Denom.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+
+func (m *ValueView_UnknownDenom) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Amount != nil {
+		l = m.Amount.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	if m.AssetId != nil {
+		l = m.AssetId.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+
 func (m *MerkleRoot) Size() (n int) {
 	if m == nil {
 		return 0
@@ -3477,6 +4040,27 @@ func (m *ConsensusKey) Size() (n int) {
 }
 
 func (m *Note) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Value != nil {
+		l = m.Value.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	l = len(m.Rseed)
+	if l > 0 {
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	if m.Address != nil {
+		l = m.Address.Size()
+		n += 1 + l + sovCrypto(uint64(l))
+	}
+	return n
+}
+
+func (m *NoteView) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -5321,6 +5905,370 @@ func (m *Value) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ValueView) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ValueView: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ValueView: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KnownDenom", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ValueView_KnownDenom{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ValueView = &ValueView_KnownDenom_{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UnknownDenom", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ValueView_UnknownDenom{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ValueView = &ValueView_UnknownDenom_{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ValueView_KnownDenom) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: KnownDenom: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: KnownDenom: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Amount", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Amount == nil {
+				m.Amount = &Amount{}
+			}
+			if err := m.Amount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Denom", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Denom == nil {
+				m.Denom = &Denom{}
+			}
+			if err := m.Denom.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ValueView_UnknownDenom) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UnknownDenom: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UnknownDenom: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Amount", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Amount == nil {
+				m.Amount = &Amount{}
+			}
+			if err := m.Amount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AssetId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AssetId == nil {
+				m.AssetId = &AssetId{}
+			}
+			if err := m.AssetId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *MerkleRoot) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -5909,6 +6857,162 @@ func (m *Note) Unmarshal(dAtA []byte) error {
 			}
 			if m.Address == nil {
 				m.Address = &Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCrypto(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *NoteView) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCrypto
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: NoteView: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: NoteView: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Value == nil {
+				m.Value = &ValueView{}
+			}
+			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Rseed", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Rseed = append(m.Rseed[:0], dAtA[iNdEx:postIndex]...)
+			if m.Rseed == nil {
+				m.Rseed = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCrypto
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCrypto
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Address == nil {
+				m.Address = &AddressView{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
