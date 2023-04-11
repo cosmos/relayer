@@ -83,17 +83,17 @@ func (mp *messageProcessor) processMessages(
 	src, dst *pathEndRuntime,
 	hops []*pathEndRuntime,
 ) error {
-	var needsClientUpdate bool
-	// We defer client updates for multihop paths to the underlying single hop paths
-	if len(hops) == 0 {
-		var err error
-		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
-		if err != nil {
-			return err
-		}
-		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-			return err
-		}
+	dstClient := dst
+	if len(hops) > 0 {
+		dstClient = hops[0]
+	}
+	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dstClient)
+	if err != nil {
+		return err
+	}
+	// TODO: do we need to update all intermediate clients?
+	if err := mp.assembleMsgUpdateClient(ctx, src, dstClient); err != nil {
+		return err
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst, hops)
@@ -359,20 +359,12 @@ func (mp *messageProcessor) sendBatchMessages(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	var updateOffset int
-	var updateClientMsg *provider.RelayerMessage
-	if len(hops) == 0 {
-		updateOffset++
-		updateClientMsg = &mp.msgUpdateClient
-	}
 	// messages are batch with appended MsgUpdateClient
-	msgs := make([]provider.RelayerMessage, len(batch)+updateOffset)
-	if updateClientMsg != nil {
-		msgs[0] = mp.msgUpdateClient
-	}
+	msgs := make([]provider.RelayerMessage, len(batch)+1)
+	msgs[0] = mp.msgUpdateClient
 	fields := []zapcore.Field{}
 	for i, t := range batch {
-		msgs[i+updateOffset] = t.assembledMsg()
+		msgs[i+1] = t.assembledMsg()
 		fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
 	}
 

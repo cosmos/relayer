@@ -508,11 +508,16 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
 func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
-	// Update trusted client state for both pathends, unless we're dealing with a multihop path
-	if pp.hopsPathEnd1to2 == nil {
-		pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
-		pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+	// Update trusted client state for both pathends
+	pathEnd1 := pp.pathEnd1
+	pathEnd2 := pp.pathEnd2
+	if len(pp.hopsPathEnd1to2) > 0 {
+		pathEnd1 = pp.hopsPathEnd2to1[0]
+		pathEnd2 = pp.hopsPathEnd1to2[0]
 	}
+	pp.updateClientTrustedState(pp.pathEnd1, pathEnd2)
+	// TODO: do we need the hops in between?
+	pp.updateClientTrustedState(pp.pathEnd2, pathEnd1)
 
 	channelPairs := pp.channelPairs()
 
