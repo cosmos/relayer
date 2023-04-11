@@ -35,7 +35,6 @@ require (
 	golang.org/x/term v0.6.0
 	golang.org/x/text v0.8.0
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.29.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -176,6 +175,7 @@ require (
 	google.golang.org/api v0.110.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230216225411-c8e22ba71e44 // indirect
+	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
 	pgregory.net/rapid v0.5.5 // indirect

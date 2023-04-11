@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+// buf:lint:ignore PACKAGE_VERSION_SUFFIX
+package cosmos.crypto.sr25519;
+
+import "gogoproto/gogo.proto";
+
+// Originally github.com/cosmos/cosmos-sdk/crypto/keys/sr25519
+option go_package = "github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519";
+
+option (gogoproto.messagename_all)      = true;
+option (gogoproto.goproto_stringer_all) = false;
+option (gogoproto.goproto_getters_all)  = false;
+
+// PubKey defines a sr25519 ECDSA public key.
+message PubKey {
+    option (gogoproto.goproto_stringer) = false;
+
+    bytes key = 1 [(gogoproto.casttype) = "github.com/cometbft/cometbft/crypto/sr25519.PubKey"];
+}
