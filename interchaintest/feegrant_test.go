@@ -8,11 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
-	ibcgo "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -191,6 +190,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		gaia.Config().ChainID,
 		gaiaGranterWallet.KeyName(),
 		coinType,
+		string(hd.Secp256k1Type),
 		gaiaGranterWallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -202,6 +202,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		gaia.Config().ChainID,
 		gaiaGranteeWallet.KeyName(),
 		coinType,
+		string(hd.Secp256k1Type),
 		gaiaGranteeWallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -213,6 +214,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		gaia.Config().ChainID,
 		gaiaGrantee2Wallet.KeyName(),
 		coinType,
+		string(hd.Secp256k1Type),
 		gaiaGrantee2Wallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -224,6 +226,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		gaia.Config().ChainID,
 		gaiaGrantee3Wallet.KeyName(),
 		coinType,
+		string(hd.Secp256k1Type),
 		gaiaGrantee3Wallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -235,6 +238,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		osmosis.Config().ChainID,
 		osmosisUser.KeyName(),
 		coinType,
+		string(hd.Secp256k1Type),
 		osmosisUser.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
@@ -246,6 +250,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 		osmosis.Config().ChainID,
 		gaiaUser.KeyName(),
 		coinType,
+		string(hd.Secp256k1Type),
 		gaiaUser.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -376,7 +381,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 				chain := cProv.PCfg.ChainID
 				feegrantInfo, isFeegrantedChain := feegrantedChains[chain]
 
-				sdkConf := sdk.GetConfig()
+				sdkConf := types.GetConfig()
 				sdkConf.SetBech32PrefixForAccount(cProv.PCfg.AccountPrefix, cProv.PCfg.AccountPrefix+"pub")
 				sdkConf.SetBech32PrefixForValidator(cProv.PCfg.AccountPrefix+"valoper", cProv.PCfg.AccountPrefix+"valoperpub")
 				sdkConf.SetBech32PrefixForConsensusNode(cProv.PCfg.AccountPrefix+"valcons", cProv.PCfg.AccountPrefix+"valconspub")
@@ -426,7 +431,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 						if msgType == "/ibc.core.channel.v1.MsgRecvPacket" {
 							c := msg.(*chantypes.MsgRecvPacket)
 							appData := c.Packet.GetData()
-							tokenTransfer := &ibcgo.FungibleTokenPacketData{}
+							tokenTransfer := &transfertypes.FungibleTokenPacketData{}
 							err := tokenTransfer.Unmarshal(appData)
 							if err == nil {
 								fmt.Printf("%+v\n", tokenTransfer)

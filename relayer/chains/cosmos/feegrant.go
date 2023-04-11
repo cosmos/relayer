@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -150,7 +151,7 @@ func (cc *CosmosProvider) ConfigureWithGrantees(grantees []string, granterKey st
 	for _, newGrantee := range grantees {
 		if !cc.KeyExists(newGrantee) {
 			//Add another key to the chain client for the grantee
-			_, err := cc.AddKey(newGrantee, sdk.CoinType)
+			_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type))
 			if err != nil {
 				return err
 			}
@@ -166,7 +167,7 @@ func (fg *FeeGrantConfiguration) AddGranteeKeys(cc *CosmosProvider) error {
 		newGrantee := "grantee" + newGranteeIdx
 
 		//Add another key to the chain client for the grantee
-		_, err := cc.AddKey(newGrantee, sdk.CoinType)
+		_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type))
 		if err != nil {
 			return err
 		}
