@@ -20,11 +20,13 @@ const ethereumCoinType = uint32(60)
 var (
 	// SupportedAlgorithms defines the list of signing algorithms used on Evmos:
 	//  - secp256k1     (Cosmos)
-	//  - eth_secp256k1 (Ethereum)
+	//  - sr25519		(Cosmos)
+	//  - eth_secp256k1 (Ethereum, Injective)
 	SupportedAlgorithms = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519, ethermint.EthSecp256k1, injective.EthSecp256k1}
 	// SupportedAlgorithmsLedger defines the list of signing algorithms used on Evmos for the Ledger device:
 	//  - secp256k1     (Cosmos)
-	//  - eth_secp256k1 (Ethereum)
+	//  - sr25519		(Cosmos)
+	//  - eth_secp256k1 (Ethereum, Injective)
 	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519, ethermint.EthSecp256k1, injective.EthSecp256k1}
 )
 
