@@ -426,7 +426,6 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
 		)
 		return
-
 	}
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,

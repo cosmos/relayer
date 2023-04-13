@@ -21,7 +21,8 @@ type messageProcessor struct {
 
 	memo string
 
-	msgUpdateClient           provider.RelayerMessage
+	// msgUpdateClient stores client updates indexed by dst pathEndRuntime
+	msgUpdateClient           map[*pathEndRuntime]provider.RelayerMessage
 	clientUpdateThresholdTime time.Duration
 
 	pktMsgs       []packetMessageToTrack
@@ -71,6 +72,7 @@ func newMessageProcessor(
 		log:                       log,
 		metrics:                   metrics,
 		memo:                      memo,
+		msgUpdateClient:           map[*pathEndRuntime]provider.RelayerMessage{},
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 	}
 }
@@ -83,22 +85,34 @@ func (mp *messageProcessor) processMessages(
 	src, dst *pathEndRuntime,
 	hops []*pathEndRuntime,
 ) error {
-	dstClient := dst
-	if len(hops) > 0 {
-		dstClient = hops[0]
+	allHops := append([]*pathEndRuntime{src}, hops...)
+	allHops = append(allHops, dst)
+	var needsClientUpdate bool
+	for i := range allHops {
+		if i == len(allHops)-1 {
+			break
+		}
+		var err error
+		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, allHops[i], allHops[i+1])
+		if err != nil {
+			return err
+		}
+		if needsClientUpdate {
+			break
+		}
 	}
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dstClient)
-	if err != nil {
-		return err
-	}
-	// TODO: do we need to update all intermediate clients?
-	if err := mp.assembleMsgUpdateClient(ctx, src, dstClient); err != nil {
-		return err
+	for i := range allHops {
+		if i == len(allHops)-1 {
+			break
+		}
+		if err := mp.assembleMsgUpdateClient(ctx, allHops[i], allHops[i+1]); err != nil {
+			return err
+		}
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst, hops)
 
-	return mp.trackAndSendMessages(ctx, src, dst, hops, needsClientUpdate)
+	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 }
 
 // shouldUpdateClientNow determines if an update client message should be sent
@@ -273,7 +287,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
 	}
 
-	mp.msgUpdateClient = msgUpdateClient
+	mp.msgUpdateClient[dst] = msgUpdateClient
 
 	return nil
 }
@@ -284,7 +298,6 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 func (mp *messageProcessor) trackAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
-	hops []*pathEndRuntime,
 	needsClientUpdate bool,
 ) error {
 	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
@@ -303,7 +316,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 	}
 
 	if len(batch) > 0 {
-		go mp.sendBatchMessages(ctx, src, dst, hops, batch)
+		go mp.sendBatchMessages(ctx, src, dst, batch)
 	}
 
 	if mp.assembledCount() > 0 {
@@ -311,7 +324,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 	}
 
 	if needsClientUpdate {
-		go mp.sendClientUpdate(ctx, src, dst)
+		go mp.sendClientUpdate(ctx)
 		return nil
 	}
 
@@ -322,30 +335,28 @@ func (mp *messageProcessor) trackAndSendMessages(
 // sendClientUpdate will send an isolated client update message.
 func (mp *messageProcessor) sendClientUpdate(
 	ctx context.Context,
-	src, dst *pathEndRuntime,
 ) {
-	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
-	defer cancel()
+	for dst, msg := range mp.msgUpdateClient {
+		broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
+		defer cancel()
 
-	dst.log.Debug("Will relay client update")
+		dst.log.Debug("Will relay client update")
 
-	dst.lastClientUpdateHeightMu.Lock()
-	dst.lastClientUpdateHeight = dst.latestBlock.Height
-	dst.lastClientUpdateHeightMu.Unlock()
+		dst.lastClientUpdateHeightMu.Lock()
+		dst.lastClientUpdateHeight = dst.latestBlock.Height
+		dst.lastClientUpdateHeightMu.Unlock()
 
-	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
-
-	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
-		mp.log.Error("Error sending client update message",
-			zap.String("src_chain_id", src.info.ChainID),
-			zap.String("dst_chain_id", dst.info.ChainID),
-			zap.String("src_client_id", src.info.ClientID),
-			zap.String("dst_client_id", dst.info.ClientID),
-			zap.Error(err),
-		)
-		return
+		msgs := []provider.RelayerMessage{msg}
+		if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
+			mp.log.Error("Error sending client update message",
+				zap.String("dst_chain_id", dst.info.ChainID),
+				zap.String("dst_client_id", dst.info.ClientID),
+				zap.Error(err),
+			)
+			return
+		}
+		dst.log.Debug("Client update broadcast completed")
 	}
-	dst.log.Debug("Client update broadcast completed")
 }
 
 // sendBatchMessages will send a batch of messages,
@@ -353,7 +364,6 @@ func (mp *messageProcessor) sendClientUpdate(
 func (mp *messageProcessor) sendBatchMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
-	hops []*pathEndRuntime,
 	batch []messageToTrack,
 ) {
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
@@ -361,7 +371,18 @@ func (mp *messageProcessor) sendBatchMessages(
 
 	// messages are batch with appended MsgUpdateClient
 	msgs := make([]provider.RelayerMessage, len(batch)+1)
-	msgs[0] = mp.msgUpdateClient
+	var found bool
+	msgs[0], found = mp.msgUpdateClient[dst]
+	if !found {
+		errFields := []zapcore.Field{
+			zap.String("src_chain_id", src.info.ChainID),
+			zap.String("dst_chain_id", dst.info.ChainID),
+			zap.String("src_client_id", src.info.ClientID),
+			zap.String("dst_client_id", dst.info.ClientID),
+		}
+		mp.log.Error("Client update not found", errFields...)
+		return
+	}
 	fields := []zapcore.Field{}
 	for i, t := range batch {
 		msgs[i+1] = t.assembledMsg()
@@ -416,7 +437,7 @@ func (mp *messageProcessor) sendSingleMessage(
 	src, dst *pathEndRuntime,
 	tracker messageToTrack,
 ) {
-	msgs := []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
+	msgs := []provider.RelayerMessage{mp.msgUpdateClient[dst], tracker.assembledMsg()}
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
