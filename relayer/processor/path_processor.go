@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -131,6 +132,52 @@ func (pp *PathProcessor) SetMessageLifecycle(messageLifecycle MessageLifecycle) 
 	pp.messageLifecycle = messageLifecycle
 }
 
+func (pp *PathProcessor) pathEnds() []*pathEndRuntime {
+	pathEnds := append([]*pathEndRuntime{pp.pathEnd1}, pp.pathEnd2)
+	pathEnds = append(pathEnds, pp.hopsPathEnd1to2...)
+	pathEnds = append(pathEnds, pp.hopsPathEnd2to1...)
+	return pathEnds
+}
+
+func (pp *PathProcessor) counterpartyPathEnd(pathEnd *pathEndRuntime) *pathEndRuntime {
+	if pathEnd == pp.pathEnd1 {
+		return pp.pathEnd2
+	}
+	if pathEnd == pp.pathEnd2 {
+		return pp.pathEnd1
+	}
+	for i, p := range pp.hopsPathEnd1to2 {
+		if p == pathEnd {
+			index := len(pp.hopsPathEnd2to1) - 1 - i
+			return pp.hopsPathEnd2to1[index] // reverse order
+		}
+	}
+	for i, p := range pp.hopsPathEnd2to1 {
+		if p == pathEnd {
+			index := len(pp.hopsPathEnd2to1) - 1 - i
+			return pp.hopsPathEnd2to1[index] // reverse order
+		}
+	}
+	return nil
+}
+
+func (pp *PathProcessor) incomingCacheDataAvailable() bool {
+	if len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 {
+		return true
+	}
+	for _, hop := range pp.hopsPathEnd1to2 {
+		if len(hop.incomingCacheData) > 0 {
+			return true
+		}
+	}
+	for _, hop := range pp.hopsPathEnd2to1 {
+		if len(hop.incomingCacheData) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // TEST USE ONLY
 func (pp *PathProcessor) PathEnd1Messages(channelKey ChannelKey, message string) PacketSequenceCache {
 	return pp.pathEnd1.messageCache.PacketFlow[channelKey][message]
@@ -147,23 +194,27 @@ type channelPair struct {
 }
 
 // RelevantClientID returns the relevant client ID or panics
-func (pp *PathProcessor) RelevantClientID(chainID string) string {
+func (pp *PathProcessor) RelevantClientIDs(chainID string) []string {
+	clientIDs := []string{}
 	if pp.pathEnd1.info.ChainID == chainID {
-		return pp.pathEnd1.info.ClientID
+		clientIDs = append(clientIDs, pp.pathEnd1.info.ClientID)
 	}
 	if pp.pathEnd2.info.ChainID == chainID {
-		return pp.pathEnd2.info.ClientID
+		clientIDs = append(clientIDs, pp.pathEnd2.info.ClientID)
 	}
 	for _, hop := range pp.hopsPathEnd1to2 {
 		if hop.info.ChainID == chainID {
-			return hop.info.ClientID
+			clientIDs = append(clientIDs, hop.info.ClientID)
 		}
 	}
 	// TODO: do we need both directions for this?
 	for _, hop := range pp.hopsPathEnd2to1 {
 		if hop.info.ChainID == chainID {
-			return hop.info.ClientID
+			clientIDs = append(clientIDs, hop.info.ClientID)
 		}
+	}
+	if len(clientIDs) > 0 {
+		return clientIDs
 	}
 	panic(fmt.Errorf("no relevant client ID for chain ID: %s", chainID))
 }
@@ -277,40 +328,65 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 }
 
 // ChainProcessors call this method when they have new IBC messages
-func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorCacheData) {
+func (pp *PathProcessor) HandleNewData(chainID, clientID string, cacheData ChainProcessorCacheData) {
 	if pp.pathEnd1.info.ChainID == chainID {
 		pp.pathEnd1.incomingCacheData <- cacheData
 	} else if pp.pathEnd2.info.ChainID == chainID {
 		pp.pathEnd2.incomingCacheData <- cacheData
+	} else {
+		for _, pathEnd := range pp.hopsPathEnd1to2 {
+			if pathEnd.info.ChainID == chainID && pathEnd.info.ClientID == clientID {
+				pathEnd.incomingCacheData <- cacheData
+				return
+			}
+		}
+		for _, pathEnd := range pp.hopsPathEnd2to1 {
+			if pathEnd.info.ChainID == chainID && pathEnd.info.ClientID == clientID {
+				pathEnd.incomingCacheData <- cacheData
+				return
+			}
+		}
 	}
 }
 
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
-// It returns whether or not the pathProcessor should quit.
+// It returns whether the pathProcessor should quit.
 func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func()) bool {
-	select {
-	case <-ctx.Done():
+	cases := make([]reflect.SelectCase, 3)
+	doneIndex := 0
+	retryIndex := 1
+	flushIndex := 2
+	cases[doneIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}
+	cases[retryIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.retryProcess)}
+	cases[flushIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.flushTicker.C)}
+	pathEndOffset := len(cases)
+	pathEnds := pp.pathEnds()
+	for _, pathEnd := range pathEnds {
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pathEnd.incomingCacheData)})
+	}
+	chosen, value, _ := reflect.Select(cases)
+	switch chosen {
+	case doneIndex:
 		pp.log.Debug("Context done, quitting PathProcessor",
 			zap.String("chain_id_1", pp.pathEnd1.info.ChainID),
 			zap.String("chain_id_2", pp.pathEnd2.info.ChainID),
 			zap.String("client_id_1", pp.pathEnd1.info.ClientID),
 			zap.String("client_id_2", pp.pathEnd2.info.ClientID),
+			zap.Int("hops", len(pp.hopsPathEnd1to2)),
 			zap.Error(ctx.Err()),
 		)
 		return true
-	case d := <-pp.pathEnd1.incomingCacheData:
-		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.messageLifecycle, pp.pathEnd2)
-
-	case d := <-pp.pathEnd2.incomingCacheData:
-		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.messageLifecycle, pp.pathEnd1)
-
-	case <-pp.retryProcess:
+	case retryIndex:
 		// No new data to merge in, just retry handling.
-	case <-pp.flushTicker.C:
+	case flushIndex:
 		// Periodic flush to clear out any old packets
 		pp.flush(ctx)
+	default:
+		// Find the pathEnd that sent the signal
+		pathEnd := pathEnds[chosen-pathEndOffset]
+		counterPartyPathEnd := pp.counterpartyPathEnd(pathEnd)
+		pathEnd.mergeCacheData(ctx, cancel, value.Interface().(ChainProcessorCacheData),
+			counterPartyPathEnd.info.ChainID, counterPartyPathEnd.inSync, pp.messageLifecycle, counterPartyPathEnd)
 	}
 	return false
 }
@@ -328,7 +404,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			return
 		}
 
-		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 {
+		for pp.incomingCacheDataAvailable() || len(pp.retryProcess) > 0 {
 			// signals are available, so this will not need to block.
 			if pp.processAvailableSignals(ctx, cancel) {
 				return

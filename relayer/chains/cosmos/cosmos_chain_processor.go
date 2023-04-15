@@ -432,27 +432,28 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for _, pp := range ccp.pathProcessors {
 		// TODO: this ends up matching twice for multihop messages, add logic to deduplicate
-		// TODO: this should be multiple client IDs as if it's an intermediate hop it has two
-		clientID := pp.RelevantClientID(chainID)
-		clientState, err := ccp.clientState(ctx, clientID)
-		if err != nil {
-			ccp.log.Error("Error fetching client state",
-				zap.String("client_id", clientID),
-				zap.Error(err),
-			)
-			continue
-		}
+		clientIDs := pp.RelevantClientIDs(chainID)
+		for _, clientID := range clientIDs {
+			clientState, err := ccp.clientState(ctx, clientID)
+			if err != nil {
+				ccp.log.Error("Error fetching client state",
+					zap.String("client_id", clientID),
+					zap.Error(err),
+				)
+				continue
+			}
 
-		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			LatestBlock:          ccp.latestBlock,
-			LatestHeader:         latestHeader,
-			IBCMessagesCache:     ibcMessagesCache.Clone(),
-			InSync:               ccp.inSync,
-			ClientState:          clientState,
-			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
-			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache.Clone(),
-		})
+			pp.HandleNewData(chainID, clientID, processor.ChainProcessorCacheData{
+				LatestBlock:          ccp.latestBlock,
+				LatestHeader:         latestHeader,
+				IBCMessagesCache:     ibcMessagesCache.Clone(),
+				InSync:               ccp.inSync,
+				ClientState:          clientState,
+				ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
+				IBCHeaderCache:       ibcHeaderCache.Clone(),
+			})
+		}
 	}
 
 	persistence.latestQueriedBlock = newLatestQueriedBlock
