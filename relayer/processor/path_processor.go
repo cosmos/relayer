@@ -192,6 +192,7 @@ func (pp *PathProcessor) pathEndsInSync() bool {
 	if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 		return false
 	}
+	/* TODO: is this ok?
 	for _, hop := range pp.hopsPathEnd1to2 {
 		if !hop.inSync {
 			return false
@@ -202,6 +203,7 @@ func (pp *PathProcessor) pathEndsInSync() bool {
 			return false
 		}
 	}
+	*/
 	return true
 }
 
@@ -458,6 +460,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		if len(pp.hopsPathEnd1to2) > 0 {
 			lastHop := pp.pathEnd1
 			for i, hop := range append(pp.hopsPathEnd2to1, pp.pathEnd2) {
+				// TODO: only do clients and connections here
 				if err := pp.processLatestMessages(ctx, lastHop, hop); err != nil {
 					// in case of IBC message send errors, schedule retry after durationErrorRetry
 					if retryTimer != nil {
@@ -467,7 +470,9 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 						retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
 					}
 				}
-				lastHop = pp.hopsPathEnd1to2[i]
+				if i < len(pp.hopsPathEnd1to2) {
+					lastHop = pp.hopsPathEnd1to2[i]
+				}
 			}
 		}
 		// TODO: only do channels and packets here
