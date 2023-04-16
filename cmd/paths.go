@@ -260,7 +260,7 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 					ChainID: hop,
 					PathEnds: [2]*relayer.PathEnd{
 						{
-							ChainID:      lastChainID,
+							ChainID:      hop,
 							ClientID:     pthPrevToCurrHop.Dst.ClientID,
 							ConnectionID: pthPrevToCurrHop.Dst.ConnectionID,
 						}, {},
@@ -270,12 +270,11 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 					p.Src.ClientID = pthPrevToCurrHop.Src.ClientID
 					p.Src.ConnectionID = pthPrevToCurrHop.Src.ConnectionID
 				} else {
-					p.Hops[i-1].PathEnds[1].ChainID = newHop.ChainID
 					p.Hops[i-1].PathEnds[1].ClientID = pthPrevToCurrHop.Src.ClientID
 					p.Hops[i-1].PathEnds[1].ConnectionID = pthPrevToCurrHop.Src.ConnectionID
 				}
 				if i == len(hops)-1 {
-					newHop.PathEnds[1].ChainID = p.Dst.ChainID
+					newHop.PathEnds[1].ChainID = hop
 					pthCurrHopToDst := a.Config.Paths.Find(hop, p.Dst.ChainID)
 					newHop.PathEnds[1].ClientID = pthCurrHopToDst.Src.ClientID
 					newHop.PathEnds[1].ConnectionID = pthCurrHopToDst.Src.ConnectionID
