@@ -132,30 +132,40 @@ func (pp *PathProcessor) SetMessageLifecycle(messageLifecycle MessageLifecycle) 
 	pp.messageLifecycle = messageLifecycle
 }
 
-func (pp *PathProcessor) pathEnds() []*pathEndRuntime {
-	pathEnds := append([]*pathEndRuntime{pp.pathEnd1}, pp.pathEnd2)
-	pathEnds = append(pathEnds, pp.hopsPathEnd1to2...)
-	pathEnds = append(pathEnds, pp.hopsPathEnd2to1...)
-	return pathEnds
-}
-
-func (pp *PathProcessor) counterpartyPathEnd(pathEnd *pathEndRuntime) *pathEndRuntime {
+// counterpartyPathEnds returns the pathEnds that are the counterparty to the given pathEnd. In the multihop case
+// the src and dst chains have 2 counterparties:
+// - the next/previous hop for clients and connections
+// - the dst/src chain for channels and packets
+func (pp *PathProcessor) counterpartyPathEnds(pathEnd *pathEndRuntime) []*pathEndRuntime {
 	if pathEnd == pp.pathEnd1 {
-		return pp.pathEnd2
-	}
-	if pathEnd == pp.pathEnd2 {
-		return pp.pathEnd1
+		counterparty := []*pathEndRuntime{pp.pathEnd2}
+		if len(pp.hopsPathEnd2to1) > 0 {
+			counterparty = append(counterparty, pp.hopsPathEnd2to1[0])
+		}
+		return counterparty
+	} else if pathEnd == pp.pathEnd2 {
+		counterparty := []*pathEndRuntime{pp.pathEnd1}
+		if len(pp.hopsPathEnd1to2) > 0 {
+			counterparty = append(counterparty, pp.hopsPathEnd2to1[len(pp.hopsPathEnd1to2)-1])
+		}
+		return counterparty
 	}
 	for i, p := range pp.hopsPathEnd1to2 {
 		if p == pathEnd {
-			index := len(pp.hopsPathEnd2to1) - 1 - i
-			return pp.hopsPathEnd2to1[index] // reverse order
+			counterparty := pp.pathEnd2
+			if i < len(pp.hopsPathEnd1to2)-1 {
+				counterparty = pp.hopsPathEnd2to1[i+1]
+			}
+			return []*pathEndRuntime{counterparty}
 		}
 	}
 	for i, p := range pp.hopsPathEnd2to1 {
 		if p == pathEnd {
-			index := len(pp.hopsPathEnd2to1) - 1 - i
-			return pp.hopsPathEnd2to1[index] // reverse order
+			counterparty := pp.pathEnd1
+			if i > 0 {
+				counterparty = pp.hopsPathEnd2to1[i-1]
+			}
+			return []*pathEndRuntime{counterparty}
 		}
 	}
 	return nil
@@ -176,6 +186,23 @@ func (pp *PathProcessor) incomingCacheDataAvailable() bool {
 		}
 	}
 	return false
+}
+
+func (pp *PathProcessor) pathEndsInSync() bool {
+	if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
+		return false
+	}
+	for _, hop := range pp.hopsPathEnd1to2 {
+		if !hop.inSync {
+			return false
+		}
+	}
+	for _, hop := range pp.hopsPathEnd2to1 {
+		if !hop.inSync {
+			return false
+		}
+	}
+	return true
 }
 
 // TEST USE ONLY
@@ -360,7 +387,9 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 	cases[retryIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.retryProcess)}
 	cases[flushIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.flushTicker.C)}
 	pathEndOffset := len(cases)
-	pathEnds := pp.pathEnds()
+	pathEnds := []*pathEndRuntime{pp.pathEnd1, pp.pathEnd2}
+	pathEnds = append(pathEnds, pp.hopsPathEnd1to2...)
+	pathEnds = append(pathEnds, pp.hopsPathEnd2to1...)
 	for _, pathEnd := range pathEnds {
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pathEnd.incomingCacheData)})
 	}
@@ -384,9 +413,11 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 	default:
 		// Find the pathEnd that sent the signal
 		pathEnd := pathEnds[chosen-pathEndOffset]
-		counterPartyPathEnd := pp.counterpartyPathEnd(pathEnd)
-		pathEnd.mergeCacheData(ctx, cancel, value.Interface().(ChainProcessorCacheData),
-			counterPartyPathEnd.info.ChainID, counterPartyPathEnd.inSync, pp.messageLifecycle, counterPartyPathEnd)
+		counterpartyPathEnds := pp.counterpartyPathEnds(pathEnd)
+		for _, counterparty := range counterpartyPathEnds {
+			pathEnd.mergeCacheData(ctx, cancel, value.Interface().(ChainProcessorCacheData),
+				counterparty.info.ChainID, counterparty.inSync, pp.messageLifecycle, counterparty)
+		}
 	}
 	return false
 }
@@ -411,7 +442,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
-		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
+		if !pp.pathEndsInSync() {
 			continue
 		}
 
@@ -423,8 +454,22 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			return
 		}
 
-		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx); err != nil {
+		// Process latest message cache state from all pathEnds
+		lastHop := pp.pathEnd1
+		for i, hop := range pp.hopsPathEnd2to1 {
+			if err := pp.processLatestMessages(ctx, lastHop, hop); err != nil {
+				// in case of IBC message send errors, schedule retry after durationErrorRetry
+				if retryTimer != nil {
+					retryTimer.Stop()
+				}
+				if ctx.Err() == nil {
+					retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
+				}
+			}
+			lastHop = pp.hopsPathEnd1to2[i]
+		}
+		// TODO: only do channels and packets here
+		if err := pp.processLatestMessages(ctx, pp.pathEnd1, pp.pathEnd2); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

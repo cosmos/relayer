@@ -19,9 +19,15 @@ func newPathEnd(pathName, chainID, clientID string) processor.PathEnd {
 func newRelayPathEnds(pathName string, hops []*Chain) ([]*processor.PathEnd, []*processor.PathEnd) {
 	relayPathEndsSrcToDst := make([]*processor.PathEnd, len(hops))
 	relayPathEndsDstToSrc := make([]*processor.PathEnd, len(hops))
+	// RelayPathEnds are set in user friendly order so they're just listed as they appear left to right without
+	// acounting for directionality. So for a 1 hop case they would look like this:
+	// A -> B (BA, BC) -> C
+	// Here we want to account for directionality left to right so we want to return:
+	// BC, BA
+	// Hence the index reversal in the call to newPathEnd().
 	for i, hop := range hops {
-		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
-		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
+		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
+		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
 		relayPathEndsSrcToDst[i] = &pathEnd1
 		relayPathEndsDstToSrc[i] = &pathEnd2
 	}
@@ -69,12 +75,6 @@ func (c *Chain) CreateOpenChannels(
 	defer cancel()
 
 	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
-	for i, hop := range hops {
-		pathEnd1 := newPathEnd(pathName, hop.ChainProvider.ChainId(), hop.RelayPathEnds[0].ClientID)
-		pathEnd2 := newPathEnd(pathName, hop.ChainProvider.ChainId(), hop.RelayPathEnds[1].ClientID)
-		relayPathEndsSrcToDst[i] = &pathEnd1
-		relayPathEndsDstToSrc[i] = &pathEnd2
-	}
 	pp := processor.NewPathProcessor(
 		c.log,
 		newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),

@@ -505,43 +505,12 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 	}
 }
 
-// messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
-	// Update trusted client state for all pathends
-	pathEnds1to2 := append([]*pathEndRuntime{pp.pathEnd1}, pp.hopsPathEnd1to2...)
-	pathEnds1to2 = append(pathEnds1to2, pp.pathEnd2)
-	pathEnds2to1 := append([]*pathEndRuntime{pp.pathEnd2}, pp.hopsPathEnd2to1...)
-	pathEnds2to1 = append(pathEnds2to1, pp.pathEnd1)
-	for _, pathEnds := range [][]*pathEndRuntime{pathEnds1to2, pathEnds2to1} {
-		for i := range pathEnds {
-			if i == len(pathEnds)-1 {
-				break
-			}
-			pp.updateClientTrustedState(pathEnds[i], pathEnds[i+1])
-		}
+func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context, pathEnd1, pathEnd2 *pathEndRuntime) ([]channelIBCMessage, []packetIBCMessage, []channelIBCMessage, []packetIBCMessage) {
+	// We only allow channels between the first and last chain in paths
+	// TODO: do we need to check both directions?
+	if pathEnd1 != pp.pathEnd1 || pathEnd2 != pp.pathEnd2 {
+		return nil, nil, nil, nil
 	}
-
-	channelPairs := pp.channelPairs()
-
-	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
-		Src:                         pp.pathEnd1,
-		Dst:                         pp.pathEnd2,
-		SrcMsgConnectionOpenInit:    pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
-		DstMsgConnectionOpenTry:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
-		SrcMsgConnectionOpenAck:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
-		DstMsgConnectionOpenConfirm: pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
-	}
-	pathEnd2ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
-		Src:                         pp.pathEnd2,
-		Dst:                         pp.pathEnd1,
-		SrcMsgConnectionOpenInit:    pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
-		DstMsgConnectionOpenTry:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
-		SrcMsgConnectionOpenAck:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
-		DstMsgConnectionOpenConfirm: pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
-	}
-	pathEnd1ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd1ConnectionHandshakeMessages)
-	pathEnd2ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd2ConnectionHandshakeMessages)
-
 	pathEnd1ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd1,
 		Dst:                      pp.pathEnd2,
@@ -560,6 +529,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	}
 	pathEnd1ChannelHandshakeRes := pp.getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd1ChannelHandshakeMessages)
 	pathEnd2ChannelHandshakeRes := pp.getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd2ChannelHandshakeMessages)
+
+	channelPairs := pp.channelPairs()
 
 	// process the packet flows for both path ends to determine what needs to be relayed
 	pathEnd1ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
@@ -625,23 +596,54 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	}
 
 	// concatenate applicable messages for pathend
-	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
 	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes)
 
 	pathEnd1PacketMessages, pathEnd2PacketMessages, pathEnd1ChanCloseMessages, pathEnd2ChanCloseMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChanCloseMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChanCloseMessages...)
+	return pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages
+}
+
+// messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, pathEnd1, pathEnd2 *pathEndRuntime) error {
+	// Update trusted client state for both pathends
+	pp.updateClientTrustedState(pathEnd1, pathEnd2)
+	pp.updateClientTrustedState(pathEnd2, pathEnd1)
+
+	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
+		Src:                         pathEnd1,
+		Dst:                         pathEnd2,
+		SrcMsgConnectionOpenInit:    pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
+		DstMsgConnectionOpenTry:     pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
+		SrcMsgConnectionOpenAck:     pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
+		DstMsgConnectionOpenConfirm: pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
+	}
+	pathEnd2ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
+		Src:                         pathEnd2,
+		Dst:                         pathEnd1,
+		SrcMsgConnectionOpenInit:    pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
+		DstMsgConnectionOpenTry:     pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
+		SrcMsgConnectionOpenAck:     pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
+		DstMsgConnectionOpenConfirm: pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
+	}
+	pathEnd1ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd1ConnectionHandshakeMessages)
+	pathEnd2ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd2ConnectionHandshakeMessages)
+
+	// concatenate applicable messages for pathend
+	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
 
 	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pp.pathEnd1,
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
+		pathEnd1,
+		pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
+		pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
 	)
 	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pp.pathEnd2,
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
+		pathEnd2,
+		pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
+		pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
 	)
+
+	pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages := pp.processLatestChannelMessages(ctx, pathEnd1, pathEnd2)
 
 	pathEnd1Messages := pathEndMessages{
 		connectionMessages: pathEnd1ConnectionMessages,
@@ -657,6 +659,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		clientICQMessages:  pathEnd2ClientICQMessages,
 	}
 
+	// TODO: make sure this always gets sent when there's channel traffic
 	pp.appendInitialMessageIfNecessary(&pathEnd1Messages, &pathEnd2Messages)
 
 	// now assemble and send messages in parallel
@@ -955,6 +958,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 			return false
 		}
 	}
+	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd1.messageCache.ConnectionHandshake {
 		if len(c) > 0 {
 			return false
@@ -972,6 +976,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 			return false
 		}
 	}
+	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd2.messageCache.ConnectionHandshake {
 		if len(c) > 0 {
 			return false

@@ -70,10 +70,10 @@ func StartRelayer(
 			hopsSrcToDst := make([]*processor.PathEnd, len(p.Hops))
 			hopsDstToSrc := make([]*processor.PathEnd, len(p.Hops))
 			for j, hop := range p.Hops {
-				srcToDst := processor.NewPathEnd(pathName, hop.ChainID, hop.PathEnds[0].ClientID, filter.Rule,
+				srcToDst := processor.NewPathEnd(pathName, hop.ChainID, hop.PathEnds[1].ClientID, filter.Rule,
 					filterSrc)
 				hopsSrcToDst[j] = &srcToDst
-				dstToSrc := processor.NewPathEnd(pathName, hop.ChainID, hop.PathEnds[1].ClientID, filter.Rule,
+				dstToSrc := processor.NewPathEnd(pathName, hop.ChainID, hop.PathEnds[0].ClientID, filter.Rule,
 					filterSrc)
 				hopsDstToSrc[j] = &dstToSrc
 			}
