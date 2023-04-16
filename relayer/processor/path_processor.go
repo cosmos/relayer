@@ -455,18 +455,20 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		// Process latest message cache state from all pathEnds
-		lastHop := pp.pathEnd1
-		for i, hop := range pp.hopsPathEnd2to1 {
-			if err := pp.processLatestMessages(ctx, lastHop, hop); err != nil {
-				// in case of IBC message send errors, schedule retry after durationErrorRetry
-				if retryTimer != nil {
-					retryTimer.Stop()
+		if len(pp.hopsPathEnd1to2) > 0 {
+			lastHop := pp.pathEnd1
+			for i, hop := range append(pp.hopsPathEnd2to1, pp.pathEnd2) {
+				if err := pp.processLatestMessages(ctx, lastHop, hop); err != nil {
+					// in case of IBC message send errors, schedule retry after durationErrorRetry
+					if retryTimer != nil {
+						retryTimer.Stop()
+					}
+					if ctx.Err() == nil {
+						retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
+					}
 				}
-				if ctx.Err() == nil {
-					retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
-				}
+				lastHop = pp.hopsPathEnd1to2[i]
 			}
-			lastHop = pp.hopsPathEnd1to2[i]
 		}
 		// TODO: only do channels and packets here
 		if err := pp.processLatestMessages(ctx, pp.pathEnd1, pp.pathEnd2); err != nil {
