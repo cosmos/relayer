@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"

@@ -4,49 +4,17 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/gorilla/websocket"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
-
-// func TestPrint(t *testing.T) {
-// 	hash := "0x5306e343d648250f0567e9b549d3c03430aa0ab5a80dffc944cb0db3dbe4ed74"
-// 	param := jsonrpc.HexBytes(hash)
-// 	res, _ := EventFromTransaction(types.HexBytes(param))
-// 	fmt.Printf("%+v", res)
-// }
-
-// func TestEventFormat(t *testing.T) {
-// 	hash := "0xee01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c6840098967f028463f40509"
-// 	param := jsonrpc.HexBytes(hash)
-// 	fmt.Printf("%+v", param)
-// }
-
-// func TestParseIBCMessageFromEvent(t *testing.T) {
-// 	eventSignature := []byte{83, 101, 110, 100, 80, 97, 99, 107, 101, 116, 40, 98, 121, 116, 101, 115, 41}
-// 	eventData := []byte{239, 1, 133, 120, 99, 97, 108, 108, 137, 99, 104, 97, 110, 110, 101, 108, 45, 48, 133, 120, 99, 97, 108, 108, 137, 99, 104, 97, 110, 110, 101, 108, 45, 49, 128, 196, 130, 7, 69, 2, 135, 5, 246, 249, 68, 18, 99, 141}
-
-// 	indexed := make([][]byte, 0)
-// 	indexed = append(indexed, eventSignature)
-// 	indexed = append(indexed, eventData)
-
-// 	event := &types.EventLog{
-// 		Addr:    types.Address(""),
-// 		Indexed: indexed,
-// 	}
-// 	msg := parseIBCMessageFromEvent(&zap.Logger{}, *event, 9_999_999)
-// 	ibcMessage := *msg
-// 	// assert.Equal(t, EventTypeSendPacket, ibcMessage.eventType)
-// 	assert.NotNil(t, ibcMessage.info)
-// }
 
 func TestParseEvent(t *testing.T) {
 	eventData := "0a0f30372d74656e6465726d696e742d34120261611a050a03696263"
@@ -159,28 +127,6 @@ func TestConnectionOpenInit(t *testing.T) {
 	assert.Equal(t, cp.ConnectionId, connAttrs.ConnID)
 }
 
-// func TestDecode(t *testing.T) {
-// 	eventData := "0xef01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c4028207458705f6f94412638d"
-// 	eventData = strings.TrimPrefix(eventData, "0x")
-// 	unfiltered, _ := hex.DecodeString(eventData)
-// 	packet, err := _parsePacket(unfiltered)
-// 	require.NoError(t, err)
-// 	expected := &types.Packet{
-// 		Sequence:           *big.NewInt(1),
-// 		SourcePort:         "xcall",
-// 		SourceChannel:      "channel-0",
-// 		DestinationPort:    "xcall",
-// 		DestinationChannel: "channel-1",
-// 		TimeoutHeight: types.Height{
-// 			RevisionHeight: *big.NewInt(1861),
-// 			RevisionNumber: *big.NewInt(2),
-// 		},
-// 		Data:      make([]byte, 0),
-// 		Timestamp: *big.NewInt(1678925332898701),
-// 	}
-// 	assert.Equal(t, expected, packet)
-// }
-
 func TestMonitorEvents(t *testing.T) {
 	provider := IconProviderConfig{
 		Key:               "icon",
@@ -249,45 +195,13 @@ func TestMonitorEvents(t *testing.T) {
 
 }
 
-func TestDataParsing(t *testing.T) {
-
-	protoConnection_ := strings.TrimPrefix("0x0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803221f0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d31", "0x")
-	protoConnection, err := hex.DecodeString(protoConnection_)
-	if err != nil {
-		fmt.Printf("this is the error %v\n", err)
-		return
-	}
-	fmt.Println(protoConnection)
-}
-
 func TestChannelHandshakeDataParsing(t *testing.T) {
-	// {
-	// 	"scoreAddress": "cx4b1eaca346718466918c40ba31e59b82b5188a2e",
-	// 	"indexed": [
-	// 	  "ChannelOpenInit(str,str,bytes)",
-	// 	  "mock",
-	// 	  "channel-5"
-	// 	],
-	// 	"data": [
-	// 	  "0x080110021a060a046d6f636b220c636f6e6e656374696f6e2d322a0769637332302d31"
-	// 	]
-	//   }
-	// indexed := []string{
-	// 	"ChannelOpenInit(str,str,bytes)",
-	// 	"mock",
-	// 	"channel-5",
-	// }
+
 	data := []string{
 		"080110021a060a046d6f636b220c636f6e6e656374696f6e2d322a0769637332302d31",
 	}
-
 	d, _ := hex.DecodeString(data[0])
-
 	var channel icon.Channel
-
-	// portID := indexed[1]
-	// channelID := indexed[2]
 	proto.Unmarshal(d, &channel)
-
-	fmt.Println(channel)
+	assert.Equal(t, channel.ConnectionHops[0], "connection-2")
 }

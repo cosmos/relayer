@@ -13,8 +13,8 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"go.uber.org/zap"
 )
 

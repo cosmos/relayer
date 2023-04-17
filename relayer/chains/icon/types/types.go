@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/gorilla/websocket"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common"
 
 	"github.com/icon-project/icon-bridge/common/intconv"

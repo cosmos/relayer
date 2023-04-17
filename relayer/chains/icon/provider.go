@@ -10,10 +10,10 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
-	itm "github.com/cosmos/relayer/v2/relayer/chains/icon/types/tendermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
 
@@ -27,7 +27,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	// integration_types "github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	// integration_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
 var (

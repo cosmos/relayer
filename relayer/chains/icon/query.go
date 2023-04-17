@@ -18,9 +18,9 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/cryptoutils"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
-	itm "github.com/cosmos/relayer/v2/relayer/chains/icon/types/tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/icon-project/goloop/common/codec"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"

@@ -6,7 +6,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/stretchr/testify/assert"
 )
 
