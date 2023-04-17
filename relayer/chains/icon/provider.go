@@ -72,7 +72,6 @@ func (pp *IconProviderConfig) Validate() error {
 func (pp *IconProviderConfig) Set(field string, value interface{}) error {
 	switch field {
 	case "btpHeight":
-		fmt.Println("this is where it should be ")
 		pp.BTPHeight = value.(int64)
 	default:
 		return fmt.Errorf("unknown field or not allowed to set %s", field)
