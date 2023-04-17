@@ -163,7 +163,7 @@ func (pp *PathProcessor) counterpartyPathEnds(pathEnd *pathEndRuntime) []*pathEn
 		if p == pathEnd {
 			counterparty := pp.pathEnd1
 			if i > 0 {
-				counterparty = pp.hopsPathEnd2to1[i-1]
+				counterparty = pp.hopsPathEnd1to2[i-1]
 			}
 			return []*pathEndRuntime{counterparty}
 		}
@@ -192,7 +192,6 @@ func (pp *PathProcessor) pathEndsInSync() bool {
 	if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 		return false
 	}
-	/* TODO: is this ok?
 	for _, hop := range pp.hopsPathEnd1to2 {
 		if !hop.inSync {
 			return false
@@ -203,7 +202,6 @@ func (pp *PathProcessor) pathEndsInSync() bool {
 			return false
 		}
 	}
-	*/
 	return true
 }
 
