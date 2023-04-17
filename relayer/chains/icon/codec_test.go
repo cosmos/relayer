@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	tendermint_client "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,4 +37,25 @@ func TestClientState(t *testing.T) {
 	var client tmclient.ClientState
 	err := proto.Unmarshal(clB, &client)
 	assert.NoError(t, err)
+}
+
+func TestCodecEncode(t *testing.T) {
+
+	testData := tendermint_client.ClientState{
+		ChainId:      "tendermint",
+		LatestHeight: 40,
+	}
+
+	codec := MakeCodec(ModuleBasics, []string{})
+	data, err := codec.Marshaler.MarshalInterface(&testData)
+	if err != nil {
+		assert.Fail(t, "couldn't marshal interface ")
+	}
+	var ptr exported.ClientState
+	err = codec.Marshaler.UnmarshalInterface(data, &ptr)
+	if err != nil {
+		assert.Fail(t, "Couldn't unmarshal interface ")
+	}
+	assert.Equal(t, ptr.GetLatestHeight().GetRevisionHeight(), 40)
+
 }

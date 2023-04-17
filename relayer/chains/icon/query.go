@@ -223,7 +223,8 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 		return nil, err
 	}
 	var cnsState exported.ConsensusState
-	if err := icp.codec.UnmarshalInterface(cnsStateByte, &cnsState); err != nil {
+
+	if err := icp.codec.Marshaler.UnmarshalInterface(cnsStateByte, &cnsState); err != nil {
 		return nil, err
 	}
 

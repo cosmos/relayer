@@ -4,7 +4,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +23,10 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(*codec.LegacyAmino) {}
 
 // RegisterInterfaces registers module concrete types into protobuf Any.
 func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
-	// tmlightclient.RegisterInterfaces(registry)
+	registry.RegisterImplementations(
+		(*exported.ClientState)(nil),
+		&tendermint.ClientState{},
+	)
 }
 
 // RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the ibc module.
