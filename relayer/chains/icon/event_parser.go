@@ -2,63 +2,18 @@ package icon
 
 import (
 	"bytes"
-	"strconv"
-	"strings"
 
-	"cosmossdk.io/errors"
+	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/goloop/common/codec"
 
 	"go.uber.org/zap"
 )
 
-// func (ip *IconProvider) FetchEvent(height int) {
-
-// 	blockReq := &types.BlockRequest{
-// 		EventFilters: []*types.EventFilter{{
-// 			Addr:      types.Address(CONTRACT_ADDRESS),
-// 			Signature: SEND_PACKET_SIGNATURE,
-// 			// Indexed:   []*string{&dstAddr},
-// 		}},
-// 		Height: types.NewHexInt(int64(height)),
-// 	}
-// 	ctx := context.Background()
-// 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-// 	defer cancel()
-
-// 	l := zap.Logger{}
-
-// 	client := NewClient(WSS_ENDPOINT, &l)
-// 	h, s := height, 0
-
-// 	go func() {
-// 		err := client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
-// 			_h, _ := v.Height.Int()
-// 			if _h != h {
-// 				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
-// 				l.Warn(err.Error())
-// 				return err
-// 			}
-// 			h++
-// 			s++
-// 			return nil
-// 		},
-// 			func(conn *websocket.Conn) {
-// 				l.Info("Connected")
-// 			},
-// 			func(conn *websocket.Conn, err error) {
-// 				l.Info("Disconnected")
-// 				_ = conn.Close()
-// 			})
-// 		if err.Error() == "context deadline exceeded" {
-// 			return
-// 		}
-// 	}()
-
-// }
-
+// EventType: EquivalentIBCEvent
+// EventName: IconEventLogSignature
 type ibcMessage struct {
 	eventType string
 	eventName string
@@ -72,57 +27,85 @@ type ibcMessageInfo interface {
 type packetInfo provider.PacketInfo
 
 func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
-	eventType := GetEventLogSignature(event.Indexed)
+	eventName := GetEventLogSignature(event.Indexed)
+
 	packetData := event.Indexed[1]
-	packet, err := _parsePacket(packetData)
-	if err != nil {
-		log.Error("Error parsing packet", zap.ByteString("value", packetData))
-		return
+	var packet icon.Packet
+	if err := proto.Unmarshal(packetData, &packet); err != nil {
+		log.Error("failed to unmarshal packet")
 	}
 	pi.SourcePort = packet.SourcePort
 	pi.SourceChannel = packet.SourceChannel
 	pi.DestPort = packet.DestinationPort
 	pi.DestChannel = packet.DestinationChannel
-	pi.Sequence = packet.Sequence.Uint64()
+	pi.Sequence = packet.Sequence
 	pi.Data = packet.Data
-	pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight.Uint64()
-	pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber.Uint64()
-	pi.TimeoutTimestamp = packet.Timestamp.Uint64()
+	if packet.TimeoutHeight != nil {
+		pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight
+		pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber
+	} else {
+		pi.TimeoutHeight.RevisionHeight = 200000 // TODO: should be removed
+		pi.TimeoutHeight.RevisionNumber = 0      //  TODO: should be removed
+	}
+	pi.TimeoutTimestamp = packet.TimeoutTimestamp
 
-	if bytes.Equal(eventType, MustConvertEventNameToBytes(EventTypeAcknowledgePacket)) {
+	if bytes.Equal(eventName, MustConvertEventNameToBytes(EventTypeAcknowledgePacket)) {
 		pi.Ack = []byte(event.Indexed[2])
 	}
+
 }
 
 type channelInfo provider.ChannelInfo
 
 func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 
-	// the required data are not in Indexed. Placeholders for now
+	ch.PortID = string(event.Indexed[1])
+	ch.ChannelID = string(event.Indexed[2])
 
-	portId := event.Indexed[1]
-	channelId := event.Indexed[2]
-	counterpartyPortId := event.Indexed[3]
-	counterpartyChannelId := event.Indexed[4]
-	version := event.Indexed[6]
+	protoChannel := event.Data[0]
+	var channel icon.Channel
 
-	ch.PortID = string(portId[:])
-	ch.ChannelID = string(channelId[:])
-	ch.CounterpartyPortID = string(counterpartyPortId[:])
-	ch.CounterpartyChannelID = string(counterpartyChannelId[:])
-	ch.Version = string(version[:])
+	if err := proto.Unmarshal(protoChannel, &channel); err != nil {
+		log.Error("Error when unmarshalling the event log")
+	}
+
+	ch.CounterpartyChannelID = channel.Counterparty.GetChannelId()
+	ch.CounterpartyPortID = channel.Counterparty.GetPortId()
+	ch.ConnID = channel.ConnectionHops[0]
+	ch.Version = channel.GetVersion()
 }
 
 type connectionInfo provider.ConnectionInfo
 
 func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
-	connectionId, clientId := event.Indexed[1], event.Indexed[2]
-	counterpartyConnectionId, counterpartyClientId := event.Indexed[3], event.Indexed[4]
+	eventLog := parseEventName(log, event, 0)
+	switch eventLog {
+	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry:
+		co.ClientID = string(event.Indexed[1][:])
+		co.ConnID = string(event.Data[0][:])
+		protoCounterparty := event.Data[1]
 
-	co.ConnID = string(connectionId[:])
-	co.ClientID = string(clientId[:])
-	co.CounterpartyConnID = string(counterpartyConnectionId[:])
-	co.CounterpartyClientID = string(counterpartyClientId[:])
+		var counterparty icon.Counterparty
+
+		if err := proto.Unmarshal(protoCounterparty, &counterparty); err != nil {
+			log.Error("Error decoding counterparty")
+		}
+
+		co.CounterpartyClientID = counterparty.GetClientId()
+		co.CounterpartyConnID = counterparty.GetConnectionId()
+
+	case EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
+		co.ConnID = string(event.Indexed[1])
+		protoConnection_ := event.Data[0][:]
+		var connection icon.ConnectionEnd
+		if err := proto.Unmarshal(protoConnection_, &connection); err != nil {
+			log.Error("Error decoding counterparty")
+		}
+
+		co.ClientID = connection.GetClientId()
+		co.CounterpartyClientID = connection.Counterparty.ClientId
+		co.CounterpartyConnID = connection.Counterparty.ConnectionId
+	}
 }
 
 type clientInfo struct {
@@ -139,43 +122,18 @@ func (c clientInfo) ClientState() provider.ClientState {
 	}
 }
 
-// eventType_signature  ,rlpPacket
 func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	clientId := event.Indexed[1]
-	height := string(event.Indexed[3][:])
-
-	revisionSplit := strings.Split(height, "-")
-	if len(revisionSplit) != 2 {
-		log.Error("Error parsing client consensus height",
-			zap.String("client_id", cl.clientID),
-			zap.String("value", height),
-		)
-		return
-	}
-	revisionNumberString := revisionSplit[0]
-	revisionNumber, err := strconv.ParseUint(revisionNumberString, 10, 64)
-	if err != nil {
-		log.Error("Error parsing client consensus height revision number",
-			zap.Error(err),
-		)
-		return
-	}
-	revisionHeightString := revisionSplit[1]
-	revisionHeight, err := strconv.ParseUint(revisionHeightString, 10, 64)
-	if err != nil {
-		log.Error("Error parsing client consensus height revision height",
-			zap.Error(err),
-		)
-		return
-	}
-
-	cl.consensusHeight = clienttypes.Height{
-		RevisionHeight: revisionHeight,
-		RevisionNumber: revisionNumber,
-	}
 	cl.clientID = string(clientId[:])
 }
 
+func parseEventName(log *zap.Logger, event types.EventLog, height uint64) string {
+	return string(event.Indexed[0][:])
+}
+
+func parseIdentifier(event types.EventLog) string {
+	return string(event.Indexed[1][:])
+}
 func parseIBCMessageFromEvent(
 	log *zap.Logger,
 	event types.EventLog,
@@ -185,7 +143,8 @@ func parseIBCMessageFromEvent(
 	eventType := getEventTypeFromEventName(eventName)
 
 	switch eventName {
-	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
+	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket, EventTypeWriteAcknowledgement:
+		//  EventTypeTimeoutPacket, EventTypeTimeoutPacketOnClose:
 
 		info := &packetInfo{Height: height}
 		info.parseAttrs(log, event)
@@ -195,7 +154,7 @@ func parseIBCMessageFromEvent(
 			info,
 		}
 	case EventTypeChannelOpenInit, EventTypeChannelOpenTry,
-		EventTypeChannelOpenAck, EventTypeConnectionOpenConfirm,
+		EventTypeChannelOpenAck, EventTypeChannelOpenConfirm,
 		EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
 
 		ci := &channelInfo{Height: height}
@@ -232,31 +191,9 @@ func parseIBCMessageFromEvent(
 }
 
 func getEventTypeFromEventName(eventName string) string {
-	return iconEventNameToEventTypeMap[eventName]
+	return IconCosmosEventMap[eventName]
 }
 
 func GetEventLogSignature(indexed [][]byte) []byte {
-	return indexed[0]
-}
-
-func _parsePacket(str []byte) (*types.Packet, error) {
-	p := types.Packet{}
-	e := rlpDecodeHex(str, &p)
-	if e != nil {
-		return nil, e
-	}
-	return &p, nil
-}
-
-func rlpDecodeHex(input []byte, out interface{}) error {
-	// str = strings.TrimPrefix(str, "0x")
-	// input, err := hex.DecodeString(str)
-	// if err != nil {
-	// 	return errors.Wrap(err, "hex.DecodeString ")
-	// }
-	_, err := codec.RLP.UnmarshalFromBytes(input, out)
-	if err != nil {
-		return errors.Wrap(err, "rlp.Decode ")
-	}
-	return nil
+	return indexed[0][:]
 }

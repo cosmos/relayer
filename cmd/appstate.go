@@ -225,6 +225,47 @@ func (a *appState) OverwriteConfigOnTheFly(
 	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
 	}
+	return nil
+}
+
+func (a *appState) OverwriteChainConfig(
+	cmd *cobra.Command,
+	chainId string,
+	chainType string,
+	fieldName string,
+	fieldValue int64,
+) error {
+
+	if chainId == "" {
+		return errors.New("empty path name not allowed")
+	}
+
+	// use lock file to guard concurrent access to config.yaml
+	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
+	fileLock := flock.New(lockFilePath)
+	_, err := fileLock.TryLock()
+	if err != nil {
+		return fmt.Errorf("failed to acquire config lock: %w", err)
+	}
+	defer func() {
+		if err := fileLock.Unlock(); err != nil {
+			a.Log.Error("error unlocking config file lock, please manually delete",
+				zap.String("filepath", lockFilePath),
+			)
+		}
+	}()
+
+	// load config from file and validate it. don't want to miss
+	// any changes that may have been made while unlocked.
+	if err := initConfig(cmd, a); err != nil {
+		return fmt.Errorf("failed to initialize config from file: %w", err)
+	}
+
+	// chain, err := a.Config.Chains.Get(chainId)
+	// if err != nil {
+	// 	return errors.New("Couldn't find the chainid ")
+	// }
 
 	return nil
+
 }

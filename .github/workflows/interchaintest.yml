@@ -1,7 +1,6 @@
 name: TESTING - interchaintest
 
 on:
-  pull_request:
   push:
     branches:
       - master

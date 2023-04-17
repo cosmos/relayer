@@ -256,6 +256,17 @@ func (c *Client) GetBTPNetworkInfo(p *types.BTPNetworkInfoParam) (*types.BTPNetw
 	}
 	return result, nil
 }
+func (c *Client) GetNetworkTypeInfo(height int64, networkId int64) (*types.BTPNetworkTypeInfo, error) {
+	nti := &types.BTPNetworkTypeInfo{}
+	param := &types.BTPQueryParam{
+		Height: types.NewHexInt(height),
+		Id:     types.NewHexInt(networkId),
+	}
+	if _, err := c.Do("btp_getNetworkTypeInfo", param, nti); err != nil {
+		return nil, err
+	}
+	return nti, nil
+}
 
 func (c *Client) MonitorBlock(ctx context.Context, p *types.BlockRequest, cb func(conn *websocket.Conn, v *types.BlockNotification) error, scb func(conn *websocket.Conn), errCb func(*websocket.Conn, error)) error {
 	resp := &types.BlockNotification{}

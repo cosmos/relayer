@@ -65,6 +65,8 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 	if err := dst.PathEnd.Vconn(); err != nil {
 		return err
 	}
+
+	fmt.Println("validation passed")
 	return nil
 }
 

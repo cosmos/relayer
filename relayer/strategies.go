@@ -26,7 +26,7 @@ const (
 	ProcessorEvents              string = "events"
 	ProcessorLegacy                     = "legacy"
 	DefaultClientUpdateThreshold        = 0 * time.Millisecond
-	DefaultFlushInterval                = 5 * time.Minute
+	DefaultFlushInterval                = 60 * time.Minute
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.

@@ -82,14 +82,15 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	if err != nil {
-		return err
-	}
+	needsClientUpdate := false
+	// needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
-	}
+	// if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+	// 	return err
+	// }
 
 	mp.assembleMessages(ctx, messages, src, dst)
 

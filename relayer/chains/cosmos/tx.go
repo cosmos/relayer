@@ -1225,6 +1225,18 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
+// TODO: Remove later
+func (cc *CosmosProvider) NewClientStateMock(
+	dstChainID string,
+	dstUpdateHeader provider.IBCHeader,
+	dstTrustingPeriod,
+	dstUbdPeriod time.Duration,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour bool,
+) (ibcexported.ClientState, error) {
+	return nil, nil
+}
+
 // NewClientState creates a new tendermint client state tracking the dst chain.
 func (cc *CosmosProvider) NewClientState(
 	dstChainID string,

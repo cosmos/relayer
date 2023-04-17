@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -209,6 +210,7 @@ func (pp *PathProcessor) getUnrelayedConnectionHandshakeMessagesAndToDelete(path
 ConnectionHandshakeLoop:
 	for openInitKey, openInitMsg := range pathEndConnectionHandshakeMessages.SrcMsgConnectionOpenInit {
 		var foundOpenTry *provider.ConnectionInfo
+
 		for openTryKey, openTryMsg := range pathEndConnectionHandshakeMessages.DstMsgConnectionOpenTry {
 			// MsgConnectionOpenInit does not have counterparty connection ID, so check if everything
 			// else matches for counterparty. If so, add counterparty connection ID for
@@ -219,6 +221,7 @@ ConnectionHandshakeLoop:
 				break
 			}
 		}
+
 		if foundOpenTry == nil {
 			// need to send an open try to dst
 			msgOpenTry := connectionIBCMessage{
@@ -230,6 +233,7 @@ ConnectionHandshakeLoop:
 			}
 			continue ConnectionHandshakeLoop
 		}
+
 		var foundOpenAck *provider.ConnectionInfo
 		for openAckKey, openAckMsg := range pathEndConnectionHandshakeMessages.SrcMsgConnectionOpenAck {
 			if openInitKey == openAckKey {
@@ -237,6 +241,7 @@ ConnectionHandshakeLoop:
 				break
 			}
 		}
+
 		if foundOpenAck == nil {
 			// need to send an open ack to src
 			msgOpenAck := connectionIBCMessage{
@@ -438,6 +443,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 	if pp.messageLifecycle == nil || pp.sentInitialMsg {
 		return
 	}
+
 	pp.sentInitialMsg = true
 	switch m := pp.messageLifecycle.(type) {
 	case *PacketMessageLifecycle:
@@ -468,12 +474,15 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 			})
 		}
 	case *ConnectionMessageLifecycle:
+
 		if m.Initial == nil {
 			return
 		}
+
 		if !pp.IsRelevantClient(m.Initial.ChainID, m.Initial.Info.ClientID) {
 			return
 		}
+
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.connectionMessages = append(pathEnd1Messages.connectionMessages, connectionIBCMessage{
 				eventType: m.Initial.EventType,
@@ -489,20 +498,24 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 		if m.Initial == nil {
 			return
 		}
+
 		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
 			return
 		}
+
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
 			pathEnd1Messages.channelMessages = append(pathEnd1Messages.channelMessages, channelIBCMessage{
 				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
+
 			pathEnd2Messages.channelMessages = append(pathEnd2Messages.channelMessages, channelIBCMessage{
 				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		}
+
 	}
 }
 
@@ -511,6 +524,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+
+	fmt.Println("Inside processLatestMessage")
 
 	channelPairs := pp.channelPairs()
 
@@ -530,7 +545,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		SrcMsgConnectionOpenAck:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
 		DstMsgConnectionOpenConfirm: pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
 	}
+
 	pathEnd1ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd1ConnectionHandshakeMessages)
+
 	pathEnd2ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd2ConnectionHandshakeMessages)
 
 	pathEnd1ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
@@ -541,6 +558,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		SrcMsgChannelOpenAck:     pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelOpenAck],
 		DstMsgChannelOpenConfirm: pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelOpenConfirm],
 	}
+
 	pathEnd2ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd2,
 		Dst:                      pp.pathEnd1,
@@ -549,6 +567,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 		SrcMsgChannelOpenAck:     pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelOpenAck],
 		DstMsgChannelOpenConfirm: pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelOpenConfirm],
 	}
+
 	pathEnd1ChannelHandshakeRes := pp.getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd1ChannelHandshakeMessages)
 	pathEnd2ChannelHandshakeRes := pp.getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd2ChannelHandshakeMessages)
 
@@ -599,6 +618,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 			SrcMsgTimeoutOnClose:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 			DstMsgChannelCloseConfirm: pathEnd2ChannelCloseConfirm,
 		}
+
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                       pp.pathEnd2,
 			Dst:                       pp.pathEnd1,

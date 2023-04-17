@@ -2,8 +2,9 @@ package icon
 
 import (
 	"encoding/hex"
+	"strings"
 
-	clientTypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
@@ -11,47 +12,43 @@ import (
 
 // Events
 var (
-
 	// Client Events
-	EventTypeCreateClient          = "create_client"
-	EventTypeUpdateClient          = "update_client"
-	EventTypeUpgradeClient         = "upgrade_client"
-	EventTypeSubmitMisbehaviour    = "client_misbehaviour"
-	EventTypeUpdateClientProposal  = "update_client_proposal"
-	EventTypeUpgradeChain          = "upgrade_chain"
-	EventTypeUpgradeClientProposal = "upgrade_client_proposal"
+	EventTypeCreateClient = "CreateClient(str,bytes)"
+	EventTypeUpdateClient = "UpdateClient(str)"
 
 	// Connection Events
-	EventTypeConnectionOpenInit    = "connection_open_init"
-	EventTypeConnectionOpenTry     = "connection_open_try"
-	EventTypeConnectionOpenAck     = "connection_open_ack"
-	EventTypeConnectionOpenConfirm = "connection_open_confirm"
+	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str,str,bytes)"
+	EventTypeConnectionOpenTry     = "ConnectionOpenTry(str,str,bytes)"
+	EventTypeConnectionOpenAck     = "ConnectionOpenAck(str,bytes)"
+	EventTypeConnectionOpenConfirm = "ConnectionOpenConfirm(str,bytes)"
 
 	// Channel Events
-	EventTypeChannelOpenInit     = "channel_open_init"
-	EventTypeChannelOpenTry      = "channel_open_try"
-	EventTypeChannelOpenAck      = "channel_open_ack"
-	EventTypeChannelOpenConfirm  = "channel_open_confirm"
-	EventTypeChannelCloseInit    = "channel_close_init"
-	EventTypeChannelCloseConfirm = "channel_close_confirm"
-	EventTypeChannelClosed       = "channel_close"
+	EventTypeChannelOpenInit     = "ChannelOpenInit(str,str,bytes)"
+	EventTypeChannelOpenTry      = "ChannelOpenTry(str,str,bytes)"
+	EventTypeChannelOpenAck      = "ChannelOpenAck(str,str,bytes)"
+	EventTypeChannelOpenConfirm  = "ChannelOpenConfirm(str,str,bytes)"
+	EventTypeChannelCloseInit    = "ChannelCloseInit(str,str,bytes)"
+	EventTypeChannelCloseConfirm = "ChannelCloseConfirm(str,str,bytes)"
 
 	// Packet Events
 	EventTypeSendPacket           = "SendPacket(bytes)"
 	EventTypeRecvPacket           = "RecvPacket(bytes)"
-	EventTypeWriteAck             = "WriteAcknowledgement(string,string,int,bytes)"
-	EventTypeAcknowledgePacket    = "AcknowledgePacket(bytes, bytes)"
-	EventTypeTimeoutPacket        = "timeout_packet"
-	EventTypeTimeoutPacketOnClose = "timeout_on_close_packet"
+	EventTypeWriteAcknowledgement = "WriteAcknowledgement(bytes,bytes)"
+	EventTypeAcknowledgePacket    = "AcknowledgePacket(bytes,bytes)"
+	EventTypeTimeoutRequest       = "TimeoutRequest(bytes)"
+	EventTypePacketTimeout        = "PacketTimeout(bytes)"
 )
-var iconEventNameToEventTypeMap = map[string]string{
-	// packet Events
-	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
-	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
-	EventTypeWriteAck:             chantypes.EventTypeWriteAck,
-	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
-	EventTypeTimeoutPacket:        chantypes.EventTypeTimeoutPacket,
-	EventTypeTimeoutPacketOnClose: chantypes.EventTypeTimeoutPacketOnClose,
+
+var IconCosmosEventMap = map[string]string{
+	// client events
+	EventTypeCreateClient: clienttypes.EventTypeCreateClient,
+	EventTypeUpdateClient: clienttypes.EventTypeUpdateClient,
+
+	// connection events
+	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
+	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
+	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
 
 	// channel events
 	EventTypeChannelOpenInit:     chantypes.EventTypeChannelOpenInit,
@@ -60,22 +57,13 @@ var iconEventNameToEventTypeMap = map[string]string{
 	EventTypeChannelOpenConfirm:  chantypes.EventTypeChannelOpenConfirm,
 	EventTypeChannelCloseInit:    chantypes.EventTypeChannelCloseInit,
 	EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseConfirm,
-	EventTypeChannelClosed:       chantypes.EventTypeChannelClosed,
 
-	// connection Events
-	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
-	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
-	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
-	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
-
-	// client Events
-	EventTypeCreateClient:          clientTypes.EventTypeCreateClient,
-	EventTypeUpdateClient:          clientTypes.EventTypeUpdateClient,
-	EventTypeUpgradeClient:         clientTypes.EventTypeUpgradeClient,
-	EventTypeSubmitMisbehaviour:    clientTypes.EventTypeSubmitMisbehaviour,
-	EventTypeUpdateClientProposal:  clientTypes.EventTypeUpdateClientProposal,
-	EventTypeUpgradeChain:          clientTypes.EventTypeUpgradeChain,
-	EventTypeUpgradeClientProposal: clientTypes.EventTypeUpgradeClientProposal,
+	// packet events
+	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
+	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
+	EventTypeWriteAcknowledgement: chantypes.EventTypeWriteAck,
+	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
+	EventTypePacketTimeout:        chantypes.EventTypeTimeoutPacket,
 }
 
 func MustConvertEventNameToBytes(eventName string) []byte {
@@ -84,6 +72,28 @@ func MustConvertEventNameToBytes(eventName string) []byte {
 		return nil
 	}
 	return input
+}
+
+func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
+	indexed := make([][]byte, 0)
+
+	for _, idx := range evt.Indexed {
+		indexed = append(indexed, []byte(idx))
+	}
+
+	data := make([][]byte, 0)
+
+	for _, d := range evt.Data {
+		filtered, _ := hex.DecodeString(strings.TrimPrefix(d, "0x"))
+		data = append(data, filtered)
+	}
+
+	return types.EventLog{
+		Addr:    evt.Addr,
+		Indexed: indexed,
+		Data:    data,
+	}
+
 }
 
 func GetMonitorEventFilters(address string) []*types.EventFilter {
@@ -95,9 +105,19 @@ func GetMonitorEventFilters(address string) []*types.EventFilter {
 
 	eventArr := []string{
 		EventTypeSendPacket,
-		// EventTypeRecvPacket,
-		// EventTypeWriteAck,
-		// EventTypeAcknowledgePacket,
+		EventTypeRecvPacket,
+		EventTypeAcknowledgePacket,
+		EventTypeWriteAcknowledgement,
+
+		EventTypeConnectionOpenInit,
+		EventTypeConnectionOpenTry,
+		EventTypeConnectionOpenAck,
+		EventTypeConnectionOpenConfirm,
+
+		EventTypeChannelOpenInit,
+		EventTypeChannelOpenTry,
+		EventTypeChannelOpenAck,
+		EventTypeChannelOpenConfirm,
 	}
 
 	for _, event := range eventArr {

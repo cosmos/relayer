@@ -5,6 +5,7 @@ import (
 	"math/bits"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 )
 
 const hashLen = 32
@@ -77,8 +78,8 @@ func (m *MerkleHashTree) MerkleRoot() []byte {
 	return __merkleRoot(dataBuf)
 }
 
-func __merkleProof(data []byte, idx int) []types.MerkleNode {
-	proof := make([]types.MerkleNode, 0, bits.Len(uint(len(data))))
+func __merkleProof(data []byte, idx int) []icon.MerkleNode {
+	proof := make([]icon.MerkleNode, 0, bits.Len(uint(len(data))))
 	for len(data) > hashLen {
 		i, j := 0, 0
 		for ; i < len(data); i, j = i+hashLen*2, j+hashLen {
@@ -88,14 +89,14 @@ func __merkleProof(data []byte, idx int) []types.MerkleNode {
 					val = append(val, data[i+hashLen:i+hashLen*2]...)
 					proof = append(
 						proof,
-						types.MerkleNode{Dir: types.DirRight, Value: val},
+						icon.MerkleNode{Dir: int32(types.DirRight), Value: val},
 					)
 					idx = j
 				} else if idx == i+hashLen {
 					val = append(val, data[i:i+hashLen]...)
 					proof = append(
 						proof,
-						types.MerkleNode{Dir: types.DirLeft, Value: val},
+						icon.MerkleNode{Dir: int32(types.DirLeft), Value: val},
 					)
 					idx = j
 				}
@@ -104,7 +105,7 @@ func __merkleProof(data []byte, idx int) []types.MerkleNode {
 				if idx == i {
 					proof = append(
 						proof,
-						types.MerkleNode{Dir: types.DirRight, Value: nil},
+						icon.MerkleNode{Dir: int32(types.DirRight), Value: nil},
 					)
 					idx = j
 				}
@@ -116,13 +117,13 @@ func __merkleProof(data []byte, idx int) []types.MerkleNode {
 	return proof
 }
 
-func (m *MerkleHashTree) VerifyMerkleProof(root []byte, value []byte, proof []types.MerkleNode) bool {
+func (m *MerkleHashTree) VerifyMerkleProof(root []byte, value []byte, proof []icon.MerkleNode) bool {
 	computedHash := make([]byte, len(value))
 	copy(computedHash, value)
 
 	for _, node := range proof {
 		hashBuf := make([]byte, hashLen*2)
-		if node.Dir == types.DirLeft {
+		if node.Dir == int32(types.DirLeft) {
 			copy(hashBuf[:hashLen], node.Value)
 			copy(hashBuf[hashLen:], computedHash)
 		} else {
@@ -139,13 +140,13 @@ func (m *MerkleHashTree) VerifyMerkleProof(root []byte, value []byte, proof []ty
 	return bytes.Equal(root, computedHash)
 }
 
-func (m *MerkleHashTree) MerkleProof(idx int) []types.MerkleNode {
+func (m *MerkleHashTree) MerkleProof(idx int) []icon.MerkleNode {
 	data := m.Hashes
 	if data.Len() == 0 {
 		return nil
 	}
 	if data.Len() == 1 {
-		return []types.MerkleNode{}
+		return []icon.MerkleNode{}
 	}
 	dataBuf := make([]byte, 0, data.Len()*hashLen)
 	for i := 0; i < data.Len(); i++ {

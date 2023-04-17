@@ -17,12 +17,12 @@ func (icp *IconChainProcessor) handleMessage(ctx context.Context, m ibcMessage, 
 	switch t := m.info.(type) {
 	case *packetInfo:
 		icp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
-		case *channelInfo:
-			icp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
-		case *connectionInfo:
-			icp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
-		case *clientInfo:
-			icp.handleClientMessage(ctx, m.eventType, *t)
+	case *channelInfo:
+		icp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
+	case *connectionInfo:
+		icp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
+	case *clientInfo:
+		icp.handleClientMessage(ctx, m.eventType, *t)
 	}
 }
 
@@ -177,8 +177,8 @@ func (icp *IconChainProcessor) logChannelMessage(message string, ci provider.Cha
 func (icp *IconChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
 	icp.logObservedIBCMessage(message,
 		zap.String("client_id", ci.ClientID),
+		zap.String("counterparty_connection_id", ci.CounterpartyConnID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("counterparty_client_id", ci.CounterpartyClientID),
-		zap.String("counterparty_connection_id", ci.CounterpartyConnID),
 	)
 }

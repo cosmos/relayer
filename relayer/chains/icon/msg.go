@@ -12,11 +12,12 @@ type IconMessage struct {
 }
 
 func (im *IconMessage) Type() string {
-	return ""
+	return "icon"
 }
 
 func (im *IconMessage) MsgBytes() ([]byte, error) {
-	return nil, nil
+	b := []byte("abc")
+	return b, nil
 }
 
 func NewIconMessage(msg interface{}, method string) provider.RelayerMessage {

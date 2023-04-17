@@ -34,7 +34,7 @@ const (
 
 	// If the message was assembled successfully, but sending the message failed,
 	// how many blocks should pass before retrying.
-	blocksToRetrySendAfter = 5
+	blocksToRetrySendAfter = 1
 
 	// How many times to retry sending a message before giving up on it.
 	maxMessageSendRetries = 5
@@ -200,12 +200,15 @@ func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool 
 	if pp.pathEnd1.info.ChainID == chainID {
 		return pp.pathEnd1.info.ClientID == clientID
 	} else if pp.pathEnd2.info.ChainID == chainID {
+
 		return pp.pathEnd2.info.ClientID == clientID
 	}
+
 	return false
 }
 
 func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID string) bool {
+
 	if pp.pathEnd1.info.ChainID == chainID {
 		return pp.pathEnd1.isRelevantConnection(connectionID)
 	} else if pp.pathEnd2.info.ChainID == chainID {
@@ -260,6 +263,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
+
 		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.messageLifecycle, pp.pathEnd2)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
@@ -270,7 +274,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTicker.C:
 		// Periodic flush to clear out any old packets
-		pp.flush(ctx)
+		// pp.flush(ctx)  // TODO original not commented
 	}
 	return false
 }
@@ -300,12 +304,14 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if !pp.initialFlushComplete {
-			pp.flush(ctx)
+			// pp.flush(ctx)   // TODO :: commented by icon-project
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
 			cancel()
 			return
 		}
+
+		pp.log.Info("Before processing the latest messages")
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx); err != nil {

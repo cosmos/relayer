@@ -158,7 +158,8 @@ func CreateClient(
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
-	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	// TODO: Replace with NewClientState
+	clientState, err := dst.ChainProvider.NewClientStateMock(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
