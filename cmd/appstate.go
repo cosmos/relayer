@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
 
@@ -229,18 +230,95 @@ func (a *appState) OverwriteConfigOnTheFly(
 	return nil
 }
 
+func (a *appState) GetConfigProviderNameFromChainId(chainId string) (string, error) {
+
+	chains := a.Config.Chains
+	for k, v := range chains {
+		if v.ChainID() == chainId {
+			return k, nil
+		}
+	}
+
+	return "", errors.New(fmt.Sprintf("Missing provider with chain Id: %s", chainId))
+}
+
+func (a *appState) CheckIfProviderType(providerName string, providerType string) bool {
+	providers := a.Config.Wrapped()
+	for p, v := range providers.ProviderConfigs {
+		if p == providerName && v.Type == providerType {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *appState) UpdateConfigsIfContainIcon(cmd *cobra.Command, src *relayer.Chain, dst *relayer.Chain) error {
+
+	ctx := context.Background()
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		var err error
+		err = a.UpdateProviderIfIcon(cmd, egCtx, src)
+		if err != nil {
+			return err
+		}
+
+		return nil
+
+	})
+	eg.Go(func() error {
+		var err error
+		err = a.UpdateProviderIfIcon(cmd, egCtx, dst)
+		if err != nil {
+			return err
+		}
+		return nil
+
+	})
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (a *appState) UpdateProviderIfIcon(cmd *cobra.Command, ctx context.Context, chain *relayer.Chain) error {
+
+	providerName, err := a.GetConfigProviderNameFromChainId(chain.ChainID())
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("what are the providerName", providerName)
+	if !a.CheckIfProviderType(providerName, "icon") {
+		return nil
+	}
+	height, err := chain.ChainProvider.QueryLatestHeight(ctx)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error fetching chain latesh height %s ", chain.ChainID()))
+	}
+
+	err = a.OverwriteChainConfig(cmd, providerName, "btpHeight", height)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error updating BTPHeight of  config of chain %s ", chain.ChainID()))
+	}
+	return nil
+}
+
 func (a *appState) OverwriteChainConfig(
 	cmd *cobra.Command,
-	chainName string,
+	providerName string,
 	fieldName string,
 	fieldValue interface{},
 ) error {
 
-	fmt.Println("here is the logic ")
 	// use lock file to guard concurrent access to config.yaml
 	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
 	fileLock := flock.New(lockFilePath)
-	_, err := fileLock.TryLock()
+	err := fileLock.Lock()
 	if err != nil {
 		return fmt.Errorf("failed to acquire config lock: %w", err)
 	}
@@ -257,7 +335,7 @@ func (a *appState) OverwriteChainConfig(
 	}
 
 	wrappedConfig := a.Config.Wrapped()
-	err = setProviderConfigField(wrappedConfig, chainName, fieldName, fieldValue)
+	err = setProviderConfigField(wrappedConfig, providerName, fieldName, fieldValue)
 	if err != nil {
 		return err
 	}
@@ -288,5 +366,6 @@ func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, field
 		return err
 	}
 	providerConfigWrapper.Value = providerConfigValue
+
 	return nil
 }
