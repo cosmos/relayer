@@ -197,6 +197,7 @@ func (a *appState) OverwriteConfigOnTheFly(
 	}
 
 	path, ok := a.Config.Paths[pathName]
+
 	if !ok {
 		return fmt.Errorf("config does not exist for that path: %s", pathName)
 	}
@@ -230,16 +231,12 @@ func (a *appState) OverwriteConfigOnTheFly(
 
 func (a *appState) OverwriteChainConfig(
 	cmd *cobra.Command,
-	chainId string,
-	chainType string,
+	chainName string,
 	fieldName string,
-	fieldValue int64,
+	fieldValue interface{},
 ) error {
 
-	if chainId == "" {
-		return errors.New("empty path name not allowed")
-	}
-
+	fmt.Println("here is the logic ")
 	// use lock file to guard concurrent access to config.yaml
 	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
 	fileLock := flock.New(lockFilePath)
@@ -255,17 +252,41 @@ func (a *appState) OverwriteChainConfig(
 		}
 	}()
 
-	// load config from file and validate it. don't want to miss
-	// any changes that may have been made while unlocked.
 	if err := initConfig(cmd, a); err != nil {
 		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
-	// chain, err := a.Config.Chains.Get(chainId)
-	// if err != nil {
-	// 	return errors.New("Couldn't find the chainid ")
-	// }
+	wrappedConfig := a.Config.Wrapped()
+	err = setProviderConfigField(wrappedConfig, chainName, fieldName, fieldValue)
+	if err != nil {
+		return err
+	}
+
+	out, err := yaml.Marshal(wrappedConfig)
+	if err != nil {
+		return err
+	}
+
+	cfgPath := a.Viper.ConfigFileUsed()
+
+	// Overwrite the config file.
+	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
+	}
 
 	return nil
+}
 
+func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
+	providerConfigs := cfg.ProviderConfigs
+	providerConfigWrapper, ok := providerConfigs[providerName]
+	if !ok {
+		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
+	}
+	providerConfigValue := providerConfigWrapper.Value
+	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
+		return err
+	}
+	providerConfigWrapper.Value = providerConfigValue
+	return nil
 }
