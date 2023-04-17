@@ -111,7 +111,7 @@ func NewPathProcessor(
 		hopsPathEnd1to2[i] = newPathEndRuntime(log, *hop, metrics)
 	}
 	hopsPathEnd2to1 := make([]*pathEndRuntime, len(hops2to1))
-	for i, hop := range hops1to2 {
+	for i, hop := range hops2to1 {
 		hopsPathEnd2to1[i] = newPathEndRuntime(log, *hop, metrics)
 	}
 	return &PathProcessor{
