@@ -414,9 +414,15 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// Find the pathEnd that sent the signal
 		pathEnd := pathEnds[chosen-pathEndOffset]
 		counterpartyPathEnds := pp.counterpartyPathEnds(pathEnd)
+		var hops []*pathEndRuntime
+		if chosen == pathEndOffset {
+			hops = pp.hopsPathEnd1to2
+		} else if chosen == pathEndOffset+1 {
+			hops = pp.hopsPathEnd2to1
+		}
 		for _, counterparty := range counterpartyPathEnds {
-			pathEnd.mergeCacheData(ctx, cancel, value.Interface().(ChainProcessorCacheData),
-				counterparty.info.ChainID, counterparty.inSync, pp.messageLifecycle, counterparty)
+			pathEnd.mergeCacheData(ctx, cancel, value.Interface().(ChainProcessorCacheData), pp.messageLifecycle,
+				counterparty, hops)
 		}
 	}
 	return false

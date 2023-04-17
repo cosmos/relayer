@@ -334,7 +334,8 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 	return true, nil
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData,
+	messageLifecycle MessageLifecycle, counterparty *pathEndRuntime, hops []*pathEndRuntime) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.lastClientUpdateHeightMu.Unlock()
@@ -343,18 +344,25 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
-	if err != nil {
-		pathEnd.log.Error(
-			"Failed to check for misbehaviour",
-			zap.String("client_id", pathEnd.info.ClientID),
-			zap.Error(err),
-		)
+	hops = append(hops, counterparty)
+	var terminate bool
+	lastHop := pathEnd
+	for _, hop := range hops {
+		detected, err := lastHop.checkForMisbehaviour(ctx, lastHop.clientState, hop)
+		if err != nil {
+			lastHop.log.Error(
+				"Failed to check for misbehaviour",
+				zap.String("client_id", lastHop.info.ClientID),
+				zap.Error(err),
+			)
+		}
+		terminate = terminate || detected
+		lastHop = hop
 	}
 
 	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
 		pathEnd.clientState = d.ClientState
-		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
+		ibcHeader, ok := counterparty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
 		if ok {
 			pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
 		}
@@ -370,7 +378,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
 	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterparty.info.ChainID, pathEnd.inSync && counterparty.inSync) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
