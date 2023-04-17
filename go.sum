@@ -846,8 +846,8 @@ github.com/pkg/profile v1.2.1/go.mod h1:hJw3o1OdXxsrSjjVksARp5W95eeEaEfptyVZyv6J
 github.com/pkg/sftp v1.13.1/go.mod h1:3HaPG6Dq1ILlpPZRO0HVMrsydcdLt6HRDccSgb87qRg=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230330202353-a8901cff0fb4 h1:m6vWewG42dhrvambOIfVrX4sLApDbqAf2H2kXjb1TX8=
-github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230330202353-a8901cff0fb4/go.mod h1:BFh8nKWjr5zeR2OZfhkzdgDzj1+KjRn3aJLpwapStj8=
+github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230322062908-c76e54b2c5eb h1:6riQ0M3O8BFBBfRyg4KjjBKvBQ8s6fAStFgzcpyUXtw=
+github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230322062908-c76e54b2c5eb/go.mod h1:BFh8nKWjr5zeR2OZfhkzdgDzj1+KjRn3aJLpwapStj8=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829/go.mod h1:p2iRAGwDERtqlqzRXnrOVns+ignqQo//hLXqYxZYVNs=
