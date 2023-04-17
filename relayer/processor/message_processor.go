@@ -109,7 +109,6 @@ func (mp *messageProcessor) processMessages(
 			return err
 		}
 	}
-
 	mp.assembleMessages(ctx, messages, src, dst, hops)
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)

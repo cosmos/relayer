@@ -920,8 +920,7 @@ func (cc *CosmosProvider) generateMultihopProof(
 	// Ensure that chain0's client state is update to date
 	// TODO: is it ok to exclude revision number?
 	if client01.dstHeight.GetRevisionHeight() < height {
-		// TODO: update
-		return nil, fmt.Errorf("chain0's client state is not up to date")
+		return nil, fmt.Errorf("%s's client state is not up to date", cc.ChainId())
 	}
 
 	// Generate and assign consensus, clientState, and connection proofs
