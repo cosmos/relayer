@@ -9,6 +9,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 var _ multihop.Endpoint = (*endpoint)(nil)
@@ -147,9 +148,9 @@ func (e endpoint) Counterparty() multihop.Endpoint {
 	return e.counterparty
 }
 
-func newEndpoint(provider *CosmosProvider, clientID, connectionID string) multihop.Endpoint {
+func newEndpoint(provider provider.ChainProvider, clientID, connectionID string) multihop.Endpoint {
 	return &endpoint{
-		provider:     provider,
+		provider:     provider.(*CosmosProvider),
 		clientID:     clientID,
 		connectionID: connectionID,
 	}

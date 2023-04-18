@@ -3,6 +3,8 @@ package cosmos
 import (
 	"context"
 	"fmt"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 	"io"
 	"os"
 	"path"
@@ -92,7 +94,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
 
-		queryProviders: map[string]*CosmosProvider{},
+		chanPaths: map[string]*multihop.ChanPath{},
 	}
 
 	return cp, nil
@@ -123,12 +125,16 @@ type CosmosProvider struct {
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
 
-	// queryProviders allows to query other chains for multi-hop proofs
-	queryProviders map[string]*CosmosProvider
+	// chanPaths tracks paths for multi-hop proofs
+	chanPaths map[string]*multihop.ChanPath
 }
 
-func (cc *CosmosProvider) AddQueryProvider(chainID string, queryProvider provider.QueryProvider) {
-	cc.queryProviders[chainID] = queryProvider.(*CosmosProvider)
+func (cc *CosmosProvider) AddChanPath(connectionHops []string, chanPath *multihop.ChanPath) {
+	cc.chanPaths[chantypes.FormatConnectionID(connectionHops)] = chanPath
+}
+
+func (cc *CosmosProvider) GetChanPath(connectionHops []string) *multihop.ChanPath {
+	return cc.chanPaths[chantypes.FormatConnectionID(connectionHops)]
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {

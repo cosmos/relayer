@@ -109,7 +109,7 @@ func (mp *messageProcessor) processMessages(
 			return err
 		}
 	}
-	mp.assembleMessages(ctx, messages, src, dst, hops)
+	mp.assembleMessages(ctx, messages, src, dst)
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 }
@@ -162,32 +162,46 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 }
 
 // assembleMessages will assemble all messages in parallel. This typically involves proof queries for each.
-func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime,
-	hops []*pathEndRuntime) {
+func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
 	var wg sync.WaitGroup
 
+	// TODO: instantiate ChanPath on chain providers before getting here
 	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
 	for i, msg := range messages.connectionMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, nil, i, &wg)
 	}
 
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
 	for i, msg := range messages.channelMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
+		var connectionHops []string
+		state := src.channelStateCache[ChannelInfoChannelKey(msg.info)]
+		if state != nil {
+			connectionHops = state.ConnectionHops
+		}
+		go mp.assembleMessage(ctx, msg, src, dst, connectionHops, i, &wg)
 	}
 
 	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
 	for i, msg := range messages.clientICQMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, nil, i, &wg)
 	}
 
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
 	for i, msg := range messages.packetMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, hops, i, &wg)
+		var connectionHops []string
+		key, err := msg.channelKey()
+		if err != nil {
+			panic(err)
+		}
+		state := src.channelStateCache[key]
+		if state != nil {
+			connectionHops = state.ConnectionHops
+		}
+		go mp.assembleMessage(ctx, msg, src, dst, connectionHops, i, &wg)
 	}
 
 	wg.Wait()
@@ -211,11 +225,11 @@ func (mp *messageProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
-	hops []*pathEndRuntime,
+	connectionHops []string,
 	i int,
 	wg *sync.WaitGroup,
 ) {
-	assembled, err := msg.assemble(ctx, src, dst, hops)
+	assembled, err := msg.assemble(ctx, src, dst, connectionHops)
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {

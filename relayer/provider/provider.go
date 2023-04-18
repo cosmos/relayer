@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 	"time"
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
@@ -240,8 +241,11 @@ type ChainProvider interface {
 
 	Init(ctx context.Context) error
 
-	// AddQueryProvider adds a query provider for another chain
-	AddQueryProvider(chainID string, queryProvider QueryProvider)
+	// AddChanPath adds multihop channel path to a destination chain
+	AddChanPath(connectionHops []string, chanPath *multihop.ChanPath)
+
+	// GetChanPath gets multihop channel path to a destination chain
+	GetChanPath(connectionHops []string) *multihop.ChanPath
 
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
@@ -264,18 +268,18 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
 	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 	// exact same order as they were sent over the wire.
-	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64, chainIDs, connectionHops []string) (PacketProof, error)
+	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
 	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)
@@ -333,9 +337,8 @@ type ChainProvider interface {
 
 	// [Begin] Channel handshake IBC message assembly
 
-	// ChannelProof queries for proof of a channel state. If the channel is multi-hop, the chainIDs are for the
-	// intermediate hops.
-	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64, chainIDs []string) (ChannelProof, error)
+	// ChannelProof queries for proof of a channel state.
+	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64, connectionHops []string) (ChannelProof, error)
 
 	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
 	// ready to write to the chain. The channel proof is not needed here, but it needs
