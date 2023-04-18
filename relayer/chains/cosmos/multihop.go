@@ -30,7 +30,17 @@ func (e endpoint) ClientID() string {
 	return e.clientID
 }
 
-func (e endpoint) GetClientState() exported.ClientState {
+func (e endpoint) GetKeyValueProofHeight() exported.Height {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (e endpoint) GetConsensusHeight() exported.Height {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (e endpoint) getClientState() exported.ClientState {
 	ctx := context.Background()
 	height, err := e.provider.QueryLatestHeight(ctx)
 	if err != nil {
@@ -44,7 +54,7 @@ func (e endpoint) GetClientState() exported.ClientState {
 }
 
 func (e endpoint) GetConsensusState(height exported.Height) (exported.ConsensusState, error) {
-	clientState := e.GetClientState()
+	clientState := e.getClientState()
 	clientHeight := clientState.GetLatestHeight()
 	ctx := context.Background()
 	chainHeight, err := e.provider.QueryLatestHeight(ctx)

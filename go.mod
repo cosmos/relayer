@@ -38,7 +38,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/cosmos/ibc-go/v7 => github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230330202353-a8901cff0fb4
+replace github.com/cosmos/ibc-go/v7 => github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230418165139-d62e99ea6509
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
