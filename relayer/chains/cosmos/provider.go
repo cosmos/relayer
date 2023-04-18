@@ -63,6 +63,11 @@ func (pc CosmosProviderConfig) Validate() error {
 	return nil
 }
 
+func (pc CosmosProviderConfig) Set(field string, value interface{}) error {
+	// TODO:
+	return nil
+}
+
 func (pc CosmosProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pc.Broadcast
 }

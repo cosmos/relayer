@@ -62,16 +62,27 @@ type IconProviderConfig struct {
 	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 }
 
-func (pp IconProviderConfig) Validate() error {
+func (pp *IconProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
 }
 
+func (pp *IconProviderConfig) Set(field string, value interface{}) error {
+	switch field {
+	case "btpHeight":
+		pp.BTPHeight = value.(int64)
+	default:
+		return fmt.Errorf("unknown field or not allowed to set %s", field)
+	}
+	return nil
+
+}
+
 // NewProvider should provide a new Icon provider
 // NewProvider should provide a new Icon provider
-func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 
 	pp.ChainName = chainName
 	if _, err := os.Stat(pp.Keystore); err != nil {
@@ -118,7 +129,7 @@ func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
 
 type IconProvider struct {
 	log                  *zap.Logger
-	PCfg                 IconProviderConfig
+	PCfg                 *IconProviderConfig
 	txMu                 sync.Mutex
 	client               *Client
 	wallet               module.Wallet
