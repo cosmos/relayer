@@ -16,6 +16,7 @@ type endpoint struct {
 	provider     *CosmosProvider
 	clientID     string
 	connectionID string
+	counterparty *endpoint
 }
 
 func (e endpoint) ChainID() string {
@@ -30,16 +31,6 @@ func (e endpoint) ClientID() string {
 	return e.clientID
 }
 
-func (e endpoint) GetKeyValueProofHeight() exported.Height {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (e endpoint) GetConsensusHeight() exported.Height {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (e endpoint) getClientState() exported.ClientState {
 	ctx := context.Background()
 	height, err := e.provider.QueryLatestHeight(ctx)
@@ -51,6 +42,15 @@ func (e endpoint) getClientState() exported.ClientState {
 		panic(err)
 	}
 	return clientState
+}
+
+func (e endpoint) GetConsensusHeight() exported.Height {
+	return e.getClientState().GetLatestHeight()
+}
+
+// TODO: this is redundant, should be removed
+func (e endpoint) GetKeyValueProofHeight() exported.Height {
+	return e.GetConsensusHeight()
 }
 
 func (e endpoint) GetConsensusState(height exported.Height) (exported.ConsensusState, error) {
@@ -86,13 +86,23 @@ func (e endpoint) GetConnection() (*types.ConnectionEnd, error) {
 }
 
 func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clienttypes.Height, error) {
-	//TODO implement me
-	panic("implement me")
+	ctx := context.Background()
+	_, proof, proofHeight, err := e.provider.QueryTendermintProof(ctx, height, key)
+	return proof, proofHeight, err
 }
 
 func (e endpoint) GetMerklePath(path string) (commitmenttypes.MerklePath, error) {
-	//TODO implement me
-	panic("implement me")
+	ctx := context.Background()
+	height, err := e.provider.QueryLatestHeight(ctx)
+	if err != nil {
+		return commitmenttypes.MerklePath{}, err
+	}
+	connection, err := e.provider.QueryConnection(ctx, height, e.connectionID)
+	if err != nil {
+		return commitmenttypes.MerklePath{}, err
+	}
+	prefix := connection.Connection.Counterparty.GetPrefix()
+	return commitmenttypes.ApplyPrefix(prefix, commitmenttypes.NewMerklePath(path))
 }
 
 func (e endpoint) UpdateClient() error {
@@ -101,14 +111,13 @@ func (e endpoint) UpdateClient() error {
 }
 
 func (e endpoint) Counterparty() multihop.Endpoint {
-	//TODO implement me
-	panic("implement me")
+	return e.counterparty
 }
 
 func newEndpoint(provider *CosmosProvider, clientID, connectionID string) multihop.Endpoint {
 	return &endpoint{
-		provider,
-		clientID,
-		connectionID,
+		provider:     provider,
+		clientID:     clientID,
+		connectionID: connectionID,
 	}
 }
