@@ -525,7 +525,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
 	k := ConnectionInfoConnectionKey(message.info)
-	if eventType != chantypes.EventTypeChannelOpenInit {
+	if eventType != conntypes.EventTypeConnectionOpenInit {
 		k = k.Counterparty()
 	}
 	if message.info.Height >= counterparty.latestBlock.Height {
