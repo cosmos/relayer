@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"context"
+	"fmt"
 	"github.com/cosmos/cosmos-sdk/codec"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -106,8 +107,40 @@ func (e endpoint) GetMerklePath(path string) (commitmenttypes.MerklePath, error)
 }
 
 func (e endpoint) UpdateClient() error {
-	//TODO implement me
-	panic("implement me")
+	ctx := context.Background()
+	srch, err := e.provider.QueryLatestHeight(ctx)
+	if err != nil {
+		return err
+	}
+	dsth, err := e.counterparty.provider.QueryLatestHeight(ctx)
+	if err != nil {
+		return err
+	}
+	srcHeader, err := e.provider.QueryIBCHeader(ctx, srch)
+	if err != nil {
+		return err
+	}
+	dstClientState, err := e.counterparty.provider.QueryClientState(ctx, dsth, e.clientID)
+	if err != nil {
+		return err
+	}
+	dstTrustedHeader, err := e.provider.QueryIBCHeader(ctx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
+	updateHeader, err := e.provider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)
+	msg, err := e.provider.MsgUpdateClient(e.counterparty.clientID, updateHeader)
+	if err != nil {
+		return err
+	}
+	response, success, err := e.provider.SendMessage(ctx, msg, "")
+	if err != nil {
+		return err
+	}
+	if response.Code != 0 {
+		return fmt.Errorf("client update failed with code %d", response.Code)
+	}
+	if !success {
+		return fmt.Errorf("client update execution failed")
+	}
+	return nil
 }
 
 func (e endpoint) Counterparty() multihop.Endpoint {
