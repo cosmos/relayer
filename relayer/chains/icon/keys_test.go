@@ -1,6 +1,7 @@
 package icon
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,13 +36,21 @@ func TestAddIconKeyStore(t *testing.T) {
 
 func TestRestoreIconKeyStore(t *testing.T) {
 
-	kwName := "/home/lilixac/keystore/godWallet.json"
-	p := &IconProvider{
-		client: NewClient(ENDPOINT, &zap.Logger{}),
-	}
+	kwName := "../../../env/godWallet.json"
 
-	w, err := generateKeystoreWithPassword(kwName, []byte("gochain"))
+	pcfg := &IconProviderConfig{
+		Keystore:  kwName,
+		Password:  "gochain",
+		Timeout:   "20s",
+		ChainName: "icon",
+		BTPHeight: 10,
+	}
+	p, err := pcfg.NewProvider(zap.NewNop(), "", false, "icon")
+	require.NoError(t, err)
+	iconp := p.(*IconProvider)
+	fmt.Println(iconp)
+	w, err := iconp.RestoreIconKeyStore(kwName, []byte("gochain"))
 	require.NoError(t, err)
 
-	assert.Equal(t, w, p.wallet)
+	assert.Equal(t, w, iconp.wallet)
 }

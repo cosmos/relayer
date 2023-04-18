@@ -63,6 +63,7 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 			RevisionHeight: msgTransfer.TimeoutHeight.RevisionHeight,
 		},
 		TimeoutTimestamp: msgTransfer.TimeoutTimestamp,
+		Data:             msgTransfer.Data,
 	}
 	pktEncode, err := proto.Marshal(pkt)
 	if err != nil {
@@ -102,6 +103,7 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 			RevisionHeight: msgRecvPacket.TimeoutHeight.RevisionHeight,
 		},
 		TimeoutTimestamp: msgRecvPacket.TimeoutTimestamp,
+		Data:             msgRecvPacket.Data,
 	}
 
 	pktEncode, err := proto.Marshal(pkt)
@@ -126,7 +128,7 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 	packetAckMsg := &types.GenericPacketParams[types.MsgPacketAcknowledgement]{
 		Msg: msg,
 	}
-	return NewIconMessage(packetAckMsg, MethodWriteAck), nil
+	return NewIconMessage(packetAckMsg, MethodAckPacket), nil
 }
 
 func (icp *IconProvider) MsgTimeout(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -515,7 +517,7 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 
 	txhash, _ := txParam.TxHash.Value()
 
-	fmt.Printf("the transaction hash is %x \n", txhash)
+	fmt.Printf("the transaction hash is 0x%x \n", txhash)
 
 	txResParams := &types.TransactionHashParam{
 		Hash: txParam.TxHash,

@@ -24,7 +24,7 @@ func NewTestClient() *Client {
 
 func getTestWallet() (module.Wallet, error) {
 
-	keyStore_file := "/Users/viveksharmapoudel/keystore/god_wallet.json"
+	keyStore_file := "../../../env/godWallet.json"
 	kpass := "gochain"
 
 	keystore_bytes, err := ioutil.ReadFile(keyStore_file)

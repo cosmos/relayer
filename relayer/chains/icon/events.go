@@ -67,11 +67,7 @@ var IconCosmosEventMap = map[string]string{
 }
 
 func MustConvertEventNameToBytes(eventName string) []byte {
-	input, err := hex.DecodeString(eventName)
-	if err != nil {
-		return nil
-	}
-	return input
+	return []byte(eventName)
 }
 
 func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
