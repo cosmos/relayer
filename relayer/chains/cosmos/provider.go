@@ -92,7 +92,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
 
-		queryProviders: map[string]provider.QueryProvider{},
+		queryProviders: map[string]*CosmosProvider{},
 	}
 
 	return cp, nil
@@ -124,11 +124,11 @@ type CosmosProvider struct {
 	cometLegacyEncoding bool
 
 	// queryProviders allows to query other chains for multi-hop proofs
-	queryProviders map[string]provider.QueryProvider
+	queryProviders map[string]*CosmosProvider
 }
 
 func (cc *CosmosProvider) AddQueryProvider(chainID string, queryProvider provider.QueryProvider) {
-	cc.queryProviders[chainID] = queryProvider
+	cc.queryProviders[chainID] = queryProvider.(*CosmosProvider)
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {

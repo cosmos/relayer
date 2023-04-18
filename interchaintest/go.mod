@@ -248,7 +248,7 @@ require (
 replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/ChainSafe/go-schnorrkel/1 => github.com/ChainSafe/go-schnorrkel v1.0.0
-	github.com/cosmos/ibc-go/v7 => github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230322062908-c76e54b2c5eb
+	github.com/cosmos/ibc-go/v7 => github.com/polymerdao/ibc-go/v7 v7.0.0-rc0.0.20230330202353-a8901cff0fb4
 	// For this nested module, you always want to replace the parent reference with the current worktree.
 	github.com/cosmos/relayer/v2 => ../
 
