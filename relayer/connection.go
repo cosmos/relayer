@@ -32,11 +32,10 @@ func (c *Chain) CreateOpenConnections(
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
 
-	// TODO: account for hops
 	pp := processor.NewPathProcessor(
 		c.log,
-		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
+		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
 		nil,
 		nil,
 		nil,

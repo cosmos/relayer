@@ -538,7 +538,7 @@ func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest
 }
 
 func (cc *CosmosProvider) newProof(proof []byte, connectionHops []string) ([]byte, error) {
-	if len(connectionHops) == 0 {
+	if len(connectionHops) < 2 {
 		return proof, nil
 	}
 	chanPath := cc.GetChanPath(connectionHops)

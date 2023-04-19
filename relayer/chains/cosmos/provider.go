@@ -94,7 +94,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
 
-		chanPaths: map[string]*multihop.ChanPath{},
+		chanPaths: map[string]multihop.ChanPath{},
 	}
 
 	return cp, nil
@@ -126,14 +126,22 @@ type CosmosProvider struct {
 	cometLegacyEncoding bool
 
 	// chanPaths tracks paths for multi-hop proofs
-	chanPaths map[string]*multihop.ChanPath
+	chanPaths map[string]multihop.ChanPath
 }
 
-func (cc *CosmosProvider) AddChanPath(connectionHops []string, chanPath *multihop.ChanPath) {
+func (cc *CosmosProvider) MultihopEndpoint(clientID, connectionID string) multihop.Endpoint {
+	return cc.newEndpoint(clientID, connectionID)
+}
+
+func (cc *CosmosProvider) SetMultihopCounterparty(ep, counterparty multihop.Endpoint) {
+	ep.(*endpoint).counterparty = counterparty.(*endpoint)
+}
+
+func (cc *CosmosProvider) AddChanPath(connectionHops []string, chanPath multihop.ChanPath) {
 	cc.chanPaths[chantypes.FormatConnectionID(connectionHops)] = chanPath
 }
 
-func (cc *CosmosProvider) GetChanPath(connectionHops []string) *multihop.ChanPath {
+func (cc *CosmosProvider) GetChanPath(connectionHops []string) multihop.ChanPath {
 	return cc.chanPaths[chantypes.FormatConnectionID(connectionHops)]
 }
 

@@ -12,13 +12,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func newPathEnd(pathName, chainID, clientID string) processor.PathEnd {
-	return processor.NewPathEnd(pathName, chainID, clientID, "", []processor.ChainChannelKey{})
+func newPathEnd(pathName, chainID, clientID, connectionID string) processor.PathEnd {
+	return processor.NewPathEnd(pathName, chainID, clientID, connectionID, "", []processor.ChainChannelKey{})
 }
 
 func newRelayPathEnds(pathName string, hops []*Chain) ([]*processor.PathEnd, []*processor.PathEnd) {
 	relayPathEndsSrcToDst := make([]*processor.PathEnd, len(hops))
-	relayPathEndsDstToSrc := make([]*processor.PathEnd, len(hops))
 	// RelayPathEnds are set in user friendly order so they're just listed as they appear left to right without
 	// acounting for directionality. So for a 1 hop case they would look like this:
 	// A -> B (BA, BC) -> C
@@ -26,10 +25,17 @@ func newRelayPathEnds(pathName string, hops []*Chain) ([]*processor.PathEnd, []*
 	// BC, BA
 	// Hence the index reversal in the call to newPathEnd().
 	for i, hop := range hops {
-		pathEnd1 := newPathEnd(pathName, hop.RelayPathEnds[1].ChainID, hop.RelayPathEnds[1].ClientID)
-		pathEnd2 := newPathEnd(pathName, hop.RelayPathEnds[0].ChainID, hop.RelayPathEnds[0].ClientID)
+		relayPath1 := hop.RelayPathEnds[1]
+		pathEnd1 := newPathEnd(pathName, relayPath1.ChainID, relayPath1.ClientID, relayPath1.ConnectionID)
 		relayPathEndsSrcToDst[i] = &pathEnd1
-		relayPathEndsDstToSrc[i] = &pathEnd2
+	}
+	var relayPathEndsDstToSrc []*processor.PathEnd
+	// TODO: is it ok to reverse here?
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop := hops[i]
+		relayPath2 := hop.RelayPathEnds[0]
+		pathEnd2 := newPathEnd(pathName, relayPath2.ChainID, relayPath2.ClientID, relayPath2.ConnectionID)
+		relayPathEndsDstToSrc = append(relayPathEndsDstToSrc, &pathEnd2)
 	}
 	return relayPathEndsSrcToDst, relayPathEndsDstToSrc
 }
@@ -74,11 +80,17 @@ func (c *Chain) CreateOpenChannels(
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
 
+	hopConnectionIDs := make([]string, len(hops)+1)
+	hopConnectionIDs[0] = c.PathEnd.ConnectionID
+	for i, hop := range hops {
+		hopConnectionIDs[i+1] = hop.RelayPathEnds[1].ConnectionID
+	}
+
 	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
 	pp := processor.NewPathProcessor(
 		c.log,
-		newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),
-		newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID),
+		newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID),
+		newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID),
 		relayPathEndsSrcToDst,
 		relayPathEndsDstToSrc,
 		nil,
@@ -93,11 +105,6 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
-	hopConnectionIDs := make([]string, len(hops)+1)
-	hopConnectionIDs[0] = c.PathEnd.ConnectionID
-	for i, hop := range hops {
-		hopConnectionIDs[i+1] = hop.RelayPathEnds[1].ConnectionID
-	}
 	connectionHops := chantypes.FormatConnectionID(hopConnectionIDs)
 	openInitMsg := &processor.ChannelMessage{
 		ChainID:   c.PathEnd.ChainID,
@@ -170,8 +177,8 @@ func (c *Chain) CloseChannel(
 		WithChainProcessors(chainProcessors...).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
-			newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID),
-			newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID),
+			newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID),
+			newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID),
 			relayPathEndsSrcToDst,
 			relayPathEndsDstToSrc,
 			nil,

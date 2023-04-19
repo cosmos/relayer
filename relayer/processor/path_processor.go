@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 	"reflect"
 	"time"
 
@@ -428,8 +429,60 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 	return false
 }
 
+func (pp *PathProcessor) setChanPaths() error {
+	if len(pp.hopsPathEnd1to2) == 0 {
+		return nil
+	}
+	paths1 := make([]*multihop.Path, len(pp.hopsPathEnd1to2)+1)
+	// We start with src and proceed with the corresponding path ends
+	hopA := pp.pathEnd1
+	connectionHops1 := make([]string, len(pp.hopsPathEnd1to2)+1)
+	for i, hopB := range append(pp.hopsPathEnd2to1, pp.pathEnd2) {
+		connectionHops1[i] = hopA.info.ConnectionID
+		endpointA := hopA.chainProvider.MultihopEndpoint(hopA.info.ClientID, hopA.info.ConnectionID)
+		endpointB := hopB.chainProvider.MultihopEndpoint(hopB.info.ClientID, hopB.info.ConnectionID)
+		hopA.chainProvider.SetMultihopCounterparty(endpointA, endpointB)
+		hopB.chainProvider.SetMultihopCounterparty(endpointB, endpointA)
+		paths1[i] = &multihop.Path{
+			EndpointA: endpointA,
+			EndpointB: endpointB,
+		}
+		if i < len(pp.hopsPathEnd1to2) {
+			hopA = pp.hopsPathEnd1to2[i]
+		}
+	}
+	paths2 := make([]*multihop.Path, len(pp.hopsPathEnd2to1)+1)
+	connectionHops2 := make([]string, len(pp.hopsPathEnd2to1)+1)
+	// We start with dst and go in reverse order (path ends in hopsPathEnd2to1 are already reversed)
+	for i, hopA := range append([]*pathEndRuntime{pp.pathEnd2}, pp.hopsPathEnd2to1...) {
+		connectionHops2[i] = hopA.info.ConnectionID
+		endpointA := hopA.chainProvider.MultihopEndpoint(hopA.info.ClientID, hopA.info.ConnectionID)
+		hopB := pp.pathEnd1
+		if i < len(pp.hopsPathEnd1to2) {
+			hopB = pp.hopsPathEnd1to2[i]
+		}
+		endpointB := hopB.chainProvider.MultihopEndpoint(hopB.info.ClientID, hopB.info.ConnectionID)
+		hopA.chainProvider.SetMultihopCounterparty(endpointA, endpointB)
+		hopB.chainProvider.SetMultihopCounterparty(endpointB, endpointA)
+		paths2[i] = &multihop.Path{
+			EndpointA: endpointA,
+			EndpointB: endpointB,
+		}
+	}
+	chanPath1 := multihop.NewChanPath(paths1)
+	chanPath2 := multihop.NewChanPath(paths2)
+	// We need the opposite channel paths as each chain needs to use the counterparty to generate a proof
+	pp.pathEnd1.chainProvider.AddChanPath(connectionHops1, chanPath2)
+	pp.pathEnd2.chainProvider.AddChanPath(connectionHops2, chanPath1)
+	return nil
+}
+
 // Run executes the main path process.
 func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
+	if err := pp.setChanPaths(); err != nil {
+		panic(err)
+	}
+
 	var retryTimer *time.Timer
 
 	pp.flushTicker = time.NewTicker(pp.flushInterval)

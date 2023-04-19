@@ -7,6 +7,8 @@ type PathEnd struct {
 	ChainID  string
 	ClientID string
 	// ConnectionIDs are tracked by pathEndRuntime in PathProcessor for known connections on this client
+	// TODO: we are tracking connection IDs here to create multihop channel paths, check that it isn't a problem
+	ConnectionID string
 
 	// Can be either "allowlist" or "denylist"
 	Rule       string
@@ -20,13 +22,14 @@ type ChainChannelKey struct {
 }
 
 // NewPathEnd constructs a PathEnd, validating initial parameters.
-func NewPathEnd(pathName string, chainID string, clientID string, rule string, filterList []ChainChannelKey) PathEnd {
+func NewPathEnd(pathName, chainID, clientID, connectionID, rule string, filterList []ChainChannelKey) PathEnd {
 	return PathEnd{
-		PathName:   pathName,
-		ChainID:    chainID,
-		ClientID:   clientID,
-		Rule:       rule,
-		FilterList: filterList,
+		PathName:     pathName,
+		ChainID:      chainID,
+		ClientID:     clientID,
+		ConnectionID: connectionID,
+		Rule:         rule,
+		FilterList:   filterList,
 	}
 }
 

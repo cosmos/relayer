@@ -241,11 +241,17 @@ type ChainProvider interface {
 
 	Init(ctx context.Context) error
 
+	// MultihopEndpoint returns a multihop endpoint for the chain to be used for multihop proofs
+	MultihopEndpoint(clientID, connectionID string) multihop.Endpoint
+
+	// SetMultihopCounterparty sets the multihop counterparty for the chain
+	SetMultihopCounterparty(endpoint, counterparty multihop.Endpoint)
+
 	// AddChanPath adds multihop channel path to a destination chain
-	AddChanPath(connectionHops []string, chanPath *multihop.ChanPath)
+	AddChanPath(connectionHops []string, chanPath multihop.ChanPath)
 
 	// GetChanPath gets multihop channel path to a destination chain
-	GetChanPath(connectionHops []string) *multihop.ChanPath
+	GetChanPath(connectionHops []string) multihop.ChanPath
 
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
@@ -590,13 +596,4 @@ type ClientOutdatedError struct {
 func (c *ClientOutdatedError) Error() string {
 	return fmt.Sprintf("client for chain %q on chain %q is outdated (required: %d, actual: %d)", c.srcChainID,
 		c.dstChainID, c.height, c.requiredHeight)
-}
-
-func NewClientOutdatedError(srcChainID, dstChainID string, height, requiredHeight uint64) *ClientOutdatedError {
-	return &ClientOutdatedError{
-		srcChainID:     srcChainID,
-		dstChainID:     dstChainID,
-		height:         height,
-		requiredHeight: requiredHeight,
-	}
 }
