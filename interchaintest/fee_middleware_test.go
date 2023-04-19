@@ -109,10 +109,8 @@ func TestFeeMiddleware(t *testing.T) {
 		rlyAddressA,
 		rlyAddressB,
 	}
-	res := r.Exec(ctx, eRep, cmd, nil)
-	t.Logf(string(res.Stdout))
-	t.Logf(string(res.Stderr))
-	require.NoError(t, res.Err)
+	_ = r.Exec(ctx, eRep, cmd, nil)
+	require.NoError(t, err)
 
 	// Query the relayer CounterPartyPayee on a given channel
 	query := []string{
@@ -122,9 +120,7 @@ func TestFeeMiddleware(t *testing.T) {
 		"--home", chainA.HomeDir(),
 		"--trace",
 	}
-	sout, serr, err := chainA.Exec(ctx, query, nil)
-	t.Logf(string(sout))
-	t.Logf(string(serr))
+	_, _, err = chainA.Exec(ctx, query, nil)
 	require.NoError(t, err)
 
 	// Get initial account balances
@@ -164,11 +160,7 @@ func TestFeeMiddleware(t *testing.T) {
 		"--yes",
 		"--home", chainA.HomeDir(),
 	}
-	sout, serr, err = chainA.Exec(ctx, packetFeeAsync, nil)
-	require.NoError(t, err)
-
-	t.Logf(string(sout))
-	t.Logf(string(serr))
+	_, _, err = chainA.Exec(ctx, packetFeeAsync, nil)
 	require.NoError(t, err)
 
 	// start the relayer
