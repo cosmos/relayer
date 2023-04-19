@@ -3,6 +3,7 @@ package cosmos
 import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
+
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -23,6 +24,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
+	ibcfee "github.com/cosmos/ibc-go/v7/modules/apps/29-fee"
 	"github.com/cosmos/ibc-go/v7/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
 
@@ -58,6 +60,7 @@ var ModuleBasics = []module.AppModuleBasic{
 	ibc.AppModuleBasic{},
 	cosmosmodule.AppModuleBasic{},
 	stride.AppModuleBasic{},
+	ibcfee.AppModuleBasic{},
 }
 
 type Codec struct {
