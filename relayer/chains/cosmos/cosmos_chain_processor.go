@@ -77,6 +77,7 @@ const (
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
+	blockMaxRetries                  = 5
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -180,20 +181,26 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
-	latestHeight              int64
-	latestQueriedBlock        int64
-	minQueryLoopDuration      time.Duration
-	lastBalanceUpdate         time.Time
-	balanceUpdateWaitDuration time.Duration
+	latestHeight                int64
+	latestQueriedBlock          int64
+	retriesAtLatestQueriedBlock int
+	minQueryLoopDuration        time.Duration
+	lastBalanceUpdate           time.Time
+	balanceUpdateWaitDuration   time.Duration
 }
 
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
 func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+	minQueryLoopDuration := ccp.chainProvider.PCfg.MinLoopDuration
+	if minQueryLoopDuration == 0 {
+		minQueryLoopDuration = defaultMinQueryLoopDuration
+	}
+
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration:      defaultMinQueryLoopDuration,
+		minQueryLoopDuration:      minQueryLoopDuration,
 		lastBalanceUpdate:         time.Unix(0, 0),
 		balanceUpdateWaitDuration: defaultBalanceUpdateWaitDuration,
 	}
@@ -318,9 +325,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
+	// This debug log is very noisy, but is helpful when debugging new chains.
+	// ccp.log.Debug("Queried latest height",
+	// 	zap.Int64("latest_height", persistence.latestHeight),
+	// )
 
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
@@ -348,7 +356,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	ppChanged := false
 
-	var latestHeader CosmosIBCHeader
+	var latestHeader provider.TendermintIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -374,10 +382,21 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		if err := eg.Wait(); err != nil {
 			ccp.log.Warn("Error querying block data", zap.Error(err))
+
+			persistence.retriesAtLatestQueriedBlock++
+			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
+				ccp.log.Warn("Reached max retries querying for block, skipping", zap.Int64("height", i))
+				// skip this block. now depends on flush to pickup anything missed in the block.
+				persistence.latestQueriedBlock = i
+				persistence.retriesAtLatestQueriedBlock = 0
+				continue
+			}
 			break
 		}
 
-		latestHeader = ibcHeader.(CosmosIBCHeader)
+		persistence.retriesAtLatestQueriedBlock = 0
+
+		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 
 		heightUint64 := uint64(i)
 

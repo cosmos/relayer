@@ -301,7 +301,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 
 // mkTxResult decodes a comet transaction into an SDK TxResponse.
 func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
-	txbz, err := cc.Codec.TxConfig.TxDecoder()(resTx.Tx)
+	txbz, err := cc.Cdc.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +397,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	// Generate the transaction bytes
 	if err := retry.Do(func() error {
 		var err error
-		txBytes, err = cc.Codec.TxConfig.TxEncoder()(tx)
+		txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
 		if err != nil {
 			return err
 		}
@@ -962,14 +962,14 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 }
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	trustedCosmosHeader, ok := trustedHeader.(CosmosIBCHeader)
+	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: CosmosIBCHeader, actual: %T", trustedHeader)
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
 	}
 
-	latestCosmosHeader, ok := latestHeader.(CosmosIBCHeader)
+	latestCosmosHeader, ok := latestHeader.(provider.TendermintIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC header type, expected: CosmosIBCHeader, actual: %T", latestHeader)
+		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
 	}
 
 	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
@@ -1024,6 +1024,20 @@ func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provide
 		ProofOps:    proof.ProofOps,
 		Height:      proof.Height,
 		FromAddress: signer,
+	}
+
+	return NewCosmosMessage(msg), nil
+}
+
+func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	signer, err := cc.Address()
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := clienttypes.NewMsgSubmitMisbehaviour(clientID, misbehaviour, signer)
+	if err != nil {
+		return nil, err
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -1115,7 +1129,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 	return msg, nil
 }
 
-// QueryIBCHeader returns the IBC compatible block header (CosmosIBCHeader) at a specific height.
+// QueryIBCHeader returns the IBC compatible block header (TendermintIBCHeader) at a specific height.
 func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("height cannot be 0")
@@ -1126,7 +1140,7 @@ func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider
 		return nil, err
 	}
 
-	return CosmosIBCHeader{
+	return provider.TendermintIBCHeader{
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
@@ -1168,7 +1182,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 			return err
 		}
 
-		trustedValidators = ibcHeader.(CosmosIBCHeader).ValidatorSet
+		trustedValidators = ibcHeader.(provider.TendermintIBCHeader).ValidatorSet
 		return err
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, fmt.Errorf(
@@ -1285,9 +1299,9 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 	}
 
 	cliCtx := client.Context{}.WithClient(cc.RPCClient).
-		WithInterfaceRegistry(cc.Codec.InterfaceRegistry).
+		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
 		WithChainID(cc.PCfg.ChainID).
-		WithCodec(cc.Codec.Marshaler)
+		WithCodec(cc.Cdc.Marshaler)
 
 	// Set the account number and sequence on the transaction factory and retry if fail
 	if err = retry.Do(func() error {
@@ -1377,7 +1391,7 @@ func (cc *CosmosProvider) TxFactory() tx.Factory {
 	return tx.Factory{}.
 		WithAccountRetriever(cc).
 		WithChainID(cc.PCfg.ChainID).
-		WithTxConfig(cc.Codec.TxConfig).
+		WithTxConfig(cc.Cdc.TxConfig).
 		WithGasAdjustment(cc.PCfg.GasAdjustment).
 		WithGasPrices(cc.PCfg.GasPrices).
 		WithKeybase(cc.Keybase).
