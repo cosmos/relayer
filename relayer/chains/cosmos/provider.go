@@ -146,8 +146,7 @@ func (cc *CosmosProvider) SetMultihopCounterparty(ep, counterparty multihop.Endp
 
 func (cc *CosmosProvider) AddChanPath(connectionHops []string, chanPath *multihop.ChanPath) {
 	cc.chanPaths[chantypes.FormatConnectionID(connectionHops)] = chanPath
-	counterparty := chanPath.Counterparty()
-	cc.counterpartyChanPaths[chantypes.FormatConnectionID(counterparty.GetConnectionHops())] = counterparty
+	cc.counterpartyChanPaths[chantypes.FormatConnectionID(chanPath.Counterparty().GetConnectionHops())] = chanPath
 }
 
 func (cc *CosmosProvider) GetChanPath(connectionHops []string) *multihop.ChanPath {

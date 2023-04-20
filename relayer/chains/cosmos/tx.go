@@ -544,6 +544,8 @@ func (cc *CosmosProvider) newProof(proof []byte, connectionHops []string) ([]byt
 	if len(connectionHops) < 2 {
 		return proof, nil
 	}
+	// The proof code gets called on the source chain, but the connection hops are for the dst chain so do the reverse
+	// lookup here
 	chanPath := cc.GetCounterpartyChanPath(connectionHops)
 	if chanPath == nil {
 		return nil, fmt.Errorf("unable to find channel path for connection hops: %v", connectionHops)

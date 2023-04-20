@@ -3,6 +3,7 @@ package cosmos
 import (
 	"context"
 	"fmt"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -108,35 +109,41 @@ func (e endpoint) GetMerklePath(path string) (commitmenttypes.MerklePath, error)
 
 func (e endpoint) UpdateClient() error {
 	ctx := context.Background()
-	srch, err := e.provider.QueryLatestHeight(ctx)
+	srcEndpoint := e.counterparty
+	srcProvider := srcEndpoint.provider
+	dstProvider := e.provider
+	dstEndpoint := e
+	srch, err := srcProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return err
 	}
-	dsth, err := e.counterparty.provider.QueryLatestHeight(ctx)
+	srcHeader, err := srcProvider.QueryIBCHeader(ctx, srch)
 	if err != nil {
 		return err
 	}
-	srcHeader, err := e.provider.QueryIBCHeader(ctx, srch)
+	dsth, err := dstProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		return err
 	}
-	dstClientState, err := e.counterparty.provider.QueryClientState(ctx, dsth, e.counterparty.clientID)
+	dstClientState, err := dstProvider.QueryClientState(ctx, dsth, dstEndpoint.clientID)
 	if err != nil {
 		return err
 	}
-	dstTrustedHeader, err := e.provider.QueryIBCHeader(ctx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
+	dstTrustedHeader, err := srcProvider.QueryIBCHeader(ctx,
+		int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
 	if err != nil {
 		return err
 	}
-	updateHeader, err := e.provider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)
+	updateHeader, err := srcProvider.MsgUpdateClientHeader(srcHeader,
+		dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)
 	if err != nil {
 		return err
 	}
-	msg, err := e.provider.MsgUpdateClient(e.counterparty.clientID, updateHeader)
+	msg, err := dstProvider.MsgUpdateClient(dstEndpoint.clientID, updateHeader)
 	if err != nil {
 		return err
 	}
-	response, success, err := e.provider.SendMessage(ctx, msg, "")
+	response, success, err := dstProvider.SendMessage(ctx, msg, "")
 	if err != nil {
 		return err
 	}
