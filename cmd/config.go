@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	archway "github.com/cosmos/relayer/v2/relayer/chains/archway"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -341,8 +342,9 @@ type ProviderConfigYAMLWrapper struct {
 // NOTE: Add new ProviderConfig types in the map here with the key set equal to the type of ChainProvider (e.g. cosmos, substrate, etc.)
 func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
-		"cosmos": reflect.TypeOf(cosmos.CosmosProviderConfig{}),
-		"icon":   reflect.TypeOf(icon.IconProviderConfig{}),
+		"cosmos":  reflect.TypeOf(cosmos.CosmosProviderConfig{}),
+		"icon":    reflect.TypeOf(icon.IconProviderConfig{}),
+		"archway": reflect.TypeOf(archway.ArchwayProviderConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
 	if err != nil {
@@ -397,6 +399,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 		iw.Value = new(cosmos.CosmosProviderConfig)
 	case "icon":
 		iw.Value = new(icon.IconProviderConfig)
+	case "archway":
+		iw.Value = new(archway.ArchwayProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}

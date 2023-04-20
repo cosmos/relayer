@@ -66,3 +66,20 @@ func HexStringToProtoUnmarshal(encoded string, v proto.Message) ([]byte, error) 
 	return inputBytes, nil
 
 }
+
+func isHexString(s string) bool {
+	s = strings.ToLower(s)
+	if !strings.HasPrefix(s, "0x") {
+		return false
+	}
+
+	s = s[2:]
+
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+
+	return true
+}

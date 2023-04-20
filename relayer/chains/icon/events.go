@@ -80,8 +80,12 @@ func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 	data := make([][]byte, 0)
 
 	for _, d := range evt.Data {
-		filtered, _ := hex.DecodeString(strings.TrimPrefix(d, "0x"))
-		data = append(data, filtered)
+		if isHexString(d) {
+			filtered, _ := hex.DecodeString(strings.TrimPrefix(d, "0x"))
+			data = append(data, filtered)
+			continue
+		}
+		data = append(data, []byte(d))
 	}
 
 	return types.EventLog{

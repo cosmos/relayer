@@ -56,6 +56,6 @@ func TestCodecEncode(t *testing.T) {
 	if err != nil {
 		assert.Fail(t, "Couldn't unmarshal interface ")
 	}
-	assert.Equal(t, ptr.GetLatestHeight().GetRevisionHeight(), 40)
+	assert.Equal(t, ptr.GetLatestHeight().GetRevisionHeight(), uint64(40))
 
 }
