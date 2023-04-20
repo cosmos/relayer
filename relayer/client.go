@@ -10,6 +10,8 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -196,7 +198,21 @@ func CreateClient(
 	// the dst chains implementation of CreateClient, to ensure the proper client/header
 	// logic is executed, but the message gets submitted on the src chain which means
 	// we need to sign with the address from src.
-	createMsg, err := src.ChainProvider.MsgCreateClient(clientState, dstUpdateHeader.ConsensusState())
+	consensusState := dstUpdateHeader.ConsensusState()
+	switch clientState.(type) {
+	case *wasmclient.ClientState:
+		cp := src.ChainProvider.(*cosmos.CosmosProvider)
+		consensusStateBz, err := cp.Cdc.Marshaler.MarshalInterface(consensusState)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal consensus state for wasm client: %w", err)
+		}
+		consensusState = &wasmclient.ConsensusState{
+			Data: consensusStateBz,
+			Timestamp: consensusState.GetTimestamp(),
+		}
+	}
+
+	createMsg, err := src.ChainProvider.MsgCreateClient(clientState, consensusState)
 	if err != nil {
 		return "", fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
 			src.ChainID(), dst.ChainID(), err)
