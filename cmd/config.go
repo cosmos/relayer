@@ -669,4 +669,3 @@ func (c *Config) ValidateConnection(ctx context.Context, chain *relayer.Chain, h
 
 	return nil
 }
-

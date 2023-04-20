@@ -344,22 +344,8 @@ func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 		if c, ok := v.Value.(cosmos.CosmosProviderConfig); ok {
 			if c.ChainID == chainID {
 				keyName = c.Key
-				// chainCfg = ibc.ChainConfig{
-				// 	Type:          v.Type,
-				// 	Name:          c.ChainName,
-				// 	ChainID:       c.ChainID,
-				// 	Bech32Prefix:  c.AccountPrefix,
-				// 	GasPrices:     c.GasPrices,
-				// 	GasAdjustment: c.GasAdjustment,
-				// }
 			}
 		}
 	}
-
-	// fmt.Println(address)
-	// // addressBz, err := types.GetFromBech32(address, chainCfg.Bech32Prefix)
-	// _, bz, err := bech32.DecodeAndConvert(address)
-	// require.NoError(r.t, err, "failed to decode bech32 wallet")
-
 	return rly.NewWallet(keyName, address, ""), true
 }
