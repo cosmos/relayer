@@ -267,6 +267,14 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	require.Equal(t, transferAmount, osmosisOnWasmBalance)
 }
 
+// TestRelayerMultihop sets up this topology to test multihop channels:
+// wasm1 		   <-> 			  osmosis 				<-> wasm2
+// 07-tendermint-0 <-> 07-tendermint-0, 07-tendermint-1 <-> 07-tendermint-0
+// connection-0    <->    connection-0, connection-1    <-> connection-0
+//
+// Connection hops:
+// wasm1: connection-0/connection-1
+// wasm2: connection-0/connection-0
 func TestRelayerMultihop(t *testing.T) {
 	var (
 		r    = relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})

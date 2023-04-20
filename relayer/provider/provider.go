@@ -3,8 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
-	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 	"time"
+
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	"github.com/cometbft/cometbft/types"
@@ -248,10 +249,13 @@ type ChainProvider interface {
 	SetMultihopCounterparty(endpoint, counterparty multihop.Endpoint)
 
 	// AddChanPath adds multihop channel path to a destination chain
-	AddChanPath(connectionHops []string, chanPath multihop.ChanPath)
+	AddChanPath(connectionHops []string, chanPath *multihop.ChanPath)
 
 	// GetChanPath gets multihop channel path to a destination chain
-	GetChanPath(connectionHops []string) multihop.ChanPath
+	GetChanPath(connectionHops []string) *multihop.ChanPath
+
+	// GetCounterpartyChanPath gets the counterparty multihop channel path to a destination chain
+	GetCounterpartyChanPath(connectionHops []string) *multihop.ChanPath
 
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)

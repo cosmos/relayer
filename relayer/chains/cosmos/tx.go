@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/client"
 	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cosmos/cosmos-sdk/client"
 
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -478,9 +479,11 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
-	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}), nil
 }
 
 // MsgTransfer creates a new transfer message
@@ -541,7 +544,7 @@ func (cc *CosmosProvider) newProof(proof []byte, connectionHops []string) ([]byt
 	if len(connectionHops) < 2 {
 		return proof, nil
 	}
-	chanPath := cc.GetChanPath(connectionHops)
+	chanPath := cc.GetCounterpartyChanPath(connectionHops)
 	if chanPath == nil {
 		return nil, fmt.Errorf("unable to find channel path for connection hops: %v", connectionHops)
 	}
@@ -556,7 +559,8 @@ func (cc *CosmosProvider) newProof(proof []byte, connectionHops []string) ([]byt
 }
 
 func (cc *CosmosProvider) newChannelProof(key []byte, height clienttypes.Height, version string, ordering chantypes.Order,
-	connectionHops []string) (provider.ChannelProof, error) {
+	connectionHops []string,
+) (provider.ChannelProof, error) {
 	proof, err := cc.newProof(key, connectionHops)
 	if err != nil {
 		return provider.ChannelProof{}, err
@@ -928,7 +932,7 @@ func (cc *CosmosProvider) ChannelProof(
 		return provider.ChannelProof{}, err
 	}
 	return cc.newChannelProof(channelRes.Proof, channelRes.ProofHeight, channelRes.Channel.Version,
-		channelRes.Channel.Ordering, msg.ConnectionHops())
+		channelRes.Channel.Ordering, connectionHops)
 }
 
 func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {

@@ -109,7 +109,7 @@ func (mp *messageProcessor) processMessages(
 			return err
 		}
 	}
-	mp.assembleMessages(ctx, messages, src, dst)
+	mp.assembleMessages(ctx, messages, src, dst, hops)
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 }
@@ -161,8 +161,18 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	return shouldUpdateClientNow, nil
 }
 
+func pathEndRuntimesToConnectionHops(src *pathEndRuntime, hops []*pathEndRuntime) []string {
+	connectionHops := []string{src.info.ConnectionID}
+	for _, hop := range hops {
+		connectionHops = append(connectionHops, hop.info.ConnectionID)
+	}
+	return connectionHops
+}
+
 // assembleMessages will assemble all messages in parallel. This typically involves proof queries for each.
-func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
+func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime,
+	hops []*pathEndRuntime,
+) {
 	var wg sync.WaitGroup
 
 	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
@@ -174,12 +184,7 @@ func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathE
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
 	for i, msg := range messages.channelMessages {
 		wg.Add(1)
-		var connectionHops []string
-		state := src.channelStateCache[ChannelInfoChannelKey(msg.info)]
-		if state != nil {
-			connectionHops = state.ConnectionHops
-		}
-		go mp.assembleMessage(ctx, msg, src, dst, connectionHops, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, pathEndRuntimesToConnectionHops(src, hops), i, &wg)
 	}
 
 	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
@@ -191,16 +196,7 @@ func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathE
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
 	for i, msg := range messages.packetMessages {
 		wg.Add(1)
-		var connectionHops []string
-		key, err := msg.channelKey()
-		if err != nil {
-			panic(err)
-		}
-		state := src.channelStateCache[key]
-		if state != nil {
-			connectionHops = state.ConnectionHops
-		}
-		go mp.assembleMessage(ctx, msg, src, dst, connectionHops, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, pathEndRuntimesToConnectionHops(src, hops), i, &wg)
 	}
 
 	wg.Wait()

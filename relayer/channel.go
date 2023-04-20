@@ -81,11 +81,14 @@ func (c *Chain) CreateOpenChannels(
 	defer cancel()
 
 	hopConnectionIDs := make([]string, len(hops)+1)
+	counterpartyHopConnectionIDs := make([]string, len(hops)+1)
 	hopConnectionIDs[0] = c.PathEnd.ConnectionID
+	counterpartyHopConnectionIDs[0] = dst.PathEnd.ConnectionID
 	for i, hop := range hops {
 		hopConnectionIDs[i+1] = hop.RelayPathEnds[1].ConnectionID
+		counterpartyHop := hops[len(hops)-i-1]
+		counterpartyHopConnectionIDs[i+1] = counterpartyHop.RelayPathEnds[0].ConnectionID
 	}
-
 	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
 	pp := processor.NewPathProcessor(
 		c.log,
@@ -106,6 +109,7 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_port_id", dstPortID),
 	)
 	connectionHops := chantypes.FormatConnectionID(hopConnectionIDs)
+	counterpartyConnectionHops := chantypes.FormatConnectionID(counterpartyHopConnectionIDs)
 	openInitMsg := &processor.ChannelMessage{
 		ChainID:   c.PathEnd.ChainID,
 		EventType: chantypes.EventTypeChannelOpenInit,
@@ -113,6 +117,7 @@ func (c *Chain) CreateOpenChannels(
 			PortID:             srcPortID,
 			CounterpartyPortID: dstPortID,
 			ConnID:             connectionHops,
+			CounterpartyConnID: counterpartyConnectionHops,
 			Version:            version,
 			Order:              OrderFromString(order),
 		},

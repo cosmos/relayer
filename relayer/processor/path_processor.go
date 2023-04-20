@@ -3,9 +3,10 @@ package processor
 import (
 	"context"
 	"fmt"
-	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 	"reflect"
 	"time"
+
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -267,7 +268,7 @@ func (pp *PathProcessor) channelPairs() []channelPair {
 	}
 	pairs := make([]channelPair, len(channels))
 	i := 0
-	for k, _ := range channels {
+	for k := range channels {
 		pairs[i] = channelPair{
 			pathEnd1ChannelKey: k,
 			pathEnd2ChannelKey: k.Counterparty(),
@@ -436,9 +437,7 @@ func (pp *PathProcessor) setChanPaths() error {
 	paths1 := make([]*multihop.Path, len(pp.hopsPathEnd1to2)+1)
 	// We start with src and proceed with the corresponding path ends
 	hopA := pp.pathEnd1
-	connectionHops1 := make([]string, len(pp.hopsPathEnd1to2)+1)
 	for i, hopB := range append(pp.hopsPathEnd2to1, pp.pathEnd2) {
-		connectionHops1[i] = hopA.info.ConnectionID
 		endpointA := hopA.chainProvider.MultihopEndpoint(hopA.info.ClientID, hopA.info.ConnectionID)
 		endpointB := hopB.chainProvider.MultihopEndpoint(hopB.info.ClientID, hopB.info.ConnectionID)
 		hopA.chainProvider.SetMultihopCounterparty(endpointA, endpointB)
@@ -451,29 +450,11 @@ func (pp *PathProcessor) setChanPaths() error {
 			hopA = pp.hopsPathEnd1to2[i]
 		}
 	}
-	paths2 := make([]*multihop.Path, len(pp.hopsPathEnd2to1)+1)
-	connectionHops2 := make([]string, len(pp.hopsPathEnd2to1)+1)
-	// We start with dst and go in reverse order (path ends in hopsPathEnd2to1 are already reversed)
-	for i, hopA := range append([]*pathEndRuntime{pp.pathEnd2}, pp.hopsPathEnd2to1...) {
-		connectionHops2[i] = hopA.info.ConnectionID
-		endpointA := hopA.chainProvider.MultihopEndpoint(hopA.info.ClientID, hopA.info.ConnectionID)
-		hopB := pp.pathEnd1
-		if i < len(pp.hopsPathEnd1to2) {
-			hopB = pp.hopsPathEnd1to2[i]
-		}
-		endpointB := hopB.chainProvider.MultihopEndpoint(hopB.info.ClientID, hopB.info.ConnectionID)
-		hopA.chainProvider.SetMultihopCounterparty(endpointA, endpointB)
-		hopB.chainProvider.SetMultihopCounterparty(endpointB, endpointA)
-		paths2[i] = &multihop.Path{
-			EndpointA: endpointA,
-			EndpointB: endpointB,
-		}
-	}
 	chanPath1 := multihop.NewChanPath(paths1)
-	chanPath2 := multihop.NewChanPath(paths2)
-	// We need the opposite channel paths as each chain needs to use the counterparty to generate a proof
-	pp.pathEnd1.chainProvider.AddChanPath(connectionHops1, chanPath2)
-	pp.pathEnd2.chainProvider.AddChanPath(connectionHops2, chanPath1)
+	chanPath2 := chanPath1.Counterparty()
+	// Reverse how we store channel paths as the perspective of the destination is what matters when forming proofs
+	pp.pathEnd1.chainProvider.AddChanPath(chanPath1.GetConnectionHops(), &chanPath1)
+	pp.pathEnd2.chainProvider.AddChanPath(chanPath2.GetConnectionHops(), chanPath2)
 	return nil
 }
 

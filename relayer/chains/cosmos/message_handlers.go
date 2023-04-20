@@ -3,6 +3,7 @@ package cosmos
 import (
 	"context"
 	"encoding/hex"
+
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -78,17 +79,18 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 		}
 		if !found {
 			ccp.channelStateCache.Set(channelKey, &processor.ChannelState{
-				Open:           false,
-				ConnectionHops: ci.ConnectionHops(),
+				Open:                       false,
+				ConnectionHops:             ci.ConnectionHops(),
+				CounterpartyConnectionHops: ci.CounterpartyConnectionHops(),
 			})
-
 		}
 	} else {
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
 			ccp.channelStateCache.Set(channelKey, &processor.ChannelState{
-				Open:           false,
-				ConnectionHops: ci.ConnectionHops(),
+				Open:                       false,
+				ConnectionHops:             ci.ConnectionHops(),
+				CounterpartyConnectionHops: ci.CounterpartyConnectionHops(),
 			})
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 			ccp.channelStateCache.SetOpen(channelKey, true)

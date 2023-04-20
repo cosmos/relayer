@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -143,19 +144,11 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry. It needs the list of counterparty
 				// connection IDs for the connection hops in reverse order, since the direction is reversed compared to
 				// MsgChanOpenInit.
-				hops := ci.ConnectionHops()
-				hopConnectionIDs := []string{}
-				for i := len(hops) - 1; i >= 0; i-- {
-					hop := hops[i]
-					// TODO: this is O(n^2) we should have a better lookup for connections
-					for k := range pathEnd.connectionStateCache {
-						if k.ConnectionID == hop {
-							hopConnectionIDs = append(hopConnectionIDs, k.CounterpartyConnID)
-							break
-						}
-					}
+				chanPath := pathEnd.chainProvider.GetChanPath(ci.ConnectionHops())
+				if chanPath == nil {
+					panic(fmt.Sprintf("channel path not found for channel %s", k.ChannelID))
 				}
-				ci.CounterpartyConnID = chantypes.FormatConnectionID(hopConnectionIDs)
+				ci.CounterpartyConnID = chantypes.FormatConnectionID(chanPath.Counterparty().GetConnectionHops())
 			}
 			newCmc[k] = ci
 		}
@@ -335,7 +328,8 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 }
 
 func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData,
-	messageLifecycle MessageLifecycle, counterparty *pathEndRuntime, hops []*pathEndRuntime) {
+	messageLifecycle MessageLifecycle, counterparty *pathEndRuntime, hops []*pathEndRuntime,
+) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.lastClientUpdateHeightMu.Unlock()
