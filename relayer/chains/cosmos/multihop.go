@@ -120,12 +120,18 @@ func (e endpoint) UpdateClient() error {
 	if err != nil {
 		return err
 	}
-	dstClientState, err := e.counterparty.provider.QueryClientState(ctx, dsth, e.clientID)
+	dstClientState, err := e.counterparty.provider.QueryClientState(ctx, dsth, e.counterparty.clientID)
 	if err != nil {
 		return err
 	}
 	dstTrustedHeader, err := e.provider.QueryIBCHeader(ctx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
+	if err != nil {
+		return err
+	}
 	updateHeader, err := e.provider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)
+	if err != nil {
+		return err
+	}
 	msg, err := e.provider.MsgUpdateClient(e.counterparty.clientID, updateHeader)
 	if err != nil {
 		return err

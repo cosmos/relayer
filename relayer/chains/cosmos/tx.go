@@ -545,6 +545,9 @@ func (cc *CosmosProvider) newProof(proof []byte, connectionHops []string) ([]byt
 	if chanPath == nil {
 		return nil, fmt.Errorf("unable to find channel path for connection hops: %v", connectionHops)
 	}
+	if err := chanPath.UpdateClient(); err != nil {
+		return nil, fmt.Errorf("error updating channel path client: %w", err)
+	}
 	multihopProof, err := chanPath.GenerateProof(proof, nil, false)
 	if err != nil {
 		return nil, fmt.Errorf("error generating multihop proof: %w", err)
