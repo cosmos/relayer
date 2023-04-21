@@ -90,6 +90,16 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			srcWasmCodeID, err := cmd.Flags().GetString(flagSrcWasmCodeID)
+			if err != nil {
+				return err
+			}
+
+			dstWasmCodeID, err := cmd.Flags().GetString(flagDstWasmCodeID)
+			if err != nil {
+				return err
+			}
+
 			path := args[0]
 
 			c, src, dst, err := a.config.ChainsFromPath(path)
@@ -107,7 +117,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 
 			// TODO: make iconStartHeight compulsory
 			// if iconStartHeight is not given it can create confusion as starting relay at any time could miss number of btp block update_client
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight, srcWasmCodeID, dstWasmCodeID)
 			if err != nil {
 				return err
 			}
@@ -158,6 +168,11 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
+			srcWasmCodeID, err := cmd.Flags().GetString(flagSrcWasmCodeID)
 			if err != nil {
 				return err
 			}
@@ -238,7 +253,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight)
+			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight, srcWasmCodeID)
 			if err != nil {
 				return err
 			}
@@ -390,6 +405,16 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
+			srcWasmCodeID, err := cmd.Flags().GetString(flagSrcWasmCodeID)
+			if err != nil {
+				return err
+			}
+
+			dstWasmCodeID, err := cmd.Flags().GetString(flagDstWasmCodeID)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -411,7 +436,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight, srcWasmCodeID, dstWasmCodeID)
 			if err != nil {
 				return err
 			}
@@ -675,6 +700,16 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 				return err
 			}
 
+			srcWasmCodeID, err := cmd.Flags().GetString(flagSrcWasmCodeID)
+			if err != nil {
+				return err
+			}
+
+			dstWasmCodeID, err := cmd.Flags().GetString(flagDstWasmCodeID)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -696,7 +731,7 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 			}
 
 			// create clients if they aren't already created
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight, srcWasmCodeID, dstWasmCodeID)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}

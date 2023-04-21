@@ -236,7 +236,7 @@ type ChainProvider interface {
 	Init(ctx context.Context) error
 
 	// [Begin] Client IBC message assembly functions
-	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
+	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, srcWasmCodeID string) (ibcexported.ClientState, error)
 
 	MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (RelayerMessage, error)
 
@@ -365,7 +365,7 @@ type ChainProvider interface {
 
 	// MsgUpdateClientHeader takes the latest chain header, in addition to the latest client trusted header
 	// and assembles a new header for updating the light client on the counterparty chain.
-	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader) (ibcexported.ClientMessage, error)
+	MsgUpdateClientHeader(latestHeader IBCHeader, trustedHeight clienttypes.Height, trustedHeader IBCHeader, clientType string) (ibcexported.ClientMessage, error)
 
 	// MsgUpdateClient takes an update client header to prove trust for the previous
 	// consensus height and the new height, and assembles a MsgUpdateClient message

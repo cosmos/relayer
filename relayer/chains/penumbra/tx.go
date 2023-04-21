@@ -2,6 +2,7 @@ package penumbra
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -37,6 +38,7 @@ import (
 	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
 	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/ibc/v1alpha1"
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
+	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -894,6 +896,16 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 }
 
 func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	if strings.Contains(clientID, "08-wasm") { // TODO: replace with ibcexported.Wasm at v7.2
+		wasmData, err := cc.Codec.Marshaler.MarshalInterface(misbehaviour)
+		if err != nil {
+			return nil, err
+		}
+		misbehaviour = &wasmclient.Misbehaviour{
+			Data: wasmData,
+		}
+	}
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1559,7 +1571,7 @@ func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.Channel
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(PenumbraIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: PenumbraIBCHeader, actual: %T", trustedHeader)
@@ -1574,6 +1586,7 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 	if err != nil {
 		return nil, fmt.Errorf("error converting trusted validators to proto object: %w", err)
 	}
+	trustedValidatorsProto.TotalVotingPower = trustedCosmosHeader.ValidatorSet.TotalVotingPower()
 
 	signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
 
@@ -1581,13 +1594,35 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 	if err != nil {
 		return nil, fmt.Errorf("error converting validator set to proto object: %w", err)
 	}
+	validatorSetProto.TotalVotingPower = latestCosmosHeader.ValidatorSet.TotalVotingPower()
 
-	return &tmclient.Header{
+	var clientHeader ibcexported.ClientMessage
+
+	tmClientHeader := tmclient.Header{
 		SignedHeader:      signedHeaderProto,
 		ValidatorSet:      validatorSetProto,
 		TrustedValidators: trustedValidatorsProto,
 		TrustedHeight:     trustedHeight,
-	}, nil
+	}
+
+	clientHeader = &tmClientHeader
+
+	if clientType == "08-wasm" { // TODO: replace with ibcexported.Wasm at v7.2
+		tmClientHeaderBz, err := cc.Codec.Marshaler.MarshalInterface(clientHeader)
+		if err != nil {
+			return &wasmclient.Header{}, nil
+		}
+		height, ok := tmClientHeader.GetHeight().(clienttypes.Height)
+		if !ok {
+			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
+		}
+		clientHeader = &wasmclient.Header{
+			Data: tmClientHeaderBz,
+			Height: height,
+		}
+	}
+
+	return clientHeader, nil
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
@@ -1906,24 +1941,29 @@ func (cc *PenumbraProvider) queryTMClientState(ctx context.Context, srch int64, 
 		return &tmclient.ClientState{}, err
 	}
 
-	return castClientStateToTMType(clientStateRes.ClientState)
-}
-
-// castClientStateToTMType casts client state to tendermint type
-func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
-	clientStateExported, err := clienttypes.UnpackClientState(cs)
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
 		return &tmclient.ClientState{}, err
 	}
 
+	switch cs := clientStateExported.(type) {
+	case *wasmclient.ClientState:
+		var clientState ibcexported.ClientState
+		err = cc.Codec.Marshaler.UnmarshalInterface(cs.Data, &clientState)
+		if err != nil {
+			return &tmclient.ClientState{}, fmt.Errorf("error unmarshaling tm client state, %w", err)
+		}
+		clientStateExported = clientState
+	}
+
 	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*tmclient.ClientState)
+	tmClientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
 		return &tmclient.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
 
-	return clientState, nil
+	return tmClientState, nil
 }
 
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
@@ -1979,11 +2019,14 @@ func (cc *PenumbraProvider) NewClientState(
 	dstUbdPeriod time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
+	srcWasmCodeID string,
 ) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
+	var clientState ibcexported.ClientState
+
 	// Create the ClientState we want on 'c' tracking 'dst'
-	return &tmclient.ClientState{
+	tmClientState := tmclient.ClientState{
 		ChainId:         dstChainID,
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
@@ -1998,7 +2041,28 @@ func (cc *PenumbraProvider) NewClientState(
 		UpgradePath:                  defaultUpgradePath,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-	}, nil
+	}
+
+	clientState = &tmClientState
+
+	if srcWasmCodeID != "" {
+		tmClientStateBz, err := cc.Codec.Marshaler.MarshalInterface(clientState)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		codeID, err := hex.DecodeString(srcWasmCodeID)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		clientState = &wasmclient.ClientState{
+			Data: tmClientStateBz,
+			CodeId: codeID,
+			LatestHeight: tmClientState.LatestHeight,
+		}
+	}
+
+
+	return clientState, nil
 }
 
 // QueryIBCHeader returns the IBC compatible block header (CosmosIBCHeader) at a specific height.

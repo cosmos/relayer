@@ -55,6 +55,8 @@ const (
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
 	flagBtpBlockHeight          = "btp-block-height"
+	flagSrcWasmCodeID           = "src-wasm-code-id"
+	flagDstWasmCodeID           = "dst-wasm-code-id"
 )
 
 const (
@@ -286,6 +288,8 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
 		"allow governance to update the client if misbehaviour freezing occurs")
 	cmd.Flags().Duration(flagClientTrustingPeriod, 0, "custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)")
+	cmd.Flags().String(flagSrcWasmCodeID, "", "src chain's wasm code id for clients (default: empty / not used)")
+	cmd.Flags().String(flagDstWasmCodeID, "", "dst chain's wasm code id for clients (default: empty / not used)")
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
 	}

@@ -57,7 +57,6 @@ type CosmosProviderConfig struct {
 	SigningAlgorithm string                  `json:"signing-algorithm" yaml:"signing-algorithm"`
 	Broadcast        provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 	MinLoopDuration  time.Duration           `json:"min-loop-duration" yaml:"min-loop-duration"`
-	WasmCodeID       string                  `json:"wasm-code-id" yaml:"wasm-code-id"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
