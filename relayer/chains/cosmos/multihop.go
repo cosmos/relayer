@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	tmtypes "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -35,37 +37,38 @@ func (e endpoint) ClientID() string {
 	return e.clientID
 }
 
-func (e endpoint) getClientState() exported.ClientState {
+func (e endpoint) GetConsensusHeight() exported.Height {
 	ctx := context.Background()
 	height, err := e.provider.QueryLatestHeight(ctx)
 	if err != nil {
 		panic(err)
 	}
-	clientState, err := e.provider.QueryClientState(ctx, height, e.clientID)
+	clientState, err := e.provider.QueryClientState(ctx, int64(height), e.clientID)
 	if err != nil {
 		panic(err)
 	}
-	return clientState
-}
-
-func (e endpoint) GetConsensusHeight() exported.Height {
-	return e.getClientState().GetLatestHeight()
+	return clientState.GetLatestHeight()
 }
 
 // TODO: this is redundant, should be removed
 func (e endpoint) GetKeyValueProofHeight() exported.Height {
-	return e.GetConsensusHeight()
+	height := e.GetConsensusHeight()
+	e.provider.log.Info(
+		"Getting key and value proof height for multihop proof",
+		zap.String("chain_id", e.ChainID()),
+		zap.String("client_id", e.ClientID()),
+		zap.String("height", height.String()),
+	)
+	return height
 }
 
 func (e endpoint) GetConsensusState(height exported.Height) (exported.ConsensusState, error) {
-	clientState := e.getClientState()
-	clientHeight := clientState.GetLatestHeight()
 	ctx := context.Background()
 	chainHeight, err := e.provider.QueryLatestHeight(ctx)
 	if err != nil {
 		return nil, err
 	}
-	consensusStateResponse, err := e.provider.QueryClientConsensusState(ctx, chainHeight, e.clientID, clientHeight)
+	consensusStateResponse, err := e.provider.QueryClientConsensusState(ctx, chainHeight, e.clientID, height)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +94,92 @@ func (e endpoint) GetConnection() (*types.ConnectionEnd, error) {
 
 func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clienttypes.Height, error) {
 	ctx := context.Background()
-	_, proof, proofHeight, err := e.provider.QueryTendermintProof(ctx, height, key)
+	chainHeight, err := e.provider.QueryLatestHeight(ctx)
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+	_, proof, proofHeight, err := e.provider.QueryTendermintProof(ctx, chainHeight, key)
+	e.provider.log.Info(
+		"Querying for multihop proof",
+		zap.String("chain_id", e.ChainID()),
+		zap.String("client_id", e.ClientID()),
+		zap.String("key", string(key)),
+		zap.Int64("height", chainHeight),
+		zap.Int64("client_height", height),
+		zap.String("proof_height", proofHeight.String()),
+	)
+
+	// TODO: disable this for production
+	var merkleProof commitmenttypes.MerkleProof
+	if err := e.Codec().Unmarshal(proof, &merkleProof); err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+	header, err := e.provider.QueryIBCHeader(ctx, chainHeight)
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+	var consensusState *tmtypes.ConsensusState
+	consensusState = header.ConsensusState().(*tmtypes.ConsensusState)
+
+	path, err := e.GetMerklePath(string(key))
+	if err != nil {
+		return nil, clienttypes.Height{}, err
+	}
+	var value []byte
+	if e.ChainID() == "wasm-1" {
+		channelResponse, err := e.provider.QueryChannel(ctx, chainHeight, "channel-0", "transfer")
+		if err != nil {
+			return nil, clienttypes.Height{}, err
+		}
+		e.provider.log.Info(
+			"Queried channel for verification",
+			zap.String("chain_id", e.ChainID()),
+			zap.String("client_id", e.ClientID()),
+			zap.String("key", string(key)),
+			zap.Int64("height", height),
+			zap.String("proof_height", proofHeight.String()),
+			zap.String("channel", fmt.Sprintf("%#v", channelResponse.Channel)),
+		)
+		value, err = channelResponse.Channel.Marshal()
+		if err != nil {
+			return nil, clienttypes.Height{}, err
+		}
+	} else { // osmosis-1
+		e.provider.log.Info(
+			"Querying consensus state for verification",
+			zap.String("chain_id", e.ChainID()),
+			zap.String("client_id", e.ClientID()),
+			zap.String("key", string(key)),
+			zap.Int64("height", height),
+			zap.String("proof_height", proofHeight.String()),
+		)
+		consensusState, err := e.GetConsensusState(clienttypes.NewHeight(1, uint64(height)))
+		if err != nil {
+			return nil, clienttypes.Height{}, err
+		}
+		value, err = consensusState.(*tmtypes.ConsensusState).Marshal()
+		if err != nil {
+			return nil, clienttypes.Height{}, err
+		}
+	}
+	err = merkleProof.VerifyMembership(
+		commitmenttypes.GetSDKSpecs(),
+		consensusState.GetRoot(),
+		path,
+		value,
+	)
+	if err != nil {
+		e.provider.log.Error(
+			"Querying for multihop proof failed",
+			zap.String("chain_id", e.ChainID()),
+			zap.String("client_id", e.ClientID()),
+			zap.String("key", string(key)),
+			zap.Int64("height", chainHeight),
+			zap.Int64("client_height", height),
+			zap.String("proof_height", proofHeight.String()),
+			zap.Error(err),
+		)
+	}
 	return proof, proofHeight, err
 }
 
@@ -155,11 +243,16 @@ func (e endpoint) UpdateClient() error {
 	if !success {
 		return fmt.Errorf("client update execution failed")
 	}
+	chainHeight, err := e.provider.QueryLatestHeight(ctx)
+	if err != nil {
+		return err
+	}
 	e.provider.log.Info(
 		"Client updated for multihop proof",
 		zap.String("chain_id", e.ChainID()),
 		zap.String("client_id", e.ClientID()),
-		zap.String("height", e.GetConsensusHeight().String()),
+		zap.Int64("height", chainHeight),
+		zap.String("client_height", e.GetConsensusHeight().String()),
 	)
 	return nil
 }

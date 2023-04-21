@@ -99,6 +99,7 @@ func (mp *messageProcessor) processMessages(
 			break
 		}
 	}
+	// TODO: this is unnecessary: we only care about updates last hop -> dst
 	for i := range allHops {
 		if i == len(allHops)-1 {
 			break
