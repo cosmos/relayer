@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -153,6 +155,12 @@ func (e endpoint) UpdateClient() error {
 	if !success {
 		return fmt.Errorf("client update execution failed")
 	}
+	e.provider.log.Info(
+		"Client updated for multihop proof",
+		zap.String("chain_id", e.ChainID()),
+		zap.String("client_id", e.ClientID()),
+		zap.String("height", e.GetConsensusHeight().String()),
+	)
 	return nil
 }
 

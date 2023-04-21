@@ -540,30 +540,43 @@ func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest
 	return nil
 }
 
-func (cc *CosmosProvider) newProof(proof []byte, connectionHops []string) ([]byte, error) {
+func (cc *CosmosProvider) newProof(proof []byte, height clienttypes.Height, connectionHops []string) ([]byte,
+	clienttypes.Height, error,
+) {
 	if len(connectionHops) < 2 {
-		return proof, nil
+		return proof, height, nil
 	}
 	// The proof code gets called on the source chain, but the connection hops are for the dst chain so do the reverse
 	// lookup here
 	chanPath := cc.GetCounterpartyChanPath(connectionHops)
 	if chanPath == nil {
-		return nil, fmt.Errorf("unable to find channel path for connection hops: %v", connectionHops)
+		return nil, clienttypes.Height{}, fmt.Errorf("unable to find channel path for connection hops: %v", connectionHops)
 	}
 	if err := chanPath.UpdateClient(); err != nil {
-		return nil, fmt.Errorf("error updating channel path client: %w", err)
+		return nil, clienttypes.Height{}, fmt.Errorf("error updating channel path client: %w", err)
 	}
 	multihopProof, err := chanPath.GenerateProof(proof, nil, false)
 	if err != nil {
-		return nil, fmt.Errorf("error generating multihop proof: %w", err)
+		return nil, clienttypes.Height{}, fmt.Errorf("error generating multihop proof: %w", err)
 	}
-	return multihopProof.Marshal()
+	proof, err = multihopProof.Marshal()
+	if err != nil {
+		return nil, clienttypes.Height{}, fmt.Errorf("error marshaling multihop proof: %w", err)
+	}
+	lastHop := chanPath.Paths[len(chanPath.Paths)-1].EndpointB
+	height = lastHop.GetConsensusHeight().(clienttypes.Height)
+	cc.log.Info("Setting height for multihop proof",
+		zap.String("chain_id", lastHop.ChainID()),
+		zap.String("height", height.String()),
+		zap.String("height", height.String()),
+	)
+	return proof, chanPath.Paths[len(chanPath.Paths)-1].EndpointB.GetConsensusHeight().(clienttypes.Height), nil
 }
 
 func (cc *CosmosProvider) newChannelProof(key []byte, height clienttypes.Height, version string, ordering chantypes.Order,
 	connectionHops []string,
 ) (provider.ChannelProof, error) {
-	proof, err := cc.newProof(key, connectionHops)
+	proof, height, err := cc.newProof(key, height, connectionHops)
 	if err != nil {
 		return provider.ChannelProof{}, err
 	}
@@ -575,14 +588,14 @@ func (cc *CosmosProvider) newChannelProof(key []byte, height clienttypes.Height,
 	}, nil
 }
 
-func (cc *CosmosProvider) newPacketProof(key []byte, proofHeight clienttypes.Height, connectionHops []string) (provider.PacketProof, error) {
-	proof, err := cc.newProof(key, connectionHops)
+func (cc *CosmosProvider) newPacketProof(key []byte, height clienttypes.Height, connectionHops []string) (provider.PacketProof, error) {
+	proof, height, err := cc.newProof(key, height, connectionHops)
 	if err != nil {
 		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       proof,
-		ProofHeight: proofHeight,
+		ProofHeight: height,
 	}, nil
 }
 
