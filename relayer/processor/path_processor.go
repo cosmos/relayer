@@ -311,8 +311,6 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			return
 		}
 
-		pp.log.Info("Before processing the latest messages")
-
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry

@@ -89,7 +89,7 @@ func TestTransaction(t *testing.T) {
 		return
 	}
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(6 * time.Second)
 
 	finalOp, err := c.GetTransactionResult(&types.TransactionHashParam{Hash: *op})
 	if err != nil {

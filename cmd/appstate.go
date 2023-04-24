@@ -292,18 +292,17 @@ func (a *appState) UpdateProviderIfIcon(cmd *cobra.Command, ctx context.Context,
 		return err
 	}
 
-	fmt.Println("what are the providerName", providerName)
 	if !a.CheckIfProviderType(providerName, "icon") {
 		return nil
 	}
 	height, err := chain.ChainProvider.QueryLatestHeight(ctx)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error fetching chain latesh height %s ", chain.ChainID()))
+		return errors.New(fmt.Sprintf("Error fetching chain latest height %s ", chain.ChainID()))
 	}
 
 	err = a.OverwriteChainConfig(cmd, providerName, "btpHeight", height)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error updating BTPHeight of  config of chain %s ", chain.ChainID()))
+		return errors.New(fmt.Sprintf("Error updating BTPHeight of config of chain %s ", chain.ChainID()))
 	}
 	return nil
 }

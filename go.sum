@@ -443,8 +443,6 @@ github.com/cosmos/gogoproto v1.4.6 h1:Ee7z15dWJaGlgM2rWrK8N2IX7PQcuccu8oG68jp5RL
 github.com/cosmos/gogoproto v1.4.6/go.mod h1:VS/ASYmPgv6zkPKLjR9EB91lwbLHOzaGCirmKKhncfI=
 github.com/cosmos/iavl v0.20.0 h1:fTVznVlepH0KK8NyKq8w+U7c2L6jofa27aFX6YGlm38=
 github.com/cosmos/iavl v0.20.0/go.mod h1:WO7FyvaZJoH65+HFOsDir7xU9FWk2w9cHXNW1XHcl7A=
-github.com/cosmos/ibc-go v1.5.0 h1:prSivDj80UYWyn33Gw/V2dxiR4h1A6s1Ey4nYIbgD/0=
-github.com/cosmos/ibc-go v1.5.0/go.mod h1:xA7RJ93erkJfEkjN+C8Jpvox7F6hT8LkZC0bKgzQbEk=
 github.com/cosmos/ibc-go/v7 v7.0.0 h1:j4kyywlG0hhDmT9FmSaR5iCIka7Pz7kJTxGWY1nlV9Q=
 github.com/cosmos/ibc-go/v7 v7.0.0/go.mod h1:BFh8nKWjr5zeR2OZfhkzdgDzj1+KjRn3aJLpwapStj8=
 github.com/cosmos/ics23/go v0.9.1-0.20221207100636-b1abd8678aab h1:I9ialKTQo7248V827Bba4OuKPmk+FPzmTVHsLXaIJWw=
@@ -932,8 +930,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:
 github.com/icon-project/goloop v1.2.11/go.mod h1:P7mwPMmoAWFXdt0KmlrsQkRV9Qw1JswoCKqfTBpXYCw=
 github.com/icon-project/goloop v1.3.4 h1:82x8x+zY2XLVPEuWKHvnTj4bkeC5EYlNaaiePDqdMjk=
 github.com/icon-project/goloop v1.3.4/go.mod h1:9PoWRb5kowidc9jYy0RLuLpay1zT5FXgEKijx7rDQjE=
-github.com/icon-project/ibc-integration v0.0.0-20230416064536-48d70570734d h1:FLuT+nnvSW1vqjaGiD+uK2h/vHoZ1c/0Q/mEeTIxKLg=
-github.com/icon-project/ibc-integration v0.0.0-20230416064536-48d70570734d/go.mod h1:/SEtjPneUkYv/gQx/0BCu2zzR1Qw3zg3A0b/t/M+jpo=
+github.com/icon-project/ibc-integration v0.0.0-20230420051409-3e3b2d7ea040 h1:/06UoDlDkvDoQ/Z141ZhDzxu2JZpYuB3PGoO+9hJVH0=
+github.com/icon-project/ibc-integration v0.0.0-20230420051409-3e3b2d7ea040/go.mod h1:/SEtjPneUkYv/gQx/0BCu2zzR1Qw3zg3A0b/t/M+jpo=
 github.com/icon-project/icon-bridge v0.0.11 h1:1qUYq6YmzUQR+zCDJGnXQxXKs81NmkxATtOr8KEx4Wc=
 github.com/icon-project/icon-bridge v0.0.11/go.mod h1:7GcN+biPaXdsYLvsiwC1Y/5ro6ENPinhUqm2MZL4tgQ=
 github.com/improbable-eng/grpc-web v0.15.0 h1:BN+7z6uNXZ1tQGcNAuaU1YjsLTApzkjt2tzCixLaUPQ=

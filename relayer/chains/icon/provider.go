@@ -37,7 +37,9 @@ var (
 
 // Default IBC settings
 var (
-	defaultChainPrefix = types.NewMerklePrefix([]byte("ibc"))
+	defaultChainPrefix = icon.MerklePrefix{
+		KeyPrefix: []byte("ibc"),
+	}
 	defaultDelayPeriod = types.NewHexInt(0)
 
 	DefaultIBCVersionIdentifier = "1"
@@ -277,6 +279,22 @@ func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provide
 	return provider.ConnectionProof{
 		ConnectionStateProof: connState.Proof,
 		ProofHeight:          connState.ProofHeight,
+	}, nil
+}
+
+func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
+	channelResult, err := icp.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
+	if err != nil {
+		return provider.ChannelProof{}, nil
+	}
+	return provider.ChannelProof{
+		Proof: channelResult.Proof,
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: height,
+		},
+		Ordering: chantypes.Order(channelResult.Channel.GetOrdering()),
+		Version:  channelResult.Channel.Version,
 	}, nil
 }
 

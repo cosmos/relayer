@@ -47,25 +47,6 @@ func TestEventMap(t *testing.T) {
 
 }
 
-func TestCreateClientEvent(t *testing.T) {
-
-	event := types.EventLogStr{
-		Addr: types.Address("cxb1b0f589c980ee1738cf964ef6b26d4bbcb54ce7"),
-		Indexed: []string{
-			"ConnectionOpenAck(str,bytes)",
-			"connection-1",
-		},
-		Data: []string{"0x0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803221f0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d31"},
-	}
-
-	evt := ToEventLogBytes(event)
-	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, evt, 0)
-
-	fmt.Printf("Ibc message is %s \n ", ibcMsg)
-	// clientMsg := ibcMsg.info.(*clientInfo)
-	// assert.Equal(t, "07-tendermint-1", clientMsg.clientID)
-}
-
 func TestConnectionOpenInitByte(t *testing.T) {
 	// format of event received from block notification
 	event := types.EventLog{
@@ -119,7 +100,6 @@ func TestConnectionOpenInit(t *testing.T) {
 
 	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, encodedEvent, 0)
 	connAttrs := ibcMsg.info.(*connectionInfo)
-
 	assert.Equal(t, cp.ClientId, connAttrs.ClientID)
 	assert.Equal(t, cp.ConnectionId, connAttrs.ConnID)
 }

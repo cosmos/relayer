@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"testing"
+
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
 func TestMerkleRoot(t *testing.T) {
@@ -41,8 +43,12 @@ func TestMerkleProof(t *testing.T) {
 	}
 	root := tree.MerkleRoot()
 	proofOfFirstItem := tree.MerkleProof(1)
+	proof := make([]icon.MerkleNode, 0)
+	for _, p := range proofOfFirstItem {
+		proof = append(proof, *p)
+	}
 
-	if !tree.VerifyMerkleProof(root, data[1], proofOfFirstItem) {
+	if !tree.VerifyMerkleProof(root, data[1], proof) {
 		t.Errorf("Merkle proof is not correct")
 	}
 
@@ -78,8 +84,12 @@ func TestMerkleProofMisMatch(t *testing.T) {
 	}
 	root := tree.MerkleRoot()
 	proofOfFirstItem := tree.MerkleProof(1)
+	proof := make([]icon.MerkleNode, 0)
+	for _, p := range proofOfFirstItem {
+		proof = append(proof, *p)
+	}
 
-	if tree.VerifyMerkleProof(root, failcase, proofOfFirstItem) {
+	if tree.VerifyMerkleProof(root, failcase, proof) {
 		t.Errorf("Merkle proof of data %x should not match data_list", failcase)
 	}
 

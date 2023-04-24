@@ -4,15 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/ibc-go/modules/core/exported"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestExportedClientState(t *testing.T) {
-	var clS exported.ClientState
-	fmt.Println(clS.ClientType())
-}
 
 func TestConnectionDecode(t *testing.T) {
 
