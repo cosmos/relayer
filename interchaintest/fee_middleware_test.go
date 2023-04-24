@@ -88,16 +88,16 @@ func TestScenarioFeeMiddleware(t *testing.T) {
 	// Fund a user account on chain1 and chain2
 	const userFunds = int64(1_000_000_000_000)
 	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, chainA, chainB)
-	walletA := users[0]
-	userAddressA := walletA.FormattedAddress()
-	walletB := users[1]
-	userAddressB := walletB.FormattedAddress()
+	userA := users[0]
+	userAddressA := userA.FormattedAddress()
+	userB := users[1]
+	userAddressB := userB.FormattedAddress()
 
 	// Addresses of both the chains
-	walletA, _ = r.GetWallet(chainA.Config().ChainID)
+	walletA, _ := r.GetWallet(chainA.Config().ChainID)
 	rlyAddressA := walletA.FormattedAddress()
 
-	walletB, _ = r.GetWallet(chainB.Config().ChainID)
+	walletB, _ := r.GetWallet(chainB.Config().ChainID)
 	rlyAddressB := walletB.FormattedAddress()
 
 	// register CounterpartyPayee
@@ -154,7 +154,7 @@ func TestScenarioFeeMiddleware(t *testing.T) {
 		"--timeout-fee", fmt.Sprintf("1000%s", chainA.Config().Denom),
 		"--chain-id", chainIDA,
 		"--node", chainA.GetRPCAddress(),
-		"--from", walletA.FormattedAddress(),
+		"--from", userA.FormattedAddress(),
 		"--keyring-backend", "test",
 		"--gas", "400000",
 		"--yes",
