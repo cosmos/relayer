@@ -49,7 +49,7 @@ Most of these commands take a [path] argument. Make sure:
 		createChannelCmd(a),
 		closeChannelCmd(a),
 		lineBreakCommand(),
-		registerCounterPartyCmd(a),
+		registerCounterpartyCmd(a),
 	)
 
 	return cmd
@@ -1040,15 +1040,15 @@ func ensureKeysExist(chains map[string]*relayer.Chain) error {
 }
 
 // MsgRegisterCounterpartyPayee registers the counterparty_payee
-func registerCounterPartyCmd(a *appState) *cobra.Command {
+func registerCounterpartyCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "register-counterparty chain_name channel_id port_id relay_addr counterparty_payee",
 		Aliases: []string{"reg-cpt"},
-		Short:   "register the counterparty relayer address",
+		Short:   "register the counterparty relayer address for ics-29 fee middleware",
 		Args:    withUsage(cobra.MatchAll(cobra.ExactArgs(5))),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk osmo1
-$ %s reg-cpt channel-0 osmo1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk`,
+$ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd
+$ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd`,
 			appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 

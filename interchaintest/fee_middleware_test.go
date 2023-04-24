@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestFeeMiddleware(t *testing.T) {
+func TestScenarioFeeMiddleware(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -78,10 +78,10 @@ func TestFeeMiddleware(t *testing.T) {
 	require.NoError(t, err)
 
 	// ChainID of ChainA
-	chainID_A := chainA.Config().ChainID
+	chainIDA := chainA.Config().ChainID
 
 	// Channel of ChainA
-	chA, err := r.GetChannels(ctx, eRep, chainID_A)
+	chA, err := r.GetChannels(ctx, eRep, chainIDA)
 	require.NoError(t, err)
 	channelA := chA[0]
 
@@ -94,11 +94,11 @@ func TestFeeMiddleware(t *testing.T) {
 	userAddressB := walletB.FormattedAddress()
 
 	// Addresses of both the chains
-	WalletA, _ := r.GetWallet(chainA.Config().ChainID)
-	rlyAddressA := WalletA.FormattedAddress()
+	walletA, _ = r.GetWallet(chainA.Config().ChainID)
+	rlyAddressA := walletA.FormattedAddress()
 
-	WalletB, _ := r.GetWallet(chainB.Config().ChainID)
-	rlyAddressB := WalletB.FormattedAddress()
+	walletB, _ = r.GetWallet(chainB.Config().ChainID)
+	rlyAddressB := walletB.FormattedAddress()
 
 	// register CounterpartyPayee
 	cmd := []string{
@@ -112,10 +112,10 @@ func TestFeeMiddleware(t *testing.T) {
 	_ = r.Exec(ctx, eRep, cmd, nil)
 	require.NoError(t, err)
 
-	// Query the relayer CounterPartyPayee on a given channel
+	// Query the relayer CounterpartyPayee on a given channel
 	query := []string{
 		chainA.Config().Bin, "query", "ibc-fee", "counterparty-payee", channelA.ChannelID, rlyAddressA,
-		"--chain-id", chainID_A,
+		"--chain-id", chainIDA,
 		"--node", chainA.GetRPCAddress(),
 		"--home", chainA.HomeDir(),
 		"--trace",
@@ -132,7 +132,7 @@ func TestFeeMiddleware(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, userFunds, userBOrigBal)
 
-	rlyAOrigBal, err := chainA.GetBalance(ctx, rlyAddressA, chainB.Config().Denom)
+	rlyAOrigBal, err := chainA.GetBalance(ctx, rlyAddressA, chainA.Config().Denom)
 	require.NoError(t, err)
 	require.Equal(t, userFunds, rlyAOrigBal)
 
@@ -152,7 +152,7 @@ func TestFeeMiddleware(t *testing.T) {
 		"--recv-fee", fmt.Sprintf("1000%s", chainA.Config().Denom),
 		"--ack-fee", fmt.Sprintf("1000%s", chainA.Config().Denom),
 		"--timeout-fee", fmt.Sprintf("1000%s", chainA.Config().Denom),
-		"--chain-id", chainID_A,
+		"--chain-id", chainIDA,
 		"--node", chainA.GetRPCAddress(),
 		"--from", walletA.FormattedAddress(),
 		"--keyring-backend", "test",

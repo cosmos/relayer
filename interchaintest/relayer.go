@@ -337,7 +337,6 @@ func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 	}
 	address := strings.TrimSpace(res.Stdout.String())
 
-	// var chainCfg ibc.ChainConfig
 	var keyName string
 	config := r.sys().MustGetConfig(r.t)
 	for _, v := range config.ProviderConfigs {
