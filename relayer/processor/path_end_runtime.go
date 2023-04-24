@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -558,6 +559,9 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
 	channelKey := ChannelInfoChannelKey(message.info).Counterparty()
+	fmt.Printf("SRC PE: %p \n", pathEnd)
+	fmt.Printf("DST PE: %p \n", counterparty)
+	fmt.Printf("shouldSendChanMsg: %+v  %p \n", message, pathEnd)
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
@@ -701,6 +705,8 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) uint64 {
 	retryCount := uint64(0)
 
+	fmt.Printf("trackProcessingMsgs: %+v, %p \n", tracker, pathEnd)
+
 	switch t := tracker.(type) {
 	case packetMessageToTrack:
 		eventType := t.msg.eventType
@@ -742,6 +748,7 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 			channelKey = channelKey.Counterparty()
 		}
 		msgProcessCache, ok := pathEnd.channelProcessing[eventType]
+		fmt.Printf("trackProcessingMsgs msgProcessCache: %+v, %p \n", msgProcessCache, pathEnd)
 		if !ok {
 			msgProcessCache = make(channelKeySendCache)
 			pathEnd.channelProcessing[eventType] = msgProcessCache
