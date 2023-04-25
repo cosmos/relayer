@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"gopkg.in/yaml.v3"
 )
 
 // System is a system under test.
@@ -129,10 +130,10 @@ func (s *System) MustAddChain(t *testing.T, chainName string, pcw cmd.ProviderCo
 func (s *System) MustGetConfig(t *testing.T) (config cmd.ConfigInputWrapper) {
 	t.Helper()
 
-	configBz, err := os.ReadFile(filepath.Join(s.HomeDir, "config.yaml"))
+	configBz, err := os.ReadFile(filepath.Join(s.HomeDir, "config", "config.yaml"))
 	require.NoError(t, err, "failed to read config file")
 
-	err = json.Unmarshal(configBz, &config)
+	err = yaml.Unmarshal(configBz, &config)
 	require.NoError(t, err, "failed to unmarshal config file")
 
 	return config

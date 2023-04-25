@@ -1352,7 +1352,6 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-
 func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
@@ -2232,4 +2231,10 @@ func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []pr
 	sendRsp, err := cc.sendMessagesInner(ctx, msgs, memo)
 	cc.log.Debug("Received response from sending messages", zap.Any("response", sendRsp), zap.Error(err))
 	return err
+}
+
+// MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
+func (cc *PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
+	//TODO implement me
+	panic("implement me")
 }
