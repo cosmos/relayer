@@ -23,10 +23,13 @@ func TestScenarioFeeMiddleware(t *testing.T) {
 
 	t.Parallel()
 
+	nv := 1
+	nf := 0
+
 	// Get both chains
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "juno", ChainName: "chaina", Version: "v13.0.0", ChainConfig: ibc.ChainConfig{ChainID: "chaina", GasPrices: "0.0ujuno"}},
-		{Name: "juno", ChainName: "chainb", Version: "v13.0.0", ChainConfig: ibc.ChainConfig{ChainID: "chainb", GasPrices: "0.0ujuno"}}},
+		{Name: "juno", ChainName: "chaina", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chaina", GasPrices: "0.0ujuno"}},
+		{Name: "juno", ChainName: "chainb", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chainb", GasPrices: "0.0ujuno"}}},
 	)
 
 	chains, err := cf.Chains(t.Name())
