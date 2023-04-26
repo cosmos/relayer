@@ -255,7 +255,7 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 				}
 
 				name := args[2]
-				if err = a.config.Paths.Add(name, p); err != nil {
+				if err = a.config.AddPath(name, p); err != nil {
 					return err
 				}
 				return nil

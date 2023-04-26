@@ -94,7 +94,7 @@ func (a *appState) addPathFromFile(ctx context.Context, stderr io.Writer, file, 
 		return err
 	}
 
-	return a.config.Paths.Add(name, p)
+	return a.config.AddPath(name, p)
 }
 
 // addPathFromUserInput manually prompts the user to specify all the path details.
@@ -169,7 +169,7 @@ func (a *appState) addPathFromUserInput(
 		return err
 	}
 
-	return a.config.Paths.Add(name, path)
+	return a.config.AddPath(name, path)
 }
 
 func (a *appState) performConfigLockingOperation(ctx context.Context, operation func() error) error {
