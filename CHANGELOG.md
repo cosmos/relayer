@@ -13,6 +13,7 @@
 * [\#466](https://github.com/cosmos/relayer/pull/466) Docs cleanup. 
 * [\#506](https://github.com/cosmos/relayer/pull/506) Fix Timeout Handling on Relayer restart
 * [\#940](https://github.com/cosmos/relayer/pull/940) Add min-gas-amount parameter for chain configs, to workaround gas estimation failure.
+* [\#1177](https://github.com/cosmos/relayer/pull/1177) Avoid panic due to nil map when add new path and ensure path get written to config.
 
 ## v0.9.3
 
