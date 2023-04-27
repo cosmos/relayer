@@ -1,14 +1,18 @@
-name: BUILD - build and binary upload
+name: Test and coverage
 
 on:
-  pull_request:
   push:
+    tags:
+    - '**'
+    branches:
+    - '**'
+  pull_request:
     branches:
       - main
 
 jobs:
-  build:
-    name: build
+  coverage:
+    name: coverage
     runs-on: ubuntu-latest
     steps:
       # Install and setup go
@@ -39,14 +43,8 @@ jobs:
       - name: run unit tests
         run: make test
         continue-on-error: true
-        
-      # build binary
-      - name: build binary and move to upload location
-        run: make build
-
-      # upload resulting binaries
-      - name: upload binaries
-        uses: actions/upload-artifact@v1
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
         with:
-          name: rly
-          path: ./build/rly
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.out
