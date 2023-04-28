@@ -84,7 +84,7 @@ type ChainInfo struct {
 		} `json:"rest"`
 	} `json:"apis"`
 	ExtraCodecs  []string `json:"extra_codecs"`
-	MaxGasAmount uint64   `json:"max-gas-amount"`
+	MaxGasAmount uint64   `json:"max_gas_amount"`
 }
 
 // NewChainInfo returns a ChainInfo that is uninitialized other than the provided zap.Logger.
