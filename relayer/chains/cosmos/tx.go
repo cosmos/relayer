@@ -27,9 +27,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -1549,9 +1549,9 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
 }
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
-func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage,error) {
+func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
 	msg := feetypes.NewMsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee)
-	return NewCosmosMessage(msg),nil
+	return NewCosmosMessage(msg, nil), nil
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
