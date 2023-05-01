@@ -83,6 +83,7 @@ type ChainInfo struct {
 			Provider string `json:"provider"`
 		} `json:"rest"`
 	} `json:"apis"`
+	ExtraCodecs []string `json:"extra_codecs"`
 }
 
 // NewChainInfo returns a ChainInfo that is uninitialized other than the provided zap.Logger.
@@ -266,5 +267,6 @@ func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderCo
 		SignModeStr:      "direct",
 		Slip44:           c.Slip44,
 		SigningAlgorithm: c.SigningAlgorithm,
+		ExtraCodecs:      c.ExtraCodecs,
 	}, nil
 }

@@ -332,6 +332,7 @@ func (mp *messageProcessor) sendClientUpdate(
 
 	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
 		mp.log.Error("Error sending client update message",
+			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
@@ -412,6 +413,7 @@ func (mp *messageProcessor) sendBatchMessages(
 
 	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks); err != nil {
 		errFields := []zapcore.Field{
+			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
@@ -482,6 +484,7 @@ func (mp *messageProcessor) sendSingleMessage(
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks)
 	if err != nil {
 		errFields := []zapcore.Field{
+			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),

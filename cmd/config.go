@@ -545,6 +545,10 @@ func checkPathEndConflict(pathID, direction string, oldPe, newPe *relayer.PathEn
 
 // AddPath adds an additional path to the config
 func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
+	// Ensure path is initialized.
+	if c.Paths == nil {
+		c.Paths = make(relayer.Paths)
+	}
 	// Check if the path does not yet exist.
 	oldPath, err := c.Paths.Get(name)
 	if err != nil {

@@ -2297,3 +2297,9 @@ func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []pr
 	cc.log.Debug("Received response from sending messages", zap.Any("response", sendRsp), zap.Error(err))
 	return err
 }
+
+// MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
+func (cc *PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
+	//TODO implement me
+	panic("implement me")
+}
