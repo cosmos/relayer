@@ -3,6 +3,8 @@ package cosmos
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	tmtypes "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 
@@ -92,12 +94,8 @@ func (e endpoint) GetConnection() (*types.ConnectionEnd, error) {
 	return connectionResponse.Connection, nil
 }
 
-func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clienttypes.Height, error) {
+func (e endpoint) QueryProofAtHeight(key []byte, chainHeight int64) ([]byte, clienttypes.Height, error) {
 	ctx := context.Background()
-	chainHeight, err := e.provider.QueryLatestHeight(ctx)
-	if err != nil {
-		return nil, clienttypes.Height{}, err
-	}
 	_, proof, proofHeight, err := e.provider.QueryTendermintProof(ctx, chainHeight, key)
 	e.provider.log.Info(
 		"Querying for multihop proof",
@@ -105,7 +103,6 @@ func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clientty
 		zap.String("client_id", e.ClientID()),
 		zap.String("key", string(key)),
 		zap.Int64("height", chainHeight),
-		zap.Int64("client_height", height),
 		zap.String("proof_height", proofHeight.String()),
 	)
 
@@ -136,7 +133,6 @@ func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clientty
 			zap.String("chain_id", e.ChainID()),
 			zap.String("client_id", e.ClientID()),
 			zap.String("key", string(key)),
-			zap.Int64("height", height),
 			zap.String("proof_height", proofHeight.String()),
 			zap.String("channel", fmt.Sprintf("%#v", channelResponse.Channel)),
 		)
@@ -150,10 +146,20 @@ func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clientty
 			zap.String("chain_id", e.ChainID()),
 			zap.String("client_id", e.ClientID()),
 			zap.String("key", string(key)),
-			zap.Int64("height", height),
+			zap.Int64("height", chainHeight),
 			zap.String("proof_height", proofHeight.String()),
 		)
-		consensusState, err := e.GetConsensusState(clienttypes.NewHeight(1, uint64(height)))
+		tokens := strings.Split(string(key), "/")
+		numberAndHeight := strings.Split(tokens[len(tokens)-1], "-")
+		number, err := strconv.ParseInt(numberAndHeight[0], 10, 64)
+		if err != nil {
+			return nil, clienttypes.Height{}, err
+		}
+		height, err := strconv.ParseInt(numberAndHeight[1], 10, 64)
+		if err != nil {
+			return nil, clienttypes.Height{}, err
+		}
+		consensusState, err := e.GetConsensusState(clienttypes.NewHeight(uint64(number), uint64(height)))
 		if err != nil {
 			return nil, clienttypes.Height{}, err
 		}
@@ -175,7 +181,6 @@ func (e endpoint) QueryProofAtHeight(key []byte, height int64) ([]byte, clientty
 			zap.String("client_id", e.ClientID()),
 			zap.String("key", string(key)),
 			zap.Int64("height", chainHeight),
-			zap.Int64("client_height", height),
 			zap.String("proof_height", proofHeight.String()),
 			zap.Error(err),
 		)
