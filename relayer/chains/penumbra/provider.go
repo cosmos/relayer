@@ -47,6 +47,7 @@ type PenumbraProviderConfig struct {
 	GasAdjustment   float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
 	GasPrices       string                  `json:"gas-prices" yaml:"gas-prices"`
 	MinGasAmount    uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
+	MaxGasAmount    uint64                  `json:"max-gas-amount" yaml:"max-gas-amount"`
 	Debug           bool                    `json:"debug" yaml:"debug"`
 	Timeout         string                  `json:"timeout" yaml:"timeout"`
 	BlockTimeout    string                  `json:"block-timeout" yaml:"block-timeout"`
