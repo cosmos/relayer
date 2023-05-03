@@ -8,7 +8,7 @@ require (
 	cosmossdk.io/math v1.0.0
 	github.com/avast/retry-go/v4 v4.3.2
 	github.com/btcsuite/btcd v0.23.4
-	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
+	github.com/btcsuite/btcd/btcutil v1.1.3
 	github.com/cometbft/cometbft v0.37.1
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2
 	github.com/cosmos/cosmos-sdk v0.47.2
@@ -38,8 +38,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-require github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
@@ -183,5 +181,3 @@ require (
 	pgregory.net/rapid v0.5.5 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/btcsuite/btcutil => github.com/btcsuite/btcd/btcutil v1.1.1
