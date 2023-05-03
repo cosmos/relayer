@@ -3,7 +3,9 @@ package archway
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -12,25 +14,36 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+
 	"go.uber.org/zap"
 )
 
 var (
-// _ provider.ChainProvider  = &ArchwayProvider{}
-// _ provider.KeyProvider    = &ArchwayProvider{}
-// _ provider.ProviderConfig = &ArchwayProviderConfig{}
+	_ provider.ChainProvider  = &ArchwayProvider{}
+	_ provider.KeyProvider    = &ArchwayProvider{}
+	_ provider.ProviderConfig = &ArchwayProviderConfig{}
 )
 
 type ArchwayProviderConfig struct {
-	Key               string `json:"key" yaml:"key"`
-	ChainName         string `json:"-" yaml:"-"`
-	ChainID           string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix     string `json:"account-prefix" yaml:"account-prefix"`
-	Timeout           string `json:"timeout" yaml:"timeout"`
-	Keystore          string `json:"keystore" yaml:"keystore"`
-	Password          string `json:"password" yaml:"password"`
-	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	KeyDirectory      string                 `json:"key-directory" yaml:"key-directory"`
+	Key               string                 `json:"key" yaml:"key"`
+	ChainName         string                 `json:"-" yaml:"-"`
+	ChainID           string                 `json:"chain-id" yaml:"chain-id"`
+	RPCAddr           string                 `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix     string                 `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend    string                 `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment     float64                `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices         string                 `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount      uint64                 `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Timeout           string                 `json:"timeout" yaml:"timeout"`
+	Keystore          string                 `json:"keystore" yaml:"keystore"`
+	Password          string                 `json:"password" yaml:"password"`
+	IbcHandlerAddress string                 `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	Broadcast         provider.BroadcastMode `json:"broadcast-mode" yaml:"broadcast-mode"`
 }
 
 func (pp *ArchwayProviderConfig) Validate() error {
@@ -50,36 +63,31 @@ func (pp *ArchwayProviderConfig) getRPCAddr() string {
 }
 
 func (pp *ArchwayProviderConfig) BroadcastMode() provider.BroadcastMode {
-	return provider.BroadcastModeSingle
+	return pp.Broadcast
 }
 
 func (pp ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
-
-	pp.ChainName = chainName
-	if _, err := os.Stat(pp.Keystore); err != nil {
-		return nil, err
-	}
 
 	if err := pp.Validate(); err != nil {
 		return nil, err
 	}
 
-	// ksByte, err := os.ReadFile(pp.Keystore)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	pp.KeyDirectory = keysDir(homepath, pp.ChainID)
 
-	// wallet, err := wallet.NewFromKeyStore(ksByte, []byte(pp.Password))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	pp.ChainName = chainName
+
+	if pp.Broadcast == "" {
+		pp.Broadcast = provider.BroadcastModeBatch
+	}
 
 	codec := MakeCodec(ModuleBasics, []string{})
 
 	return &ArchwayProvider{
-		log:  log.With(zap.String("sys", "chain_client")),
-		PCfg: &pp,
-		Cdc:  codec,
+		log:    log.With(zap.String("sys", "chain_client")),
+		PCfg:   &pp,
+		Cdc:    codec,
+		Input:  os.Stdin,
+		Output: os.Stdout,
 	}, nil
 }
 
@@ -89,7 +97,10 @@ type ArchwayProvider struct {
 	PCfg           *ArchwayProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	// RPCClient      rpcclient.Client  //TODO: check the client
+	RPCClient      rpcclient.Client //TODO: check the client
+	Input          io.Reader
+	Output         io.Writer
+
 	Cdc Codec
 
 	txMu sync.Mutex
@@ -193,6 +204,11 @@ func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
+func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
+	// TODO: after the client
+	return &ctypes.ResultStatus{}, nil
+}
+
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	// var initial int64
@@ -220,4 +236,21 @@ func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	// 	}
 	// }
 	return nil
+}
+
+func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
+	httpClient, err := libclient.DefaultHTTPClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	httpClient.Timeout = timeout
+	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return rpcClient, nil
+}
+
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
 }
