@@ -318,10 +318,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
-
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
 	}

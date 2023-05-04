@@ -547,13 +547,9 @@ func (cc *CosmosProvider) newProof(key []byte, connectionHops []string) ([]byte,
 	if chanPath == nil {
 		return nil, clienttypes.Height{}, fmt.Errorf("unable to find channel path for connection hops: %v", connectionHops)
 	}
-	cc.log.Info("Updating clients for channel path")
 	if err := chanPath.UpdateClient(); err != nil {
 		return nil, clienttypes.Height{}, fmt.Errorf("error updating channel path client: %w", err)
 	}
-	cc.log.Info("Generating multihop proof for channel path",
-		zap.String("chan_path", chanPath.String()),
-	)
 
 	multihopProof, err := chanPath.GenerateProof(key, nil, false)
 	if err != nil {
@@ -563,12 +559,6 @@ func (cc *CosmosProvider) newProof(key []byte, connectionHops []string) ([]byte,
 	if err != nil {
 		return nil, clienttypes.Height{}, fmt.Errorf("error marshaling multihop proof: %w", err)
 	}
-	lastHop := chanPath.Paths[len(chanPath.Paths)-1].EndpointB
-	height := lastHop.GetConsensusHeight().(clienttypes.Height)
-	cc.log.Info("Setting height for multihop proof",
-		zap.String("chain_id", lastHop.ChainID()),
-		zap.String("height", height.String()),
-	)
 	return proof, chanPath.Paths[len(chanPath.Paths)-1].EndpointB.GetConsensusHeight().(clienttypes.Height), nil
 }
 

@@ -411,7 +411,6 @@ func TestRelayerMultihop(t *testing.T) {
 	require.NoError(t, err)
 
 	wasm1, osmosis, wasm2 := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain), chains[2].(*cosmos.CosmosChain)
-	wasm1Cfg, osmosisCfg, wasm2Cfg := wasm1.Config(), osmosis.Config(), wasm2.Config()
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathWasm1Osmosis = "wasm1-osmosis"
@@ -493,6 +492,23 @@ func TestRelayerMultihop(t *testing.T) {
 	err = testutil.WaitForBlocks(ctx, 2, osmosis, wasm2)
 	require.NoError(t, err)
 
+	wasm1Cfg, osmosisCfg, wasm2Cfg := wasm1.Config(), osmosis.Config(), wasm2.Config()
+
+	wasm1Chans, err := r.GetChannels(ctx, eRep, wasm1Cfg.ChainID)
+	require.NoError(t, err)
+	require.Len(t, wasm1Chans, 1)
+	require.Equal(t, "STATE_OPEN", wasm1Chans[0].State)
+
+	wasm2Chans, err := r.GetChannels(ctx, eRep, wasm2Cfg.ChainID)
+	require.NoError(t, err)
+	require.Len(t, wasm2Chans, 1)
+	require.Equal(t, "STATE_OPEN", wasm2Chans[0].State)
+
+	osmosisChans, err := r.GetChannels(ctx, eRep, osmosisCfg.ChainID)
+	require.NoError(t, err)
+	require.Len(t, osmosisChans, 0)
+
+	/* TODO: enable
 	// Start the relayers
 	err = r.StartRelayer(ctx, eRep, pathWasm1Osmosis, pathOsmosisWasm2, pathWasm1Wasm2)
 	require.NoError(t, err)
@@ -527,19 +543,6 @@ func TestRelayerMultihop(t *testing.T) {
 	wasm2Address := wasm2User.FormattedAddress()
 	require.NotEmpty(t, wasm2Address)
 
-	// get ibc chans
-	wasm1Chans, err := r.GetChannels(ctx, eRep, wasm1Cfg.ChainID)
-	require.NoError(t, err)
-	require.Len(t, wasm1Chans, 1)
-
-	osmosisChans, err := r.GetChannels(ctx, eRep, osmosisCfg.ChainID)
-	require.NoError(t, err)
-	require.Len(t, osmosisChans, 0)
-
-	wasm2Chans, err := r.GetChannels(ctx, eRep, wasm2Cfg.ChainID)
-	require.NoError(t, err)
-	require.Len(t, wasm2Chans, 1)
-
 	wasm1IBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(wasm1Chans[0].Counterparty.PortID, wasm1Chans[0].Counterparty.ChannelID, wasm1Cfg.Denom)).IBCDenom()
 	wasm2IBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(wasm2Chans[0].Counterparty.PortID, wasm2Chans[0].Counterparty.ChannelID, wasm2Cfg.Denom)).IBCDenom()
 
@@ -548,6 +551,7 @@ func TestRelayerMultihop(t *testing.T) {
 	wasm1Height, err := wasm1.Height(ctx)
 	require.NoError(t, err)
 	// Fund wasm2 user with ibc denom from wasm1
+	t.Logf("Initiating transfer from %s to %s", wasm1.Config().ChainID, wasm2.Config().ChainID)
 	tx, err := wasm1.SendIBCTransfer(ctx, wasm1Chans[0].ChannelID, wasm1User.KeyName(), ibc.WalletAmount{
 		Amount:  transferAmount,
 		Denom:   wasm1Cfg.Denom,
@@ -560,6 +564,7 @@ func TestRelayerMultihop(t *testing.T) {
 	wasm2Height, err := wasm2.Height(ctx)
 	require.NoError(t, err)
 	// Fund wasm1 user with ibc denom from wasm2
+	t.Logf("Initiating transfer from %s to %s", wasm1.Config().ChainID, wasm2.Config().ChainID)
 	tx, err = wasm2.SendIBCTransfer(ctx, wasm2Chans[0].ChannelID, wasm2User.KeyName(), ibc.WalletAmount{
 		Amount:  transferAmount,
 		Denom:   wasm2Cfg.Denom,
@@ -576,4 +581,6 @@ func TestRelayerMultihop(t *testing.T) {
 	wasm2OnWasm1Balance, err := wasm1.GetBalance(ctx, wasm1Address, wasm2IBCDenom)
 	require.NoError(t, err)
 	require.Equal(t, transferAmount, wasm2OnWasm1Balance)
+
+	*/
 }

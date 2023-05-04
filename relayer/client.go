@@ -102,7 +102,8 @@ func CreateClient(
 	allowUpdateAfterMisbehaviour bool,
 	override bool,
 	customClientTrustingPeriod time.Duration,
-	memo string) (string, error) {
+	memo string,
+) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -234,7 +235,7 @@ func CreateClient(
 	src.PathEnd.ClientID = clientID
 
 	src.log.Info(
-		"Client Created",
+		"Client created",
 		zap.String("src_chain_id", src.ChainID()),
 		zap.String("src_client_id", src.PathEnd.ClientID),
 		zap.String("dst_chain_id", dst.ChainID()),
@@ -491,7 +492,6 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 
 	for _, existingClientState := range clientsResp {
 		clientID, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
-
 		// If there is an error parsing/type asserting the client state in ClientsMatch this is going
 		// to make the entire find matching client logic fail.
 		// We should really never be encountering an error here and if we do it is probably a sign of a
