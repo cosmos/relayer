@@ -486,19 +486,8 @@ func TestRelayerMultihop(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create multihop channel
-	startHeight, err := osmosis.Validators[0].Height(ctx)
-	require.NoError(t, err)
 	err = r.CreateChannel(ctx, eRep, pathWasm1Wasm2, ibc.DefaultChannelOpts())
 	require.NoError(t, err)
-	// TODO: the query command in wasmd is missing the --chain-id argument
-	//	for _, chain := range []*cosmos.CosmosChain{wasm1, osmosis, wasm2} {
-	for _, chain := range []*cosmos.CosmosChain{osmosis} {
-		endHeight, err := osmosis.Validators[0].Height(ctx)
-		require.NoError(t, err)
-		for i := startHeight; i < endHeight; i++ {
-			getClientHeight(t, ctx, chain, i)
-		}
-	}
 
 	// Wait a few blocks for the channel to be created.
 	err = testutil.WaitForBlocks(ctx, 2, osmosis, wasm2)

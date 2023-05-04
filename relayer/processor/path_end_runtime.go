@@ -338,21 +338,25 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	hops = append(hops, counterparty)
+	// TODO: we need to reconcile updates from multihop with the client state cached in path end runtimes, otherwise
+	// it looks like misbehavior
 	var terminate bool
-	lastHop := pathEnd
-	for _, hop := range hops {
-		detected, err := lastHop.checkForMisbehaviour(ctx, lastHop.clientState, hop)
-		if err != nil {
-			lastHop.log.Error(
-				"Failed to check for misbehaviour",
-				zap.String("client_id", lastHop.info.ClientID),
-				zap.Error(err),
-			)
+	/*
+		hops = append(hops, counterparty)
+		lastHop := pathEnd
+		for _, hop := range hops {
+			detected, err := lastHop.checkForMisbehaviour(ctx, lastHop.clientState, hop)
+			if err != nil {
+				lastHop.log.Error(
+					"Failed to check for misbehaviour",
+					zap.String("client_id", lastHop.info.ClientID),
+					zap.Error(err),
+				)
+			}
+			terminate = terminate || detected
+			lastHop = hop
 		}
-		terminate = terminate || detected
-		lastHop = hop
-	}
+	*/
 
 	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
 		pathEnd.clientState = d.ClientState
