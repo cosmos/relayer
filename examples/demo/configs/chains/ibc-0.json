@@ -1,18 +1,19 @@
 {
   "type": "cosmos",
   "value": {
-    "key": "testkey",
-    "chain-id": "ibc-0",
+    "key": "default",
+    "chain-id": "archway",
     "rpc-addr": "http://localhost:26657",
     "grpc-addr": "",
-    "account-prefix": "cosmos",
+    "account-prefix": "archway",
     "keyring-backend": "test",
     "gas-adjustment": 1.5,
-    "gas-prices": "0.025stake",
+    "gas-prices": "0.025uconst",
     "debug": true,
     "timeout": "10s",
     "output-format": "json",
     "sign-mode": "direct"
   }
 }
+
 

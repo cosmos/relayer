@@ -209,8 +209,11 @@ func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
 }
 
 func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
-	// TODO: after the client
-	return &ctypes.ResultStatus{}, nil
+	status, err := cc.RPCClient.Status(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query node status: %w", err)
+	}
+	return status, nil
 }
 
 // WaitForNBlocks blocks until the next block on a given chain
