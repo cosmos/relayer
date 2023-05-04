@@ -50,6 +50,10 @@ func (pp *ArchwayProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
+
+	if pp.IbcHandlerAddress == "" {
+		return fmt.Errorf("Ibc handler contract cannot be empty")
+	}
 	return nil
 }
 
