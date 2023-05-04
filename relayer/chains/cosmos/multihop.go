@@ -3,12 +3,8 @@ package cosmos
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/avast/retry-go/v4"
-
-	tmtypes "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 
 	"go.uber.org/zap"
 
@@ -107,7 +103,7 @@ func (e *endpoint) QueryProofAtHeight(key []byte, chainHeight int64) ([]byte, cl
 		zap.String("proof_height", proofHeight.String()),
 	)
 
-	// TODO: disable this for production
+	/* TODO: disable this for production and make generic
 	var merkleProof commitmenttypes.MerkleProof
 	if err := e.Codec().Unmarshal(proof, &merkleProof); err != nil {
 		return nil, clienttypes.Height{}, err
@@ -186,6 +182,7 @@ func (e *endpoint) QueryProofAtHeight(key []byte, chainHeight int64) ([]byte, cl
 			zap.Error(err),
 		)
 	}
+	*/
 	return proof, proofHeight, err
 }
 
