@@ -2,8 +2,12 @@ package archway
 
 import (
 	"context"
+	"regexp"
 	"time"
 
+	"github.com/avast/retry-go/v4"
+	abci "github.com/cometbft/cometbft/abci/types"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -11,6 +15,16 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+)
+
+var (
+	rtyAttNum                   = uint(5)
+	rtyAtt                      = retry.Attempts(rtyAttNum)
+	rtyDel                      = retry.Delay(time.Millisecond * 400)
+	rtyErr                      = retry.LastErrorOnly(true)
+	numRegex                    = regexp.MustCompile("[0-9]+")
+	defaultBroadcastWaitTimeout = 10 * time.Minute
+	errUnknown                  = "unknown"
 )
 
 // Default IBC settings
@@ -137,4 +151,43 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 	asyncCallback func(*provider.RelayerTxResponse, error),
 ) error {
 	return nil
+}
+
+// broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
+// The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (ap *ArchwayProvider) broadcastTx(
+	ctx context.Context, // context for tx broadcast
+	tx []byte, // raw tx to be broadcasted
+	msgs []provider.RelayerMessage, // used for logging only
+	fees sdk.Coins, // used for metrics
+
+	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration, // timeout for waiting for block inclusion
+	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+) error {
+	return nil
+}
+
+// QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
+func (cc *ArchwayProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+	opts := rpcclient.ABCIQueryOptions{
+		Height: req.Height,
+		Prove:  req.Prove,
+	}
+	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
+	if err != nil {
+		return abci.ResponseQuery{}, err
+	}
+
+	// if !result.Response.IsOK() {
+	// 	return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+	// }
+
+	// // data from trusted node or subspace query doesn't need verification
+	// if !opts.Prove || !isQueryStoreWithProof(req.Path) {
+	// 	return result.Response, nil
+	// }
+
+	return result.Response, nil
 }

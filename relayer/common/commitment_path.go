@@ -1,4 +1,4 @@
-package cryptoutils
+package common
 
 import (
 	"fmt"

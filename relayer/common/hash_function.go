@@ -1,4 +1,4 @@
-package cryptoutils
+package common
 
 import (
 	"crypto/sha256"
@@ -6,7 +6,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func appendKeccak256(out []byte, data ...[]byte) []byte {
+func AppendKeccak256(out []byte, data ...[]byte) []byte {
 	d := sha3.NewLegacyKeccak256()
 	for _, b := range data {
 		d.Write(b)
@@ -15,7 +15,7 @@ func appendKeccak256(out []byte, data ...[]byte) []byte {
 }
 
 func Sha3keccak256(data ...[]byte) []byte {
-	return appendKeccak256(nil, data...)
+	return AppendKeccak256(nil, data...)
 }
 
 func Sha256(data ...[]byte) []byte {

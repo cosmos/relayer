@@ -5,6 +5,8 @@ import (
 	"math/bits"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
@@ -37,7 +39,7 @@ func NewMerkleHashTree(byteList [][]byte) *MerkleHashTree {
 
 	var hashList HashedList
 	for _, b := range byteList {
-		hashList = append(hashList, Sha3keccak256(b))
+		hashList = append(hashList, common.Sha3keccak256(b))
 	}
 	return &MerkleHashTree{
 		Hashes: hashList,
@@ -45,7 +47,7 @@ func NewMerkleHashTree(byteList [][]byte) *MerkleHashTree {
 }
 
 func AppendHash(out []byte, data []byte) []byte {
-	return appendKeccak256(out, data)
+	return common.AppendKeccak256(out, data)
 }
 
 func __merkleRoot(data []byte) []byte {

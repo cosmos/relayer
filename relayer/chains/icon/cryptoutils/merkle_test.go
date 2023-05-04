@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
 func TestMerkleRoot(t *testing.T) {
 	// Test case data
 	data := HashedList{
-		Sha3keccak256([]byte("hello")),
-		Sha3keccak256([]byte("world")),
-		Sha3keccak256([]byte("test")),
+		common.Sha3keccak256([]byte("hello")),
+		common.Sha3keccak256([]byte("world")),
+		common.Sha3keccak256([]byte("test")),
 	}
 	expectedRoot := "f071961cfd9021ffb0ee8c7b7462bed91140d643b4c39e44f6ced91b0bd1e0fc"
 
@@ -33,9 +34,9 @@ func TestMerkleRoot(t *testing.T) {
 
 func TestMerkleProof(t *testing.T) {
 	data := HashedList{
-		Sha3keccak256([]byte("hello")),
-		Sha3keccak256([]byte("world")),
-		Sha3keccak256([]byte("test")),
+		common.Sha3keccak256([]byte("hello")),
+		common.Sha3keccak256([]byte("world")),
+		common.Sha3keccak256([]byte("test")),
 	}
 
 	tree := &MerkleHashTree{
@@ -60,11 +61,11 @@ func TestAppendHash(t *testing.T) {
 		[]byte("world"),
 	}
 
-	h1 := Sha3keccak256(data[0])
+	h1 := common.Sha3keccak256(data[0])
 	h1 = AppendHash(h1, data[1])
 	fmt.Printf("h1: %x \n", h1)
 
-	h2 := Sha3keccak256(data...)
+	h2 := common.Sha3keccak256(data...)
 
 	fmt.Printf("h2: %x \n", h2)
 
@@ -72,12 +73,12 @@ func TestAppendHash(t *testing.T) {
 
 func TestMerkleProofMisMatch(t *testing.T) {
 	data := HashedList{
-		Sha3keccak256([]byte("hello")),
-		Sha3keccak256([]byte("world")),
-		Sha3keccak256([]byte("test")),
+		common.Sha3keccak256([]byte("hello")),
+		common.Sha3keccak256([]byte("world")),
+		common.Sha3keccak256([]byte("test")),
 	}
 
-	failcase := Sha3keccak256([]byte("should_fail"))
+	failcase := common.Sha3keccak256([]byte("should_fail"))
 
 	tree := &MerkleHashTree{
 		Hashes: data,
