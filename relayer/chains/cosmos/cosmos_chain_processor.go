@@ -46,7 +46,7 @@ type CosmosChainProcessor struct {
 	connectionClients map[string]string
 
 	// map of channel ID to connection ID
-	channelConnections map[string]string
+	channelConnections map[string][]string
 
 	// metrics to monitor lifetime of processor
 	metrics *processor.PrometheusMetrics
@@ -63,7 +63,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics 
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),
 		connectionClients:    make(map[string]string),
-		channelConnections:   make(map[string]string),
+		channelConnections:   make(map[string][]string),
 		metrics:              metrics,
 	}
 }
@@ -284,15 +284,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 		return fmt.Errorf("error querying channels: %w", err)
 	}
 	for _, ch := range channels {
-		if len(ch.ConnectionHops) != 1 {
-			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
-				zap.String("channel_id", ch.ChannelId),
-				zap.String("port_id", ch.PortId),
-				zap.Strings("connection_hops", ch.ConnectionHops),
-			)
-			continue
-		}
-		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
+		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops
 		ccp.channelStateCache.SetOpen(processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,

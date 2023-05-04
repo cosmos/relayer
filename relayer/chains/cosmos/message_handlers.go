@@ -63,7 +63,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 }
 
 func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
-	ccp.channelConnections[ci.ChannelID] = ci.ConnID
+	ccp.channelConnections[ci.ChannelID] = ci.ConnectionHops()
 	channelKey := processor.ChannelInfoChannelKey(ci)
 
 	if eventType == chantypes.EventTypeChannelOpenInit {
