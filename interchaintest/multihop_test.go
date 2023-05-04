@@ -2,7 +2,10 @@ package interchaintest_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
+
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
@@ -267,6 +270,113 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	require.Equal(t, transferAmount, osmosisOnWasmBalance)
 }
 
+func getClientHeight(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, height uint64) clienttypes.Height {
+	defaultClientID := "07-tendermint-0"
+	validator := chain.Validators[0]
+	cmd := []string{"ibc", "client", "state", defaultClientID}
+	if height > 0 {
+		cmd = append(cmd, "--height", fmt.Sprint(height))
+	}
+	stdout, _, err := validator.ExecQuery(ctx, cmd...)
+	require.NoError(t, err)
+	queryResp := clienttypes.QueryClientStateResponse{}
+	err = defaultEncoding().Codec.UnmarshalJSON(stdout, &queryResp)
+	require.NoError(t, err)
+	clientState, err := clienttypes.UnpackClientState(queryResp.ClientState)
+	require.NoError(t, err)
+	clientHeight := clientState.GetLatestHeight().(clienttypes.Height)
+	t.Logf("%s height: %d (client height: %s)", chain.Config().ChainID, height, clientHeight.String())
+	return clientHeight
+}
+
+func TestForcedClientUpdate(t *testing.T) {
+	var (
+		r    = relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})
+		rep  = testreporter.NewNopReporter()
+		eRep = rep.RelayerExecReporter(t)
+		ctx  = context.Background()
+		nv   = 1
+		nf   = 0
+	)
+	// Define chains involved in test
+	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
+		wasmChainSpec("-1", nv, nf),
+		{
+			Name:          "osmosis",
+			ChainName:     "osmosis",
+			Version:       "v11.0.1",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+		},
+	})
+
+	chains, err := cf.Chains(t.Name())
+	require.NoError(t, err)
+
+	wasm1, osmosis := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain)
+
+	// Build the network; spin up the chains and configure the relayer
+	const pathWasm1Osmosis = "wasm1-osmosis"
+	const relayerName = "relayer"
+
+	ic := interchaintest.NewInterchain().
+		AddChain(wasm1).
+		AddChain(osmosis).
+		AddRelayer(r, relayerName).
+		AddLink(interchaintest.InterchainLink{
+			Chain1:  wasm1,
+			Chain2:  osmosis,
+			Relayer: r,
+			Path:    pathWasm1Osmosis,
+		})
+	client, network := interchaintest.DockerSetup(t)
+
+	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
+		TestName:          t.Name(),
+		Client:            client,
+		NetworkID:         network,
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
+
+		SkipPathCreation: true,
+	}))
+	t.Cleanup(func() {
+		_ = ic.Close()
+	})
+
+	// Create clients and connections
+
+	// Single hop wasm1 -> osmosis
+	err = r.GeneratePath(ctx, eRep, wasm1.Config().ChainID, osmosis.Config().ChainID, pathWasm1Osmosis)
+	require.NoError(t, err)
+	err = r.CreateClients(ctx, eRep, pathWasm1Osmosis, ibc.DefaultClientOpts())
+	require.NoError(t, err)
+	// Wait a few blocks for the clients to be created.
+	err = testutil.WaitForBlocks(ctx, 2, wasm1, osmosis)
+	require.NoError(t, err)
+	err = r.CreateConnections(ctx, eRep, pathWasm1Osmosis)
+	require.NoError(t, err)
+	// Wait a few blocks for the connections to be created.
+	err = testutil.WaitForBlocks(ctx, 2, wasm1, osmosis)
+
+	// Wait for enough blocks for the client on osmosis to be clearly obsolete
+	err = testutil.WaitForBlocks(ctx, 10, wasm1)
+	require.NoError(t, err)
+
+	wasm1Height, err := wasm1.Height(ctx)
+	require.NoError(t, err)
+
+	preUpdateHeight := getClientHeight(t, ctx, osmosis, 0)
+	require.Greater(t, wasm1Height, preUpdateHeight.GetRevisionHeight())
+
+	err = r.UpdateClients(ctx, eRep, pathWasm1Osmosis)
+	require.NoError(t, err)
+
+	err = testutil.WaitForBlocks(ctx, 2, osmosis)
+
+	postUpdateHeight := getClientHeight(t, ctx, osmosis, 0)
+	require.True(t, postUpdateHeight.GT(preUpdateHeight))
+}
+
 // TestRelayerMultihop sets up this topology to test multihop channels:
 // wasm1 		   <-> 			  osmosis 				<-> wasm2
 // 07-tendermint-0 <-> 07-tendermint-0, 07-tendermint-1 <-> 07-tendermint-0
@@ -376,8 +486,20 @@ func TestRelayerMultihop(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create multihop channel
+	startHeight, err := osmosis.Validators[0].Height(ctx)
+	require.NoError(t, err)
 	err = r.CreateChannel(ctx, eRep, pathWasm1Wasm2, ibc.DefaultChannelOpts())
 	require.NoError(t, err)
+	// TODO: the query command in wasmd is missing the --chain-id argument
+	//	for _, chain := range []*cosmos.CosmosChain{wasm1, osmosis, wasm2} {
+	for _, chain := range []*cosmos.CosmosChain{osmosis} {
+		endHeight, err := osmosis.Validators[0].Height(ctx)
+		require.NoError(t, err)
+		for i := startHeight; i < endHeight; i++ {
+			getClientHeight(t, ctx, chain, i)
+		}
+	}
+
 	// Wait a few blocks for the channel to be created.
 	err = testutil.WaitForBlocks(ctx, 2, osmosis, wasm2)
 	require.NoError(t, err)
