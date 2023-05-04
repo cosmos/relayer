@@ -73,7 +73,10 @@ interchaintest-docker-events:
 interchaintest-docker-legacy:
 	cd interchaintest && go test -race -v -run TestRelayerDockerLegacyProcessor .
 
-interchaintest-events:
+interchaintest-multihop:
+	cd interchaintest && go test -race -v -run TestRelayerMultihop .
+
+interchaintest-events: interchaintest-multihop
 	cd interchaintest && go test -race -v -run TestRelayerEventProcessor .
 
 interchaintest-legacy:
