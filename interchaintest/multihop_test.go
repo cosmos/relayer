@@ -508,7 +508,6 @@ func TestRelayerMultihop(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, osmosisChans, 0)
 
-	/* TODO: enable
 	// Start the relayers
 	err = r.StartRelayer(ctx, eRep, pathWasm1Osmosis, pathOsmosisWasm2, pathWasm1Wasm2)
 	require.NoError(t, err)
@@ -581,6 +580,4 @@ func TestRelayerMultihop(t *testing.T) {
 	wasm2OnWasm1Balance, err := wasm1.GetBalance(ctx, wasm1Address, wasm2IBCDenom)
 	require.NoError(t, err)
 	require.Equal(t, transferAmount, wasm2OnWasm1Balance)
-
-	*/
 }
