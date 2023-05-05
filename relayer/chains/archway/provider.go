@@ -129,6 +129,9 @@ type ArchwayProvider struct {
 	txMu sync.Mutex
 
 	metrics *processor.PrometheusMetrics
+
+	// for comet < v0.37, decode tm events as base64
+	cometLegacyEncoding bool
 }
 
 func (ap *ArchwayProvider) ProviderConfig() provider.ProviderConfig {
@@ -181,6 +184,7 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 		return err
 	}
 
+	ap.Keybase = keybase
 	addr, err := ap.GetKeyAddress()
 	if err != nil {
 		return err
@@ -198,7 +202,6 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)
 	ap.RPCClient = rpcClient
 	ap.LightProvider = lightprovider
-	ap.Keybase = keybase
 	return nil
 }
 

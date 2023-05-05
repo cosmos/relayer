@@ -74,9 +74,15 @@ func ibcMessagesFromEvents(
 	chainID string,
 	height uint64,
 	contractAddress string,
+	base64Encoded bool,
 ) (messages []ibcMessage) {
 	for _, event := range events {
-		evt := StringifyEvent(event)
+		var evt sdk.StringEvent
+		if base64Encoded {
+			evt = parseBase64Event(log, event)
+		} else {
+			evt = sdk.StringifyEvent(event)
+		}
 		m := parseIBCMessageFromEvent(log, evt, chainID, height, contractAddress)
 		if m == nil || m.info == nil {
 			// Not an IBC message, don't need to log here
