@@ -505,12 +505,45 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 	}
 }
 
-func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context, pathEnd1, pathEnd2 *pathEndRuntime) ([]channelIBCMessage, []packetIBCMessage, []channelIBCMessage, []packetIBCMessage) {
-	// We only allow channels between the first and last chain in paths
-	// TODO: do we need to check both directions?
-	if pathEnd1 != pp.pathEnd1 || pathEnd2 != pp.pathEnd2 {
-		return nil, nil, nil, nil
+func (pp *PathProcessor) processLatestConnectionMessages(ctx context.Context) ([]connectionIBCMessage, []connectionIBCMessage) {
+	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
+		Src:                         pp.pathEnd1,
+		Dst:                         pp.pathEnd2,
+		SrcMsgConnectionOpenInit:    pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
+		DstMsgConnectionOpenTry:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
+		SrcMsgConnectionOpenAck:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
+		DstMsgConnectionOpenConfirm: pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
 	}
+	pathEnd2ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
+		Src:                         pp.pathEnd2,
+		Dst:                         pp.pathEnd1,
+		SrcMsgConnectionOpenInit:    pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
+		DstMsgConnectionOpenTry:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
+		SrcMsgConnectionOpenAck:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
+		DstMsgConnectionOpenConfirm: pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
+	}
+	pathEnd1ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd1ConnectionHandshakeMessages)
+	pathEnd2ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd2ConnectionHandshakeMessages)
+
+	// concatenate applicable messages for pathend
+	return pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
+}
+
+func (pp *PathProcessor) processLatestClientICQMessages(ctx context.Context) ([]clientICQMessage, []clientICQMessage) {
+	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd1,
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd2,
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	return pathEnd1ClientICQMessages, pathEnd2ClientICQMessages
+}
+
+func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context) ([]channelIBCMessage, []packetIBCMessage, []channelIBCMessage, []packetIBCMessage) {
 	pathEnd1ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd1,
 		Dst:                      pp.pathEnd2,
@@ -605,45 +638,17 @@ func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context, pathE
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context, pathEnd1, pathEnd2 *pathEndRuntime) error {
-	// Update trusted client state for both pathends
-	pp.updateClientTrustedState(pathEnd1, pathEnd2)
-	pp.updateClientTrustedState(pathEnd2, pathEnd1)
-
-	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
-		Src:                         pathEnd1,
-		Dst:                         pathEnd2,
-		SrcMsgConnectionOpenInit:    pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
-		DstMsgConnectionOpenTry:     pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
-		SrcMsgConnectionOpenAck:     pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
-		DstMsgConnectionOpenConfirm: pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
+func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+	var pathEnd1ConnectionMessages, pathEnd2ConnectionMessages []connectionIBCMessage
+	var pathEnd1ClientICQMessages, pathEnd2ClientICQMessages []clientICQMessage
+	if len(pp.hopsPathEnd1to2) == 0 {
+		// Update trusted client state for both pathends
+		pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
+		pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+		pathEnd1ConnectionMessages, pathEnd2ConnectionMessages = pp.processLatestConnectionMessages(ctx)
+		pathEnd1ClientICQMessages, pathEnd2ClientICQMessages = pp.processLatestClientICQMessages(ctx)
 	}
-	pathEnd2ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
-		Src:                         pathEnd2,
-		Dst:                         pathEnd1,
-		SrcMsgConnectionOpenInit:    pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
-		DstMsgConnectionOpenTry:     pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
-		SrcMsgConnectionOpenAck:     pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
-		DstMsgConnectionOpenConfirm: pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
-	}
-	pathEnd1ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd1ConnectionHandshakeMessages)
-	pathEnd2ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd2ConnectionHandshakeMessages)
-
-	// concatenate applicable messages for pathend
-	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
-
-	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pathEnd1,
-		pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
-		pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
-	)
-	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pathEnd2,
-		pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
-		pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
-	)
-
-	pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages := pp.processLatestChannelMessages(ctx, pathEnd1, pathEnd2)
+	pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages := pp.processLatestChannelMessages(ctx)
 
 	pathEnd1Messages := pathEndMessages{
 		connectionMessages: pathEnd1ConnectionMessages,
@@ -659,7 +664,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, pathEnd1, pa
 		clientICQMessages:  pathEnd2ClientICQMessages,
 	}
 
-	// TODO: make sure this always gets sent when there's channel traffic
 	pp.appendInitialMessageIfNecessary(&pathEnd1Messages, &pathEnd2Messages)
 
 	// now assemble and send messages in parallel

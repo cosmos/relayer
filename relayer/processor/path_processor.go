@@ -380,6 +380,8 @@ func (pp *PathProcessor) HandleNewData(chainID, clientID string, cacheData Chain
 
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
 // It returns whether the pathProcessor should quit.
+// TODO: if we keep the requirement on having single hop paths underneath multihop paths this logic can back to just
+// dealing with src and dst and ignore hops (which probably shouldn't be path end runtimes but something simpler)
 func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func()) bool {
 	cases := make([]reflect.SelectCase, 3)
 	doneIndex := 0
@@ -494,27 +496,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			return
 		}
 
-		// Process latest message cache state from all pathEnds
-		if len(pp.hopsPathEnd1to2) > 0 {
-			lastHop := pp.pathEnd1
-			for i, hop := range append(pp.hopsPathEnd2to1, pp.pathEnd2) {
-				// TODO: only do clients and connections here
-				if err := pp.processLatestMessages(ctx, lastHop, hop); err != nil {
-					// in case of IBC message send errors, schedule retry after durationErrorRetry
-					if retryTimer != nil {
-						retryTimer.Stop()
-					}
-					if ctx.Err() == nil {
-						retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
-					}
-				}
-				if i < len(pp.hopsPathEnd1to2) {
-					lastHop = pp.hopsPathEnd1to2[i]
-				}
-			}
-		}
-		// TODO: only do channels and packets here
-		if err := pp.processLatestMessages(ctx, pp.pathEnd1, pp.pathEnd2); err != nil {
+		if err := pp.processLatestMessages(ctx); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()
