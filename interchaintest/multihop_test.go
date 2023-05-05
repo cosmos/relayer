@@ -237,6 +237,7 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fund osmosis user with ibc denom wasm1
+	t.Logf("Initiating transfer from %s to %s", wasm.Config().ChainID, osmosis.Config().ChainID)
 	tx, err := wasm.SendIBCTransfer(ctx, wasmChans[0].ChannelID, wasmUser.KeyName(), ibc.WalletAmount{
 		Amount:  transferAmount,
 		Denom:   wasmCfg.Denom,
@@ -249,7 +250,13 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	osmosisHeight, err := osmosis.Height(ctx)
 	require.NoError(t, err)
 
+	wasmOnOsmosisBalance, err := osmosis.GetBalance(ctx, osmosisAddress, wasmIBCDenom)
+	require.NoError(t, err)
+
+	require.Equal(t, transferAmount, wasmOnOsmosisBalance)
+
 	// Fund wasm user with ibc denom osmosis
+	t.Logf("Initiating transfer from %s to %s", osmosis.Config().ChainID, wasm.Config().ChainID)
 	tx, err = osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 		Amount:  transferAmount,
 		Denom:   osmosisCfg.Denom,
@@ -258,11 +265,6 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	require.NoError(t, err)
 	_, err = testutil.PollForAck(ctx, osmosis, osmosisHeight, osmosisHeight+10, tx.Packet)
 	require.NoError(t, err)
-
-	wasmOnOsmosisBalance, err := osmosis.GetBalance(ctx, osmosisAddress, wasmIBCDenom)
-	require.NoError(t, err)
-
-	require.Equal(t, transferAmount, wasmOnOsmosisBalance)
 
 	osmosisOnWasmBalance, err := wasm.GetBalance(ctx, wasmAddress, osmosisIBCDenom)
 	require.NoError(t, err)

@@ -150,6 +150,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom osmo
+		t.Logf("Initiating transfer from %s to %s", osmosis.Config().ChainID, gaia.Config().ChainID)
 		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   osmosisCfg.Denom,
@@ -168,6 +169,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom juno
+		t.Logf("Initiating transfer from %s to %s", juno.Config().ChainID, gaia.Config().ChainID)
 		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   junoCfg.Denom,
