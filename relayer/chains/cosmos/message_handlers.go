@@ -86,6 +86,7 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 			ccp.channelStateCache[channelKey] = false
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 			ccp.channelStateCache[channelKey] = true
+			ccp.logChannelOpenMessage(eventType, ci)
 		case chantypes.EventTypeChannelCloseConfirm:
 			for k := range ccp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
@@ -180,6 +181,14 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 		zap.String("counterparty_port_id", ci.CounterpartyPortID),
 		zap.String("connection_id", ci.ConnID),
 	)
+}
+
+func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo, fields ...zap.Field) {
+	ccp.log.With(
+		zap.String("port_id", ci.PortID),
+		zap.String("connection_id", ci.ConnID),
+		zap.String("channel_id", ci.ChannelID),
+	).Info("Successfully created new channel", fields...)
 }
 
 func (ccp *CosmosChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
