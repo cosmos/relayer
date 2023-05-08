@@ -75,10 +75,11 @@ func TestLocalhostIBC(t *testing.T) {
 	eRep := rep.RelayerExecReporter(t)
 
 	require.NoError(t, ic.Build(ctx, eRep, interchaintest.InterchainBuildOptions{
-		TestName:         t.Name(),
-		Client:           client,
-		NetworkID:        network,
-		SkipPathCreation: true,
+		TestName:          t.Name(),
+		Client:            client,
+		NetworkID:         network,
+		BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
+		SkipPathCreation:  true,
 	}))
 
 	t.Cleanup(func() {
@@ -88,14 +89,27 @@ func TestLocalhostIBC(t *testing.T) {
 	const relayerKey = "relayer-key"
 	const mnemonic = "all unit ordinary card sword document left illegal frog chuckle assume gift south settle can explain wagon beef story praise gorilla arch close good"
 
-	// create a new user account and wait a few blocks for it to be created on chain
-	user, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, 10_000_000, chainA)
+	// initialize a new acc for the relayer along with a couple user accs
+	initBal := int64(10_000_000)
+	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initBal, chainA)
 	require.NoError(t, err)
-	_ = user
 
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "test-key", initBal, chainA, chainA)
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
 
+	userA, userB := users[0], users[1]
+
+	// assert initial balances are correct
+	userABal, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.Equal(t, initBal, userABal)
+
+	userBBal, err := chainA.GetBalance(ctx, userB.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.Equal(t, initBal, userBBal)
+
+	// configure the relayer for a localhost connection
 	err = r.AddChainConfiguration(ctx, eRep, chainA.Config(), relayerKey, chainA.GetHostRPCAddress(), chainA.GetHostGRPCAddress())
 	require.NoError(t, err)
 
@@ -115,12 +129,7 @@ func TestLocalhostIBC(t *testing.T) {
 	res := r.Exec(ctx, eRep, updateCmd, nil)
 	require.NoError(t, res.Err)
 
-	//err = r.CreateClients(ctx, eRep, pathLocalhost, ibc.CreateClientOptions{TrustingPeriod: "1h"})
-	//require.NoError(t, err)
-	//
-	//err = r.CreateConnections(ctx, eRep, pathLocalhost)
-	//require.NoError(t, err)
-
+	// initialize new channels
 	height, err := chainA.Height(ctx)
 	require.NoError(t, err)
 
@@ -132,12 +141,17 @@ func TestLocalhostIBC(t *testing.T) {
 		chainA,
 		chainA.Config().EncodingConfig.InterfaceRegistry,
 		height,
-		height+10,
+		height+20,
 		nil,
 	)
-	require.NoError(t, err)
 
-	// Start the relayer
+	channels, err := r.GetChannels(ctx, eRep, chainA.Config().ChainID)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(channels))
+
+	channel := channels[0]
+
+	// start the relayer
 	require.NoError(t, r.StartRelayer(ctx, eRep, pathLocalhost))
 
 	t.Cleanup(
@@ -148,4 +162,28 @@ func TestLocalhostIBC(t *testing.T) {
 			}
 		},
 	)
+
+	// compose and send a localhost IBC transfer
+	transferAmount := int64(1_000)
+	transfer := ibc.WalletAmount{
+		Address: userB.FormattedAddress(),
+		Denom:   chainA.Config().Denom,
+		Amount:  transferAmount,
+	}
+
+	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.FormattedAddress(), transfer, ibc.TransferOptions{})
+	require.NoError(t, err)
+
+	err = testutil.WaitForBlocks(ctx, 5, chainA)
+	require.NoError(t, err)
+
+	// assert that the updated balances are correct
+	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.Equal(t, userABal-transferAmount, newBalA)
+
+	// TODO: this is using the wrong denom, fix later
+	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.Equal(t, userBBal+transferAmount, newBalB)
 }

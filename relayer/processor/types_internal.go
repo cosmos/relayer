@@ -246,9 +246,6 @@ func (msg connectionIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected connection message eventType for message assembly: %s", msg.eventType)
 	}
-	if src.clientState.ClientID == ibcexported.LocalhostClientID {
-		connProof = src.localhostSentinelProofConnection
-	}
 
 	src.log.Info("About to build connection proof...")
 	var proof provider.ConnectionProof

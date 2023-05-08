@@ -221,7 +221,7 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 		pp.pathEnd2.chainProvider = chainProvider
 
 		if pp.localhost {
-			pp.pathEnd2.chainProvider = chainProvider
+			pp.pathEnd1.chainProvider = chainProvider
 		}
 
 		return true
@@ -371,8 +371,8 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	pathEnd1Cache := ChainProcessorCacheData{
 		IBCMessagesCache:     NewIBCMessagesCache(),
 		InSync:               cacheData.InSync,
-		ClientState:          cacheData.ClientState,          // probably don't need
-		ConnectionStateCache: cacheData.ConnectionStateCache, // probably don't need
+		ClientState:          cacheData.ClientState,
+		ConnectionStateCache: cacheData.ConnectionStateCache,
 		ChannelStateCache:    cacheData.ChannelStateCache,
 		LatestBlock:          cacheData.LatestBlock,
 		LatestHeader:         cacheData.LatestHeader,
@@ -381,8 +381,8 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	pathEnd2Cache := ChainProcessorCacheData{
 		IBCMessagesCache:     NewIBCMessagesCache(),
 		InSync:               cacheData.InSync,
-		ClientState:          cacheData.ClientState,          // probably don't need
-		ConnectionStateCache: cacheData.ConnectionStateCache, // probably don't need
+		ClientState:          cacheData.ClientState,
+		ConnectionStateCache: cacheData.ConnectionStateCache,
 		ChannelStateCache:    cacheData.ChannelStateCache,
 		LatestBlock:          cacheData.LatestBlock,
 		LatestHeader:         cacheData.LatestHeader,
@@ -391,9 +391,6 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 
 	// split up data and send lower channel-id data to pathEnd1 and higher channel-id data to pathEnd2
 	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
-		pp.log.Info("Channel ID", zap.String("id", k.ChannelID))
-		pp.log.Info("Ctprty channel ID", zap.String("id", k.CounterpartyChannelID))
-
 		chanStr1 := strings.Replace(k.ChannelID, "channel-", "", 1)
 		chanStr2 := strings.Replace(k.CounterpartyChannelID, "channel-", "", 1)
 		chan1, err := strconv.Atoi(chanStr1)
@@ -417,59 +414,31 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 
 	for eventType, c := range cacheData.IBCMessagesCache.ChannelHandshake {
 		for k, v := range c {
-			pp.log.Info("Channel ID", zap.String("id", k.ChannelID))
-			pp.log.Info("Ctprty channel ID", zap.String("id", k.CounterpartyChannelID))
-
-			chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
-			chan2, secErr := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
-
-			if err != nil && secErr != nil {
-				pp.log.Error("Chan Handshake, failed to parse both chan IDs")
-				pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
-				continue
-			}
-			if eventType == chantypes.EventTypeChannelOpenInit {
-				if secErr != nil && err == nil {
-					pp.log.Error("Chan Handshake - OpenInit, failed to parse second channel ID")
-					pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
-
-					if _, ok := pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
-						pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
-					}
-					pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
-
-					fmt.Printf("WRITINGN TO PE2, key: %+v, info: %+v pointer: %p \n", k, v, pp.pathEnd2)
-
-					continue
-				}
-				if secErr == nil && err != nil {
-					pp.log.Error("Chan Handshake - OpenInit, failed to parse first channel ID")
-					pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
-
-					if _, ok := pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
-						pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
-					}
-					pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
-
-					continue
-				}
-			} else {
-				if secErr != nil || err != nil {
-					pp.log.Error("Not in Init")
-					continue
-				}
-			}
-
-			if chan1 > chan2 {
+			switch eventType {
+			case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelCloseInit:
 				if _, ok := pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
 					pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
 				}
+				if order, ok := pp.pathEnd1.channelOrderCache[k.ChannelID]; ok {
+					v.Order = order
+				}
+				if order, ok := pp.pathEnd2.channelOrderCache[k.CounterpartyChannelID]; ok {
+					v.Order = order
+				}
 				pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
-			} else {
+			case chantypes.EventTypeChannelOpenTry, chantypes.EventTypeChannelOpenConfirm, chantypes.EventTypeChannelCloseConfirm:
 				if _, ok := pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
 					pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType] = make(ChannelMessageCache)
 				}
+				if order, ok := pp.pathEnd2.channelOrderCache[k.ChannelID]; ok {
+					v.Order = order
+				}
+				if order, ok := pp.pathEnd1.channelOrderCache[k.CounterpartyChannelID]; ok {
+					v.Order = order
+				}
 				pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
+			default:
+				pp.log.Error("Invalid IBC event type", zap.String("event_type", eventType))
 			}
 		}
 	}
@@ -487,35 +456,26 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 		chan2, secErr := strconv.Atoi(chanStr2)
 
 		if err != nil && secErr != nil {
-			pp.log.Error("here is the error 5")
-			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
 		if secErr != nil && err == nil {
-			pp.log.Error("here is the error 6")
-			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
-			channelStateCache2[k] = v
+			channelStateCache1[k] = v
 			continue
 		}
 		if secErr == nil && err != nil {
-			pp.log.Error("here is the error 6")
-			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
-			channelStateCache1[k] = v
+			channelStateCache2[k] = v
 			continue
 		}
 		if chan1 > chan2 {
-			channelStateCache1[k] = v
-		} else {
 			channelStateCache2[k] = v
+		} else {
+			channelStateCache1[k] = v
 		}
 	}
 
 	pathEnd1Cache.ChannelStateCache = channelStateCache1
 	pathEnd2Cache.ChannelStateCache = channelStateCache2
 
-	fmt.Printf("Writing to PE1 incoming cache data: %v \n", pathEnd1Cache.IBCMessagesCache.ChannelHandshake)
 	pp.pathEnd1.incomingCacheData <- pathEnd1Cache
-
-	fmt.Printf("Writing to PE2 incoming cache data: %v \n", pathEnd2Cache.IBCMessagesCache.ChannelHandshake)
 	pp.pathEnd2.incomingCacheData <- pathEnd2Cache
 }

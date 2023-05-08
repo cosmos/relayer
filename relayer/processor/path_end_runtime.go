@@ -2,14 +2,13 @@ package processor
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	localhosttypes "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -31,6 +30,7 @@ type pathEndRuntime struct {
 	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
+	channelOrderCache    map[string]chantypes.Order
 	latestHeader         provider.IBCHeader
 	ibcHeaderCache       IBCHeaderCache
 
@@ -72,6 +72,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		packetProcessing:     make(packetProcessingCache),
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
+		channelOrderCache:    make(map[string]chantypes.Order),
 		clientICQProcessing:  make(clientICQProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
@@ -559,9 +560,13 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
 	channelKey := ChannelInfoChannelKey(message.info).Counterparty()
-	fmt.Printf("SRC PE: %p \n", pathEnd)
-	fmt.Printf("DST PE: %p \n", counterparty)
-	fmt.Printf("shouldSendChanMsg: %+v  %p \n", message, pathEnd)
+
+	// For localhost cache the channel order on OpenInit so that we can access it during the other channel handshake steps
+	if pathEnd.info.ClientID == ibcexported.LocalhostClientID && eventType == chantypes.EventTypeChannelOpenInit {
+		pathEnd.channelOrderCache[channelKey.ChannelID] = message.info.Order
+		counterparty.channelOrderCache[channelKey.CounterpartyChannelID] = message.info.Order
+	}
+
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
@@ -705,8 +710,6 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) uint64 {
 	retryCount := uint64(0)
 
-	fmt.Printf("trackProcessingMsgs: %+v, %p \n", tracker, pathEnd)
-
 	switch t := tracker.(type) {
 	case packetMessageToTrack:
 		eventType := t.msg.eventType
@@ -748,7 +751,6 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 			channelKey = channelKey.Counterparty()
 		}
 		msgProcessCache, ok := pathEnd.channelProcessing[eventType]
-		fmt.Printf("trackProcessingMsgs msgProcessCache: %+v, %p \n", msgProcessCache, pathEnd)
 		if !ok {
 			msgProcessCache = make(channelKeySendCache)
 			pathEnd.channelProcessing[eventType] = msgProcessCache
@@ -802,8 +804,8 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 }
 
 func (pathEnd *pathEndRuntime) localhostSentinelProofPacket(
-	ctx context.Context,
-	info provider.PacketInfo,
+	_ context.Context,
+	_ provider.PacketInfo,
 	height uint64,
 ) (provider.PacketProof, error) {
 	return provider.PacketProof{
@@ -813,27 +815,14 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofPacket(
 }
 
 func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
-	ctx context.Context,
+	_ context.Context,
 	info provider.ChannelInfo,
 	height uint64,
 ) (provider.ChannelProof, error) {
 	return provider.ChannelProof{
 		Proof:       []byte{0x01},
 		ProofHeight: clienttypes.NewHeight(clienttypes.ParseChainID(pathEnd.info.ChainID), height),
-	}, nil
-}
-
-func (pathEnd *pathEndRuntime) localhostSentinelProofConnection(
-	ctx context.Context,
-	info provider.ConnectionInfo,
-	height uint64,
-) (provider.ConnectionProof, error) {
-	h := clienttypes.NewHeight(clienttypes.ParseChainID(pathEnd.info.ChainID), height)
-	return provider.ConnectionProof{
-		ConsensusStateProof:  []byte{0x01},
-		ConnectionStateProof: []byte{0x01},
-		ClientStateProof:     []byte{0x01},
-		ClientState:          localhosttypes.NewClientState(h),
-		ProofHeight:          h,
+		Ordering:    info.Order,
+		Version:     info.Version,
 	}, nil
 }
