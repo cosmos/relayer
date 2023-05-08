@@ -183,12 +183,15 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 	)
 }
 
-func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo, fields ...zap.Field) {
-	ccp.log.With(
-		zap.String("port_id", ci.PortID),
-		zap.String("connection_id", ci.ConnID),
+func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo) {
+	fields := []zap.Field{
+
 		zap.String("channel_id", ci.ChannelID),
-	).Info("Successfully created new channel", fields...)
+		zap.String("port_id", ci.PortID),
+		zap.String("counterparty_channel_id", ci.CounterpartyChannelID),
+		zap.String("counterparty_port_id", ci.CounterpartyPortID),
+	}
+	ccp.log.Info("Successfully created new channel", fields...)
 }
 
 func (ccp *CosmosChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
