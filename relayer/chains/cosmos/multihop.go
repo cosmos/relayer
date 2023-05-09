@@ -165,10 +165,7 @@ func (e *endpoint) UpdateClient() error {
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return fmt.Errorf(
-			"client %s on %s not updated to %s after checking %d times",
-			e.clientID, e.ChainID(), newConsensusHeight, rtyAtt,
-		)
+		return fmt.Errorf("client %s on %s not updated to %s", e.clientID, e.ChainID(), newConsensusHeight)
 	}
 	return nil
 }
