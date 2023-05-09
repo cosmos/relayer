@@ -23,9 +23,9 @@ func wasmChainSpec(suffix string, nv, nf int) *interchaintest.ChainSpec {
 	chainID := "wasm" + suffix
 	denom := "uand"
 	switch suffix {
-	case "-1":
+	case "1":
 		denom += "one"
-	case "-2":
+	case "2":
 		denom += "two"
 	default:
 		panic("invalid suffix")
@@ -66,7 +66,7 @@ func TestWasmBuild(t *testing.T) {
 		nf   = 0
 	)
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		wasmChainSpec("-1", nv, nf),
+		wasmChainSpec("1", nv, nf),
 	})
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestRelayerPathWithWasm(t *testing.T) {
 	)
 	// Define chains involved in test
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		wasmChainSpec("-1", nv, nf),
+		wasmChainSpec("1", nv, nf),
 		{
 			Name:          "osmosis",
 			ChainName:     "osmosis",
@@ -302,7 +302,7 @@ func TestForcedClientUpdate(t *testing.T) {
 	)
 	// Define chains involved in test
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		wasmChainSpec("-1", nv, nf),
+		wasmChainSpec("1", nv, nf),
 		{
 			Name:          "osmosis",
 			ChainName:     "osmosis",
@@ -398,7 +398,7 @@ func TestRelayerMultihop(t *testing.T) {
 	)
 	// Define chains involved in test
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		wasmChainSpec("-1", nv, nf),
+		wasmChainSpec("1", nv, nf),
 		{
 			Name:          "osmosis",
 			ChainName:     "osmosis",
@@ -406,7 +406,7 @@ func TestRelayerMultihop(t *testing.T) {
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
-		wasmChainSpec("-2", nv, nf),
+		wasmChainSpec("2", nv, nf),
 	})
 
 	chains, err := cf.Chains(t.Name())
