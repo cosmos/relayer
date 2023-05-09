@@ -174,7 +174,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		// now pass foundMessages to the path processors
 		for _, pp := range mcp.pathProcessors {
 			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
-			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
+			pp.HandleNewData(mcp.chainID, "07-tendermint-0", processor.ChainProcessorCacheData{
 				IBCMessagesCache:  ibcMessagesCache,
 				InSync:            mcp.inSync,
 				ChannelStateCache: channelStateCache,
