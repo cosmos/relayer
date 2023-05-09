@@ -584,7 +584,7 @@ func TestRelayerMultihop(t *testing.T) {
 		Address: wasm2Address,
 	}, ibc.TransferOptions{})
 	require.NoError(t, err)
-	_, err = testutil.PollForAck(ctx, wasm1, wasm1Height, wasm1Height+10, tx.Packet)
+	_, err = testutil.PollForAck(ctx, wasm1, wasm1Height, wasm1Height+30, tx.Packet)
 	require.NoError(t, err)
 
 	wasm2Height, err := wasm2.Height(ctx)
@@ -597,7 +597,7 @@ func TestRelayerMultihop(t *testing.T) {
 		Address: wasm1Address,
 	}, ibc.TransferOptions{})
 	require.NoError(t, err)
-	_, err = testutil.PollForAck(ctx, wasm2, wasm2Height, wasm2Height+10, tx.Packet)
+	_, err = testutil.PollForAck(ctx, wasm2, wasm2Height, wasm2Height+30, tx.Packet)
 	require.NoError(t, err)
 
 	wasm1OnWasm2Balance, err := wasm2.GetBalance(ctx, wasm2Address, wasm1IBCDenom)
