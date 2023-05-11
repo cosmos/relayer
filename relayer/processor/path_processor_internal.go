@@ -36,22 +36,13 @@ func (pp *PathProcessor) getMessagesToSend(
 		sort.SliceStable(msgs, func(i, j int) bool {
 			return msgs[i].info.Sequence < msgs[j].info.Sequence
 		})
-		firstMsg := msgs[0]
-		switch firstMsg.eventType {
-		case chantypes.EventTypeRecvPacket:
-			if dst.shouldSendPacketMessage(firstMsg, src) {
-				dstMsgs = append(dstMsgs, firstMsg)
-			}
-		default:
-			if src.shouldSendPacketMessage(firstMsg, dst) {
-				srcMsgs = append(srcMsgs, firstMsg)
-			}
-		}
-		return srcMsgs, dstMsgs
 	}
 
 	// for unordered channels, can handle multiple simultaneous packets.
-	for _, msg := range msgs {
+	for i, msg := range msgs {
+		if i > pp.maxMsgs {
+			break
+		}
 		switch msg.eventType {
 		case chantypes.EventTypeRecvPacket:
 			if dst.shouldSendPacketMessage(msg, src) {
@@ -951,11 +942,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.maxMsgs)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
 		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
 	})
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.maxMsgs)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
 		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
 	})
 	return eg.Wait()

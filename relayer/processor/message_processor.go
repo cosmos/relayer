@@ -21,8 +21,6 @@ type messageProcessor struct {
 
 	memo string
 
-	maxMsgs int
-
 	msgUpdateClient           provider.RelayerMessage
 	clientUpdateThresholdTime time.Duration
 
@@ -68,14 +66,12 @@ func newMessageProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
-	maxMsgs int,
 ) *messageProcessor {
 	return &messageProcessor{
 		log:                       log,
 		metrics:                   metrics,
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
-		maxMsgs:                   maxMsgs,
 	}
 }
 
@@ -151,44 +147,26 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
 	var wg sync.WaitGroup
 
-	msgs := 0
-
 	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
 	for i, msg := range messages.connectionMessages {
-		msgs++
-		if msgs >= mp.maxMsgs {
-			break
-		}
 		wg.Add(1)
 		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
 	}
 
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
 	for i, msg := range messages.channelMessages {
-		msgs++
-		if msgs >= mp.maxMsgs {
-			break
-		}
 		wg.Add(1)
 		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
 	}
 
 	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
 	for i, msg := range messages.clientICQMessages {
-		msgs++
-		if msgs >= mp.maxMsgs {
-			break
-		}
 		wg.Add(1)
 		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
 	}
 
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
 	for i, msg := range messages.packetMessages {
-		msgs++
-		if msgs >= mp.maxMsgs {
-			break
-		}
 		wg.Add(1)
 		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
 	}
