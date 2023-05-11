@@ -27,6 +27,7 @@ const (
 	ProcessorLegacy                     = "legacy"
 	DefaultClientUpdateThreshold        = 0 * time.Millisecond
 	DefaultFlushInterval                = 5 * time.Minute
+	DefaultMaxMsgLength                 = 5
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
@@ -155,6 +156,7 @@ func relayerStartEventProcessor(
 				memo,
 				clientUpdateThresholdTime,
 				flushInterval,
+				int(maxMsgLength),
 			))
 	}
 

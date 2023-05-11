@@ -71,6 +71,8 @@ type PathProcessor struct {
 
 	sentInitialMsg bool
 
+	maxMsgs int
+
 	metrics *PrometheusMetrics
 }
 
@@ -94,6 +96,7 @@ func NewPathProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
+	maxMsgs int,
 ) *PathProcessor {
 	pp := &PathProcessor{
 		log:                       log,
@@ -104,6 +107,7 @@ func NewPathProcessor(
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
+		maxMsgs:                   maxMsgs,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
