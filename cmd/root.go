@@ -34,7 +34,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/term"
 )
 
 const (
@@ -185,18 +184,10 @@ func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 	switch format {
 	case "json":
 		enc = zapcore.NewJSONEncoder(config)
-	case "console":
+	case "auto", "console":
 		enc = zapcore.NewConsoleEncoder(config)
 	case "logfmt":
 		enc = zaplogfmt.NewEncoder(config)
-	case "auto":
-		if term.IsTerminal(int(os.Stderr.Fd())) {
-			// When a user runs relayer in the foreground, use easier to read output.
-			enc = zapcore.NewConsoleEncoder(config)
-		} else {
-			// Otherwise, use consistent logfmt format for simplistic machine processing.
-			enc = zaplogfmt.NewEncoder(config)
-		}
 	default:
 		return nil, fmt.Errorf("unrecognized log format %q", format)
 	}

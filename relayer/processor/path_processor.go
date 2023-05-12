@@ -71,7 +71,7 @@ type PathProcessor struct {
 
 	sentInitialMsg bool
 
-	maxMsgs int
+	maxMsgs uint64
 
 	metrics *PrometheusMetrics
 }
@@ -96,7 +96,7 @@ func NewPathProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
-	maxMsgs int,
+	maxMsgs uint64,
 ) *PathProcessor {
 	pp := &PathProcessor{
 		log:                       log,
