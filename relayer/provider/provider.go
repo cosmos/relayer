@@ -394,8 +394,7 @@ type ChainProvider interface {
 		asyncCallback func(*RelayerTxResponse, error),
 	) error
 
-	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage,error)
-	
+	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage, error)
 
 	ChainName() string
 	ChainId() string

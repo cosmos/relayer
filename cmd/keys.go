@@ -24,6 +24,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	// "github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -32,6 +34,7 @@ import (
 const (
 	flagCoinType           = "coin-type"
 	flagAlgo               = "signing-algorithm"
+	flagRestoreAll         = "restore-all"
 	defaultCoinType uint32 = sdk.CoinType
 )
 
@@ -128,64 +131,115 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 // keysRestoreCmd respresents the `keys add` command
 func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "restore chain_name key_name mnemonic",
+		Use:     "restore mnemonic chain_name key_name ",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
-		Args:    withUsage(cobra.ExactArgs(3)),
+		Args:    withUsage(cobra.RangeArgs(1, 3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys restore ibc-0 testkey "[mnemonic-words]"
-$ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
+$ %s keys restore "[mnemonic-words]" ibc-0 testkey 
+$ %s k r "[mnemonic-words]" cosmoshub faucet-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			keyName := args[1]
-
-			chain, ok := a.config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-
-			if chain.ChainProvider.KeyExists(keyName) {
-				return errKeyExists(keyName)
-			}
 
 			cmdFlags := cmd.Flags()
 
-			coinType, err := cmdFlags.GetInt32(flagCoinType)
+			restoreall, err := cmdFlags.GetBool(flagRestoreAll)
 			if err != nil {
 				return err
 			}
 
-			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
-					coinType = int32(*ccp.PCfg.Slip44)
-				} else {
-					coinType = int32(defaultCoinType)
+			
+			keyName := args[1]
+
+			if !restoreall {
+
+				chain, ok := a.config.Chains[args[0]]
+				if !ok {
+					return errChainNotFound(args[0])
+				}
+
+				if chain.ChainProvider.KeyExists(keyName) {
+					return errKeyExists(keyName)
+				}
+
+				coinType, err := cmdFlags.GetInt32(flagCoinType)
+				if err != nil {
+					return err
+				}
+
+				if coinType < 0 {
+					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+						coinType = int32(*ccp.PCfg.Slip44)
+					} else {
+						coinType = int32(defaultCoinType)
+					}
+				}
+
+				algo, err := cmdFlags.GetString(flagAlgo)
+				if err != nil {
+					return err
+				}
+
+				if algo == "" {
+					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+						algo = ccp.PCfg.SigningAlgorithm
+					} else {
+						algo = string(hd.Secp256k1Type)
+					}
+				}
+
+				address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType), algo)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), address)
+				return nil
+
+			} else {
+
+				chains := a.config.Chains
+				keyName := args[0]
+				for _, c := range chains {
+
+					coinType, err := cmdFlags.GetInt32(flagCoinType)
+					if err != nil {
+						return err
+					}
+
+					if coinType < 0 {
+						if ccp, ok := c.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+							coinType = int32(*ccp.PCfg.Slip44)
+						} else {
+							coinType = int32(defaultCoinType)
+						}
+					}
+
+					algo, err := cmdFlags.GetString(flagAlgo)
+					if err != nil {
+						return err
+					}
+
+					if algo == "" {
+						if ccp, ok := c.ChainProvider.(*cosmos.CosmosProvider); ok {
+							algo = ccp.PCfg.SigningAlgorithm
+						} else {
+							algo = string(hd.Secp256k1Type)
+						}
+					}
+
+					addresses, err := c.ChainProvider.RestoreKey(keyName, args[1], uint32(coinType), algo)
+					if err != nil {
+						return err
+					}
+
+					fmt.Fprintln(cmd.OutOrStdout(), addresses)
 				}
 			}
-
-			algo, err := cmdFlags.GetString(flagAlgo)
-			if err != nil {
-				return err
-			}
-
-			if algo == "" {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					algo = ccp.PCfg.SigningAlgorithm
-				} else {
-					algo = string(hd.Secp256k1Type)
-				}
-			}
-
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType), algo)
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
+	cmd.Flags().Bool(flagRestoreAll, false, "restoring keys of all chains with single mnemonic")
 
 	return cmd
 }
