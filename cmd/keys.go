@@ -131,13 +131,14 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 // keysRestoreCmd respresents the `keys add` command
 func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "restore mnemonic chain_name key_name ",
+		Use:     "restore  chain_name key_name mnemonic",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
 		Args:    withUsage(cobra.RangeArgs(1, 3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys restore "[mnemonic-words]" ibc-0 testkey 
-$ %s k r "[mnemonic-words]" cosmoshub faucet-key`, appName, appName)),
+$ %s keys restore  ibc-0 testkey "[mnemonic-words]"
+$ %s k r "[mnemonic-words]" cosmoshub faucet-key
+$ %s k r demo-key "[mnemonic-words]" --restore-all`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			cmdFlags := cmd.Flags()
