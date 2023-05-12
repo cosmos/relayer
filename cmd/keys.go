@@ -131,10 +131,10 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 // keysRestoreCmd respresents the `keys add` command
 func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "restore  chain_name key_name mnemonic",
+		Use:     "restore chain_name key_name mnemonic",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
-		Args:    withUsage(cobra.RangeArgs(1, 3)),
+		Args:    withUsage(cobra.RangeArgs(2, 3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys restore  ibc-0 testkey "[mnemonic-words]"
 $ %s k r "[mnemonic-words]" cosmoshub faucet-key
@@ -143,16 +143,15 @@ $ %s k r demo-key "[mnemonic-words]" --restore-all`, appName, appName, appName))
 
 			cmdFlags := cmd.Flags()
 
-			restoreall, err := cmdFlags.GetBool(flagRestoreAll)
+			restoreAll, err := cmdFlags.GetBool(flagRestoreAll)
 			if err != nil {
 				return err
 			}
 
 			
-			keyName := args[1]
-
-			if !restoreall {
-
+			if !restoreAll {
+				
+				keyName := args[1]
 				chain, ok := a.config.Chains[args[0]]
 				if !ok {
 					return errChainNotFound(args[0])
