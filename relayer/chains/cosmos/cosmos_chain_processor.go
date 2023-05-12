@@ -381,7 +381,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 
 		if err := eg.Wait(); err != nil {
-			ccp.log.Warn("Error querying block data", zap.Error(err))
+			ccp.log.Warn(
+				"Could not query block data. Consider checking if your RPC node is online, and that transaction indexing is enabled.",
+				zap.String("chainID", chainID),
+				zap.Int64("height", i),
+			)
+			ccp.log.Debug("Error querying block data", zap.Error(err))
 
 			persistence.retriesAtLatestQueriedBlock++
 			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
