@@ -24,8 +24,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	// "github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -148,9 +146,8 @@ $ %s k r demo-key "[mnemonic-words]" --restore-all`, appName, appName, appName))
 				return err
 			}
 
-			
 			if !restoreAll {
-				
+
 				keyName := args[1]
 				chain, ok := a.config.Chains[args[0]]
 				if !ok {
