@@ -3,6 +3,13 @@ package types
 import (
 	"encoding/hex"
 	"encoding/json"
+
+	types "github.com/cosmos/cosmos-sdk/codec/types"
+
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 )
 
 type HexBytes string
@@ -19,6 +26,84 @@ func NewHexBytes(b []byte) HexBytes {
 }
 
 // / IBC Handler Contract Methods and Parameters
+
+// / EXTERNAL METHODS
+type CreateClient struct {
+	CreateClient clienttypes.MsgCreateClient `json:"CreateClient"`
+}
+
+func MsgCreateClient(c1, c2 *types.Any, signer string) *CreateClient {
+	return &CreateClient{
+		CreateClient: clienttypes.MsgCreateClient{
+			ClientState:    c1,
+			ConsensusState: c2,
+			Signer:         signer,
+		},
+	}
+}
+
+type UpdateClient struct {
+	UpdateClient clienttypes.MsgUpdateClient `json:"UpdateClient"`
+}
+
+func MsgUpdateClient(clientId string, clientMsg *types.Any, signer string) *UpdateClient {
+	return &UpdateClient{
+		UpdateClient: clienttypes.MsgUpdateClient{
+			ClientId:      clientId,
+			ClientMessage: clientMsg,
+			Signer:        signer,
+		},
+	}
+}
+
+type ConnectionOpenInit struct {
+	Msg conntypes.MsgConnectionOpenInit `json:"ConnectionOpenInit"`
+}
+type ConnectionOpenTry struct {
+	Msg conntypes.MsgConnectionOpenTry `json:"ConnectionOpenTry"`
+}
+type ConnectionOpenAck struct {
+	Msg conntypes.MsgConnectionOpenAck `json:"ConnectionOpenAck"`
+}
+type ConnectionOpenConfirm struct {
+	Msg conntypes.MsgConnectionOpenConfirm `json:"ConnectionOpenConfirm"`
+}
+
+type ChannelOpenInit struct {
+	Msg chantypes.MsgChannelOpenInit `json:"ChannelOpenInit"`
+}
+
+type ChannelOpenTry struct {
+	Msg chantypes.MsgChannelOpenTry `json:"ChannelOpenTry"`
+}
+
+type ChannelOpenAck struct {
+	Msg chantypes.MsgChannelOpenAck `json:"ChannelOpenAck"`
+}
+type ChannelOpenConfirm struct {
+	Msg chantypes.MsgChannelOpenConfirm `json:"ChannelOpenConfirm"`
+}
+type ChannelCloseInit struct {
+	Msg chantypes.MsgChannelCloseInit `json:"ChannelCloseInit"`
+}
+
+type ChannelCloseConfirm struct {
+	Msg chantypes.MsgChannelCloseConfirm `json:"ChannelCloseConfirm"`
+}
+
+type ReceivePacket struct {
+	Msg chantypes.MsgRecvPacket `json:"ReceivePacket"`
+}
+
+type AcknowledgementPacket struct {
+	Msg chantypes.MsgAcknowledgement `json:"AcknowledgementPacket"`
+}
+
+type TimeoutPacket struct {
+	Msg chantypes.MsgTimeout `json:"TimeoutPacket"`
+}
+
+// / READONLY METHODS
 type GetClientState struct {
 	ClientState struct {
 		ClientId string `json:"client_id"`
