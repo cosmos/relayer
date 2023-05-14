@@ -30,9 +30,11 @@ import (
 )
 
 const (
-	flagCoinType           = "coin-type"
-	flagAlgo               = "signing-algorithm"
-	defaultCoinType uint32 = sdk.CoinType
+	flagCoinType             = "coin-type"
+	flagAlgo                 = "signing-algorithm"
+	defaultCoinType   uint32 = sdk.CoinType
+	flagDeleteKeyname        = "delete-keyname"
+	flagDeleteAll            = "delete-all"
 )
 
 // keysCmd represents the keys command
@@ -196,39 +198,101 @@ func keysDeleteCmd(a *appState) *cobra.Command {
 		Use:     "delete chain_name key_name",
 		Aliases: []string{"d"},
 		Short:   "Deletes a key from the keychain associated with a particular chain",
-		Args:    withUsage(cobra.ExactArgs(2)),
+		Args:    withUsage(cobra.RangeArgs(0, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys delete ibc-0 -y
+$ %s keys delete ibc-0 key1
 $ %s keys delete ibc-1 key2 -y
-$ %s k d cosmoshub default`, appName, appName, appName)),
+$ %s keys delete key2 --delete-keyname
+$ %s keys delete --delete-all
+$ %s k d cosmoshub default`, appName, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
 
-			keyName := args[1]
-			if !chain.ChainProvider.KeyExists(keyName) {
-				return errKeyDoesntExist(keyName)
-			}
+			cmdFlags := cmd.Flags()
 
-			if skip, _ := cmd.Flags().GetBool(flagSkip); !skip {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
-				if !askForConfirmation(a, cmd.InOrStdin(), cmd.ErrOrStderr()) {
-					return nil
-				}
+			dKey, err := cmdFlags.GetBool(flagDeleteKeyname)
+			if err != nil {
+				return err
 			}
-
-			err := chain.ChainProvider.DeleteKey(keyName)
+			dAll, err := cmdFlags.GetBool(flagDeleteAll)
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.ErrOrStderr(), "key %s deleted\n", keyName)
-			return nil
+			chains := a.config.Chains
+
+			switch {
+			case dKey:
+
+				keyName := args[0]
+				if skip, _ := cmdFlags.GetBool(flagSkip); !skip {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete key(%s) from from all the chains? (Y/n)\n", keyName)
+					if !askForConfirmation(a, cmd.InOrStdin(), cmd.ErrOrStderr()) {
+						return nil
+					}
+				}
+				for _, c := range chains {
+					if c.ChainProvider.KeyExists(keyName) {
+						err := c.ChainProvider.DeleteKey(keyName)
+						if err != nil {
+							return err
+						}
+					}
+				}
+
+				fmt.Fprintf(cmd.ErrOrStderr(), "key %s deleted on all chains\n", keyName)
+				return nil
+			case dAll:
+
+				if skip, _ := cmdFlags.GetBool(flagSkip); !skip {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete all the keys? (Y/n)\n")
+					if !askForConfirmation(a, cmd.InOrStdin(), cmd.ErrOrStderr()) {
+						return nil
+					}
+				}
+				args = nil
+				for _, c := range chains {
+					list, err := c.ChainProvider.ListAddresses()
+					if err != nil {
+						return err
+					}
+					for k := range list {
+						err := c.ChainProvider.DeleteKey(k)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "All keys deleted\n")
+				return nil
+			default:
+				chain, ok := a.config.Chains[args[0]]
+				if !ok {
+					return errChainNotFound(args[0])
+				}
+
+				keyName := args[1]
+				if !chain.ChainProvider.KeyExists(keyName) {
+					return errKeyDoesntExist(keyName)
+				}
+				if skip, _ := cmdFlags.GetBool(flagSkip); !skip {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Are you sure you want to delete key(%s) from chain(%s)? (Y/n)\n", keyName, args[0])
+					if !askForConfirmation(a, cmd.InOrStdin(), cmd.ErrOrStderr()) {
+						return nil
+					}
+				}
+				err := chain.ChainProvider.DeleteKey(keyName)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "key %s deleted\n", keyName)
+				return nil
+
+			}
 		},
 	}
 
+	cmd.Flags().Bool(flagDeleteKeyname, false, "Delete keys on all chains with the same keyname")
+	cmd.Flags().Bool(flagDeleteAll, false, "Delete all keys ")
 	return skipConfirm(a.viper, cmd)
 }
 
