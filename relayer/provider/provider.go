@@ -62,15 +62,17 @@ type IBCHeader interface {
 	Height() uint64
 	ConsensusState() ibcexported.ConsensusState
 	NextValidatorsHash() []byte
+	IsCompleteBlock() bool             //defined for IconIBCHeader
+	ShouldUpdateWithZeroMessage() bool //defined for IconIBCHeader
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
 type ClientState struct {
 	ClientID        string
 	ConsensusHeight clienttypes.Height
-	TrustingPeriod  time.Duration
-	ConsensusTime   time.Time
-	Header          []byte
+	TrustingPeriod  time.Duration // trustring period wont be there in ICON client state
+	ConsensusTime   time.Time     // consensus time wont be there in ICON light client State
+	Header          []byte        //
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,
@@ -541,6 +543,13 @@ func (h TendermintIBCHeader) ConsensusState() ibcexported.ConsensusState {
 		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
 		NextValidatorsHash: h.SignedHeader.NextValidatorsHash,
 	}
+}
+
+func (h TendermintIBCHeader) IsCompleteBlock() bool {
+	return true
+}
+func (h TendermintIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	return false
 }
 
 func (h TendermintIBCHeader) NextValidatorsHash() []byte {

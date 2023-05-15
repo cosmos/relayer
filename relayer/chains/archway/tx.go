@@ -14,7 +14,9 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
+	iconchain "github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -136,7 +138,7 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 		MaxClockDrift:      20 * 60,
 		LatestHeight:       dstIBCHeader.Height(),
 		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.ValidatorSet,
+		Validators:         btpHeader.Validators,
 	}, nil
 }
 
@@ -150,7 +152,7 @@ func (ap *ArchwayProvider) NewClientStateMock(dstChainID string, dstIBCHeader pr
 		MaxClockDrift:      20 * 60,
 		LatestHeight:       dstIBCHeader.Height(),
 		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.ValidatorSet,
+		Validators:         btpHeader.Validators,
 	}, nil
 }
 

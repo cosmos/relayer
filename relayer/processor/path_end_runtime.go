@@ -22,7 +22,9 @@ type pathEndRuntime struct {
 	chainProvider provider.ChainProvider
 
 	// cached data
-	latestBlock          provider.LatestBlock
+	latestBlock   provider.LatestBlock
+	latestBlockMu sync.Mutex
+
 	messageCache         IBCMessagesCache
 	clientState          provider.ClientState
 	clientTrustedState   provider.ClientTrustedState
@@ -336,10 +338,15 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 }
 
 func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
-	pathEnd.lastClientUpdateHeightMu.Lock()
+	pathEnd.latestBlockMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
-	pathEnd.lastClientUpdateHeightMu.Unlock()
+	pathEnd.latestBlockMu.Unlock()
 
+	if d.IsGenesis {
+		pathEnd.lastClientUpdateHeightMu.Lock()
+		pathEnd.lastClientUpdateHeight = d.LatestBlock.Height
+		pathEnd.lastClientUpdateHeightMu.Unlock()
+	}
 	pathEnd.inSync = d.InSync
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
@@ -396,7 +403,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 
 	// pathEndForHeight := counterparty
 	// if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
-	// 	pathEndForHeight = pathEnd
+	// pathEndForHeight = pathEnd
 	// }
 
 	// if message.info.Height >= pathEndForHeight.latestBlock.Height {

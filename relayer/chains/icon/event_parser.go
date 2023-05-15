@@ -133,6 +133,15 @@ func parseEventName(log *zap.Logger, event types.EventLog, height uint64) string
 func parseIdentifier(event types.EventLog) string {
 	return string(event.Indexed[1][:])
 }
+
+func parseIBCMessagesFromEventlog(log *zap.Logger, els []types.EventLog, height uint64) (ibcMessages []*ibcMessage) {
+	for _, el := range els {
+		ibcMessage := parseIBCMessageFromEvent(log, el, uint64(height))
+		ibcMessages = append(ibcMessages, ibcMessage)
+	}
+	return ibcMessages
+}
+
 func parseIBCMessageFromEvent(
 	log *zap.Logger,
 	event types.EventLog,

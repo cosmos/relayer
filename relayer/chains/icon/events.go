@@ -14,7 +14,7 @@ import (
 var (
 	// Client Events
 	EventTypeCreateClient = "CreateClient(str,bytes)"
-	EventTypeUpdateClient = "UpdateClient(str)"
+	EventTypeUpdateClient = "UpdateClient(str,bytes,bytes)"
 
 	// Connection Events
 	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str,str,bytes)"
@@ -96,6 +96,41 @@ func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 
 }
 
+var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
+	EventTypeSendPacket:           {},
+	EventTypeWriteAcknowledgement: {},
+
+	EventTypeConnectionOpenInit:    {},
+	EventTypeConnectionOpenTry:     {},
+	EventTypeConnectionOpenAck:     {},
+	EventTypeConnectionOpenConfirm: {},
+
+	EventTypeChannelOpenInit:    {},
+	EventTypeChannelOpenTry:     {},
+	EventTypeChannelOpenAck:     {},
+	EventTypeChannelOpenConfirm: {},
+}
+
+var MonitorEvents []string = []string{
+	EventTypeSendPacket,
+	EventTypeWriteAcknowledgement,
+
+	EventTypeConnectionOpenInit,
+	EventTypeConnectionOpenTry,
+	EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm,
+
+	EventTypeChannelOpenInit,
+	EventTypeChannelOpenTry,
+	EventTypeChannelOpenAck,
+	EventTypeChannelOpenConfirm,
+
+	//no BTP block produced
+	EventTypeRecvPacket,
+	EventTypeAcknowledgePacket,
+	EventTypeUpdateClient,
+}
+
 func GetMonitorEventFilters(address string) []*types.EventFilter {
 
 	filters := []*types.EventFilter{}
@@ -103,28 +138,20 @@ func GetMonitorEventFilters(address string) []*types.EventFilter {
 		return filters
 	}
 
-	eventArr := []string{
-		EventTypeSendPacket,
-		EventTypeRecvPacket,
-		EventTypeAcknowledgePacket,
-		EventTypeWriteAcknowledgement,
-
-		EventTypeConnectionOpenInit,
-		EventTypeConnectionOpenTry,
-		EventTypeConnectionOpenAck,
-		EventTypeConnectionOpenConfirm,
-
-		EventTypeChannelOpenInit,
-		EventTypeChannelOpenTry,
-		EventTypeChannelOpenAck,
-		EventTypeChannelOpenConfirm,
-	}
-
-	for _, event := range eventArr {
+	for _, event := range MonitorEvents {
 		filters = append(filters, &types.EventFilter{
 			Addr:      types.Address(address),
 			Signature: event,
 		})
 	}
 	return filters
+}
+
+func RequiresBtpHeader(els []types.EventLog) bool {
+	for _, el := range els {
+		if _, ok := BtpHeaderRequiredEvents[string(GetEventLogSignature(el.Indexed))]; ok {
+			return true
+		}
+	}
+	return false
 }

@@ -35,6 +35,7 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
 			ClientType:     clientState.ClientType(),
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
+			StoragePrefix:  types.NewHexBytes(clientStoragePrefix),
 		},
 	}
 
@@ -430,25 +431,45 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 }
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	// trustedIconHeader, ok := trustedHeader.(IconIBCHeader)
-	// if !ok {
-	// 	return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
-	// }
-	// latestIconHeader, ok := latestHeader.(IconIBCHeader)
-	// if !ok {
-	// 	return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
-	// }
 
-	// TODO: implementation remaining
-	return nil, nil
-	// return &IconIBCHeader{
-	// 	header: latestIconHeader.header,
-	// 	trustedHeight: icon.Height{
-	// 		RevisionNumber: *big.NewInt(int64(trustedHeight.RevisionNumber)),
-	// 		RevisionHeight: *big.NewInt(int64(trustedHeight.RevisionHeight)),
-	// 	},
-	// 	trustedValidators: trustedIconHeader.trustedValidators,
-	// }, nil
+	latestIconHeader, ok := latestHeader.(IconIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("Unsupported IBC Header type. Expected: IconIBCHeader,actual: %T", latestHeader)
+	}
+
+	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Header.MainHeight))
+	if err != nil {
+		return nil, err
+	}
+
+	var validatorList types.ValidatorList
+	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(string(info.NextProofContext), &validatorList)
+	if err != nil {
+		return nil, err
+	}
+
+	signedHeader := &icon.SignedHeader{
+		Header: &icon.BTPHeader{
+			MainHeight:             uint64(latestIconHeader.Header.MainHeight),
+			Round:                  uint32(latestIconHeader.Header.Round),
+			NextProofContextHash:   latestIconHeader.Header.NextProofContextHash,
+			NetworkSectionToRoot:   latestIconHeader.Header.NetworkSectionToRoot,
+			NetworkId:              latestIconHeader.Header.NetworkID,
+			UpdateNumber:           latestIconHeader.Header.UpdateNumber,
+			PrevNetworkSectionHash: latestIconHeader.Header.PrevNetworkSectionHash,
+			MessageCount:           latestIconHeader.Header.MessageCount,
+			MessageRoot:            latestIconHeader.Header.MessageRoot,
+			NextValidators:         validatorList.Validators,
+		},
+		Signatures: btp_proof,
+	}
+
+	return signedHeader, nil
 
 }
 
@@ -492,7 +513,8 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 
 	txhash, _ := txParam.TxHash.Value()
 
-	icp.log.Info("Transaction ", zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
+	icp.log.Info("Submitted Transaction ", zap.String("chain Id ", icp.ChainId()),
+		zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
 
 	txResParams := &types.TransactionHashParam{
 		Hash: txParam.TxHash,
@@ -507,8 +529,14 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	}
 
 	if txResult.Status != types.NewHexInt(1) {
-		return nil, false, fmt.Errorf("Transaction Failed")
+		return nil, false, fmt.Errorf("Transaction Failed and the transaction Result is 0x%x", txhash)
 	}
+
+	icp.log.Info("Successful Transaction",
+		zap.String("chain Id ", icp.ChainId()),
+		zap.String("method", m.Method),
+		zap.String("Height", string(txResult.BlockHeight)),
+		zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
 
 	return txResult, true, err
 }

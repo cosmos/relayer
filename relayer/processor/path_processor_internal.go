@@ -405,6 +405,8 @@ ClientICQLoop:
 	return res
 }
 
+//
+
 // updateClientTrustedState combines the counterparty chains trusted IBC header
 // with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
@@ -412,26 +414,47 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 		// current height already trusted
 		return
 	}
-	// need to assemble new trusted state
+
+	if ClientIsIcon(src.clientState) {
+		ibcheader, ok := nextIconIBCHeader(dst.ibcHeaderCache.Clone(), src.clientState.ConsensusHeight.RevisionHeight)
+		if !ok {
+			pp.log.Debug("No cached IBC header found for client next trusted height",
+				zap.String("chain_id", src.info.ChainID),
+				zap.String("client_id", src.info.ClientID),
+				zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight),
+			)
+			return
+
+		}
+
+		src.clientTrustedState = provider.ClientTrustedState{
+			ClientState: src.clientState,
+			IBCHeader:   ibcheader,
+		}
+		return
+	}
+
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
-		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
-			dst.clientTrustedState.IBCHeader != nil &&
-			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
-			src.clientTrustedState = provider.ClientTrustedState{
-				ClientState: src.clientState,
-				IBCHeader:   ibcHeaderCurrent,
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok {
+			if dst.clientTrustedState.IBCHeader != nil &&
+				bytes.Equal(src.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+				src.clientTrustedState = provider.ClientTrustedState{
+					ClientState: src.clientState,
+					IBCHeader:   ibcHeaderCurrent,
+				}
+
+				return
 			}
-			return
 		}
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
-			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
+			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight),
 		)
 		return
-
 	}
+
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
 		IBCHeader:   ibcHeader,

@@ -21,3 +21,36 @@ func TestConnectionDecode(t *testing.T) {
 
 	assert.Equal(t, conn.ClientId, "07-tendermint-0")
 }
+
+// func GetProvider() *IconProvider {
+// 	pcfg := IconProviderConfig{
+// 		Keystore:          "/Users/viveksharmapoudel/my_work_bench/ibriz/ibc-related/ibc-relay/env/godWallet.json",
+// 		Password:          "gochain",
+// 		ICONNetworkID:     3,
+// 		BTPNetworkID:      2,
+// 		IbcHandlerAddress: "cx00ba205e3366369b0ca7f8f2ca39293cffadd33b",
+// 		RPCAddr:           "http://localhost:9082/api/v3",
+// 	}
+
+// 	c := NewClient(pcfg.RPCAddr, &zap.Logger{})
+
+// 	ksByte, err := os.ReadFile(pcfg.Keystore)
+// 	if err != nil {
+// 		return nil
+// 	}
+
+// 	wallet, err := wallet.NewFromKeyStore(ksByte, []byte(pcfg.Password))
+// 	if err != nil {
+// 		return nil
+// 	}
+
+// 	codec := MakeCodec(ModuleBasics, []string{})
+
+// 	return &IconProvider{
+// 		PCfg:   &pcfg,
+// 		client: c,
+// 		codec:  codec,
+// 		wallet: wallet,
+// 	}
+
+// }

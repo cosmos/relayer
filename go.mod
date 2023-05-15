@@ -23,7 +23,7 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/icon-project/IBC-Integration v0.0.0-20230420051409-3e3b2d7ea040
+	github.com/icon-project/IBC-Integration v0.0.0-20230416064536-48d70570734d
 	github.com/icon-project/goloop v1.3.4
 	github.com/icon-project/icon-bridge v0.0.11
 	github.com/jsternberg/zap-logfmt v1.3.0
@@ -211,5 +211,5 @@ replace (
 	github.com/CosmWasm/wasmd => github.com/cosmwasm/wasmd v0.40.0-rc.1.0.20230424144037-55647a1fd1f9
 	// github.com/CosmWasm/wasmd => github.com/archway-network/archway-wasmd v0.29.2-archway
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230420051409-3e3b2d7ea040
+	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230420144510-c910f7f6fdaa
 )

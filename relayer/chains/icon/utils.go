@@ -80,6 +80,14 @@ func isHexString(s string) bool {
 			return false
 		}
 	}
-
 	return true
+}
+
+func btpBlockNotPresent(err error) bool {
+
+	if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header") {
+		return true
+	}
+	return false
+
 }

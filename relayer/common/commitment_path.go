@@ -29,7 +29,7 @@ func GetConsensusStatePath(clientId string, revisionNumber, revisionHeight *big.
 }
 
 func GetConnectionPath(connectionId string) []byte {
-	return encodePacked("connections", connectionId)
+	return encodePacked("connections/", connectionId)
 }
 
 func GetChannelPath(portId, channelId string) []byte {

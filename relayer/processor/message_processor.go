@@ -82,15 +82,16 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-	needsClientUpdate := false
-	// needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	// if err != nil {
-	// 	return err
-	// }
 
-	// if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-	// 	return err
-	// }
+	// 2/3 rule enough_time_pass && context change in case of BTPBlock
+	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
+	if err != nil {
+		return err
+	}
+
+	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+		return err
+	}
 
 	mp.assembleMessages(ctx, messages, src, dst)
 
@@ -103,6 +104,23 @@ func (mp *messageProcessor) processMessages(
 // Otherwise, it will be attempted if either 2/3 of the trusting period
 // or the configured client update threshold duration has passed.
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
+
+	// handle if dst is IconLightClient
+	if ClientIsIcon(dst.clientState) {
+
+		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
+		if !found {
+			return false, nil
+		}
+
+		if header.ShouldUpdateWithZeroMessage() {
+			return true, nil
+		}
+
+		return false, nil
+	}
+
+	// for lightClient other than ICON this will be helpful
 	var consensusHeightTime time.Time
 	if dst.clientState.ConsensusTime.IsZero() {
 		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
@@ -136,7 +154,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 			zap.String("chain_id", dst.info.ChainID),
 			zap.String("client_id", dst.info.ClientID),
 			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
-			zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
+			// zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
 			zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
 		)
 	}
@@ -200,7 +218,7 @@ func (mp *messageProcessor) assembleMessage(
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {
-		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg))
+		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg), zap.Error(err))
 		return
 	}
 	dst.log.Debug(fmt.Sprintf("Assembled %s message", msg.msgType()), zap.Object("msg", msg))
@@ -209,9 +227,17 @@ func (mp *messageProcessor) assembleMessage(
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
+
+	if ClientIsIcon(dst.clientState) {
+		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst)
+		return err
+	}
+
+	// this needs to be edited
 	clientID := dst.info.ClientID
 	clientConsensusHeight := dst.clientState.ConsensusHeight
 	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+
 	var trustedNextValidatorsHash []byte
 	if dst.clientTrustedState.IBCHeader != nil {
 		trustedNextValidatorsHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
@@ -222,15 +248,19 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
 	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
 		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
+
 		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
+
 			return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
+
 		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 		if err != nil {
-			return fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w",
-				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
+			return fmt.Errorf("error getting Next IBC header after height: %d for chain_id: %s, %w",
+				clientConsensusHeight.RevisionHeight, src.info.ChainID, err)
 		}
+
 		mp.log.Debug("Had to query for client trusted IBC header",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
@@ -270,6 +300,57 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	mp.msgUpdateClient = msgUpdateClient
 
 	return nil
+}
+
+func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime) error {
+
+	clientID := dst.info.ClientID
+	latestConsensusHeight := dst.clientState.ConsensusHeight
+
+	if !src.latestHeader.IsCompleteBlock() {
+		mp.log.Debug("Src latest IbcHeader is not complete Block",
+			zap.Int64("Height", int64(src.latestHeader.Height())))
+		return nil
+	}
+
+	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
+		mp.log.Debug("Src latest header is less then latest client State",
+			zap.String("Chainid ", src.info.ChainID),
+			zap.Int64("LatestHeader height", int64(src.latestHeader.Height())),
+			zap.Int64("Client State height", int64(latestConsensusHeight.RevisionHeight)))
+
+		return nil
+	}
+
+	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
+		src.latestHeader,
+		latestConsensusHeight,
+		dst.clientTrustedState.IBCHeader,
+	)
+	if err != nil {
+		return fmt.Errorf("error assembling new client header: %w", err)
+	}
+
+	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
+	if err != nil {
+		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+	}
+
+	mp.msgUpdateClient = msgUpdateClient
+
+	return nil
+}
+
+func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
+	clientConsensusHeight := dst.clientState.ConsensusHeight
+	if ClientIsIcon(dst.clientState) {
+		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
+		if !found {
+			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)
+		}
+		return header, nil
+	}
+	return src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 }
 
 // trackAndSendMessages will increment attempt counters for each message and send each message.
@@ -408,6 +489,7 @@ func (mp *messageProcessor) sendSingleMessage(
 	src, dst *pathEndRuntime,
 	tracker messageToTrack,
 ) {
+
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)

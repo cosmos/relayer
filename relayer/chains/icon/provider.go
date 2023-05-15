@@ -48,6 +48,8 @@ var (
 		Identifier: DefaultIBCVersionIdentifier,
 		Features:   []string{"ORDER_ORDERED", "ORDER_UNORDERED"},
 	}
+
+	clientStoragePrefix = []byte("icon")
 )
 
 type IconProviderConfig struct {
@@ -60,6 +62,7 @@ type IconProviderConfig struct {
 	Password          string `json:"password" yaml:"password"`
 	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
 	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
 	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 }
@@ -68,6 +71,11 @@ func (pp *IconProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
+
+	if pp.IbcHandlerAddress == "" {
+		return fmt.Errorf("Ibc handler Address cannot be empty")
+	}
+
 	return nil
 }
 
@@ -126,7 +134,7 @@ func (pp IconProviderConfig) getRPCAddr() string {
 }
 
 func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
-	return provider.BroadcastModeSingle
+	return provider.BroadcastModeBatch
 }
 
 type IconProvider struct {
@@ -141,51 +149,64 @@ type IconProvider struct {
 	lastBTPBlockHeightMu sync.Mutex
 }
 
-func (i *IconProvider) UpdateLastBTPBlockHeight(height uint64) {
-	i.lastBTPBlockHeightMu.Lock()
-	defer i.lastBTPBlockHeightMu.Unlock()
-	i.lastBTPBlockHeight = height
-}
-
-type SignedHeader struct {
-	header     types.BTPBlockHeader
-	signatures []types.HexBytes
-}
-
-type ValidatorSet struct {
-	validators []types.HexBytes
-}
-
 type IconIBCHeader struct {
-	Header *types.BTPBlockHeader
+	Header     *types.BTPBlockHeader
+	IsBTPBlock bool
+	Validators [][]byte
+	MainHeight uint64
 }
 
-func NewIconIBCHeader(header *types.BTPBlockHeader) *IconIBCHeader {
-	return &IconIBCHeader{
-		Header: header,
+func NewIconIBCHeader(header *types.BTPBlockHeader, validators [][]byte, height int64) IconIBCHeader {
+	iconIBCHeader := IconIBCHeader{
+		Header:     header,
+		Validators: validators,
 	}
+
+	if header == nil {
+		iconIBCHeader.IsBTPBlock = false
+		iconIBCHeader.MainHeight = uint64(height)
+	} else {
+		iconIBCHeader.IsBTPBlock = true
+		iconIBCHeader.MainHeight = header.MainHeight
+	}
+
+	return iconIBCHeader
 }
 
 func (h IconIBCHeader) Height() uint64 {
-	return uint64(h.Header.MainHeight)
+	return h.MainHeight
 }
 
 func (h IconIBCHeader) NextValidatorsHash() []byte {
-
 	// nextproofcontext hash is the nextvalidatorHash in BtpHeader
-	return h.Header.NextProofContextHash
+	if h.IsBTPBlock {
+		return h.Header.NextProofContextHash
+	}
+	return nil
+}
+
+func (h IconIBCHeader) IsCompleteBlock() bool {
+	return h.IsBTPBlock
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return &icon.ConsensusState{
-		MessageRoot: h.Header.MessagesRoot,
+	if h.IsBTPBlock {
+		return &icon.ConsensusState{
+			MessageRoot: h.Header.MessageRoot,
+		}
 	}
+	return &icon.ConsensusState{}
+}
+func (h IconIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	if h.Header != nil && h.Header.MessageCount == 0 {
+		return true
+	}
+	return false
 }
 
 //ChainProvider Methods
 
 func (icp *IconProvider) Init(ctx context.Context) error {
-
 	return nil
 }
 
@@ -272,6 +293,7 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 }
 
 func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
+
 	connState, err := icp.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -440,12 +462,12 @@ func (icp *IconProvider) SendMessagesToMempool(
 
 	for _, msg := range msgs {
 		if msg != nil {
-			_, bool, err := icp.SendMessage(ctx, msg, memo)
+			res, bool, err := icp.SendMessage(ctx, msg, memo)
 			if err != nil {
 				return err
 			}
 			if !bool {
-				return fmt.Errorf("Transaction Failed")
+				return fmt.Errorf("Transaction Failed, Transaction Hash: %x", res.TxHash)
 			}
 		}
 	}
@@ -503,6 +525,7 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 		Height:    types.NewHexInt(height),
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
+
 	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
 		return nil, err
@@ -512,16 +535,19 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	for _, mg := range msgs {
 		m, err := base64.StdEncoding.DecodeString(mg)
 		if err != nil {
-			fmt.Println(err)
+			return nil, err
 		}
 		results = append(results, m)
 	}
 	return results, nil
 }
 
-func (icp *IconProvider) GetBtpHeader(p *types.BTPBlockParam) (*types.BTPBlockHeader, error) {
+func (icp *IconProvider) GetBtpHeader(height int64) (*types.BTPBlockHeader, error) {
 	var header types.BTPBlockHeader
-	encoded, err := icp.client.GetBTPHeader(p)
+	encoded, err := icp.client.GetBTPHeader(&types.BTPBlockParam{
+		Height:    types.NewHexInt(height),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -531,4 +557,36 @@ func (icp *IconProvider) GetBtpHeader(p *types.BTPBlockParam) (*types.BTPBlockHe
 		return nil, err
 	}
 	return &header, nil
+}
+
+func (icp *IconProvider) GetBTPProof(height int64) ([][]byte, error) {
+	var valSigs types.ValidatorSignatures
+	encoded, err := icp.client.GetBTPProof(&types.BTPBlockParam{
+		Height:    types.NewHexInt(int64(height)),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(encoded, &valSigs)
+	if err != nil {
+		return nil, err
+	}
+	return valSigs.Signatures, nil
+
+}
+
+func (icp *IconProvider) GetProofContextByHeight(height int64) ([][]byte, error) {
+	var validatorList types.ValidatorList
+	info, err := icp.client.GetNetworkTypeInfo(int64(height), icp.PCfg.BTPNetworkTypeID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(string(info.NextProofContext), &validatorList)
+	if err != nil {
+		return nil, err
+	}
+	return validatorList.Validators, nil
 }

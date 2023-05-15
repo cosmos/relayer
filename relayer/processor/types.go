@@ -109,6 +109,13 @@ func NewIBCMessagesCache() IBCMessagesCache {
 	}
 }
 
+func (m *IBCMessagesCache) IsEmpty() bool {
+	if len(m.PacketFlow) > 0 || len(m.ConnectionHandshake) > 0 || len(m.ChannelHandshake) > 0 || len(m.ClientICQ) > 0 {
+		return false
+	}
+	return true
+}
+
 // ChannelPacketMessagesCache is used for caching a PacketMessagesCache for a given IBC channel.
 type ChannelPacketMessagesCache map[ChannelKey]PacketMessagesCache
 
@@ -261,6 +268,7 @@ type ChainProcessorCacheData struct {
 	LatestBlock          provider.LatestBlock
 	LatestHeader         provider.IBCHeader
 	IBCHeaderCache       IBCHeaderCache
+	IsGenesis            bool
 }
 
 // Clone creates a deep copy of a PacketMessagesCache.

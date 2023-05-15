@@ -108,9 +108,9 @@ func createClientsCmd(a *appState) *cobra.Command {
 					return err
 				}
 
-				if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
-					return err
-				}
+				// if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+				// 	return err
+				// }
 			}
 
 			return nil
@@ -388,9 +388,9 @@ $ %s tx conn demo-path --timeout 5s`,
 				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
-				if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
-					return err
-				}
+				// if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+				// 	return err
+				// }
 			}
 
 			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
@@ -402,9 +402,9 @@ $ %s tx conn demo-path --timeout 5s`,
 					return err
 				}
 
-				if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
-					return err
-				}
+				// if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+				// 	return err
+				// }
 
 			}
 
@@ -493,9 +493,9 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 				return err
 			}
 
-			if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
-				return err
-			}
+			// if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+			// 	return err
+			// }
 
 			return nil
 		},
