@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
+
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	"github.com/cometbft/cometbft/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -137,6 +139,16 @@ type ChannelInfo struct {
 	Version string
 }
 
+// ConnectionHops splits the list of connection hops to turn it into an array.
+func (c ChannelInfo) ConnectionHops() []string {
+	return chantypes.ParseConnectionID(c.ConnID)
+}
+
+// CounterpartyConnectionHops splits the list of counterparty connection hops to turn it into an array.
+func (c ChannelInfo) CounterpartyConnectionHops() []string {
+	return chantypes.ParseConnectionID(c.CounterpartyConnID)
+}
+
 // ClientICQQueryID string wrapper for query ID.
 type ClientICQQueryID string
 
@@ -230,6 +242,21 @@ type ChainProvider interface {
 
 	Init(ctx context.Context) error
 
+	// MultihopEndpoint returns a multihop endpoint for the chain to be used for multihop proofs
+	MultihopEndpoint(clientID, connectionID string) multihop.Endpoint
+
+	// SetMultihopCounterparty sets the multihop counterparty for the chain
+	SetMultihopCounterparty(endpoint, counterparty multihop.Endpoint)
+
+	// AddChanPath adds multihop channel path to a destination chain
+	AddChanPath(connectionHops []string, chanPath *multihop.ChanPath)
+
+	// GetChanPath gets multihop channel path to a destination chain
+	GetChanPath(connectionHops []string) *multihop.ChanPath
+
+	// GetCounterpartyChanPath gets the counterparty multihop channel path to a destination chain
+	GetCounterpartyChanPath(connectionHops []string) *multihop.ChanPath
+
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
@@ -251,18 +278,18 @@ type ChainProvider interface {
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
 	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 	// exact same order as they were sent over the wire.
-	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64, connectionHops []string) (PacketProof, error)
 
 	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
 	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)
@@ -321,7 +348,7 @@ type ChainProvider interface {
 	// [Begin] Channel handshake IBC message assembly
 
 	// ChannelProof queries for proof of a channel state.
-	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64) (ChannelProof, error)
+	ChannelProof(ctx context.Context, msg ChannelInfo, height uint64, connectionHops []string) (ChannelProof, error)
 
 	// MsgChannelOpenInit takes channel info and assembles a MsgChannelOpenInit message
 	// ready to write to the chain. The channel proof is not needed here, but it needs
@@ -406,6 +433,7 @@ type ChainProvider interface {
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
 type QueryProvider interface {
+	ChainId() string
 	// chain
 	BlockTime(ctx context.Context, height int64) (time.Time, error)
 	QueryTx(ctx context.Context, hashHex string) (*RelayerTxResponse, error)
@@ -560,4 +588,16 @@ func (h TendermintIBCHeader) TMHeader() (*tendermint.Header, error) {
 		TrustedHeight:     h.TrustedHeight,
 		TrustedValidators: trustedVals,
 	}, nil
+}
+
+type ClientOutdatedError struct {
+	srcChainID     string
+	dstChainID     string
+	height         uint64
+	requiredHeight uint64
+}
+
+func (c *ClientOutdatedError) Error() string {
+	return fmt.Sprintf("client for chain %q on chain %q is outdated (required: %d, actual: %d)", c.srcChainID,
+		c.dstChainID, c.height, c.requiredHeight)
 }

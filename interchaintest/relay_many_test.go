@@ -131,9 +131,11 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	// get ibc chans
 	osmosisChans, err := r.GetChannels(ctx, eRep, osmosisCfg.ChainID)
 	require.NoError(t, err)
+	require.Len(t, osmosisChans, 1)
 
 	junoChans, err := r.GetChannels(ctx, eRep, junoCfg.ChainID)
 	require.NoError(t, err)
+	require.Len(t, junoChans, 1)
 
 	osmosisIBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChans[0].Counterparty.PortID, osmosisChans[0].Counterparty.ChannelID, osmosisCfg.Denom)).IBCDenom()
 	junoIBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(junoChans[0].Counterparty.PortID, junoChans[0].Counterparty.ChannelID, junoCfg.Denom)).IBCDenom()
@@ -148,6 +150,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom osmo
+		t.Logf("Initiating transfer from %s to %s", osmosis.Config().ChainID, gaia.Config().ChainID)
 		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   osmosisCfg.Denom,
@@ -166,6 +169,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 			return err
 		}
 		// Fund gaia user with ibc denom juno
+		t.Logf("Initiating transfer from %s to %s", juno.Config().ChainID, gaia.Config().ChainID)
 		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName(), ibc.WalletAmount{
 			Amount:  transferAmount,
 			Denom:   junoCfg.Denom,

@@ -81,17 +81,34 @@ func (mp *messageProcessor) processMessages(
 	ctx context.Context,
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
+	hops []*pathEndRuntime,
 ) error {
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	if err != nil {
-		return err
+	allHops := append([]*pathEndRuntime{src}, hops...)
+	allHops = append(allHops, dst)
+	var needsClientUpdate bool
+	for i := range allHops {
+		if i == len(allHops)-1 {
+			break
+		}
+		var err error
+		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, allHops[i], allHops[i+1])
+		if err != nil {
+			return err
+		}
+		if needsClientUpdate {
+			break
+		}
 	}
-
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
+	// TODO: this is unnecessary: we only care about updates last hop -> dst
+	for i := range allHops {
+		if i == len(allHops)-1 {
+			break
+		}
+		if err := mp.assembleMsgUpdateClient(ctx, allHops[i], allHops[i+1]); err != nil {
+			return err
+		}
 	}
-
-	mp.assembleMessages(ctx, messages, src, dst)
+	mp.assembleMessages(ctx, messages, src, dst, hops)
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 }
@@ -143,32 +160,42 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	return shouldUpdateClientNow, nil
 }
 
+func pathEndRuntimesToConnectionHops(src *pathEndRuntime, hops []*pathEndRuntime) []string {
+	connectionHops := []string{src.info.ConnectionID}
+	for _, hop := range hops {
+		connectionHops = append(connectionHops, hop.info.ConnectionID)
+	}
+	return connectionHops
+}
+
 // assembleMessages will assemble all messages in parallel. This typically involves proof queries for each.
-func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
+func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime,
+	hops []*pathEndRuntime,
+) {
 	var wg sync.WaitGroup
 
 	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
 	for i, msg := range messages.connectionMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, nil, i, &wg)
 	}
 
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
 	for i, msg := range messages.channelMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, pathEndRuntimesToConnectionHops(src, hops), i, &wg)
 	}
 
 	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
 	for i, msg := range messages.clientICQMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, nil, i, &wg)
 	}
 
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
 	for i, msg := range messages.packetMessages {
 		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		go mp.assembleMessage(ctx, msg, src, dst, pathEndRuntimesToConnectionHops(src, hops), i, &wg)
 	}
 
 	wg.Wait()
@@ -192,14 +219,15 @@ func (mp *messageProcessor) assembleMessage(
 	ctx context.Context,
 	msg ibcMessage,
 	src, dst *pathEndRuntime,
+	connectionHops []string,
 	i int,
 	wg *sync.WaitGroup,
 ) {
-	assembled, err := msg.assemble(ctx, src, dst)
+	assembled, err := msg.assemble(ctx, src, dst, connectionHops)
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {
-		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg))
+		dst.log.Error(fmt.Sprintf("Error assembling %s message: %s", msg.msgType(), err), zap.Object("msg", msg))
 		return
 	}
 	dst.log.Debug(fmt.Sprintf("Assembled %s message", msg.msgType()), zap.Object("msg", msg))
@@ -313,8 +341,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 
 // sendClientUpdate will send an isolated client update message.
 func (mp *messageProcessor) sendClientUpdate(
-	ctx context.Context,
-	src, dst *pathEndRuntime,
+	ctx context.Context, src, dst *pathEndRuntime,
 ) {
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
@@ -326,12 +353,9 @@ func (mp *messageProcessor) sendClientUpdate(
 	dst.lastClientUpdateHeightMu.Unlock()
 
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
-
 	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
 		mp.log.Error("Error sending client update message",
-			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
-			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		)
@@ -351,7 +375,7 @@ func (mp *messageProcessor) sendBatchMessages(
 	defer cancel()
 
 	// messages are batch with appended MsgUpdateClient
-	msgs := make([]provider.RelayerMessage, 1+len(batch))
+	msgs := make([]provider.RelayerMessage, len(batch)+1)
 	msgs[0] = mp.msgUpdateClient
 	fields := []zapcore.Field{}
 	for i, t := range batch {

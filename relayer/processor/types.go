@@ -15,7 +15,7 @@ import (
 // PathProcessor will stop if it observes a message that matches
 // the MessageLifecycle's Termination message.
 type MessageLifecycle interface {
-	messageLifecycler() //noop
+	messageLifecycler() // noop
 }
 
 // Flush lifecycle informs the PathProcessor to terminate once
@@ -213,23 +213,62 @@ func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-// ChannelStateCache maintains channel open state for multiple channels.
-type ChannelStateCache map[ChannelKey]bool
+type ChannelState struct {
+	Open                       bool
+	ConnectionHops             []string
+	CounterpartyConnectionHops []string
+}
+
+// ChannelStateCache maintains channel state for multiple channels.
+type ChannelStateCache map[ChannelKey]*ChannelState
+
+func (c *ChannelStateCache) IsOpen(key ChannelKey) bool {
+	if c == nil {
+		return false
+	}
+	channel, found := (*c)[key]
+	return found && channel.Open
+}
+
+func (c *ChannelStateCache) SetOpen(key ChannelKey, open bool) {
+	state := &ChannelState{Open: open}
+	c.Set(key, state)
+}
+
+func (c *ChannelStateCache) Set(key ChannelKey, state *ChannelState) {
+	if c == nil {
+		*c = make(map[ChannelKey]*ChannelState)
+	}
+	(*c)[key] = state
+}
+
+func (c *ChannelStateCache) GetConnectionHops(key ChannelKey) []string {
+	if c == nil {
+		return nil
+	}
+	channel, found := (*c)[key]
+	if !found {
+		return nil
+	}
+	return channel.ConnectionHops
+}
 
 // FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
-func (c ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
+func (c *ChannelStateCache) FilterForClient(clientID string, channelConnections map[string][]string, connectionClients map[string]string) ChannelStateCache {
 	n := make(ChannelStateCache)
-	for k, v := range c {
-		connection, ok := channelConnections[k.ChannelID]
+	for k, v := range *c {
+		connectionHops, ok := channelConnections[k.ChannelID]
 		if !ok {
 			continue
 		}
-		client, ok := connectionClients[connection]
-		if !ok {
-			continue
-		}
-		if clientID == client {
-			n[k] = v
+		for _, hop := range connectionHops {
+			client, ok := connectionClients[hop]
+			if !ok {
+				continue
+			}
+			if clientID == client {
+				n[k] = v
+			}
 		}
 	}
 	return n

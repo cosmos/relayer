@@ -35,6 +35,18 @@ func (c *Chain) SetPath(p *PathEnd) error {
 	return nil
 }
 
+// SetRelayPath sets the paths to relay multi-hop packets and validates the identifiers if they are initialized.
+func (c *Chain) SetRelayPaths(pathEnds [2]*PathEnd) error {
+	for _, p := range pathEnds {
+		err := p.ValidateFull()
+		if err != nil {
+			return c.ErrCantSetPath(err)
+		}
+	}
+	c.RelayPathEnds = pathEnds
+	return nil
+}
+
 // AddPath takes the client and connection identifiers for a Path,
 // and if they are initialized, validates them before setting the PathEnd on the Chain.
 // NOTE: if the Path is blank (i.e. the identifiers are not set) validation is skipped.

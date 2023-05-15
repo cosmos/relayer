@@ -401,26 +401,63 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 }
 
 // ChainsFromPath takes the path name and returns the properly configured chains
-func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, error) {
+func (c *Config) ChainsFromPath(path string) (map[string]*relayer.Chain, string, string, []*relayer.Chain, error) {
 	pth, err := c.Paths.Get(path)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
 	src, dst := pth.Src.ChainID, pth.Dst.ChainID
 	chains, err := c.Chains.Gets(src, dst)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
 	if err = chains[src].SetPath(pth.Src); err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
+	}
+	hops := []*relayer.Chain{}
+	lastChain := chains[src]
+	for i, hop := range pth.Hops {
+		hopChain, err := c.Chains.Get(hop.ChainID)
+		if err != nil {
+			return nil, "", "", nil, err
+		}
+		if err = hopChain.SetRelayPaths(hop.PathEnds); err != nil {
+			return nil, "", "", nil, err
+		}
+		hops = append(hops, hopChain)
+		// Find a path between adjacent chains and populate clients and connections
+		pthPrevToCurrHop := c.Paths.Find(lastChain.ChainID(), hopChain.ChainID())
+		if pthPrevToCurrHop != nil {
+			hopChain.RelayPathEnds[0].ClientID = pthPrevToCurrHop.Dst.ClientID
+			hopChain.RelayPathEnds[0].ConnectionID = pthPrevToCurrHop.Dst.ConnectionID
+			if i == 0 {
+				lastChain.PathEnd.ClientID = pthPrevToCurrHop.Src.ClientID
+				lastChain.PathEnd.ConnectionID = pthPrevToCurrHop.Src.ConnectionID
+			} else {
+				lastChain.RelayPathEnds[1].ClientID = pthPrevToCurrHop.Src.ClientID
+				lastChain.RelayPathEnds[1].ConnectionID = pthPrevToCurrHop.Src.ConnectionID
+			}
+		}
+		// Connect the last hop to the destination
+		if i == len(pth.Hops)-1 {
+			pthHopToDst := c.Paths.Find(hopChain.ChainID(), dst)
+			if pthHopToDst != nil {
+				hopChain.RelayPathEnds[1].ClientID = pthHopToDst.Src.ClientID
+				hopChain.RelayPathEnds[1].ConnectionID = pthHopToDst.Src.ConnectionID
+				pth.Dst.ClientID = pthHopToDst.Dst.ClientID
+				pth.Dst.ConnectionID = pthHopToDst.Dst.ConnectionID
+			}
+		}
+		chains[hop.ChainID] = hopChain
+		lastChain = hopChain
 	}
 	if err = chains[dst].SetPath(pth.Dst); err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
-	return chains, src, dst, nil
+	return chains, src, dst, hops, nil
 }
 
 // MustYAML returns the yaml string representation of the Paths

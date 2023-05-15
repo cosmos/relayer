@@ -232,15 +232,16 @@ $ %s config add-paths examples/demo/configs/paths`, appName)),
 
 func pathsNewCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "new src_chain_id dst_chain_id path_name",
+		Use:     "new src_chain_id dst_chain_id path_name [hop1_chain_id hop2_chain_id ... hopN_chain_id]",
 		Aliases: []string{"n"},
 		Short:   "Create a new blank path to be used in generating a new path (connection & client) between two chains",
-		Args:    withUsage(cobra.ExactArgs(3)),
+		Args:    withUsage(cobra.MinimumNArgs(3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths new ibc-0 ibc-1 demo-path
 $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
+			hops := args[3:]
 			_, err := a.Config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
@@ -250,7 +251,39 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 				Src: &relayer.PathEnd{ChainID: src},
 				Dst: &relayer.PathEnd{ChainID: dst},
 			}
-
+			p.Hops = make([]*relayer.PathHop, len(hops))
+			lastChainID := p.Src.ChainID
+			for i, hop := range hops {
+				// TODO: this logic is similar to Config.ChainsFromPath(), look into consolidating
+				pthPrevToCurrHop := a.Config.Paths.Find(lastChainID, hop)
+				newHop := &relayer.PathHop{
+					ChainID: hop,
+					PathEnds: [2]*relayer.PathEnd{
+						{
+							ChainID:      hop,
+							ClientID:     pthPrevToCurrHop.Dst.ClientID,
+							ConnectionID: pthPrevToCurrHop.Dst.ConnectionID,
+						}, {},
+					},
+				}
+				if i == 0 {
+					p.Src.ClientID = pthPrevToCurrHop.Src.ClientID
+					p.Src.ConnectionID = pthPrevToCurrHop.Src.ConnectionID
+				} else {
+					p.Hops[i-1].PathEnds[1].ClientID = pthPrevToCurrHop.Src.ClientID
+					p.Hops[i-1].PathEnds[1].ConnectionID = pthPrevToCurrHop.Src.ConnectionID
+				}
+				if i == len(hops)-1 {
+					newHop.PathEnds[1].ChainID = hop
+					pthCurrHopToDst := a.Config.Paths.Find(hop, p.Dst.ChainID)
+					newHop.PathEnds[1].ClientID = pthCurrHopToDst.Src.ClientID
+					newHop.PathEnds[1].ConnectionID = pthCurrHopToDst.Src.ConnectionID
+					p.Dst.ClientID = pthCurrHopToDst.Dst.ClientID
+					p.Dst.ConnectionID = pthCurrHopToDst.Dst.ConnectionID
+				}
+				p.Hops[i] = newHop
+				lastChainID = newHop.ChainID
+			}
 			name := args[2]
 			if err = a.Config.Paths.Add(name, p); err != nil {
 				return err
@@ -433,9 +466,14 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					ClientID:     ibc.Chain2.ClientID,
 					ConnectionID: ibc.Chain2.ConnectionID,
 				}
+				hops, err := relayer.NewPathHops(ibc, srcPathEnd, dstPathEnd, &a.Config.Chains)
+				if err != nil {
+					return err
+				}
 				newPath := &relayer.Path{
-					Src: srcPathEnd,
-					Dst: dstPathEnd,
+					Src:  srcPathEnd,
+					Dst:  dstPathEnd,
+					Hops: hops,
 				}
 				client.Close()
 

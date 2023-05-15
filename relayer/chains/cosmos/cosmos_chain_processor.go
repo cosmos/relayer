@@ -46,7 +46,7 @@ type CosmosChainProcessor struct {
 	connectionClients map[string]string
 
 	// map of channel ID to connection ID
-	channelConnections map[string]string
+	channelConnections map[string][]string
 
 	// metrics to monitor lifetime of processor
 	metrics *processor.PrometheusMetrics
@@ -63,7 +63,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics 
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),
 		connectionClients:    make(map[string]string),
-		channelConnections:   make(map[string]string),
+		channelConnections:   make(map[string][]string),
 		metrics:              metrics,
 	}
 }
@@ -284,21 +284,13 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 		return fmt.Errorf("error querying channels: %w", err)
 	}
 	for _, ch := range channels {
-		if len(ch.ConnectionHops) != 1 {
-			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
-				zap.String("channel_id", ch.ChannelId),
-				zap.String("port_id", ch.PortId),
-				zap.Strings("connection_hops", ch.ConnectionHops),
-			)
-			continue
-		}
-		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		ccp.channelStateCache[processor.ChannelKey{
+		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops
+		ccp.channelStateCache.SetOpen(processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}, (ch.State == chantypes.OPEN))
 	}
 	return nil
 }
@@ -318,10 +310,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
-
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
 	}
@@ -333,9 +321,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("Chain is in sync")
+			ccp.log.Info("Chain is in sync", zap.String("chain_id", ccp.chainProvider.ChainId()))
 		} else {
 			ccp.log.Info("Chain is not yet in sync",
+				zap.String("chain_id", ccp.chainProvider.ChainId()),
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
 				zap.Int64("latest_height", persistence.latestHeight),
 			)
@@ -431,26 +420,29 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	for _, pp := range ccp.pathProcessors {
-		clientID := pp.RelevantClientID(chainID)
-		clientState, err := ccp.clientState(ctx, clientID)
-		if err != nil {
-			ccp.log.Error("Error fetching client state",
-				zap.String("client_id", clientID),
-				zap.Error(err),
-			)
-			continue
-		}
+		// TODO: this ends up matching twice for multihop messages, add logic to deduplicate
+		clientIDs := pp.RelevantClientIDs(chainID)
+		for _, clientID := range clientIDs {
+			clientState, err := ccp.clientState(ctx, clientID)
+			if err != nil {
+				ccp.log.Error("Error fetching client state",
+					zap.String("client_id", clientID),
+					zap.Error(err),
+				)
+				continue
+			}
 
-		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			LatestBlock:          ccp.latestBlock,
-			LatestHeader:         latestHeader,
-			IBCMessagesCache:     ibcMessagesCache.Clone(),
-			InSync:               ccp.inSync,
-			ClientState:          clientState,
-			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
-			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache.Clone(),
-		})
+			pp.HandleNewData(chainID, clientID, processor.ChainProcessorCacheData{
+				LatestBlock:          ccp.latestBlock,
+				LatestHeader:         latestHeader,
+				IBCMessagesCache:     ibcMessagesCache.Clone(),
+				InSync:               ccp.inSync,
+				ClientState:          clientState,
+				ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
+				IBCHeaderCache:       ibcHeaderCache.Clone(),
+			})
+		}
 	}
 
 	persistence.latestQueriedBlock = newLatestQueriedBlock

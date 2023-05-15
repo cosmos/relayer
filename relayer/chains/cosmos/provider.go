@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
+
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -91,6 +94,9 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
+
+		chanPaths:             map[string]*multihop.ChanPath{},
+		counterpartyChanPaths: map[string]*multihop.ChanPath{},
 	}
 
 	return cp, nil
@@ -120,6 +126,35 @@ type CosmosProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+
+	// chanPaths tracks paths for multi-hop proofs
+	chanPaths map[string]*multihop.ChanPath
+
+	// counterpartyChanPaths tracks counterparty paths for multi-hop proofs
+	// TODO: this is a hack as there's no guarantee that they won't collide, the real fix is to find a way to get
+	// counterparty connection hops in mergeMessageCache()
+	counterpartyChanPaths map[string]*multihop.ChanPath
+}
+
+func (cc *CosmosProvider) MultihopEndpoint(clientID, connectionID string) multihop.Endpoint {
+	return cc.newEndpoint(clientID, connectionID)
+}
+
+func (cc *CosmosProvider) SetMultihopCounterparty(ep, counterparty multihop.Endpoint) {
+	ep.(*endpoint).counterparty = counterparty.(*endpoint)
+}
+
+func (cc *CosmosProvider) AddChanPath(connectionHops []string, chanPath *multihop.ChanPath) {
+	cc.chanPaths[chantypes.FormatConnectionID(connectionHops)] = chanPath
+	cc.counterpartyChanPaths[chantypes.FormatConnectionID(chanPath.Counterparty().GetConnectionHops())] = chanPath
+}
+
+func (cc *CosmosProvider) GetChanPath(connectionHops []string) *multihop.ChanPath {
+	return cc.chanPaths[chantypes.FormatConnectionID(connectionHops)]
+}
+
+func (cc *CosmosProvider) GetCounterpartyChanPath(connectionHops []string) *multihop.ChanPath {
+	return cc.counterpartyChanPaths[chantypes.FormatConnectionID(connectionHops)]
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {

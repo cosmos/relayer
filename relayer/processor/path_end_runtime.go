@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -76,8 +77,9 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 }
 
 func (pathEnd *pathEndRuntime) isRelevantConnection(connectionID string) bool {
+	connectionHops := chantypes.ParseConnectionID(connectionID)
 	for k := range pathEnd.connectionStateCache {
-		if k.ConnectionID == connectionID {
+		if k.ConnectionID == connectionHops[0] {
 			return true
 		}
 	}
@@ -139,11 +141,23 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 			// can complete channel handshakes on this client
 			// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
 			if eventType == chantypes.EventTypeChannelOpenInit {
-				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry.
-				for k := range pathEnd.connectionStateCache {
-					if k.ConnectionID == ci.ConnID {
-						ci.CounterpartyConnID = k.CounterpartyConnID
-						break
+				// CounterpartyConnectionID is needed to construct MsgChannelOpenTry. It needs the list of counterparty
+				// connection IDs for the connection hops in reverse order, since the direction is reversed compared to
+				// MsgChanOpenInit.
+				connectionHops := ci.ConnectionHops()
+				// TODO: we may want to always create a channel path and handle both cases through it
+				if len(connectionHops) > 1 {
+					chanPath := pathEnd.chainProvider.GetChanPath(connectionHops)
+					if chanPath == nil {
+						panic(fmt.Sprintf("channel path not found for channel %s", k.ChannelID))
+					}
+					ci.CounterpartyConnID = chantypes.FormatConnectionID(chanPath.Counterparty().GetConnectionHops())
+				} else {
+					for k := range pathEnd.connectionStateCache {
+						if k.ConnectionID == ci.ConnID {
+							ci.CounterpartyConnID = k.CounterpartyConnID
+							break
+						}
 					}
 				}
 			}
@@ -324,7 +338,9 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 	return true, nil
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
+func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData,
+	messageLifecycle MessageLifecycle, counterparty *pathEndRuntime, hops []*pathEndRuntime,
+) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.lastClientUpdateHeightMu.Unlock()
@@ -333,18 +349,24 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
-	if err != nil {
-		pathEnd.log.Error(
-			"Failed to check for misbehaviour",
-			zap.String("client_id", pathEnd.info.ClientID),
-			zap.Error(err),
-		)
+	var terminate bool
+	// TODO: we need to reconcile updates from multihop with the client state cached in path end runtimes, otherwise
+	// it looks like misbehavior
+	if len(hops) == 0 {
+		var err error
+		terminate, err = pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterparty)
+		if err != nil {
+			pathEnd.log.Error(
+				"Failed to check for misbehaviour",
+				zap.String("client_id", pathEnd.info.ClientID),
+				zap.Error(err),
+			)
+		}
 	}
 
 	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
 		pathEnd.clientState = d.ClientState
-		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
+		ibcHeader, ok := counterparty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
 		if ok {
 			pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
 		}
@@ -360,7 +382,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
 	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterparty.info.ChainID, pathEnd.inSync && counterparty.inSync) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
@@ -374,6 +396,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	k, err := message.channelKey()
 	if err != nil {
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
@@ -389,17 +412,20 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 
 	if message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Uint64("message_height", message.info.Height),
+			zap.String("counterparty_chain_id", counterparty.chainProvider.ChainId()),
 			zap.Uint64("counterparty_height", counterparty.latestBlock.Height),
 			zap.Inline(k),
 		)
 		return false
 	}
-	if !pathEnd.channelStateCache[k] {
+	if !pathEnd.channelStateCache.IsOpen(k) {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
@@ -410,32 +436,68 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {
 		// in progress cache does not exist for this channel, so can send.
+		pathEnd.log.Debug("In progress cache does not exist for this channel, so can send",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
+			zap.String("event_type", eventType),
+			zap.Uint64("sequence", sequence),
+			zap.Uint64("message_height", message.info.Height),
+			zap.Inline(k),
+		)
 		return true
 	}
 	channelProcessingCache, ok := msgProcessCache[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send
+		pathEnd.log.Debug("In progress cache does not exist for this event type, so can send",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
+			zap.String("event_type", eventType),
+			zap.Uint64("sequence", sequence),
+			zap.Uint64("message_height", message.info.Height),
+			zap.Inline(k),
+		)
 		return true
 	}
 	inProgress, ok := channelProcessingCache[sequence]
 	if !ok {
 		// in progress cache does not exist for this sequence, so can send.
+		pathEnd.log.Debug("In progress cache does not exist for this sequence, so can send",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
+			zap.String("event_type", eventType),
+			zap.Uint64("sequence", sequence),
+			zap.Uint64("message_height", message.info.Height),
+			zap.Inline(k),
+		)
 		return true
 	}
 	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
 	if inProgress.assembled {
 		if blocksSinceLastProcessed < blocksToRetrySendAfter {
 			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+			pathEnd.log.Warn("This message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet",
+				zap.String("chain_id", pathEnd.chainProvider.ChainId()),
+				zap.String("event_type", eventType),
+				zap.Uint64("sequence", sequence),
+				zap.Uint64("message_height", message.info.Height),
+				zap.Inline(k),
+			)
 			return false
 		}
 	} else {
 		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
 			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
+			pathEnd.log.Warn("This message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet",
+				zap.String("chain_id", pathEnd.chainProvider.ChainId()),
+				zap.String("event_type", eventType),
+				zap.Uint64("sequence", sequence),
+				zap.Uint64("message_height", message.info.Height),
+				zap.Inline(k),
+			)
 			return false
 		}
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
+			zap.String("chain_id", pathEnd.chainProvider.ChainId()),
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
@@ -444,7 +506,13 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
 		return false
 	}
-
+	pathEnd.log.Debug("This message can be sent",
+		zap.String("chain_id", pathEnd.chainProvider.ChainId()),
+		zap.String("event_type", eventType),
+		zap.Uint64("sequence", sequence),
+		zap.Uint64("message_height", message.info.Height),
+		zap.Inline(k),
+	)
 	return true
 }
 

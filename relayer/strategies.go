@@ -28,6 +28,27 @@ const (
 	DefaultFlushInterval                = 5 * time.Minute
 )
 
+func hopPathEnds(p *Path, pathName string, filterSrc, filterDst []processor.ChainChannelKey) ([]*processor.PathEnd,
+	[]*processor.PathEnd) {
+	hopsSrcToDst := make([]*processor.PathEnd, len(p.Hops))
+	for j, hop := range p.Hops {
+		pathEnd := hop.PathEnds[1]
+		srcToDst := processor.NewPathEnd(pathName, hop.ChainID, pathEnd.ClientID, pathEnd.ConnectionID,
+			p.Filter.Rule, filterSrc)
+		hopsSrcToDst[j] = &srcToDst
+	}
+	var hopsDstToSrc []*processor.PathEnd
+	// TODO: is it ok to reverse here?
+	for i := len(p.Hops) - 1; i >= 0; i-- {
+		hop := p.Hops[i]
+		pathEnd := hop.PathEnds[0]
+		dstToSrc := processor.NewPathEnd(pathName, hop.ChainID, pathEnd.ClientID, pathEnd.ConnectionID,
+			p.Filter.Rule, filterDst)
+		hopsDstToSrc = append(hopsDstToSrc, &dstToSrc)
+	}
+	return hopsSrcToDst, hopsDstToSrc
+}
+
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(
 	ctx context.Context,
@@ -67,9 +88,14 @@ func StartRelayer(
 				filterSrc = append(filterSrc, ruleSrc)
 				filterDst = append(filterDst, ruleDst)
 			}
+			hopsSrcToDst, hopsDstToSrc := hopPathEnds(p, pathName, filterSrc, filterDst)
 			ePaths[i] = path{
-				src: processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, filter.Rule, filterSrc),
-				dst: processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, filter.Rule, filterDst),
+				src: processor.NewPathEnd(pathName, p.Src.ChainID, p.Src.ClientID, p.Src.ConnectionID,
+					filter.Rule, filterSrc),
+				dst: processor.NewPathEnd(pathName, p.Dst.ChainID, p.Dst.ClientID, p.Dst.ConnectionID,
+					filter.Rule, filterDst),
+				hopsSrcToDst: hopsSrcToDst,
+				hopsDstToSrc: hopsDstToSrc,
 			}
 		}
 
@@ -107,8 +133,10 @@ func StartRelayer(
 // TODO: intermediate types. Should combine/replace with the relayer.Chain, relayer.Path, and relayer.PathEnd structs
 // as the stateless and stateful/event-based relaying mechanisms are consolidated.
 type path struct {
-	src processor.PathEnd
-	dst processor.PathEnd
+	src          processor.PathEnd
+	dst          processor.PathEnd
+	hopsSrcToDst []*processor.PathEnd
+	hopsDstToSrc []*processor.PathEnd
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
@@ -148,6 +176,8 @@ func relayerStartEventProcessor(
 				log,
 				p.src,
 				p.dst,
+				p.hopsSrcToDst,
+				p.hopsDstToSrc,
 				metrics,
 				memo,
 				clientUpdateThresholdTime,

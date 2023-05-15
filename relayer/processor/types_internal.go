@@ -24,7 +24,7 @@ type pathEndMessages struct {
 type ibcMessage interface {
 	// assemble executes the appropriate proof query function,
 	// then, if successful, assembles the message for the destination.
-	assemble(ctx context.Context, src, dst *pathEndRuntime) (provider.RelayerMessage, error)
+	assemble(ctx context.Context, src, dst *pathEndRuntime, connectionHops []string) (provider.RelayerMessage, error)
 
 	// tracker creates a message tracker for message status
 	tracker(assembled provider.RelayerMessage) messageToTrack
@@ -45,11 +45,11 @@ type packetIBCMessage struct {
 
 // assemble executes the appropriate proof query function,
 // then, if successful, assembles the packet message for the destination.
-func (msg packetIBCMessage) assemble(
-	ctx context.Context,
+func (msg packetIBCMessage) assemble(ctx context.Context,
 	src, dst *pathEndRuntime,
+	connectionHops []string,
 ) (provider.RelayerMessage, error) {
-	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
+	var packetProof func(context.Context, provider.PacketInfo, uint64, []string) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
 	switch msg.eventType {
 	case chantypes.EventTypeRecvPacket:
@@ -81,9 +81,7 @@ func (msg packetIBCMessage) assemble(
 	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
 	defer cancel()
 
-	var proof provider.PacketProof
-	var err error
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
+	proof, err := packetProof(ctx, msg.info, src.latestBlock.Height, connectionHops)
 	if err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
@@ -141,8 +139,9 @@ type channelIBCMessage struct {
 func (msg channelIBCMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	connectionHops []string,
 ) (provider.RelayerMessage, error) {
-	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
+	var chanProof func(context.Context, provider.ChannelInfo, uint64, []string) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
 	switch msg.eventType {
 	case chantypes.EventTypeChannelOpenInit:
@@ -169,7 +168,7 @@ func (msg channelIBCMessage) assemble(
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {
-		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
+		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height, connectionHops)
 		if err != nil {
 			return nil, fmt.Errorf("error querying channel proof: %w", err)
 		}
@@ -217,6 +216,7 @@ type connectionIBCMessage struct {
 func (msg connectionIBCMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	connectionHops []string,
 ) (provider.RelayerMessage, error) {
 	var connProof func(context.Context, provider.ConnectionInfo, uint64) (provider.ConnectionProof, error)
 	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
@@ -290,6 +290,7 @@ type clientICQMessage struct {
 func (msg clientICQMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
+	connectionHops []string,
 ) (provider.RelayerMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, interchainQueryTimeout)
 	defer cancel()

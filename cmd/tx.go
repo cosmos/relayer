@@ -85,7 +85,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 
 			path := args[0]
 
-			c, src, dst, err := a.Config.ChainsFromPath(path)
+			c, src, dst, _, err := a.Config.ChainsFromPath(path)
 			if err != nil {
 				return err
 			}
@@ -245,7 +245,7 @@ corresponding update-client messages.`,
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact update-clients demo-path`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -271,7 +271,7 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 		Short: "upgrades IBC clients between two configured chains with a configured path and chain-id",
 		Args:  withUsage(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, src, dst, err := a.Config.ChainsFromPath(args[0])
+			c, src, dst, _, err := a.Config.ChainsFromPath(args[0])
 			if err != nil {
 				return err
 			}
@@ -339,7 +339,7 @@ $ %s tx conn demo-path --timeout 5s`,
 
 			pathName := args[0]
 
-			c, src, dst, err := a.Config.ChainsFromPath(pathName)
+			c, src, dst, _, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -426,7 +426,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 
 			pathName := args[0]
 
-			c, src, dst, err := a.Config.ChainsFromPath(pathName)
+			c, src, dst, hops, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -475,7 +475,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd), pathName)
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], hops, retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd), pathName)
 		},
 	}
 
@@ -502,7 +502,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pathName := args[0]
 
-			c, src, dst, err := a.Config.ChainsFromPath(pathName)
+			c, src, dst, hops, err := a.Config.ChainsFromPath(pathName)
 			if err != nil {
 				return err
 			}
@@ -538,7 +538,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 				return err
 			}
 
-			return c[src].CloseChannel(cmd.Context(), c[dst], retries, to, channelID, portID, a.Config.memo(cmd), pathName)
+			return c[src].CloseChannel(cmd.Context(), c[dst], hops, retries, to, channelID, portID, a.Config.memo(cmd), pathName)
 		},
 	}
 
@@ -587,12 +587,23 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			src, dst := pth.Src.ChainID, pth.Dst.ChainID
-			c, err := a.Config.Chains.Gets(src, dst)
+			chainIDs := []string{src}
+			for _, hop := range pth.Hops {
+				chainIDs = append(chainIDs, hop.ChainID)
+			}
+			chainIDs = append(chainIDs, dst)
+			c, err := a.Config.Chains.Gets(chainIDs...)
 			if err != nil {
 				return err
 			}
 
 			c[src].PathEnd = pth.Src
+			hops := []*relayer.Chain{}
+			for _, hop := range pth.Hops {
+				hopChain := c[hop.ChainID]
+				c[hop.ChainID].RelayPathEnds = hop.PathEnds
+				hops = append(hops, hopChain)
+			}
 			c[dst].PathEnd = pth.Dst
 
 			srcPort, err := cmd.Flags().GetString(flagSrcPort)
@@ -645,30 +656,37 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			// create clients if they aren't already created
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
-			if err != nil {
-				return fmt.Errorf("error creating clients: %w", err)
-			}
-			if clientSrc != "" || clientDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
-					return err
+			for i, srcChainID := range chainIDs {
+				if i == len(chainIDs)-1 {
+					// When we reach dst we already connected via the previous hop
+					break
+				}
+				dstChainID := chainIDs[i+1]
+
+				// create clients if they aren't already created
+				clientSrc, clientDst, err := c[srcChainID].CreateClients(cmd.Context(), c[dstChainID], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+				if err != nil {
+					return fmt.Errorf("error creating clients: %w", err)
+				}
+				if clientSrc != "" || clientDst != "" {
+					if err := a.OverwriteConfigOnTheFly(cmd, pathName, clientSrc, clientDst, "", ""); err != nil {
+						return err
+					}
+				}
+
+				// create connection if it isn't already created
+				connectionSrc, connectionDst, err := c[srcChainID].CreateOpenConnections(cmd.Context(), c[dstChainID], retries, to, memo, initialBlockHistory, pathName)
+				if err != nil {
+					return fmt.Errorf("error creating connections: %w", err)
+				}
+				if connectionSrc != "" || connectionDst != "" {
+					if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
+						return err
+					}
 				}
 			}
-
-			// create connection if it isn't already created
-			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
-			if err != nil {
-				return fmt.Errorf("error creating connections: %w", err)
-			}
-			if connectionSrc != "" || connectionDst != "" {
-				if err := a.OverwriteConfigOnTheFly(cmd, pathName, "", "", connectionSrc, connectionDst); err != nil {
-					return err
-				}
-			}
-
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], hops, retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},
 	}
 	cmd = timeoutFlag(a.Viper, cmd)
@@ -752,6 +770,9 @@ $ %s tx flush demo-path channel-0`,
 				// collect unique chain IDs
 				chains[path.Src.ChainID] = nil
 				chains[path.Dst.ChainID] = nil
+				for _, h := range path.Hops {
+					chains[h.ChainID] = nil
+				}
 			} else {
 				for n, path := range a.Config.Paths {
 					paths = append(paths, relayer.NamedPath{
@@ -762,6 +783,9 @@ $ %s tx flush demo-path channel-0`,
 					// collect unique chain IDs
 					chains[path.Src.ChainID] = nil
 					chains[path.Dst.ChainID] = nil
+					for _, h := range path.Hops {
+						chains[h.ChainID] = nil
+					}
 				}
 			}
 

@@ -59,6 +59,9 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 					// collect unique chain IDs
 					chains[path.Src.ChainID] = nil
 					chains[path.Dst.ChainID] = nil
+					for _, h := range path.Hops {
+						chains[h.ChainID] = nil
+					}
 				}
 			} else {
 				for n, path := range a.Config.Paths {
@@ -70,6 +73,9 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 					// collect unique chain IDs
 					chains[path.Src.ChainID] = nil
 					chains[path.Dst.ChainID] = nil
+					for _, h := range path.Hops {
+						chains[h.ChainID] = nil
+					}
 				}
 			}
 

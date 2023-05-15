@@ -426,7 +426,6 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
 		)
 		return
-
 	}
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
@@ -506,14 +505,7 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 	}
 }
 
-// messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
-	// Update trusted client state for both pathends
-	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
-	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
-
-	channelPairs := pp.channelPairs()
-
+func (pp *PathProcessor) processLatestConnectionMessages(ctx context.Context) ([]connectionIBCMessage, []connectionIBCMessage) {
 	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
 		Src:                         pp.pathEnd1,
 		Dst:                         pp.pathEnd2,
@@ -533,6 +525,25 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	pathEnd1ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd1ConnectionHandshakeMessages)
 	pathEnd2ConnectionHandshakeRes := pp.getUnrelayedConnectionHandshakeMessagesAndToDelete(pathEnd2ConnectionHandshakeMessages)
 
+	// concatenate applicable messages for pathend
+	return pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
+}
+
+func (pp *PathProcessor) processLatestClientICQMessages(ctx context.Context) ([]clientICQMessage, []clientICQMessage) {
+	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd1,
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd2,
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	return pathEnd1ClientICQMessages, pathEnd2ClientICQMessages
+}
+
+func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context) ([]channelIBCMessage, []packetIBCMessage, []channelIBCMessage, []packetIBCMessage) {
 	pathEnd1ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd1,
 		Dst:                      pp.pathEnd2,
@@ -551,6 +562,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	}
 	pathEnd1ChannelHandshakeRes := pp.getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd1ChannelHandshakeMessages)
 	pathEnd2ChannelHandshakeRes := pp.getUnrelayedChannelHandshakeMessagesAndToDelete(pathEnd2ChannelHandshakeMessages)
+
+	channelPairs := pp.channelPairs()
 
 	// process the packet flows for both path ends to determine what needs to be relayed
 	pathEnd1ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
@@ -616,23 +629,26 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	}
 
 	// concatenate applicable messages for pathend
-	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
 	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes)
 
 	pathEnd1PacketMessages, pathEnd2PacketMessages, pathEnd1ChanCloseMessages, pathEnd2ChanCloseMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChanCloseMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChanCloseMessages...)
+	return pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages
+}
 
-	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pp.pathEnd1,
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
-	)
-	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pp.pathEnd2,
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
-	)
+// messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
+func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+	var pathEnd1ConnectionMessages, pathEnd2ConnectionMessages []connectionIBCMessage
+	var pathEnd1ClientICQMessages, pathEnd2ClientICQMessages []clientICQMessage
+	if len(pp.hopsPathEnd1to2) == 0 {
+		// Update trusted client state for both pathends
+		pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
+		pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+		pathEnd1ConnectionMessages, pathEnd2ConnectionMessages = pp.processLatestConnectionMessages(ctx)
+		pathEnd1ClientICQMessages, pathEnd2ClientICQMessages = pp.processLatestClientICQMessages(ctx)
+	}
+	pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages := pp.processLatestChannelMessages(ctx)
 
 	pathEnd1Messages := pathEndMessages{
 		connectionMessages: pathEnd1ConnectionMessages,
@@ -655,11 +671,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	var eg errgroup.Group
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
+		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1, pp.hopsPathEnd1to2)
 	})
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
+		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2, pp.hopsPathEnd2to1)
 	})
 	return eg.Wait()
 }
@@ -946,6 +962,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 			return false
 		}
 	}
+	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd1.messageCache.ConnectionHandshake {
 		if len(c) > 0 {
 			return false
@@ -963,6 +980,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete(
 			return false
 		}
 	}
+	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd2.messageCache.ConnectionHandshake {
 		if len(c) > 0 {
 			return false

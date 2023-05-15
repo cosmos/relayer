@@ -73,7 +73,6 @@ func CheckForMisbehaviour(
 			return nil, nil
 		}
 	}
-
 	return misbehavior, nil
 }
 

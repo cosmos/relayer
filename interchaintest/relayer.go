@@ -107,8 +107,9 @@ func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, cha
 	return nil
 }
 
-func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, srcChainID, dstChainID, pathName string) error {
-	res := r.sys().RunC(ctx, r.log(), "paths", "new", srcChainID, dstChainID, pathName)
+func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, srcChainID, dstChainID, pathName string, hopChainID ...string) error {
+	args := append([]string{"paths", "new", srcChainID, dstChainID, pathName}, hopChainID...)
+	res := r.sys().RunC(ctx, r.log(), args...)
 	if res.Err != nil {
 		return res.Err
 	}
