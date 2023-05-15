@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ var (
 	RtyErr    = retry.LastErrorOnly(true)
 
 	defaultCoinType uint32 = 118
+	defaultAlgo     string = string(hd.Secp256k1Type)
 )
 
 // Chain represents the necessary data for connecting to and identifying a chain and its counterparties
@@ -147,7 +149,7 @@ func (c *Chain) CreateTestKey() error {
 	if c.ChainProvider.KeyExists(c.ChainProvider.Key()) {
 		return fmt.Errorf("key {%s} exists for chain {%s}", c.ChainProvider.Key(), c.ChainID())
 	}
-	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key(), defaultCoinType)
+	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key(), defaultCoinType, defaultAlgo)
 	return err
 }
 

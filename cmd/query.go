@@ -63,7 +63,7 @@ $ %s q ibc-denoms ibc-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -99,7 +99,7 @@ $ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D9
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ok := a.Config.Chains[args[0]]
+			c, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -127,7 +127,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -168,7 +168,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -198,7 +198,7 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd, "txs")
+	return paginationFlags(a.viper, cmd, "txs")
 }
 
 func queryBalanceCmd(a *appState) *cobra.Command {
@@ -213,7 +213,7 @@ $ %s query balance ibc-0 testkey`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -247,7 +247,7 @@ $ %s query balance ibc-0 testkey`,
 		},
 	}
 
-	return ibcDenomFlags(a.Viper, cmd)
+	return ibcDenomFlags(a.viper, cmd)
 }
 
 func queryHeaderCmd(a *appState) *cobra.Command {
@@ -261,7 +261,7 @@ $ %s query header ibc-0 1400`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -315,7 +315,7 @@ $ %s q node-state ibc-1`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -355,7 +355,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -392,7 +392,7 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 		},
 	}
 
-	return heightFlag(a.Viper, cmd)
+	return heightFlag(a.viper, cmd)
 }
 
 func queryClientsCmd(a *appState) *cobra.Command {
@@ -407,7 +407,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -437,7 +437,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd, "client states")
+	return paginationFlags(a.viper, cmd, "client states")
 }
 
 func queryConnections(a *appState) *cobra.Command {
@@ -453,7 +453,7 @@ $ %s q conns ibc-1`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -483,7 +483,7 @@ $ %s q conns ibc-1`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd, "connections on a network")
+	return paginationFlags(a.viper, cmd, "connections on a network")
 }
 
 func queryConnectionsUsingClient(a *appState) *cobra.Command {
@@ -499,7 +499,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			//TODO - Add pagination
 
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -536,7 +536,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 		},
 	}
 
-	return heightFlag(a.Viper, cmd)
+	return heightFlag(a.viper, cmd)
 }
 
 func queryConnection(a *appState) *cobra.Command {
@@ -551,7 +551,7 @@ $ %s q conn ibc-1 ibconeconn`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -595,7 +595,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -629,7 +629,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd, "channels associated with a connection")
+	return paginationFlags(a.viper, cmd, "channels associated with a connection")
 }
 
 func queryChannel(a *appState) *cobra.Command {
@@ -643,7 +643,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -682,7 +682,7 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 		},
 	}
 
-	return heightFlag(a.Viper, cmd)
+	return heightFlag(a.viper, cmd)
 }
 
 // chanExtendedInfo is an intermediate type for holding additional useful
@@ -880,13 +880,13 @@ $ %s query channels ibc-0 ibc-2`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
 
 			if len(args) > 1 {
-				dstChain, ok := a.Config.Chains[args[1]]
+				dstChain, ok := a.config.Chains[args[1]]
 				if !ok {
 					return errChainNotFound(args[1])
 				}
@@ -902,7 +902,7 @@ $ %s query channels ibc-0 ibc-2`,
 		},
 	}
 
-	return paginationFlags(a.Viper, cmd, "channels on a network")
+	return paginationFlags(a.viper, cmd, "channels on a network")
 }
 
 func queryPacketCommitment(a *appState) *cobra.Command {
@@ -916,7 +916,7 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -961,14 +961,14 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := a.Config.Paths.Get(args[0])
+			path, err := a.config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
 
 			src, dst := path.Src.ChainID, path.Dst.ChainID
 
-			c, err := a.Config.Chains.Gets(src, dst)
+			c, err := a.config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -1014,13 +1014,13 @@ $ %s query unrelayed-acks demo-path channel-0`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := a.Config.Paths.Get(args[0])
+			path, err := a.config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
 			src, dst := path.Src.ChainID, path.Dst.ChainID
 
-			c, err := a.Config.Chains.Gets(src, dst)
+			c, err := a.config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -1063,12 +1063,12 @@ $ %s query clients-expiration demo-path`,
 			appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := a.Config.Paths.Get(args[0])
+			path, err := a.config.Paths.Get(args[0])
 			if err != nil {
 				return err
 			}
 			src, dst := path.Src.ChainID, path.Dst.ChainID
-			c, err := a.Config.Chains.Gets(src, dst)
+			c, err := a.config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}

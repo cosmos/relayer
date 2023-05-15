@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/go-bip39"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -19,12 +20,14 @@ const ethereumCoinType = uint32(60)
 var (
 	// SupportedAlgorithms defines the list of signing algorithms used on Evmos:
 	//  - secp256k1     (Cosmos)
-	//  - eth_secp256k1 (Ethereum)
-	SupportedAlgorithms = keyring.SigningAlgoList{hd.Secp256k1, ethermint.EthSecp256k1, injective.EthSecp256k1}
+	//  - sr25519		(Cosmos)
+	//  - eth_secp256k1 (Ethereum, Injective)
+	SupportedAlgorithms = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519, ethermint.EthSecp256k1, injective.EthSecp256k1}
 	// SupportedAlgorithmsLedger defines the list of signing algorithms used on Evmos for the Ledger device:
 	//  - secp256k1     (Cosmos)
-	//  - eth_secp256k1 (Ethereum)
-	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.Secp256k1, ethermint.EthSecp256k1, injective.EthSecp256k1}
+	//  - sr25519		(Cosmos)
+	//  - eth_secp256k1 (Ethereum, Injective)
+	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519, ethermint.EthSecp256k1, injective.EthSecp256k1}
 )
 
 // KeyringAlgoOptions defines a function keys options for the ethereum Secp256k1 curve.
@@ -58,8 +61,8 @@ func (cc *CosmosProvider) KeystoreCreated(path string) bool {
 
 // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *CosmosProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
-	ko, err := cc.KeyAddOrRestore(name, coinType)
+func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
+	ko, err := cc.KeyAddOrRestore(name, coinType, signingAlgorithm)
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +71,8 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32) (output *provider
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *CosmosProvider) RestoreKey(name, mnemonic string, coinType uint32) (address string, err error) {
-	ko, err := cc.KeyAddOrRestore(name, coinType, mnemonic)
+func (cc *CosmosProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {
+	ko, err := cc.KeyAddOrRestore(name, coinType, signingAlgorithm, mnemonic)
 	if err != nil {
 		return "", err
 	}
@@ -78,10 +81,17 @@ func (cc *CosmosProvider) RestoreKey(name, mnemonic string, coinType uint32) (ad
 
 // KeyAddOrRestore either generates a new mnemonic or uses the specified mnemonic and converts it to a private key
 // and BIP-39 HD Path which is then persisted to the keystore. It fails if there is an existing key with the same address.
-func (cc *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, mnemonic ...string) (*provider.KeyOutput, error) {
+func (cc *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, signingAlgorithm string, mnemonic ...string) (*provider.KeyOutput, error) {
 	var mnemonicStr string
 	var err error
-	algo := keyring.SignatureAlgo(hd.Secp256k1)
+
+	var algo keyring.SignatureAlgo
+	switch signingAlgorithm {
+	case string(hd.Sr25519Type):
+		algo = sr25519.Sr25519
+	default:
+		algo = hd.Secp256k1
+	}
 
 	if len(mnemonic) > 0 {
 		mnemonicStr = mnemonic[0]

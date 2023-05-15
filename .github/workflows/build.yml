@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Install and setup go
-      - name: Set up Go 1.19
-        uses: actions/setup-go@v2
+      - name: Set up Go 1.20
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: 1.20.2
 
       # setup gopath
       - name: Set PATH
@@ -25,19 +25,12 @@ jobs:
 
       # checkout relayer
       - name: checkout relayer
-        uses: actions/checkout@v2
-
-      # setup cache
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+        uses: actions/checkout@v3
 
       # unit tests
       - name: run unit tests
         run: make test
+
       # build binary
       - name: build binary and move to upload location
         run: make build
