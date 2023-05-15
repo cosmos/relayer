@@ -247,18 +247,15 @@ func (msg connectionIBCMessage) assemble(
 		return nil, fmt.Errorf("unexepected connection message eventType for message assembly: %s", msg.eventType)
 	}
 
-	src.log.Info("About to build connection proof...")
 	var proof provider.ConnectionProof
 	var err error
 	if connProof != nil {
-		src.log.Info("Building connection proof...")
 		proof, err = connProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
 			return nil, fmt.Errorf("error querying connection proof: %w", err)
 		}
 	}
 
-	src.log.Info("About to assemble connection msg...")
 	return assembleMessage(msg.info, proof)
 }
 

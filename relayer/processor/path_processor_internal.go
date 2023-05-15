@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -435,7 +434,7 @@ func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
 	processRemovals()
 
 	for chanKey, info := range pathEndChannelHandshakeMessages.DstMsgChannelOpenTry {
-		fmt.Printf("IN unrelayedChanHandMsgs, send ack - info: %v \n", info)
+
 		// need to send an open ack to src
 		msgOpenAck := channelIBCMessage{
 			eventType: chantypes.EventTypeChannelOpenAck,
@@ -459,15 +458,12 @@ func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
 	processRemovals()
 
 	for chanKey, info := range pathEndChannelHandshakeMessages.SrcMsgChannelOpenInit {
-		//fmt.Printf("CHAN KEY: %v \n", chanKey)
-		fmt.Printf("IN unrelayedChanHandMsgs, send try- info: %v \n", info)
 		// need to send an open try to dst
 		msgOpenTry := channelIBCMessage{
 			eventType: chantypes.EventTypeChannelOpenTry,
 			info:      info,
 		}
-		fmt.Printf("UNRELAYED SRC PE: %p \n", pathEndChannelHandshakeMessages.Src)
-		fmt.Printf("UNRELAYED DST PE: %p \n", pathEndChannelHandshakeMessages.Dst)
+
 		if pathEndChannelHandshakeMessages.Dst.shouldSendChannelMessage(
 			msgOpenTry, pathEndChannelHandshakeMessages.Src,
 		) {

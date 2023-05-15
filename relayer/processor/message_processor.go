@@ -35,7 +35,6 @@ type messageProcessor struct {
 
 // trackMessage stores the message tracker in the correct slice and index based on the type.
 func (mp *messageProcessor) trackMessage(tracker messageToTrack, i int) {
-	fmt.Printf("Tracking new msg: %v \n", tracker)
 	switch t := tracker.(type) {
 	case packetMessageToTrack:
 		mp.pktMsgs[i] = t
