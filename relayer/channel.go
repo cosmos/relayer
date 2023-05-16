@@ -179,8 +179,10 @@ func (c *Chain) CloseChannel(
 		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
-			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
+			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
+			nil,
+			nil,
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,

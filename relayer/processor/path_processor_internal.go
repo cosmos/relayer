@@ -733,13 +733,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			return
 		}
 
-		for k, open := range pp.pathEnd1.channelStateCache {
+		for k, state := range pp.pathEnd1.channelStateCache {
 			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
-				if open {
+				if state.Open {
 					// channel is still open on pathEnd1
 					break
 				}
-				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
+				if counterpartyState, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -759,13 +759,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			}
 		}
 
-		for k, open := range pp.pathEnd2.channelStateCache {
+		for k, state := range pp.pathEnd2.channelStateCache {
 			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
-				if open {
+				if state.Open {
 					// channel is still open on pathEnd2
 					break
 				}
-				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
+				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -932,7 +932,7 @@ func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context) ([]ch
 }
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func()) error {
 	var pathEnd1ConnectionMessages, pathEnd2ConnectionMessages []connectionIBCMessage
 	var pathEnd1ClientICQMessages, pathEnd2ClientICQMessages []clientICQMessage
 	if len(pp.hopsPathEnd1to2) == 0 {
@@ -1226,8 +1226,8 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 
 	// Query remaining packet commitments on both chains
 	var eg errgroup.Group
-	for k, open := range pp.pathEnd1.channelStateCache {
-		if !open {
+	for k, state := range pp.pathEnd1.channelStateCache {
+		if !state.Open {
 			continue
 		}
 		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
@@ -1239,8 +1239,8 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
-	for k, open := range pp.pathEnd2.channelStateCache {
-		if !open {
+	for k, state := range pp.pathEnd2.channelStateCache {
+		if !state.Open {
 			continue
 		}
 		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
@@ -1284,7 +1284,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		return false
 	}
 	for k, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if state, ok := pp.pathEnd1.channelStateCache[k]; !ok || !state.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1309,7 +1309,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		}
 	}
 	for k, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if state, ok := pp.pathEnd1.channelStateCache[k]; !ok || !state.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {

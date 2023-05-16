@@ -302,11 +302,9 @@ func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.Relayer
 		})
 	}
 	return events
-
 }
 
 func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
-
 	// TODO: fee estimation, fee payments
 	// NOTE: we do not actually need to sign this tx currently, since there
 	// are no fees required on the testnet. future versions of penumbra
@@ -888,9 +886,11 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
-	return cosmos.NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	return cosmos.NewCosmosMessage(&clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}), nil
 }
 
 func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
@@ -1174,18 +1174,6 @@ func (cc *PenumbraProvider) ValidatePacket(msgTransfer provider.PacketInfo, late
 	return nil
 }
 
-func (cc *PenumbraProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
-	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
-	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
-	}
-	return provider.PacketProof{
-		Proof:       proof,
-		ProofHeight: proofHeight,
-	}, nil
-}
-
 func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
@@ -1201,7 +1189,9 @@ func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64,
+	connectionHops []string,
+) (provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
@@ -1229,7 +1219,9 @@ func (cc *PenumbraProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64,
+	connectionHops []string,
+) (provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
@@ -1389,6 +1381,7 @@ func (cc *PenumbraProvider) NextSeqRecv(
 	ctx context.Context,
 	msgTransfer provider.PacketInfo,
 	height uint64,
+	connectionHops []string,
 ) (provider.PacketProof, error) {
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
@@ -1452,7 +1445,8 @@ func (cc *PenumbraProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof 
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
+func (cc *PenumbraProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64, connectionHops []string,
+) (provider.ChannelProof, error) {
 	channelRes, err := cc.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, err
@@ -1591,6 +1585,7 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
+// TODO: add hops if we want to support legacy processor
 func (cc *PenumbraProvider) RelayPacketFromSequence(
 	ctx context.Context,
 	src provider.ChainProvider,
@@ -1617,12 +1612,12 @@ func (cc *PenumbraProvider) RelayPacketFromSequence(
 			var pp provider.PacketProof
 			switch order {
 			case chantypes.UNORDERED:
-				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth)
+				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth, nil)
 				if err != nil {
 					return nil, nil, err
 				}
 			case chantypes.ORDERED:
-				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth)
+				pp, err = cc.NextSeqRecv(ctx, msgTransfer, dsth, nil)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -1645,7 +1640,7 @@ func (cc *PenumbraProvider) RelayPacketFromSequence(
 		}
 	}
 
-	pp, err := src.PacketCommitment(ctx, msgTransfer, srch)
+	pp, err := src.PacketCommitment(ctx, msgTransfer, srch, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1693,13 +1688,17 @@ func (cc *PenumbraProvider) AcknowledgementFromSequence(ctx context.Context, dst
 }
 
 func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
+	return []string{
+		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
+	}
 }
 
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+	return []string{
+		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
+	}
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
@@ -1716,7 +1715,6 @@ EventLoop:
 		}
 
 		for attributeKey, attributeValue := range event.Attributes {
-
 			switch attributeKey {
 			case srcChanTag:
 				if attributeValue != srcChanId {
@@ -2223,7 +2221,7 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 }
 
 func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -2235,6 +2233,6 @@ func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []pr
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
 func (cc *PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }

@@ -32,6 +32,11 @@ type Relayer struct {
 	cancel context.CancelFunc
 }
 
+func (r *Relayer) SetClientContractHash(ctx context.Context, rep ibc.RelayerExecReporter, cfg ibc.ChainConfig, hash string) error {
+	// TODO implement me
+	panic("implement me")
+}
+
 // Build returns a relayer interface
 func NewRelayer(
 	t *testing.T,
@@ -84,8 +89,8 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, signingAlgorithm string) (ibc.Wallet, error) {
-	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType, "--signing-algorithm", signingAlgorithm)
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType string) (ibc.Wallet, error) {
+	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -98,8 +103,8 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 	return w, nil
 }
 
-func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, signingAlgorithm, mnemonic string) error {
-	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic, "--coin-type", coinType, "--signing-algorithm", signingAlgorithm)
+func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, config ibc.ChainConfig, keyName, mnemonic string) error {
+	res := r.sys().RunC(ctx, r.log(), "keys", "restore", config.ChainID, keyName, mnemonic, "--coin-type", config.CoinType)
 	if res.Err != nil {
 		return res.Err
 	}

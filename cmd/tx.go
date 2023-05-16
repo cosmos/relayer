@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go/v4"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"

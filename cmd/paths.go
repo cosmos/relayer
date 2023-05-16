@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/google/go-github/v43/github"
@@ -275,7 +277,7 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 				}
 				if i == len(hops)-1 {
 					newHop.PathEnds[1].ChainID = hop
-					pthCurrHopToDst := a.Config.Paths.Find(hop, p.Dst.ChainID)
+					pthCurrHopToDst := a.config.Paths.Find(hop, p.Dst.ChainID)
 					newHop.PathEnds[1].ClientID = pthCurrHopToDst.Src.ClientID
 					newHop.PathEnds[1].ConnectionID = pthCurrHopToDst.Src.ConnectionID
 					p.Dst.ClientID = pthCurrHopToDst.Dst.ClientID
@@ -284,20 +286,12 @@ $ %s pth n ibc-0 ibc-1 demo-path`, appName, appName)),
 				p.Hops[i] = newHop
 				lastChainID = newHop.ChainID
 			}
-			name := args[2]
-			if err = a.config.Paths.Add(name, p); err != nil {
-				return err
-			}
 			return a.performConfigLockingOperation(cmd.Context(), func() error {
 				_, err := a.config.Chains.Gets(src, dst)
 				if err != nil {
 					return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 				}
 
-				p := &relayer.Path{
-					Src: &relayer.PathEnd{ChainID: src},
-					Dst: &relayer.PathEnd{ChainID: dst},
-				}
 				name := args[2]
 				if err = a.config.AddPath(name, p); err != nil {
 					return err
