@@ -3,8 +3,6 @@ package processor
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -391,21 +389,21 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 
 	// split up data and send lower channel-id data to pathEnd1 and higher channel-id data to pathEnd2
 	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
-		chanStr1 := strings.Replace(k.ChannelID, "channel-", "", 1)
-		chanStr2 := strings.Replace(k.CounterpartyChannelID, "channel-", "", 1)
-		chan1, err := strconv.Atoi(chanStr1)
+		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		if err != nil {
 			pp.log.Error("here is the error 1")
 			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
-		chan2, err := strconv.Atoi(chanStr2)
+
+		chan2, err := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 		if err != nil {
 			pp.log.Error("here is the error 2")
 			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
-		if chan1 > chan2 {
+
+		if chan1 < chan2 {
 			pathEnd1Cache.IBCMessagesCache.PacketFlow[k] = v
 		} else {
 			pathEnd2Cache.IBCMessagesCache.PacketFlow[k] = v
@@ -438,7 +436,7 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 				}
 				pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
 			default:
-				pp.log.Error("Invalid IBC event type", zap.String("event_type", eventType))
+				pp.log.Error("Invalid IBC channel event type", zap.String("event_type", eventType))
 			}
 		}
 	}
@@ -450,10 +448,8 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 		pp.log.Info("Channel ID", zap.String("id", k.ChannelID))
 		pp.log.Info("Ctprty channel ID", zap.String("id", k.CounterpartyChannelID))
 
-		chanStr1 := strings.Replace(k.ChannelID, "channel-", "", 1)
-		chanStr2 := strings.Replace(k.CounterpartyChannelID, "channel-", "", 1)
-		chan1, err := strconv.Atoi(chanStr1)
-		chan2, secErr := strconv.Atoi(chanStr2)
+		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
+		chan2, secErr := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 
 		if err != nil && secErr != nil {
 			continue
