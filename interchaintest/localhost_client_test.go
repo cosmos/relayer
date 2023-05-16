@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/strangelove-ventures/interchaintest/v7"
@@ -18,7 +19,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestLocalhostIBC(t *testing.T) {
+func TestLocalhost_TokenTransfers(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -130,26 +131,59 @@ func TestLocalhostIBC(t *testing.T) {
 	require.NoError(t, res.Err)
 
 	// initialize new channels
-	height, err := chainA.Height(ctx)
-	require.NoError(t, err)
-
 	err = r.CreateChannel(ctx, eRep, pathLocalhost, ibc.DefaultChannelOpts())
 	require.NoError(t, err)
 
-	_, err = ictestcosmos.PollForMessage[chantypes.MsgChannelOpenConfirm](
-		ctx,
-		chainA,
-		chainA.Config().EncodingConfig.InterfaceRegistry,
-		height,
-		height+20,
-		nil,
-	)
+	err = testutil.WaitForBlocks(ctx, 15, chainA)
+	require.NoError(t, err)
 
 	channels, err := r.GetChannels(ctx, eRep, chainA.Config().ChainID)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(channels))
 
 	channel := channels[0]
+
+	// compose the ibc denom for balance assertions
+	denom := transfertypes.GetPrefixedDenom(channel.Counterparty.PortID, channel.Counterparty.ChannelID, chainA.Config().Denom)
+	trace := transfertypes.ParseDenomTrace(denom)
+
+	// compose and send a localhost IBC transfer which should fail due to timeout
+	const transferAmount = int64(1_000)
+	transfer := ibc.WalletAmount{
+		Address: userB.FormattedAddress(),
+		Denom:   chainA.Config().Denom,
+		Amount:  transferAmount,
+	}
+
+	height, err := chainA.Height(ctx)
+	require.NoError(t, err)
+
+	cmd := []string{
+		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
+		channel.ChannelID,
+		transfer.Address,
+		fmt.Sprintf("%d%s", transfer.Amount, transfer.Denom),
+		"--from", userA.FormattedAddress(),
+		"--gas-prices", "0.0stake",
+		"--gas-adjustment", "1.2",
+		"--keyring-backend", "test",
+		"--absolute-timeouts",
+		//"--packet-timeout-timestamp", "9999999999999999999",
+		"--packet-timeout-height", fmt.Sprintf("1-%d", height+5),
+		"--output", "json",
+		"-y",
+		"--home", chainA.HomeDir(),
+		"--node", chainA.GetRPCAddress(),
+		"--chain-id", chainA.Config().ChainID,
+	}
+	stdout, stderr, err := chainA.Exec(ctx, cmd, nil)
+	require.NoError(t, err)
+
+	t.Logf("STDOUT: %s \n", stdout)
+	t.Logf("STDERR: %s \n", stderr)
+
+	err = testutil.WaitForBlocks(ctx, 6, chainA)
+	require.NoError(t, err)
 
 	// start the relayer
 	require.NoError(t, r.StartRelayer(ctx, eRep, pathLocalhost))
@@ -163,27 +197,88 @@ func TestLocalhostIBC(t *testing.T) {
 		},
 	)
 
-	// compose and send a localhost IBC transfer
-	transferAmount := int64(1_000)
-	transfer := ibc.WalletAmount{
-		Address: userB.FormattedAddress(),
-		Denom:   chainA.Config().Denom,
-		Amount:  transferAmount,
-	}
-
-	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.FormattedAddress(), transfer, ibc.TransferOptions{})
+	// assert that the balances did not change
+	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
+	require.Equal(t, userABal, newBalA)
+
+	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
+	require.NoError(t, err)
+	require.Equal(t, int64(0), newBalB)
+
+	// compose and send a localhost IBC transfer which should be successful
+	cmd = []string{
+		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
+		channel.ChannelID,
+		transfer.Address,
+		fmt.Sprintf("%d%s", transfer.Amount, transfer.Denom),
+		"--from", userA.FormattedAddress(),
+		"--gas-prices", "0.0stake",
+		"--gas-adjustment", "1.2",
+		"--keyring-backend", "test",
+		"--absolute-timeouts",
+		"--packet-timeout-timestamp", "9999999999999999999",
+		"--output", "json",
+		"-y",
+		"--home", chainA.HomeDir(),
+		"--node", chainA.GetRPCAddress(),
+		"--chain-id", chainA.Config().ChainID,
+	}
+	stdout, stderr, err = chainA.Exec(ctx, cmd, nil)
+	require.NoError(t, err)
+	t.Logf("STDOUT: %s \n", stdout)
+	t.Logf("STDERR: %s \n", stderr)
 
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
 
 	// assert that the updated balances are correct
-	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	newBalA, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
 	require.Equal(t, userABal-transferAmount, newBalA)
 
-	// TODO: this is using the wrong denom, fix later
-	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), chainA.Config().Denom)
+	newBalB, err = chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
-	require.Equal(t, userBBal+transferAmount, newBalB)
+	require.Equal(t, transferAmount, newBalB)
+
+	// compose and send another localhost IBC transfer which should succeed
+	cmd = []string{
+		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
+		channel.ChannelID,
+		transfer.Address,
+		fmt.Sprintf("%d%s", transfer.Amount, transfer.Denom),
+		"--from", userA.FormattedAddress(),
+		"--gas-prices", "0.0stake",
+		"--gas-adjustment", "1.2",
+		"--keyring-backend", "test",
+		"--absolute-timeouts",
+		"--packet-timeout-timestamp", "9999999999999999999",
+		//"--packet-timeout-height", fmt.Sprintf("1-%d", height+5),
+		"--output", "json",
+		"-y",
+		"--home", chainA.HomeDir(),
+		"--node", chainA.GetRPCAddress(),
+		"--chain-id", chainA.Config().ChainID,
+	}
+	stdout, stderr, err = chainA.Exec(ctx, cmd, nil)
+	require.NoError(t, err)
+
+	err = testutil.WaitForBlocks(ctx, 5, chainA)
+	require.NoError(t, err)
+
+	t.Logf("STDOUT: %s \n", stdout)
+	t.Logf("STDERR: %s \n", stderr)
+
+	// assert that the balances are updated
+	tmpBalA := newBalA
+	newBalA, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.Equal(t, tmpBalA-transferAmount, newBalA)
+
+	tmpBalB := newBalB
+	newBalB, err = chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
+	require.NoError(t, err)
+	require.Equal(t, tmpBalB+transferAmount, newBalB)
+
+	time.Sleep(30 * time.Second)
 }
