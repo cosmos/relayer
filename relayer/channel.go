@@ -172,6 +172,8 @@ func (c *Chain) CloseChannel(
 	flushCtx, flushCancel := context.WithTimeout(ctx, processorTimeout)
 	defer flushCancel()
 
+	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
+
 	flushProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
 			c.chainProcessor(c.log, nil),
@@ -181,8 +183,8 @@ func (c *Chain) CloseChannel(
 			c.log,
 			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
 			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
-			nil,
-			nil,
+			relayPathEndsSrcToDst,
+			relayPathEndsDstToSrc,
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,
@@ -204,7 +206,6 @@ func (c *Chain) CloseChannel(
 
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
-	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
 	chainProcessors := []processor.ChainProcessor{
 		c.chainProcessor(c.log, nil),
 		dst.chainProcessor(c.log, nil),

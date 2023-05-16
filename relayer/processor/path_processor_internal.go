@@ -595,6 +595,7 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
 		)
 		return
+
 	}
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
@@ -733,13 +734,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			return
 		}
 
-		for k, state := range pp.pathEnd1.channelStateCache {
+		for k, open := range pp.pathEnd1.channelStateCache {
 			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
-				if state.Open {
+				if open {
 					// channel is still open on pathEnd1
 					break
 				}
-				if counterpartyState, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyState.Open {
+				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -759,13 +760,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			}
 		}
 
-		for k, state := range pp.pathEnd2.channelStateCache {
+		for k, open := range pp.pathEnd2.channelStateCache {
 			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
-				if state.Open {
+				if open {
 					// channel is still open on pathEnd2
 					break
 				}
-				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState.Open {
+				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -792,7 +793,16 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 	}
 }
 
-func (pp *PathProcessor) processLatestConnectionMessages(ctx context.Context) ([]connectionIBCMessage, []connectionIBCMessage) {
+// messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
+func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func()) error {
+	// Update trusted client state for both pathends
+	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
+	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+
+	channelPairs := pp.channelPairs()
+
+	pp.queuePreInitMessages(cancel)
+
 	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
 		Src:                         pp.pathEnd1,
 		Dst:                         pp.pathEnd2,
@@ -814,25 +824,6 @@ func (pp *PathProcessor) processLatestConnectionMessages(ctx context.Context) ([
 	pathEnd1ConnectionHandshakeRes := pp.unrelayedConnectionHandshakeMessages(pathEnd1ConnectionHandshakeMessages)
 	pathEnd2ConnectionHandshakeRes := pp.unrelayedConnectionHandshakeMessages(pathEnd2ConnectionHandshakeMessages)
 
-	// concatenate applicable messages for pathend
-	return pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
-}
-
-func (pp *PathProcessor) processLatestClientICQMessages(ctx context.Context) ([]clientICQMessage, []clientICQMessage) {
-	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pp.pathEnd1,
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
-		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
-	)
-	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
-		pp.pathEnd2,
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
-		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
-	)
-	return pathEnd1ClientICQMessages, pathEnd2ClientICQMessages
-}
-
-func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context) ([]channelIBCMessage, []packetIBCMessage, []channelIBCMessage, []packetIBCMessage) {
 	pathEnd1ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd1,
 		Dst:                      pp.pathEnd2,
@@ -853,8 +844,6 @@ func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context) ([]ch
 	}
 	pathEnd1ChannelHandshakeRes := pp.unrelayedChannelHandshakeMessages(pathEnd1ChannelHandshakeMessages)
 	pathEnd2ChannelHandshakeRes := pp.unrelayedChannelHandshakeMessages(pathEnd2ChannelHandshakeMessages)
-
-	channelPairs := pp.channelPairs()
 
 	// process the packet flows for both path ends to determine what needs to be relayed
 	pathEnd1ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
@@ -923,29 +912,26 @@ func (pp *PathProcessor) processLatestChannelMessages(ctx context.Context) ([]ch
 	pathEnd2ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd2ChannelCloseMessages)
 
 	// concatenate applicable messages for pathend
-	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes)
+	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
+	pathEnd1ChannelMessages, pathEnd2ChannelMessages := pp.channelMessagesToSend(
+		pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes,
+		pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes,
+	)
 
 	pathEnd1PacketMessages, pathEnd2PacketMessages, pathEnd1ChanCloseMessages, pathEnd2ChanCloseMessages := pp.packetMessagesToSend(channelPairs, pathEnd1ProcessRes, pathEnd2ProcessRes)
 	pathEnd1ChannelMessages = append(pathEnd1ChannelMessages, pathEnd1ChanCloseMessages...)
 	pathEnd2ChannelMessages = append(pathEnd2ChannelMessages, pathEnd2ChanCloseMessages...)
-	return pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages
-}
 
-// messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
-func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func()) error {
-	var pathEnd1ConnectionMessages, pathEnd2ConnectionMessages []connectionIBCMessage
-	var pathEnd1ClientICQMessages, pathEnd2ClientICQMessages []clientICQMessage
-	if len(pp.hopsPathEnd1to2) == 0 {
-		// Update trusted client state for both pathends
-		pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
-		pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
-
-		pp.queuePreInitMessages(cancel)
-
-		pathEnd1ConnectionMessages, pathEnd2ConnectionMessages = pp.processLatestConnectionMessages(ctx)
-		pathEnd1ClientICQMessages, pathEnd2ClientICQMessages = pp.processLatestClientICQMessages(ctx)
-	}
-	pathEnd1ChannelMessages, pathEnd1PacketMessages, pathEnd2ChannelMessages, pathEnd2PacketMessages := pp.processLatestChannelMessages(ctx)
+	pathEnd1ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd1,
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd1.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
+	pathEnd2ClientICQMessages := pp.getUnrelayedClientICQMessages(
+		pp.pathEnd2,
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeRequest],
+		pp.pathEnd2.messageCache.ClientICQ[ClientICQTypeResponse],
+	)
 
 	pathEnd1Messages := pathEndMessages{
 		connectionMessages: pathEnd1ConnectionMessages,
@@ -966,11 +952,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	var eg errgroup.Group
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1, pp.hopsPathEnd1to2)
+		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
 	})
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2, pp.hopsPathEnd2to1)
+		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
 	})
 	return eg.Wait()
 }
@@ -1226,8 +1212,8 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 
 	// Query remaining packet commitments on both chains
 	var eg errgroup.Group
-	for k, state := range pp.pathEnd1.channelStateCache {
-		if !state.Open {
+	for k, open := range pp.pathEnd1.channelStateCache {
+		if !open {
 			continue
 		}
 		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
@@ -1239,8 +1225,8 @@ func (pp *PathProcessor) flush(ctx context.Context) {
 		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
-	for k, state := range pp.pathEnd2.channelStateCache {
-		if !state.Open {
+	for k, open := range pp.pathEnd2.channelStateCache {
+		if !open {
 			continue
 		}
 		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
@@ -1284,7 +1270,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		return false
 	}
 	for k, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
-		if state, ok := pp.pathEnd1.channelStateCache[k]; !ok || !state.Open {
+		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1300,7 +1286,6 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 			}
 		}
 	}
-	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd1.messageCache.ConnectionHandshake {
 		for k := range pp.pathEnd1.connectionStateCache {
 			if _, ok := c[k]; ok {
@@ -1309,7 +1294,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		}
 	}
 	for k, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
-		if state, ok := pp.pathEnd1.channelStateCache[k]; !ok || !state.Open {
+		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1325,7 +1310,6 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 			}
 		}
 	}
-	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd2.messageCache.ConnectionHandshake {
 		for k := range pp.pathEnd1.connectionStateCache {
 			if _, ok := c[k]; ok {
