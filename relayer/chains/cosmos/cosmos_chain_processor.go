@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -83,22 +84,22 @@ const (
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ccp *CosmosChainProcessor) {
-	existingClientInfo, ok := l[clientInfo.clientID]
+func (l latestClientState) update(ctx context.Context, clientInfo chains.ClientInfo, ccp *CosmosChainProcessor) {
+	existingClientInfo, ok := l[clientInfo.ClientID]
 	var trustingPeriod time.Duration
 	if ok {
-		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+		if clientInfo.ConsensusHeight.LT(existingClientInfo.ConsensusHeight) {
 			// height is less than latest, so no-op
 			return
 		}
 		trustingPeriod = existingClientInfo.TrustingPeriod
 	}
 	if trustingPeriod == 0 {
-		cs, err := ccp.chainProvider.queryTMClientState(ctx, 0, clientInfo.clientID)
+		cs, err := ccp.chainProvider.queryTMClientState(ctx, 0, clientInfo.ClientID)
 		if err != nil {
 			ccp.log.Error(
 				"Failed to query client state to get trusting period",
-				zap.String("client_id", clientInfo.clientID),
+				zap.String("client_id", clientInfo.ClientID),
 				zap.Error(err),
 			)
 			return
@@ -108,7 +109,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, cc
 	clientState := clientInfo.ClientState(trustingPeriod)
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.clientID] = clientState
+	l[clientInfo.ClientID] = clientState
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -425,7 +426,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				// tx was not successful
 				continue
 			}
-			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, base64Encoded)
+			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, base64Encoded)
 
 			for _, m := range messages {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
