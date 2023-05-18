@@ -71,7 +71,7 @@ func (pcp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci pro
 			pcp.channelStateCache[channelKey] = false
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 			pcp.channelStateCache[channelKey] = true
-		case chantypes.EventTypeChannelCloseConfirm:
+		case chantypes.EventTypeChannelClosed, chantypes.EventTypeChannelCloseConfirm:
 			for k := range pcp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
 					pcp.channelStateCache[k] = false

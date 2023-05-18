@@ -87,7 +87,7 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 			ccp.channelStateCache[channelKey] = true
 			ccp.logChannelOpenMessage(eventType, ci)
-		case chantypes.EventTypeChannelCloseConfirm:
+		case chantypes.EventTypeChannelClosed, chantypes.EventTypeChannelCloseConfirm:
 			for k := range ccp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
 					ccp.channelStateCache[k] = false
