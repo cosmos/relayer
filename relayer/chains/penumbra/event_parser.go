@@ -121,7 +121,9 @@ func parseIBCMessageFromEvent(
 		}
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-		clienttypes.EventTypeUpdateClientProposal:
+		clienttypes.EventTypeUpdateClientProposal,
+		clienttypes.EventTypeUpgradeChain,
+		clienttypes.EventTypeUpgradeClientProposal:
 		ci := new(clientInfo)
 		ci.parseAttrs(log, event.Attributes)
 		return &ibcMessage{
