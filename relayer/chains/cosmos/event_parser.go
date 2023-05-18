@@ -92,55 +92,42 @@ func parseIBCMessageFromEvent(
 	chainID string,
 	height uint64,
 ) *ibcMessage {
+	var msgInfo messageInfo
 	switch event.Type {
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck,
 		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
 		chantypes.EventTypeTimeoutPacketOnClose:
-		pi := &packetInfo{Height: height}
-		pi.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      pi,
-		}
+		msgInfo = &packetInfo{Height: height}
+
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
 		chantypes.EventTypeChannelCloseInit, chantypes.EventTypeChannelClosed, chantypes.EventTypeChannelCloseConfirm:
-		ci := &channelInfo{Height: height}
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
+		msgInfo = &channelInfo{Height: height}
+
 	case conntypes.EventTypeConnectionOpenInit, conntypes.EventTypeConnectionOpenTry,
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
-		ci := &connectionInfo{Height: height}
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
+		msgInfo = &connectionInfo{Height: height}
+
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
-		ci := new(clientInfo)
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
+		msgInfo = new(clientInfo)
 
 	case string(processor.ClientICQTypeRequest), string(processor.ClientICQTypeResponse):
-		ci := &clientICQInfo{
+		msgInfo = &clientICQInfo{
 			Height: height,
 			Source: chainID,
 		}
-		ci.parseAttrs(log, event.Attributes)
-		return &ibcMessage{
-			eventType: event.Type,
-			info:      ci,
-		}
+
+	default:
+		return nil
 	}
-	return nil
+
+	msgInfo.parseAttrs(log, event.Attributes)
+	return &ibcMessage{
+		eventType: event.Type,
+		info:      msgInfo,
+	}
 }
 
 func (msg *ibcMessage) parseIBCPacketReceiveMessageFromEvent(
@@ -236,6 +223,11 @@ func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute)
 		}
 		res.header = data
 	}
+}
+
+type messageInfo interface {
+	ibcMessageInfo
+	parseAttrs(log *zap.Logger, attrs []sdk.Attribute)
 }
 
 // alias type to the provider types, used for adding parser methods
