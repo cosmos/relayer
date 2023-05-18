@@ -16,6 +16,7 @@
 * [\#1177](https://github.com/cosmos/relayer/pull/1177) Avoid panic due to nil map when add new path and ensure path get written to config.
 * [\#1178](https://github.com/cosmos/relayer/pull/1178) Add max-gas-amount parameter in chain configs.
 * [\#1180](https://github.com/cosmos/relayer/pull/1180) Update SDK from v0.47.0 to v0.47.2.
+* [\#1196](https://github.com/cosmos/relayer/pull/1196) Add missing `EventTypeChannelClosed`, `EventTypeUpgradeChain ` and `EventTypeUpgradeClientProposal` when parse from event.
 
 ## v0.9.3
 
