@@ -474,7 +474,15 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 }
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	clientMsg, err := proto.Marshal(counterpartyHeader)
+
+	//*******Should be removed later
+	c := counterpartyHeader.(*icon.SignedHeader)
+
+	cs, err := icp.NewClientStateMock("icon", NewIconIBCHeader(nil, nil, int64(c.Header.MainHeight)),
+		2000*time.Second, 2000*time.Second, false, false)
+
+	// ****TODO: should be counterpartyHeader
+	clientMsg, err := proto.Marshal(cs)
 	if err != nil {
 		return nil, err
 	}

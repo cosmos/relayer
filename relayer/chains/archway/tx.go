@@ -6,7 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
+	"sync"
 	"time"
+
+	"github.com/CosmWasm/wasmd/app"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/gogoproto/proto"
+	"go.uber.org/zap"
+
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -161,25 +172,23 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 	if err != nil {
 		return nil, err
 	}
-
-	anyClientState, err := clienttypes.PackClientState(clientState)
-	if err != nil {
-		return nil, err
+	clientStateB, _ := proto.Marshal(clientState)
+	consensusStateB, _ := proto.Marshal(consensusState)
+	msg := map[string]interface{}{
+		"create_client": map[string]interface{}{
+			"client_state":    types.NewHexBytes(clientStateB),
+			"consensus_state": types.NewHexBytes(consensusStateB),
+			"signer":          types.NewHexBytes([]byte(signer)),
+		},
 	}
-
-	anyConsensusState, err := clienttypes.PackConsensusState(consensusState)
-	if err != nil {
-		return nil, err
-	}
-
-	msg := types.MsgCreateClient(anyClientState, anyConsensusState, signer)
 
 	msgParam, err := json.Marshal(msg)
+
 	if err != nil {
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -218,23 +227,51 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 }
 
 func (ap *ArchwayProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	// TODO : Proofs
-	return provider.PacketProof{}, nil
+	packetCommitmentResponse, err := ap.QueryPacketCommitment(
+		ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence,
+	)
+
+	if err != nil {
+		return provider.PacketProof{}, nil
+	}
+	return provider.PacketProof{
+		Proof:       packetCommitmentResponse.Proof,
+		ProofHeight: packetCommitmentResponse.ProofHeight,
+	}, nil
 }
 
 func (ap *ArchwayProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	// TODO: Proods
-	return provider.PacketProof{}, nil
+	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.SourceChannel, msgRecvPacket.SourcePort, msgRecvPacket.Sequence)
+	if err != nil {
+		return provider.PacketProof{}, nil
+	}
+	return provider.PacketProof{
+		Proof:       packetAckResponse.Proof,
+		ProofHeight: packetAckResponse.GetProofHeight(),
+	}, nil
 }
 
 func (ap *ArchwayProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	// TODO: Proofs
-	return provider.PacketProof{}, nil
+	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+
+	if err != nil {
+		return provider.PacketProof{}, nil
+	}
+	return provider.PacketProof{
+		Proof:       packetReceiptResponse.Proof,
+		ProofHeight: packetReceiptResponse.ProofHeight,
+	}, nil
 }
 
 func (ap *ArchwayProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	// TODO: Proofs
-	return provider.PacketProof{}, nil
+	nextSeqRecvResponse, err := ap.QueryNextSeqRecv(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort)
+	if err != nil {
+		return provider.PacketProof{}, nil
+	}
+	return provider.PacketProof{
+		Proof:       nextSeqRecvResponse.Proof,
+		ProofHeight: nextSeqRecvResponse.ProofHeight,
+	}, nil
 }
 
 func (ap *ArchwayProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
@@ -260,7 +297,7 @@ func (ap *ArchwayProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof 
 	if err != nil {
 		return nil, err
 	}
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -284,7 +321,7 @@ func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo,
 	if err != nil {
 		return nil, err
 	}
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -308,7 +345,7 @@ func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pro
 	if err != nil {
 		return nil, err
 	}
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -316,11 +353,29 @@ func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pr
 }
 
 func (ap *ArchwayProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
-	return provider.ConnectionProof{}, nil
+	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := ap.GenerateConnHandshakeProof(ctx, int64(height), msgOpenInit.ClientID, msgOpenInit.ConnID)
+	if err != nil {
+		return provider.ConnectionProof{}, err
+	}
+
+	return provider.ConnectionProof{
+		ClientState:          clientState,
+		ClientStateProof:     clientStateProof,
+		ConsensusStateProof:  consensusStateProof,
+		ConnectionStateProof: connStateProof,
+		ProofHeight:          proofHeight.(clienttypes.Height),
+	}, nil
 }
 
 func (ap *ArchwayProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
-	return provider.ConnectionProof{}, nil
+	connState, err := ap.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
+	if err != nil {
+		return provider.ConnectionProof{}, err
+	}
+	return provider.ConnectionProof{
+		ConnectionStateProof: connState.Proof,
+		ProofHeight:          connState.ProofHeight,
+	}, nil
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -346,7 +401,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, p
 	if err != nil {
 		return nil, err
 	}
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -385,7 +440,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionI
 	if err != nil {
 		return nil, err
 	}
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -420,7 +475,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionIn
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -440,11 +495,23 @@ func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connecti
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
-	return provider.ChannelProof{}, nil
+	channelResult, err := ap.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
+	if err != nil {
+		return provider.ChannelProof{}, nil
+	}
+	return provider.ChannelProof{
+		Proof: channelResult.Proof,
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: height,
+		},
+		Ordering: chantypes.Order(channelResult.Channel.GetOrdering()),
+		Version:  channelResult.Channel.Version,
+	}, nil
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -472,7 +539,7 @@ func (ap *ArchwayProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof p
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -501,13 +568,14 @@ func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, p
 			CounterpartyVersion: proof.Version,
 			ProofInit:           proof.Proof,
 			ProofHeight:         proof.ProofHeight,
+			Signer:              signer,
 		}}
 	msgParam, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -532,7 +600,7 @@ func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pr
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -555,7 +623,7 @@ func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -576,7 +644,7 @@ func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof 
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -599,7 +667,7 @@ func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelI
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
@@ -621,7 +689,7 @@ func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexporte
 		return nil, err
 	}
 
-	return NewWasmContractMessage(signer, ap.PCfg.IbcHandlerAddress, msgParam), nil
+	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
@@ -641,11 +709,64 @@ func (ap *ArchwayProvider) AcknowledgementFromSequence(ctx context.Context, dst 
 }
 
 func (ap *ArchwayProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	return nil, false, nil
+	return ap.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
-func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	return nil, false, nil
+func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+	var (
+		rlyResp     *provider.RelayerTxResponse
+		callbackErr error
+		wg          sync.WaitGroup
+	)
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		rlyResp = rtr
+		callbackErr = err
+		wg.Done()
+	}
+
+	wg.Add(1)
+
+	if err := retry.Do(func() error {
+		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		cc.log.Info(
+			"Error building or broadcasting transaction",
+			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", rtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, false, err
+	}
+
+	wg.Wait()
+
+	if callbackErr != nil {
+		return rlyResp, false, callbackErr
+	}
+
+	if rlyResp.Code != 0 {
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", rlyResp.Code)
+	}
+
+	return rlyResp, true, callbackErr
+}
+
+func (ap *ArchwayProvider) ClientContext() client.Context {
+	addr, _ := ap.GetKeyAddress()
+
+	encodingConfig := app.MakeEncodingConfig()
+	return client.Context{}.
+		WithClient(ap.RPCClient).
+		WithFromName(ap.PCfg.Key).
+		WithFromAddress(addr).
+		WithTxConfig(encodingConfig.TxConfig).
+		WithSkipConfirmation(true).
+		WithBroadcastMode("sync").
+		WithCodec(ap.Cdc.Marshaler)
+
 }
 
 func (ap *ArchwayProvider) SendMessagesToMempool(
@@ -656,7 +777,27 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 	asyncCtx context.Context,
 	asyncCallback func(*provider.RelayerTxResponse, error),
 ) error {
-	return nil
+	ap.txMu.Lock()
+	defer ap.txMu.Unlock()
+
+	cliCtx := ap.ClientContext()
+	factory, err := ap.PrepareFactory(ap.TxFactory())
+	if err != nil {
+		return err
+	}
+
+	var sdkMsgs []sdk.Msg
+	for _, msg := range msgs {
+		archwayMsg, ok := msg.(*WasmContractMessage)
+		if !ok {
+			return fmt.Errorf("Invalid ArchwayMsg")
+		}
+
+		sdkMsgs = append(sdkMsgs, archwayMsg.Msg)
+	}
+
+	return tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, sdkMsgs...)
+
 }
 
 // broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
@@ -686,14 +827,48 @@ func (cc *ArchwayProvider) QueryABCI(ctx context.Context, req abci.RequestQuery)
 		return abci.ResponseQuery{}, err
 	}
 
-	// if !result.Response.IsOK() {
-	// 	return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
-	// }
+	if !result.Response.IsOK() {
+		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+	}
 
-	// // data from trusted node or subspace query doesn't need verification
-	// if !opts.Prove || !isQueryStoreWithProof(req.Path) {
-	// 	return result.Response, nil
-	// }
+	// data from trusted node or subspace query doesn't need verification
+	if !opts.Prove || !isQueryStoreWithProof(req.Path) {
+		return result.Response, nil
+	}
 
 	return result.Response, nil
+}
+
+func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
+	switch resp.Code {
+	case sdkerrors.ErrInvalidRequest.ABCICode():
+		return status.Error(codes.InvalidArgument, resp.Log)
+	case sdkerrors.ErrUnauthorized.ABCICode():
+		return status.Error(codes.Unauthenticated, resp.Log)
+	case sdkerrors.ErrKeyNotFound.ABCICode():
+		return status.Error(codes.NotFound, resp.Log)
+	default:
+		return status.Error(codes.Unknown, resp.Log)
+	}
+}
+
+// isQueryStoreWithProof expects a format like /<queryType>/<storeName>/<subpath>
+// queryType must be "store" and subpath must be "key" to require a proof.
+func isQueryStoreWithProof(path string) bool {
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+
+	paths := strings.SplitN(path[1:], "/", 3)
+
+	switch {
+	case len(paths) != 3:
+		return false
+	case paths[0] != "store":
+		return false
+	case rootmulti.RequireProof("/" + paths[2]):
+		return true
+	}
+
+	return false
 }

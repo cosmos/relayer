@@ -56,7 +56,7 @@ func (m *Msg) String() string {
 func (m *Msg) ProtoMessage() {
 }
 
-func GetProvider(ctx context.Context) (provider.ChainProvider, error) {
+func GetProvider(ctx context.Context, contract string) (provider.ChainProvider, error) {
 
 	absPath, _ := filepath.Abs("../../../env/archway/keys")
 	config := ArchwayProviderConfig{
@@ -73,7 +73,7 @@ func GetProvider(ctx context.Context) (provider.ChainProvider, error) {
 		Timeout:           "20s",
 		SignModeStr:       "direct",
 		MinGasAmount:      300_000,
-		IbcHandlerAddress: "heheh",
+		IbcHandlerAddress: contract,
 	}
 
 	p, err := config.NewProvider(&zap.Logger{}, "../../../env/archway", true, "archway")
@@ -90,7 +90,8 @@ func GetProvider(ctx context.Context) (provider.ChainProvider, error) {
 
 func TestGetAddress(t *testing.T) {
 	ctx := context.Background()
-	p, err := GetProvider(ctx)
+	contract := "archway1j2zsnnv7qpd6hqhrkg96c57wv9yff4y6amarcvsp5lkta2e4k5vstvt9j3"
+	p, err := GetProvider(ctx, contract)
 	assert.NoError(t, err)
 	pArch := p.(*ArchwayProvider)
 	// _, err = pArch.AddKey("testWallet", 118)
@@ -116,13 +117,65 @@ func NewHexBytes(b []byte) HexBytes {
 	return HexBytes(hex.EncodeToString(b))
 }
 
+type SendPacket struct {
+	Pkt struct {
+		Packet HexBytes `json:"packet"`
+		Id     string   `json:"id"`
+	} `json:"send_packet"`
+}
+
+func (m *SendPacket) Type() string {
+	return "sendPacket"
+}
+
+func (m *SendPacket) MsgBytes() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+// func TestTransaction(t *testing.T) {
+// 	ctx := context.Background()
+// 	contract := "archway1j2zsnnv7qpd6hqhrkg96c57wv9yff4y6amarcvsp5lkta2e4k5vstvt9j3"
+// 	p, _ := GetProvider(ctx, contract)
+// 	pArch := p.(*ArchwayProvider)
+// 	pArch.Init(ctx)
+
+// 	key := "jptKey"
+
+// 	msg := &SendPacket{
+// 		Pkt: struct {
+// 			Packet HexBytes "json:\"packet\""
+// 			Id     string   "json:\"id\""
+// 		}{
+// 			Packet: NewHexBytes([]byte("Hello")),
+// 			Id:     key,
+// 		},
+// 	}
+
+// 	// msg, err := pArch.MsgSendPacketTemp(key)
+// 	// assert.NoError(t, err)
+
+// 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+// 		if err != nil {
+// 			return
+// 		}
+// 	}
+
+// 	err := pArch.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
+// 	assert.NoError(t, err)
+
+// 	storageKey := fmt.Sprintf("0007%x%s", []byte("packets"), key)
+// 	_, err = pArch.QueryArchwayProof(ctx, []byte(storageKey), 1932589)
+// 	assert.NoError(t, err)
+
+// }
+
 func TestTxCall(t *testing.T) {
 
 	ctx := context.Background()
-	p, _ := GetProvider(ctx)
-	pArch := p.(*ArchwayProvider)
 
 	contract := "archway192v3xzzftjylqlty0tw6p8k7adrlf2l3ch9j76augya4yp8tf36ss7d3wa"
+	p, _ := GetProvider(ctx, contract)
+	pArch := p.(*ArchwayProvider)
 
 	// cl, _ := client.NewClientFromNode("http://localhost:26657")
 	cl, _ := client.NewClientFromNode("https://rpc.constantine-2.archway.tech:443")
@@ -142,7 +195,7 @@ func TestTxCall(t *testing.T) {
 	///////////////////// EXECUTION /////////////////
 	/////////////////////////////////////////////////
 
-	pktData := []byte("data")
+	pktData := []byte("hello_world")
 
 	// type SendPacketParams struct {
 	// 	Packet HexBytes `json:"packet"`
@@ -155,7 +208,7 @@ func TestTxCall(t *testing.T) {
 	// sendPkt := SendPacket{
 	// 	Pkt: SendPacketParams{
 	// 		Packet: NewHexBytes(pktData),
-	// 		Id:     "100",
+	// 		Id:     "345",
 	// 	},
 	// }
 

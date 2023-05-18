@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	provtypes "github.com/cometbft/cometbft/light/provider"
-
 	"github.com/CosmWasm/wasmd/app"
+	provtypes "github.com/cometbft/cometbft/light/provider"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	prov "github.com/cometbft/cometbft/light/provider/http"
 
-	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
@@ -185,19 +185,20 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	}
 
 	ap.Keybase = keybase
-	addr, err := ap.GetKeyAddress()
+	_, err = ap.GetKeyAddress()
 	if err != nil {
 		return err
 	}
 
-	encodingConfig := app.MakeEncodingConfig()
-	clientCtx := client.Context{}.
-		WithClient(rpcClient).
-		WithFromName(ap.PCfg.Key).
-		WithFromAddress(addr).
-		WithTxConfig(encodingConfig.TxConfig).
-		WithSkipConfirmation(true).
-		WithBroadcastMode("sync")
+	clientCtx := ap.ClientContext()
+
+	// :chainsaw:
+	cfg := sdk.GetConfig()
+	cfg.SetBech32PrefixForAccount(ap.PCfg.AccountPrefix, app.Bech32PrefixAccPub)
+	cfg.SetBech32PrefixForValidator(ap.PCfg.AccountPrefix, app.Bech32PrefixValPub)
+	cfg.SetBech32PrefixForConsensusNode(app.Bech32PrefixConsAddr, app.Bech32PrefixConsPub)
+	cfg.SetAddressVerifier(wasmtypes.VerifyAddressLen())
+	cfg.Seal()
 
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)
 	ap.RPCClient = rpcClient

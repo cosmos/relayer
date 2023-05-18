@@ -25,7 +25,6 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	// integration_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
@@ -250,25 +249,24 @@ func (icp *IconProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
+	if !dstUpdateHeader.IsCompleteBlock() {
+		return nil, fmt.Errorf("Not complete block")
+	}
 
-	revisionNumber := clienttypes.ParseChainID(dstChainID)
+	validatorSet, err := icp.GetProofContextByHeight(int64(dstUpdateHeader.Height()))
+	if err != nil {
+		return nil, err
+	}
 
-	return &tmclient.ClientState{
-		ChainId: dstChainID,
-		TrustLevel: tmclient.Fraction{
-			Numerator:   2,
-			Denominator: 3,
-		},
-		TrustingPeriod:  dstTrustingPeriod,
-		UnbondingPeriod: dstUbdPeriod,
-		MaxClockDrift:   time.Minute * 10,
-		FrozenHeight:    clienttypes.ZeroHeight(),
-		LatestHeight: clienttypes.Height{
-			RevisionNumber: revisionNumber,
-			RevisionHeight: dstUpdateHeader.Height(),
-		},
-		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
+	iconHeader := dstUpdateHeader.(IconIBCHeader)
+
+	return &icon.ClientState{
+		TrustingPeriod:     uint64(dstTrustingPeriod),
+		FrozenHeight:       0,
+		MaxClockDrift:      3600,
+		LatestHeight:       dstUpdateHeader.Height(),
+		NetworkSectionHash: iconHeader.Header.PrevNetworkSectionHash,
+		Validators:         validatorSet,
 	}, nil
 
 }
@@ -544,6 +542,7 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 
 func (icp *IconProvider) GetBtpHeader(height int64) (*types.BTPBlockHeader, error) {
 	var header types.BTPBlockHeader
+	fmt.Println("nid", icp.PCfg.BTPNetworkID)
 	encoded, err := icp.client.GetBTPHeader(&types.BTPBlockParam{
 		Height:    types.NewHexInt(height),
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),

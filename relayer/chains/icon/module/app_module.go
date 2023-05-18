@@ -32,6 +32,12 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 	registry.RegisterImplementations(
 		(*exported.ClientState)(nil),
 		&tendermint.ClientState{},
+		&icon.ClientState{},
+	)
+	registry.RegisterImplementations(
+		(*exported.ConsensusState)(nil),
+		&tendermint.ConsensusState{},
+		&icon.ConsensusState{},
 	)
 	registry.RegisterInterface(
 		"icon.types.v1.MerkleProofs",
