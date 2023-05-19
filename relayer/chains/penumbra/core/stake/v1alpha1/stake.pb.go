@@ -650,7 +650,6 @@ func (m *ValidatorStatus) GetBondingState() *BondingState {
 type BondingState struct {
 	State BondingState_BondingStateEnum `protobuf:"varint,1,opt,name=state,proto3,enum=penumbra.core.stake.v1alpha1.BondingState_BondingStateEnum" json:"state,omitempty"`
 	// Types that are valid to be assigned to XUnbondingEpoch:
-	//
 	//	*BondingState_UnbondingEpoch
 	XUnbondingEpoch isBondingState_XUnbondingEpoch `protobuf_oneof:"_unbonding_epoch"`
 }
