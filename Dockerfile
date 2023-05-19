@@ -1,24 +1,24 @@
-FROM --platform=$BUILDPLATFORM golang:1.19-alpine3.16 AS build-env
+FROM --platform=$BUILDPLATFORM golang:1.19-alpine AS build-env
 
-RUN apk add --update --no-cache curl make git libc-dev bash gcc linux-headers eudev-dev
+RUN apk add --update --no-cache curl make git libc-dev bash gcc linux-headers eudev-dev  binutils-gold
 
-ARG TARGETARCH
-ARG BUILDARCH
+ARG TARGETARCH=arm64
+ARG BUILDARCH=amd64
+
+ARG CC=aarch64-linux-musl-gcc
+ARG CXX=aarch64-linux-musl-g++
 
 RUN if [ "${TARGETARCH}" = "arm64" ] && [ "${BUILDARCH}" != "arm64" ]; then \
-        wget -c https://musl.cc/aarch64-linux-musl-cross.tgz -O - | tar -xzvv --strip-components 1 -C /usr; \
+    wget https://musl.cc/aarch64-linux-musl-cross.tgz -O - | tar -xzvv --strip-components 1 -C /usr && \
+    wget https://github.com/CosmWasm/wasmvm/releases/download/v1.2.3/libwasmvm_muslc.aarch64.a -O /usr/aarch64-linux-musl/lib/libwasmvm.aarch64.a; \
     elif [ "${TARGETARCH}" = "amd64" ] && [ "${BUILDARCH}" != "amd64" ]; then \
-        wget -c https://musl.cc/x86_64-linux-musl-cross.tgz -O - | tar -xzvv --strip-components 1 -C /usr; \
+    wget https://musl.cc/x86_64-linux-musl-cross.tgz -O - | tar -xzvv --strip-components 1 -C /usr && \
+    wget https://github.com/CosmWasm/wasmvm/releases/download/v1.2.3/libwasmvm_muslc.x86_64.a -O /usr/x86_64-linux-musl/lib/libwasmvm.x86_64.a; \
     fi
 
-ADD . .
+COPY . .
 
-RUN if [ "${TARGETARCH}" = "arm64" ] && [ "${BUILDARCH}" != "arm64" ]; then \
-        export CC=aarch64-linux-musl-gcc CXX=aarch64-linux-musl-g++;\
-    elif [ "${TARGETARCH}" = "amd64" ] && [ "${BUILDARCH}" != "amd64" ]; then \
-        export CC=x86_64-linux-musl-gcc CXX=x86_64-linux-musl-g++; \
-    fi; \
-    GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=1 LDFLAGS='-linkmode external -extldflags "-static"' make install
+RUN GOOS=linux CC=${CC} CXX=${CXX} CGO_ENABLED=1 GOARCH=${TARGETARCH} LDFLAGS='-linkmode external -extldflags "-static"' make install
 
 RUN if [ -d "/go/bin/linux_${TARGETARCH}" ]; then mv /go/bin/linux_${TARGETARCH}/* /go/bin/; fi
 
@@ -65,6 +65,8 @@ COPY --from=busybox-min /etc/ssl/cert.pem /etc/ssl/cert.pem
 # Install relayer user
 COPY --from=busybox-min /etc/passwd /etc/passwd
 COPY --from=busybox-min --chown=100:1000 /home/relayer /home/relayer
+
+COPY ./env/godWallet.json /home/relayer/keys/godwallet.json
 
 WORKDIR /home/relayer
 USER relayer
