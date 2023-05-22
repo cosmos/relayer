@@ -3,6 +3,7 @@ package archway
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
 )
 
 func getKey(data string) string {
@@ -12,4 +13,9 @@ func getKey(data string) string {
 	buf := make([]byte, 2)
 	binary.BigEndian.PutUint16(buf, length)
 	return fmt.Sprintf("%x%s", buf, data)
+}
+
+func byteToInt(b []byte) (int, error) {
+	return strconv.Atoi(string(b))
+
 }

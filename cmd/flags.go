@@ -54,6 +54,7 @@ const (
 	flagDstClientID             = "dst-client-id"
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
+	flagIconStartHeight         = "icon-start-height"
 )
 
 const (
@@ -75,6 +76,14 @@ func ibcDenomFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func heightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Int64(flagHeight, 0, "Height of headers to fetch")
 	if err := v.BindPFlag(flagHeight, cmd.Flags().Lookup(flagHeight)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func iconStartHeightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flagIconStartHeight, 0, "Icon Start Height to register client")
+	if err := v.BindPFlag(flagIconStartHeight, cmd.Flags().Lookup(flagIconStartHeight)); err != nil {
 		panic(err)
 	}
 	return cmd

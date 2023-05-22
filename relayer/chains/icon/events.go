@@ -100,15 +100,13 @@ var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
 	EventTypeSendPacket:           {},
 	EventTypeWriteAcknowledgement: {},
 
-	EventTypeConnectionOpenInit:    {},
-	EventTypeConnectionOpenTry:     {},
-	EventTypeConnectionOpenAck:     {},
-	EventTypeConnectionOpenConfirm: {},
+	EventTypeConnectionOpenInit: {},
+	EventTypeConnectionOpenTry:  {},
+	EventTypeConnectionOpenAck:  {},
 
-	EventTypeChannelOpenInit:    {},
-	EventTypeChannelOpenTry:     {},
-	EventTypeChannelOpenAck:     {},
-	EventTypeChannelOpenConfirm: {},
+	EventTypeChannelOpenInit: {},
+	EventTypeChannelOpenTry:  {},
+	EventTypeChannelOpenAck:  {},
 }
 
 var MonitorEvents []string = []string{

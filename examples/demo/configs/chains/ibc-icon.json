@@ -1,15 +1,14 @@
 {
     "type": "icon",
     "value": {
-      "key": "testkey",
       "chain-id": "ibc-icon",
       "rpc-addr": "http://localhost:9082/api/v3/",
-      "timeout": "10s",
-      "keystore":"/Users/viveksharmapoudel/.keystore/god_wallet.json",
+      "timeout": "30s",
+      "keystore":"/Users/viveksharmapoudel/keystore/godWallet.json",
       "password":"gochain",
-      "network-id":1,
+      "btp-network-id":2,
+      "icon-network-id":3,
+      "start-btp-height":0,
       "ibc-handler-address":"cxfffe383e4780084e48e477935099b03193d952fe"
     }
 }
-
-  

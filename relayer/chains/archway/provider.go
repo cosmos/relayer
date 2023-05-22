@@ -11,6 +11,7 @@ import (
 
 	"github.com/CosmWasm/wasmd/app"
 	provtypes "github.com/cometbft/cometbft/light/provider"
+	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -27,7 +28,6 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 
 	"go.uber.org/zap"
 )
@@ -125,6 +125,7 @@ type ArchwayProvider struct {
 	Cdc            Codec
 	Input          io.Reader
 	Output         io.Writer
+	ClientCtx      client.Context
 
 	txMu sync.Mutex
 
@@ -168,7 +169,7 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO: figure out how to deal with input or maybe just make all keyring backends test?
+	ap.Keybase = keybase
 
 	timeout, err := time.ParseDuration(ap.PCfg.Timeout)
 	if err != nil {
@@ -179,18 +180,13 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	ap.RPCClient = rpcClient
+
 	lightprovider, err := prov.New(ap.PCfg.ChainID, ap.PCfg.RPCAddr)
 	if err != nil {
 		return err
 	}
-
-	ap.Keybase = keybase
-	_, err = ap.GetKeyAddress()
-	if err != nil {
-		return err
-	}
-
-	clientCtx := ap.ClientContext()
+	ap.LightProvider = lightprovider
 
 	// :chainsaw:
 	cfg := sdk.GetConfig()
@@ -200,9 +196,36 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	cfg.SetAddressVerifier(wasmtypes.VerifyAddressLen())
 	cfg.Seal()
 
+	fmt.Println("Start from here  ")
+
+	// checking if key exist
+	addr, err := ap.GetKeyAddress()
+	if err != nil {
+		fmt.Println("check should be inserted here ")
+
+		output, err := ap.AddKey(ap.PCfg.Key, 118)
+		if err != nil {
+			return err
+		}
+		ap.log.Info("Didn't found Address, so added new key", zap.String("Address", output.Address))
+		addr, err = ap.GetKeyAddress()
+		if err != nil {
+			return nil
+		}
+	}
+
+	clientCtx := client.Context{}.
+		WithClient(rpcClient).
+		WithFromName(ap.PCfg.Key).
+		WithFromAddress(addr).
+		WithTxConfig(app.MakeEncodingConfig().TxConfig).
+		WithSkipConfirmation(true).
+		WithBroadcastMode("sync").
+		WithCodec(ap.Cdc.Marshaler)
+
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)
-	ap.RPCClient = rpcClient
-	ap.LightProvider = lightprovider
+	ap.ClientCtx = clientCtx
+
 	return nil
 }
 
@@ -312,6 +335,10 @@ func (ac *ArchwayProvider) BlockTime(ctx context.Context, height int64) (time.Ti
 	return resultBlock.Block.Time, nil
 }
 
+func (ac *ArchwayProvider) Codec() Codec {
+	return ac.Cdc
+}
+
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
 func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
@@ -319,14 +346,5 @@ func keysDir(home, chainID string) string {
 
 // NewRPCClient initializes a new tendermint RPC client connected to the specified address.
 func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
-	httpClient, err := libclient.DefaultHTTPClient(addr)
-	if err != nil {
-		return nil, err
-	}
-	httpClient.Timeout = timeout
-	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
-	if err != nil {
-		return nil, err
-	}
-	return rpcClient, nil
+	return client.NewClientFromNode(addr)
 }

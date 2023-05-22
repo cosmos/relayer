@@ -1,0 +1,23 @@
+{
+  "type": "archway",
+  "value": {
+    "key": "default",
+    "chain-id": "constantine-2",
+    "rpc-addr": "https://rpc.constantine-2.archway.tech:443",
+    "key-directory":"/Users/viveksharmapoudel/.relayer/keys/archway",
+    "grpc-addr": "",
+    "account-prefix": "archway",
+    "keyring-backend": "test",
+    "gas-adjustment": 1.5,
+    "gas-prices": "0.02uconst",
+    "debug": true,
+    "timeout": "20s",
+    "output-format": "json",
+    "sign-mode": "direct",
+    "ibc-handler-address":"--",
+    "broadcast-mode": "batch",
+    "block-timeout": ""
+  }
+}
+
+

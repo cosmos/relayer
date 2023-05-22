@@ -3,7 +3,7 @@
     "chain-id": "ibc-icon"
   },
   "dst": {
-    "chain-id": "ibc-icon2"
+    "chain-id": "constantine-2"
   },
   "src-channel-filter": {
     "rule": null,

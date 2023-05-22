@@ -2,11 +2,11 @@ package archway
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -347,18 +347,21 @@ func (ap *ArchwayProvider) QueryConsensusState(ctx context.Context, height int64
 	return state, height, nil
 }
 
-func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName string) (uint64, error) {
+func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName string) (int, error) {
 	switch methodName {
 	case types.MethodGetNextClientSequence:
 		param, err := types.NewNextClientSequence().Bytes()
 		if err != nil {
 			return 0, err
 		}
+
 		op, err := ap.QueryIBCHandlerContract(ctx, param)
 		if err != nil {
 			return 0, err
 		}
-		return binary.LittleEndian.Uint64(op.Data.Bytes()), nil
+
+		return byteToInt(op.Data.Bytes())
+
 	case types.MethodGetNextChannelSequence:
 		param, err := types.NewNextChannelSequence().Bytes()
 		if err != nil {
@@ -368,7 +371,8 @@ func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName strin
 		if err != nil {
 			return 0, err
 		}
-		return binary.LittleEndian.Uint64(op.Data.Bytes()), nil
+		return byteToInt(op.Data.Bytes())
+
 	case types.MethodGetNextConnectionSequence:
 		param, err := types.NewNextConnectionSequence().Bytes()
 		if err != nil {
@@ -378,7 +382,8 @@ func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName strin
 		if err != nil {
 			return 0, err
 		}
-		return binary.LittleEndian.Uint64(op.Data.Bytes()), nil
+		return strconv.Atoi(string(op.Data.Bytes()))
+
 	default:
 		return 0, errors.New("Invalid method name")
 	}

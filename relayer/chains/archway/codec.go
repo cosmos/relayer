@@ -26,6 +26,7 @@ type Codec struct {
 	InterfaceRegistry types.InterfaceRegistry
 	Marshaler         codec.Codec
 	TxConfig          client.TxConfig
+	Amino             *codec.LegacyAmino
 }
 
 func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string) Codec {
@@ -43,5 +44,6 @@ func MakeCodecConfig() Codec {
 		InterfaceRegistry: interfaceRegistry,
 		Marshaler:         marshaler,
 		TxConfig:          tx.NewTxConfig(marshaler, tx.DefaultSignModes),
+		Amino:             codec.NewLegacyAmino(),
 	}
 }
