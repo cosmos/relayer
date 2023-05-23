@@ -36,10 +36,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	MB      = 1024 * 1024 // in bytes
-	appName = "rly"
-)
+const appName = "rly"
 
 var defaultHome = filepath.Join(os.Getenv("HOME"), ".relayer")
 

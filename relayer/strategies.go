@@ -98,7 +98,7 @@ func StartRelayer(
 		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]
 		src.PathEnd = p.Src
 		dst.PathEnd = p.Dst
-		go relayerStartLegacy(ctx, log, src, dst, p.Filter, 2, maxMsgLength, memo, errorChan)
+		go relayerStartLegacy(ctx, log, src, dst, p.Filter, 2*1024*1024, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
