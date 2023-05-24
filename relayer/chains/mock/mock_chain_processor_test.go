@@ -9,6 +9,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -62,7 +63,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	flushInterval := 6 * time.Hour
 
 	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, nil, nil, metrics,
-		"", clientUpdateThresholdTime, flushInterval)
+		"", clientUpdateThresholdTime, flushInterval, relayer.DefaultMaxMsgLength)
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(

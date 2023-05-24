@@ -42,6 +42,7 @@ func (c *Chain) CreateOpenConnections(
 		memo,
 		DefaultClientUpdateThreshold,
 		DefaultFlushInterval,
+		DefaultMaxMsgLength,
 	)
 
 	var connectionSrc, connectionDst string

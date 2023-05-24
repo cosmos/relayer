@@ -361,6 +361,36 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 	}
 }
 
+// IsCached returns true if a sequence for a channel key and event type is already cached.
+func (c ChannelPacketMessagesCache) IsCached(eventType string, k ChannelKey, sequence uint64) bool {
+	if _, ok := c[k]; !ok {
+		return false
+	}
+	if _, ok := c[k][eventType]; !ok {
+		return false
+	}
+	if _, ok := c[k][eventType][sequence]; !ok {
+		return false
+	}
+	return true
+}
+
+// Cache stores packet info safely, generating intermediate maps along the way if necessary.
+func (c ChannelPacketMessagesCache) Cache(
+	eventType string,
+	k ChannelKey,
+	sequence uint64,
+	packetInfo provider.PacketInfo,
+) {
+	if _, ok := c[k]; !ok {
+		c[k] = make(PacketMessagesCache)
+	}
+	if _, ok := c[k][eventType]; !ok {
+		c[k][eventType] = make(PacketSequenceCache)
+	}
+	c[k][eventType][sequence] = packetInfo
+}
+
 // Merge merges another ChannelPacketMessagesCache into this one.
 func (c ChannelPacketMessagesCache) Merge(other ChannelPacketMessagesCache) {
 	for channelKey, messageCache := range other {

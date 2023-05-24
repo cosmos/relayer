@@ -30,6 +30,9 @@ const (
 	// Amount of time to wait for interchain queries.
 	interchainQueryTimeout = 60 * time.Second
 
+	// Amount of time between flushes if the previous flush failed.
+	flushFailureRetry = 15 * time.Second
+
 	// If message assembly fails from either proof query failure on the source
 	// or assembling the message for the destination, how many blocks should pass
 	// before retrying.
@@ -70,13 +73,15 @@ type PathProcessor struct {
 	messageLifecycle MessageLifecycle
 
 	initialFlushComplete bool
-	flushTicker          *time.Ticker
+	flushTimer           *time.Timer
 	flushInterval        time.Duration
 
 	// Signals to retry.
 	retryProcess chan struct{}
 
 	sentInitialMsg bool
+
+	maxMsgs uint64
 
 	metrics *PrometheusMetrics
 }
@@ -103,6 +108,7 @@ func NewPathProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
+	maxMsgs uint64,
 ) *PathProcessor {
 	hopsPathEnd1to2 := make([]*pathEndRuntime, len(hops1to2))
 	for i, hop := range hops1to2 {
@@ -123,6 +129,7 @@ func NewPathProcessor(
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
+		maxMsgs:                   maxMsgs,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
@@ -397,6 +404,16 @@ func (pp *PathProcessor) HandleNewData(chainID, clientID string, cacheData Chain
 	}
 }
 
+func (pp *PathProcessor) handleFlush(ctx context.Context) {
+	flushTimer := pp.flushInterval
+	if err := pp.flush(ctx); err != nil {
+		pp.log.Warn("Flush not complete", zap.Error(err))
+		flushTimer = flushFailureRetry
+	}
+	pp.flushTimer.Stop()
+	pp.flushTimer = time.NewTimer(flushTimer)
+}
+
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
 // It returns whether the pathProcessor should quit.
 // TODO: if we keep the requirement on having single hop paths underneath multihop paths this logic can back to just
@@ -408,7 +425,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 	flushIndex := 2
 	cases[doneIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}
 	cases[retryIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.retryProcess)}
-	cases[flushIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.flushTicker.C)}
+	cases[flushIndex] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(pp.flushTimer.C)}
 	pathEndOffset := len(cases)
 	pathEnds := []*pathEndRuntime{pp.pathEnd1, pp.pathEnd2}
 	pathEnds = append(pathEnds, pp.hopsPathEnd1to2...)
@@ -432,7 +449,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// No new data to merge in, just retry handling.
 	case flushIndex:
 		// Periodic flush to clear out any old packets
-		pp.flush(ctx)
+		pp.handleFlush(ctx)
 	default:
 		// Find the pathEnd that sent the signal
 		pathEnd := pathEnds[chosen-pathEndOffset]
@@ -487,8 +504,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 
 	var retryTimer *time.Timer
 
-	pp.flushTicker = time.NewTicker(pp.flushInterval)
-	defer pp.flushTicker.Stop()
+	pp.flushTimer = time.NewTimer(time.Hour)
 
 	for {
 		// block until we have any signals to process
@@ -508,7 +524,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
-			pp.flush(ctx)
+			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
 			cancel()

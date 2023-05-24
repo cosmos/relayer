@@ -12,6 +12,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+var _ zapcore.ObjectMarshaler = packetIBCMessage{}
+var _ zapcore.ObjectMarshaler = channelIBCMessage{}
+var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
+var _ zapcore.ObjectMarshaler = clientICQMessage{}
+
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
 type pathEndMessages struct {

@@ -805,7 +805,7 @@ $ %s tx flush demo-path channel-0`,
 				return err
 			}
 
-			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
+			maxMsgLength, err := cmd.Flags().GetUint64(flagMaxMsgLength)
 			if err != nil {
 				return err
 			}
@@ -826,7 +826,7 @@ $ %s tx flush demo-path channel-0`,
 				a.log,
 				chains,
 				paths,
-				maxTxSize, maxMsgLength,
+				maxMsgLength,
 				a.config.memo(cmd),
 				0,
 				0,
