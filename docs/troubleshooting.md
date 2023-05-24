@@ -53,6 +53,17 @@ it will be helpful to provide the output from `http://localhost:7597/debug/pprof
 
 ---
 
+**Error querying blockdata**
+
+The relayer looks back in time at historical transactions and needs to have an index of them.
+
+Specifically check `~/.<node_data_dir>/config/config.toml` has the following fields set:
+```toml
+indexer = "kv"
+index_all_tags = true
+```
+---
+
 **Error building or broadcasting transaction**
 
 When preparing a transaction for relaying, the amount of gas that the transaction will consume is unknown.  To compute how much gas the transaction will need, the transaction is prepared with 0 gas and delivered as a `/cosmos.tx.v1beta1.Service/Simulate` query to the RPC endpoint.  Recently chains have been creating AnteHandlers in which 0 gas triggers an error case:
