@@ -49,9 +49,14 @@ func (pp *PathProcessor) getMessagesToSend(
 			})
 
 			if e == chantypes.EventTypeRecvPacket {
-				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, m[0].info.DestChannel, m[0].info.DestPort)
+				dstChan, dstPort := m[0].info.DestChannel, m[0].info.DestPort
+				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, dstChan, dstPort)
 				if err != nil {
-					dst.log.Error("Failed to query next sequence recv", zap.Error(err))
+					dst.log.Error("Failed to query next sequence recv",
+						zap.String("channel_id", dstChan),
+						zap.String("port_id", dstPort),
+						zap.Error(err),
+					)
 					return
 				}
 
@@ -1122,7 +1127,7 @@ func queryPacketCommitments(
 	}
 }
 
-// returns whether flush can be considered complete (none skipped)
+// queuePendingRecvAndAcks returns whether flush can be considered complete (none skipped).
 func (pp *PathProcessor) queuePendingRecvAndAcks(
 	ctx context.Context,
 	src, dst *pathEndRuntime,

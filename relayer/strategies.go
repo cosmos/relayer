@@ -28,6 +28,7 @@ const (
 	DefaultClientUpdateThreshold        = 0 * time.Millisecond
 	DefaultFlushInterval                = 5 * time.Minute
 	DefaultMaxMsgLength                 = 5
+	TwoMB                               = 2 * 1024 * 1024
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
@@ -98,7 +99,7 @@ func StartRelayer(
 		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]
 		src.PathEnd = p.Src
 		dst.PathEnd = p.Dst
-		go relayerStartLegacy(ctx, log, src, dst, p.Filter, 2*1024*1024, maxMsgLength, memo, errorChan)
+		go relayerStartLegacy(ctx, log, src, dst, p.Filter, TwoMB, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
