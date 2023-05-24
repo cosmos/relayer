@@ -505,7 +505,18 @@ func StringifyEvent(e abci.Event) types.StringEvent {
 }
 
 func findEventType(t string) string {
-	return strings.TrimPrefix(t, "wasm-")
+	return strings.TrimPrefix(t, wasmPrefix)
+}
+
+func appendWasm(t string) string {
+	return fmt.Sprintf("%s%s", wasmPrefix, t)
+}
+
+func startsWithWasm(s string) bool {
+	if len(s) <= 5 {
+		return false
+	}
+	return s[:5] == wasmPrefix
 }
 
 func eventFromIBCContractAddress(attr types.Attribute, contractAddress string) bool {

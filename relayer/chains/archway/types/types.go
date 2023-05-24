@@ -3,12 +3,7 @@ package types
 import (
 	"encoding/hex"
 	"encoding/json"
-
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"fmt"
 )
 
 type HexBytes string
@@ -28,76 +23,31 @@ func NewHexBytes(b []byte) HexBytes {
 
 // / EXTERNAL METHODS
 
-func MsgCreateClient(clientState, consensusState CustomAny, signer HexBytes) map[string]interface{} {
-	return map[string]interface{}{
-		"create_client": map[string]interface{}{
-			"client_state":    clientState,
-			"consensus_state": consensusState,
-			"signer":          signer,
+type ContractCall struct {
+	Msg HexBytes `json:"msg"`
+}
+
+type CreateClientMsg struct {
+	CreateClient ContractCall `json:"create_client"`
+}
+
+func (c *CreateClientMsg) Bytes() ([]byte, error) {
+	return json.Marshal(c)
+}
+
+func GenerateTxnParams(methodName string, value HexBytes) ([]byte, error) {
+	if len(methodName) <= 0 {
+		return nil, fmt.Errorf("Empty Method Name")
+	}
+	if len(value) <= 0 {
+		return nil, fmt.Errorf("Empty value for %s", methodName)
+	}
+	m := map[string]interface{}{
+		methodName: map[string]HexBytes{
+			"msg": value,
 		},
 	}
-}
-
-type UpdateClient struct {
-	UpdateClient clienttypes.MsgUpdateClient `json:"update_client"`
-}
-
-func MsgUpdateClient(clientId string, clientMsg CustomAny, signer HexBytes) map[string]interface{} {
-
-	return map[string]interface{}{
-		"update_client": map[string]interface{}{
-			"client_id":      clientId,
-			"client_message": clientMsg,
-			"signer":         signer,
-		},
-	}
-}
-
-type ConnectionOpenInit struct {
-	Msg conntypes.MsgConnectionOpenInit `json:"connection_open_init"`
-}
-type ConnectionOpenTry struct {
-	Msg conntypes.MsgConnectionOpenTry `json:"connection_open_try"`
-}
-type ConnectionOpenAck struct {
-	Msg conntypes.MsgConnectionOpenAck `json:"connection_open_ack"`
-}
-type ConnectionOpenConfirm struct {
-	Msg conntypes.MsgConnectionOpenConfirm `json:"connection_open_confirm"`
-}
-
-type ChannelOpenInit struct {
-	Msg chantypes.MsgChannelOpenInit `json:"channel_open_init"`
-}
-
-type ChannelOpenTry struct {
-	Msg chantypes.MsgChannelOpenTry `json:"ChannelOpenTry"`
-}
-
-type ChannelOpenAck struct {
-	Msg chantypes.MsgChannelOpenAck `json:"ChannelOpenAck"`
-}
-type ChannelOpenConfirm struct {
-	Msg chantypes.MsgChannelOpenConfirm `json:"ChannelOpenConfirm"`
-}
-type ChannelCloseInit struct {
-	Msg chantypes.MsgChannelCloseInit `json:"ChannelCloseInit"`
-}
-
-type ChannelCloseConfirm struct {
-	Msg chantypes.MsgChannelCloseConfirm `json:"ChannelCloseConfirm"`
-}
-
-type ReceivePacket struct {
-	Msg chantypes.MsgRecvPacket `json:"ReceivePacket"`
-}
-
-type AcknowledgementPacket struct {
-	Msg chantypes.MsgAcknowledgement `json:"AcknowledgementPacket"`
-}
-
-type TimeoutPacket struct {
-	Msg chantypes.MsgTimeout `json:"TimeoutPacket"`
+	return json.Marshal(m)
 }
 
 // / READONLY METHODS
@@ -334,12 +284,6 @@ func NewPacketReceipt(portId, channelId string, sequence uint64) *GetPacketRecei
 	}
 }
 
-const (
-	MethodGetNextClientSequence     = "get_next_client_sequence"
-	MethodGetNextChannelSequence    = "get_next_channel_sequence"
-	MethodGetNextConnectionSequence = "get_next_connection_sequence"
-)
-
 type GetNextClientSequence struct {
 	Sequence struct{} `json:"get_next_client_sequence"`
 }
@@ -379,17 +323,5 @@ func (x *GetNextChannelSequence) Bytes() ([]byte, error) {
 func NewNextChannelSequence() *GetNextChannelSequence {
 	return &GetNextChannelSequence{
 		Sequence: struct{}{},
-	}
-}
-
-type CustomAny struct {
-	TypeUrl string   `json:"type_url"`
-	Value   HexBytes `json:"value"`
-}
-
-func NewCustomAny(a *codectypes.Any) CustomAny {
-	return CustomAny{
-		TypeUrl: a.TypeUrl,
-		Value:   NewHexBytes(a.Value),
 	}
 }

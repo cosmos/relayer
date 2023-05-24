@@ -11,6 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestWasmPrefix(t *testing.T) {
+	string := "wasm-create_client"
+	assert.Equal(t, wasmPrefix, string[:5])
+}
+
 func TestEventParser(t *testing.T) {
 
 	addr := "https://rpc.constantine-2.archway.tech:443"

@@ -2,8 +2,12 @@ package archway
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
+
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
 func getKey(data string) string {
@@ -18,4 +22,10 @@ func getKey(data string) string {
 func byteToInt(b []byte) (int, error) {
 	return strconv.Atoi(string(b))
 
+}
+
+func ProcessContractResponse(p wasmtypes.QuerySmartContractStateResponse) ([]byte, error) {
+	data := string(p.Data.Bytes())
+	trimmedData := strings.ReplaceAll(data, `"`, "")
+	return hex.DecodeString(trimmedData)
 }

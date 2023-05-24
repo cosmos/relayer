@@ -542,7 +542,6 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 
 func (icp *IconProvider) GetBtpHeader(height int64) (*types.BTPBlockHeader, error) {
 	var header types.BTPBlockHeader
-	fmt.Println("nid", icp.PCfg.BTPNetworkID)
 	encoded, err := icp.client.GetBTPHeader(&types.BTPBlockParam{
 		Height:    types.NewHexInt(height),
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),

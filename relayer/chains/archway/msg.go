@@ -2,8 +2,10 @@ package archway
 
 import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -19,17 +21,28 @@ func (w *WasmContractMessage) MsgBytes() ([]byte, error) {
 	return []byte("ibc"), nil
 }
 
-func (ap *ArchwayProvider) NewWasmContractMessage(msg wasmtypes.RawContractMessage) provider.RelayerMessage {
+func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMarshaler) (provider.RelayerMessage, error) {
 	signer, _ := ap.Address()
 	contract := ap.PCfg.IbcHandlerAddress
+
+	protoMsg, err := ap.Cdc.Marshaler.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+
+	msgParam, err := types.GenerateTxnParams(method, types.NewHexBytes(protoMsg))
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &WasmContractMessage{
 		Msg: &wasmtypes.MsgExecuteContract{
 			Sender:   signer,
 			Contract: contract,
-			Msg:      msg,
+			Msg:      msgParam,
 		},
-	}
+	}, nil
 }
 
 type ArchwayMessage struct {

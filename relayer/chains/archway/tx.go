@@ -1,17 +1,28 @@
 package archway
 
 import (
+	"bufio"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	"google.golang.org/grpc/codes"
@@ -23,13 +34,13 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
 	iconchain "github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -183,16 +194,13 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 		return nil, err
 	}
 
-	msg := types.MsgCreateClient(types.NewCustomAny(anyClientState),
-		types.NewCustomAny(anyConsensusState),
-		types.NewHexBytes([]byte(signer)),
-	)
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &clienttypes.MsgCreateClient{
+		ClientState:    anyClientState,
+		ConsensusState: anyConsensusState,
+		Signer:         signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodCreateClient, params)
 }
 
 func (ap *ArchwayProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -288,20 +296,13 @@ func (ap *ArchwayProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof 
 		return nil, err
 	}
 
-	msg := &types.ReceivePacket{
-		Msg: chantypes.MsgRecvPacket{
-			Packet:          msgTransfer.Packet(),
-			ProofCommitment: proof.Proof,
-			ProofHeight:     proof.ProofHeight,
-			Signer:          signer,
-		}}
-
-	msgParam, err := json.Marshal(msg)
-
-	if err != nil {
-		return nil, err
+	params := &chantypes.MsgRecvPacket{
+		Packet:          msgTransfer.Packet(),
+		ProofCommitment: proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
 	}
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodRecvPacket, params)
 }
 
 func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -310,22 +311,15 @@ func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo,
 		return nil, err
 	}
 
-	msg := &types.AcknowledgementPacket{
-		Msg: chantypes.MsgAcknowledgement{
-			Packet:          msgRecvPacket.Packet(),
-			Acknowledgement: msgRecvPacket.Ack,
-			ProofAcked:      proof.Proof,
-			ProofHeight:     proof.ProofHeight,
-			Signer:          signer,
-		},
+	params := &chantypes.MsgAcknowledgement{
+		Packet:          msgRecvPacket.Packet(),
+		Acknowledgement: msgRecvPacket.Ack,
+		ProofAcked:      proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
 	}
+	return ap.NewWasmContractMessage(MethodAcknowledgePacket, params)
 
-	msgParam, err := json.Marshal(msg)
-
-	if err != nil {
-		return nil, err
-	}
-	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -334,22 +328,15 @@ func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pro
 		return nil, err
 	}
 
-	msg := &types.TimeoutPacket{
-		Msg: chantypes.MsgTimeout{
-			Packet:           msgTransfer.Packet(),
-			ProofUnreceived:  proof.Proof,
-			ProofHeight:      proof.ProofHeight,
-			NextSequenceRecv: msgTransfer.Sequence,
-			Signer:           signer,
-		},
+	params := &chantypes.MsgTimeout{
+		Packet:           msgTransfer.Packet(),
+		ProofUnreceived:  proof.Proof,
+		ProofHeight:      proof.ProofHeight,
+		NextSequenceRecv: msgTransfer.Sequence,
+		Signer:           signer,
 	}
 
-	msgParam, err := json.Marshal(msg)
-
-	if err != nil {
-		return nil, err
-	}
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodTimeoutPacket, params)
 }
 
 func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -387,25 +374,20 @@ func (ap *ArchwayProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, p
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.ConnectionOpenInit{
-		Msg: conntypes.MsgConnectionOpenInit{
-			ClientId: info.ClientID,
-			Counterparty: conntypes.Counterparty{
-				ClientId:     info.CounterpartyClientID,
-				ConnectionId: "",
-				Prefix:       info.CounterpartyCommitmentPrefix,
-			},
-			Version:     nil,
-			DelayPeriod: defaultDelayPeriod,
-			Signer:      signer,
+	params := &conntypes.MsgConnectionOpenInit{
+		ClientId: info.ClientID,
+		Counterparty: conntypes.Counterparty{
+			ClientId:     info.CounterpartyClientID,
+			ConnectionId: "",
+			Prefix:       info.CounterpartyCommitmentPrefix,
 		},
+		Version:     nil,
+		DelayPeriod: defaultDelayPeriod,
+		Signer:      signer,
 	}
-	msgParam, err := json.Marshal(msg)
 
-	if err != nil {
-		return nil, err
-	}
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodConnectionOpenInit, params)
+
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -424,27 +406,23 @@ func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionI
 		Prefix:       defaultChainPrefix,
 	}
 
-	msg := &types.ConnectionOpenTry{
-		Msg: conntypes.MsgConnectionOpenTry{
-			ClientId:             msgOpenInit.CounterpartyClientID,
-			PreviousConnectionId: msgOpenInit.CounterpartyConnID,
-			ClientState:          csAny,
-			Counterparty:         counterparty,
-			DelayPeriod:          defaultDelayPeriod,
-			CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
-			ProofHeight:          proof.ProofHeight,
-			ProofInit:            proof.ConnectionStateProof,
-			ProofClient:          proof.ClientStateProof,
-			ProofConsensus:       proof.ConsensusStateProof,
-			ConsensusHeight:      proof.ClientState.GetLatestHeight().(clienttypes.Height),
-			Signer:               signer,
-		}}
-
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &conntypes.MsgConnectionOpenTry{
+		ClientId:             msgOpenInit.CounterpartyClientID,
+		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
+		ClientState:          csAny,
+		Counterparty:         counterparty,
+		DelayPeriod:          defaultDelayPeriod,
+		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		ProofHeight:          proof.ProofHeight,
+		ProofInit:            proof.ConnectionStateProof,
+		ProofClient:          proof.ClientStateProof,
+		ProofConsensus:       proof.ConsensusStateProof,
+		ConsensusHeight:      proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		Signer:               signer,
 	}
-	return ap.NewWasmContractMessage(msgParam), nil
+
+	return ap.NewWasmContractMessage(MethodConnectionOpenTry, params)
+
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -458,28 +436,23 @@ func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionIn
 		return nil, err
 	}
 
-	msg := &types.ConnectionOpenAck{
-		Msg: conntypes.MsgConnectionOpenAck{
-			ConnectionId:             msgOpenTry.CounterpartyConnID,
-			CounterpartyConnectionId: msgOpenTry.ConnID,
-			Version:                  conntypes.DefaultIBCVersion,
-			ClientState:              csAny,
-			ProofHeight: clienttypes.Height{
-				RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
-				RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
-			},
-			ProofTry:        proof.ConnectionStateProof,
-			ProofClient:     proof.ClientStateProof,
-			ProofConsensus:  proof.ConsensusStateProof,
-			ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
-			Signer:          signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &conntypes.MsgConnectionOpenAck{
+		ConnectionId:             msgOpenTry.CounterpartyConnID,
+		CounterpartyConnectionId: msgOpenTry.ConnID,
+		Version:                  conntypes.DefaultIBCVersion,
+		ClientState:              csAny,
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
+			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
+		},
+		ProofTry:        proof.ConnectionStateProof,
+		ProofClient:     proof.ClientStateProof,
+		ProofConsensus:  proof.ConsensusStateProof,
+		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		Signer:          signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodConnectionOpenAck, params)
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -487,19 +460,13 @@ func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connecti
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.ConnectionOpenConfirm{
-		Msg: conntypes.MsgConnectionOpenConfirm{
-			ConnectionId: msgOpenAck.CounterpartyConnID,
-			ProofAck:     proof.ConnectionStateProof,
-			ProofHeight:  proof.ProofHeight,
-			Signer:       signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &conntypes.MsgConnectionOpenConfirm{
+		ConnectionId: msgOpenAck.CounterpartyConnID,
+		ProofAck:     proof.ConnectionStateProof,
+		ProofHeight:  proof.ProofHeight,
+		Signer:       signer,
 	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodConnectionOpenConfirm, params)
 }
 
 func (ap *ArchwayProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
@@ -523,27 +490,21 @@ func (ap *ArchwayProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof p
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.ChannelOpenInit{
-		Msg: chantypes.MsgChannelOpenInit{
-			PortId: info.PortID,
-			Channel: chantypes.Channel{
-				State:    chantypes.INIT,
-				Ordering: info.Order,
-				Counterparty: chantypes.Counterparty{
-					PortId:    info.CounterpartyPortID,
-					ChannelId: "",
-				},
-				ConnectionHops: []string{info.ConnID},
-				Version:        info.Version,
+	params := &chantypes.MsgChannelOpenInit{
+		PortId: info.PortID,
+		Channel: chantypes.Channel{
+			State:    chantypes.INIT,
+			Ordering: info.Order,
+			Counterparty: chantypes.Counterparty{
+				PortId:    info.CounterpartyPortID,
+				ChannelId: "",
 			},
-			Signer: signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+			ConnectionHops: []string{info.ConnID},
+			Version:        info.Version,
+		},
+		Signer: signer,
 	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenInit, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -552,34 +513,28 @@ func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, p
 		return nil, err
 	}
 
-	msg := &types.ChannelOpenTry{
-		Msg: chantypes.MsgChannelOpenTry{
-			PortId:            msgOpenInit.CounterpartyPortID,
-			PreviousChannelId: msgOpenInit.CounterpartyChannelID,
-			Channel: chantypes.Channel{
-				State:    chantypes.TRYOPEN,
-				Ordering: proof.Ordering,
-				Counterparty: chantypes.Counterparty{
-					PortId:    msgOpenInit.PortID,
-					ChannelId: msgOpenInit.ChannelID,
-				},
-				ConnectionHops: []string{msgOpenInit.CounterpartyConnID},
-				// In the future, may need to separate this from the CounterpartyVersion.
-				// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
-				// Using same version as counterparty for now.
-				Version: proof.Version,
+	params := &chantypes.MsgChannelOpenTry{
+		PortId:            msgOpenInit.CounterpartyPortID,
+		PreviousChannelId: msgOpenInit.CounterpartyChannelID,
+		Channel: chantypes.Channel{
+			State:    chantypes.TRYOPEN,
+			Ordering: proof.Ordering,
+			Counterparty: chantypes.Counterparty{
+				PortId:    msgOpenInit.PortID,
+				ChannelId: msgOpenInit.ChannelID,
 			},
-			CounterpartyVersion: proof.Version,
-			ProofInit:           proof.Proof,
-			ProofHeight:         proof.ProofHeight,
-			Signer:              signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+			ConnectionHops: []string{msgOpenInit.CounterpartyConnID},
+			// In the future, may need to separate this from the CounterpartyVersion.
+			// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
+			// Using same version as counterparty for now.
+			Version: proof.Version,
+		},
+		CounterpartyVersion: proof.Version,
+		ProofInit:           proof.Proof,
+		ProofHeight:         proof.ProofHeight,
+		Signer:              signer,
 	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenTry, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -588,23 +543,16 @@ func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pr
 		return nil, err
 	}
 
-	msg := &types.ChannelOpenAck{
-		Msg: chantypes.MsgChannelOpenAck{
-			PortId:                msgOpenTry.CounterpartyPortID,
-			ChannelId:             msgOpenTry.CounterpartyChannelID,
-			CounterpartyChannelId: msgOpenTry.ChannelID,
-			CounterpartyVersion:   proof.Version,
-			ProofTry:              proof.Proof,
-			ProofHeight:           proof.ProofHeight,
-			Signer:                signer,
-		},
+	params := &chantypes.MsgChannelOpenAck{
+		PortId:                msgOpenTry.CounterpartyPortID,
+		ChannelId:             msgOpenTry.CounterpartyChannelID,
+		CounterpartyChannelId: msgOpenTry.ChannelID,
+		CounterpartyVersion:   proof.Version,
+		ProofTry:              proof.Proof,
+		ProofHeight:           proof.ProofHeight,
+		Signer:                signer,
 	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenAck, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -613,21 +561,14 @@ func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo
 		return nil, err
 	}
 
-	msg := &types.ChannelOpenConfirm{
-		Msg: chantypes.MsgChannelOpenConfirm{
-			PortId:      msgOpenAck.CounterpartyPortID,
-			ChannelId:   msgOpenAck.CounterpartyChannelID,
-			ProofAck:    proof.Proof,
-			ProofHeight: proof.ProofHeight,
-			Signer:      signer,
-		},
+	params := &chantypes.MsgChannelOpenConfirm{
+		PortId:      msgOpenAck.CounterpartyPortID,
+		ChannelId:   msgOpenAck.CounterpartyChannelID,
+		ProofAck:    proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
 	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenConfirm, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -636,19 +577,13 @@ func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof 
 		return nil, err
 	}
 
-	msg := &types.ChannelCloseInit{
-		Msg: chantypes.MsgChannelCloseInit{
-			PortId:    info.PortID,
-			ChannelId: info.ChannelID,
-			Signer:    signer,
-		},
-	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &chantypes.MsgChannelCloseInit{
+		PortId:    info.PortID,
+		ChannelId: info.ChannelID,
+		Signer:    signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelCloseInit, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -657,21 +592,15 @@ func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelI
 		return nil, err
 	}
 
-	msg := &types.ChannelCloseConfirm{
-		Msg: chantypes.MsgChannelCloseConfirm{
-			PortId:      msgCloseInit.CounterpartyPortID,
-			ChannelId:   msgCloseInit.CounterpartyChannelID,
-			ProofInit:   proof.Proof,
-			ProofHeight: proof.ProofHeight,
-			Signer:      signer,
-		},
-	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &chantypes.MsgChannelCloseConfirm{
+		PortId:      msgCloseInit.CounterpartyPortID,
+		ChannelId:   msgCloseInit.CounterpartyChannelID,
+		ProofInit:   proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelCloseConfirm, params)
 }
 
 func (ap *ArchwayProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
@@ -687,13 +616,15 @@ func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexporte
 	if err != nil {
 		return nil, err
 	}
-	msg := types.MsgUpdateClient(clientID, types.NewCustomAny(clientMsg), types.NewHexBytes([]byte(signer)))
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+
+	params := &clienttypes.MsgUpdateClient{
+		ClientId:      clientID,
+		ClientMessage: clientMsg,
+		Signer:        signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodUpdateClient, params)
+
 }
 
 func (ap *ArchwayProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
@@ -716,7 +647,7 @@ func (ap *ArchwayProvider) SendMessage(ctx context.Context, msg provider.Relayer
 	return ap.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
-func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	var (
 		rlyResp     *provider.RelayerTxResponse
 		callbackErr error
@@ -724,6 +655,12 @@ func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	)
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+
+		for i, e := range rtr.Events {
+			if startsWithWasm(e.EventType) {
+				rtr.Events[i].EventType = findEventType(e.EventType)
+			}
+		}
 		rlyResp = rtr
 		callbackErr = err
 		wg.Done()
@@ -732,11 +669,11 @@ func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	wg.Add(1)
 
 	if err := retry.Do(func() error {
-		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
+		return ap.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		cc.log.Info(
+		ap.log.Info(
 			"Error building or broadcasting transaction",
-			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.String("chain_id", ap.PCfg.ChainID),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", rtyAttNum),
 			zap.Error(err),
@@ -789,13 +726,259 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		sdkMsgs = append(sdkMsgs, archwayMsg.Msg)
 	}
 
-	return tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, sdkMsgs...)
+	txBytes, err := ap.buildMessages(cliCtx, factory, sdkMsgs...)
+	if err != nil {
+		return err
+	}
+
+	return ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback)
+}
+
+func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+
+	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
+	// if res != nil {
+	// 		channels := getChannelsIfPresent(res.Events)
+	// 		fields = append(fields, channels...)
+	// 	}
+	fields = append(fields, msgTypesField(msgs))
+
+	if err != nil {
+		// Make a copy since we may continue to the warning
+		errorFields := append(fields, zap.Error(err))
+		ap.log.Error(
+			"Failed sending archway transaction",
+			errorFields...,
+		)
+
+		if res == nil {
+			return
+		}
+	}
+	if res.Code != 0 {
+		if sdkErr := ap.sdkError(res.Codespace, res.Code); err != nil {
+			fields = append(fields, zap.NamedError("sdk_error", sdkErr))
+		}
+		fields = append(fields, zap.Object("response", res))
+		ap.log.Warn(
+			"Sent transaction but received failure response",
+			fields...,
+		)
+	}
+}
+
+// LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
+func (ap *ArchwayProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
+	// Include the chain_id
+	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
+
+	// Extract the channels from the events, if present
+	// if res != nil {
+	// 	events := parseEventsFromTxResponse(res)
+	// 	fields = append(fields, getChannelsIfPresent(events)...)
+	// }
+
+	// Include the gas used
+	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
+
+	// Extract fees and fee_payer if present
+	ir := types.NewInterfaceRegistry()
+	var m sdk.Msg
+	if err := ir.UnpackAny(res.Tx, &m); err == nil {
+		if tx, ok := m.(*txtypes.Tx); ok {
+			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
+			if feePayer := getFeePayer(tx); feePayer != "" {
+				fields = append(fields, zap.String("fee_payer", feePayer))
+			}
+		} else {
+			ap.log.Debug(
+				"Failed to convert message to Tx type",
+				zap.Stringer("type", reflect.TypeOf(m)),
+			)
+		}
+	} else {
+		ap.log.Debug("Failed to unpack response Tx into sdk.Msg", zap.Error(err))
+	}
+
+	// Include the height, msgType, and tx_hash
+	fields = append(fields,
+		zap.Int64("height", res.Height),
+		msgTypesField(msgs),
+		zap.String("tx_hash", res.TxHash),
+	)
+
+	// Log the succesful transaction with fields
+	ap.log.Info(
+		"Successful transaction",
+		fields...,
+	)
+}
+
+// getFeePayer returns the bech32 address of the fee payer of a transaction.
+// This uses the fee payer field if set,
+// otherwise falls back to the address of whoever signed the first message.
+func getFeePayer(tx *txtypes.Tx) string {
+	payer := tx.AuthInfo.Fee.Payer
+	if payer != "" {
+		return payer
+	}
+	switch firstMsg := tx.GetMsgs()[0].(type) {
+
+	case *clienttypes.MsgCreateClient:
+		// Without this particular special case, there is a panic in ibc-go
+		// due to the sdk config singleton expecting one bech32 prefix but seeing another.
+		return firstMsg.Signer
+	case *clienttypes.MsgUpdateClient:
+		// Same failure mode as MsgCreateClient.
+		return firstMsg.Signer
+	default:
+		return firstMsg.GetSigners()[0].String()
+	}
 
 }
 
-// broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
-// The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
-// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
+	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
+	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
+	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	if err.Error() != errUnknown {
+		return err
+	}
+	return nil
+}
+
+func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, error) {
+	for _, msg := range msgs {
+		if err := msg.ValidateBasic(); err != nil {
+			return nil, err
+		}
+	}
+
+	// If the --aux flag is set, we simply generate and print the AuxSignerData.
+	// tf is aux? do we need it? prolly not
+	if clientCtx.IsAux {
+		auxSignerData, err := makeAuxSignerData(clientCtx, txf, msgs...)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, clientCtx.PrintProto(&auxSignerData)
+	}
+
+	if clientCtx.GenerateOnly {
+		return nil, txf.PrintUnsignedTx(clientCtx, msgs...)
+	}
+
+	txf, err := txf.Prepare(clientCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	if txf.SimulateAndExecute() || clientCtx.Simulate {
+		if clientCtx.Offline {
+			return nil, errors.New("cannot estimate gas in offline mode")
+		}
+
+		_, adjusted, err := tx.CalculateGas(clientCtx, txf, msgs...)
+		if err != nil {
+			return nil, err
+		}
+
+		txf = txf.WithGas(adjusted)
+		_, _ = fmt.Fprintf(os.Stderr, "%s\n", tx.GasEstimateResponse{GasEstimate: txf.Gas()})
+	}
+
+	if clientCtx.Simulate {
+		return nil, nil
+	}
+
+	// txf = txf.WithGas(300_000)
+
+	txn, err := txf.BuildUnsignedTx(msgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !clientCtx.SkipConfirm {
+		txBytes, err := clientCtx.TxConfig.TxJSONEncoder()(txn.GetTx())
+		if err != nil {
+			return nil, err
+		}
+
+		if err := clientCtx.PrintRaw(json.RawMessage(txBytes)); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", txBytes)
+		}
+
+		buf := bufio.NewReader(os.Stdin)
+		ok, err := input.GetConfirmation("confirm transaction before signing and broadcasting", buf, os.Stderr)
+
+		if err != nil || !ok {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", "cancelled transaction")
+			return nil, err
+		}
+	}
+
+	err = tx.Sign(txf, clientCtx.GetFromName(), txn, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientCtx.TxConfig.TxEncoder()(txn.GetTx())
+
+}
+
+func (ap *ArchwayProvider) BroadcastTx(
+	clientCtx client.Context,
+	txBytes []byte,
+	msgs []provider.RelayerMessage,
+	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration, // timeout for waiting for block inclusion
+	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+) error {
+	res, err := clientCtx.BroadcastTx(txBytes)
+	// log submitted txn
+
+	isErr := err != nil
+	isFailed := res != nil && res.Code != 0
+	if isErr || isFailed {
+		if isErr && res == nil {
+			// There are some cases where BroadcastTxSync will return an error but the associated
+			// ResultBroadcastTx will be nil.
+			return err
+		}
+		rlyResp := &provider.RelayerTxResponse{
+			TxHash:    res.TxHash,
+			Codespace: res.Codespace,
+			Code:      res.Code,
+			Data:      res.Data,
+		}
+		if isFailed {
+			err = ap.sdkError(res.Codespace, res.Code)
+			if err == nil {
+				err = fmt.Errorf("transaction failed to execute")
+			}
+		}
+		ap.LogFailedTx(rlyResp, err, msgs)
+		return err
+	}
+
+	hexTx, err := hex.DecodeString(res.TxHash)
+	if err != nil {
+		return err
+	}
+
+	ap.log.Info("Submitted transaction",
+		zap.String("chain_id", ap.PCfg.ChainID),
+		zap.String("txHash", res.TxHash),
+	)
+
+	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
+	return nil
+}
+
+// BroadcastTx attempts to generate, sign and broadcast a transaction with the
+// given set of messages. It will also simulate gas requirements if necessary.
+// It will return an error upon failure.
 func (ap *ArchwayProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted
@@ -807,6 +990,196 @@ func (ap *ArchwayProvider) broadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	return nil
+}
+
+func (ap *ArchwayProvider) waitForTx(
+	ctx context.Context,
+	txHash []byte,
+	msgs []provider.RelayerMessage, // used for logging only
+	waitTimeout time.Duration,
+	callback func(*provider.RelayerTxResponse, error),
+) {
+	res, err := ap.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	if err != nil {
+		ap.log.Error("Failed to wait for block inclusion", zap.Error(err))
+		if callback != nil {
+			callback(nil, err)
+		}
+		return
+	}
+
+	rlyResp := &provider.RelayerTxResponse{
+		Height:    res.Height,
+		TxHash:    res.TxHash,
+		Codespace: res.Codespace,
+		Code:      res.Code,
+		Data:      res.Data,
+		Events:    parseEventsFromTxResponse(res),
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+
+	if res.Code != 0 {
+		// Check for any registered SDK errors
+		err := ap.sdkError(res.Codespace, res.Code)
+		if err == nil {
+			err = fmt.Errorf("transaction failed to execute")
+		}
+		if callback != nil {
+			callback(nil, err)
+		}
+		ap.LogFailedTx(rlyResp, nil, msgs)
+		return
+	}
+
+	if callback != nil {
+		callback(rlyResp, nil)
+	}
+	ap.LogSuccessTx(res, msgs)
+}
+
+func (ap *ArchwayProvider) waitForBlockInclusion(
+	ctx context.Context,
+	txHash []byte,
+	waitTimeout time.Duration,
+) (*sdk.TxResponse, error) {
+	exitAfter := time.After(waitTimeout)
+	for {
+		select {
+		case <-exitAfter:
+			return nil, fmt.Errorf("timed out after: %d; %s", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
+		case <-time.After(time.Millisecond * 100):
+			res, err := ap.RPCClient.Tx(ctx, txHash, false)
+			if err == nil {
+				return ap.mkTxResult(res)
+			}
+			if strings.Contains(err.Error(), "transaction indexing is disabled") {
+				return nil, fmt.Errorf("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func msgTypesField(msgs []provider.RelayerMessage) zap.Field {
+	msgTypes := make([]string, len(msgs))
+	for i, m := range msgs {
+		msgTypes[i] = m.Type()
+	}
+	return zap.Strings("msg_types", msgTypes)
+}
+
+const (
+	ErrTimeoutAfterWaitingForTxBroadcast string = "timed out after waiting for tx to get included in the block"
+)
+
+type intoAny interface {
+	AsAny() *codectypes.Any
+}
+
+func (ap *ArchwayProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
+	txbz, err := ap.Cdc.TxConfig.TxDecoder()(resTx.Tx)
+	if err != nil {
+		return nil, err
+	}
+	p, ok := txbz.(intoAny)
+	if !ok {
+		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
+	}
+	any := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, any, ""), nil
+}
+
+func makeAuxSignerData(clientCtx client.Context, f tx.Factory, msgs ...sdk.Msg) (txtypes.AuxSignerData, error) {
+	b := tx.NewAuxTxBuilder()
+	fromAddress, name, _, err := client.GetFromFields(clientCtx, clientCtx.Keyring, clientCtx.From)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	b.SetAddress(fromAddress.String())
+	if clientCtx.Offline {
+		b.SetAccountNumber(f.AccountNumber())
+		b.SetSequence(f.Sequence())
+	} else {
+		accNum, seq, err := clientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, fromAddress)
+		if err != nil {
+			return txtypes.AuxSignerData{}, err
+		}
+		b.SetAccountNumber(accNum)
+		b.SetSequence(seq)
+	}
+
+	err = b.SetMsgs(msgs...)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	// if f.tip != nil {
+	// 	if _, err := sdk.AccAddressFromBech32(f.tip.Tipper); err != nil {
+	// 		return txtypes.AuxSignerData{}, sdkerrors.ErrInvalidAddress.Wrap("tipper must be a bech32 address")
+	// 	}
+	// 	b.SetTip(f.tip)
+	// }
+
+	err = b.SetSignMode(f.SignMode())
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	key, err := clientCtx.Keyring.Key(name)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	pub, err := key.GetPubKey()
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	err = b.SetPubKey(pub)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	b.SetChainID(clientCtx.ChainID)
+	signBz, err := b.GetSignBytes()
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	sig, _, err := clientCtx.Keyring.Sign(name, signBz)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+	b.SetSignature(sig)
+
+	return b.GetAuxSignerData()
+}
+
+func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+
+	if resp == nil {
+		return events
+	}
+
+	for _, logs := range resp.Logs {
+		for _, event := range logs.Events {
+			attributes := make(map[string]string)
+			for _, attribute := range event.Attributes {
+				attributes[attribute.Key] = attribute.Value
+			}
+			events = append(events, provider.RelayerEvent{
+				EventType:  event.Type,
+				Attributes: attributes,
+			})
+		}
+	}
+	return events
 }
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.

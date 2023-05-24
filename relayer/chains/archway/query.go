@@ -14,6 +14,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmtypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
@@ -243,12 +244,24 @@ func (ap *ArchwayProvider) QueryClientStateContract(ctx context.Context, clientI
 		return nil, err
 	}
 
-	var clS *icon.ClientState
-	if err := ap.Cdc.Marshaler.Unmarshal(clientState.Data.Bytes(), clS); err != nil {
+	data, err := ProcessContractResponse(*clientState)
+	if err != nil {
 		return nil, err
 	}
 
-	return clS, nil
+	cdc := codec.NewProtoCodec(ap.Cdc.InterfaceRegistry)
+
+	clientS, err := clienttypes.UnmarshalClientState(cdc, data)
+	if err != nil {
+		return nil, err
+	}
+
+	iconClientState, ok := clientS.(*icon.ClientState)
+	if !ok {
+		return nil, fmt.Errorf("Error casting to icon.ClientState")
+	}
+
+	return iconClientState, nil
 }
 
 func (ap *ArchwayProvider) QueryConnectionContract(ctx context.Context, connId string) (*conntypes.ConnectionEnd, error) {
@@ -349,7 +362,7 @@ func (ap *ArchwayProvider) QueryConsensusState(ctx context.Context, height int64
 
 func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName string) (int, error) {
 	switch methodName {
-	case types.MethodGetNextClientSequence:
+	case MethodGetNextClientSequence:
 		param, err := types.NewNextClientSequence().Bytes()
 		if err != nil {
 			return 0, err
@@ -362,7 +375,7 @@ func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName strin
 
 		return byteToInt(op.Data.Bytes())
 
-	case types.MethodGetNextChannelSequence:
+	case MethodGetNextChannelSequence:
 		param, err := types.NewNextChannelSequence().Bytes()
 		if err != nil {
 			return 0, err
@@ -373,7 +386,7 @@ func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName strin
 		}
 		return byteToInt(op.Data.Bytes())
 
-	case types.MethodGetNextConnectionSequence:
+	case MethodGetNextConnectionSequence:
 		param, err := types.NewNextConnectionSequence().Bytes()
 		if err != nil {
 			return 0, err
@@ -391,7 +404,7 @@ func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName strin
 
 func (ap *ArchwayProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 
-	seq, err := ap.getNextSequence(ctx, types.MethodGetNextClientSequence)
+	seq, err := ap.getNextSequence(ctx, MethodGetNextClientSequence)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +415,7 @@ func (ap *ArchwayProvider) QueryClients(ctx context.Context) (clienttypes.Identi
 
 	identifiedClientStates := make(clienttypes.IdentifiedClientStates, 0)
 	for i := 0; i <= int(seq)-1; i++ {
-		clientIdentifier := fmt.Sprintf("client-%d", i)
+		clientIdentifier := fmt.Sprintf("%s-%d", ClientPrefix, i)
 		clientState, err := ap.QueryClientStateContract(ctx, clientIdentifier)
 		if err != nil {
 			return nil, err
@@ -468,7 +481,7 @@ func (ap *ArchwayProvider) QueryArchwayProof(ctx context.Context, storageKey []b
 
 func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 
-	seq, err := ap.getNextSequence(ctx, types.MethodGetNextConnectionSequence)
+	seq, err := ap.getNextSequence(ctx, MethodGetNextConnectionSequence)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +491,7 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 	}
 
 	for i := 0; i <= int(seq)-1; i++ {
-		connectionId := fmt.Sprintf("connection-%d", i)
+		connectionId := fmt.Sprintf("%s-%d", ConnectionPrefix, i)
 		conn, err := ap.QueryConnectionContract(ctx, connectionId)
 		if err != nil {
 			return nil, err
@@ -545,7 +558,7 @@ func (ap *ArchwayProvider) QueryConnectionChannels(ctx context.Context, height i
 }
 
 func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
-	nextSeq, err := ap.getNextSequence(ctx, types.MethodGetNextChannelSequence)
+	nextSeq, err := ap.getNextSequence(ctx, MethodGetNextChannelSequence)
 	if err != nil {
 		return nil, err
 	}
@@ -554,7 +567,7 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 	testPort := "mock" //TODO:
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
-		channelId := fmt.Sprintf("channel-%d", i)
+		channelId := fmt.Sprintf("%s-%d", ChannelPrefix, i)
 		channel, err := ap.QueryChannelContract(ctx, testPort, channelId)
 		if err != nil {
 			return nil, err
