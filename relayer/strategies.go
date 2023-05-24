@@ -27,6 +27,8 @@ const (
 	ProcessorLegacy                     = "legacy"
 	DefaultClientUpdateThreshold        = 0 * time.Millisecond
 	DefaultFlushInterval                = 5 * time.Minute
+	DefaultMaxMsgLength                 = 5
+	TwoMB                               = 2 * 1024 * 1024
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
@@ -35,7 +37,7 @@ func StartRelayer(
 	log *zap.Logger,
 	chains map[string]*Chain,
 	paths []NamedPath,
-	maxTxSize, maxMsgLength uint64,
+	maxMsgLength uint64,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
@@ -80,7 +82,6 @@ func StartRelayer(
 			chainProcessors,
 			ePaths,
 			initialBlockHistory,
-			maxTxSize,
 			maxMsgLength,
 			memo,
 			messageLifecycle,
@@ -98,7 +99,7 @@ func StartRelayer(
 		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]
 		src.PathEnd = p.Src
 		dst.PathEnd = p.Dst
-		go relayerStartLegacy(ctx, log, src, dst, p.Filter, maxTxSize, maxMsgLength, memo, errorChan)
+		go relayerStartLegacy(ctx, log, src, dst, p.Filter, TwoMB, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -132,7 +133,6 @@ func relayerStartEventProcessor(
 	chainProcessors []processor.ChainProcessor,
 	paths []path,
 	initialBlockHistory uint64,
-	maxTxSize,
 	maxMsgLength uint64,
 	memo string,
 	messageLifecycle processor.MessageLifecycle,
@@ -155,6 +155,7 @@ func relayerStartEventProcessor(
 				memo,
 				clientUpdateThresholdTime,
 				flushInterval,
+				maxMsgLength,
 			))
 	}
 
