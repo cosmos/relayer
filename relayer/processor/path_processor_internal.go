@@ -847,6 +847,28 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 	}
 }
 
+// appendAcksIntoRecv will append acks into recv packet info if present.
+// If recv info is not present, will look for send info on counterparty.
+// If send info is not present, will populate cache with ack info.
+func appendAcksIntoRecv(srcCache, dstCache PacketMessagesCache) {
+	dstMsgRecvPacket := dstCache[chantypes.EventTypeRecvPacket]
+	for seq, ackInfo := range dstCache[chantypes.EventTypeWriteAck] {
+		if recvPacketInfo, ok := dstMsgRecvPacket[seq]; ok {
+			recvPacketInfo.Ack = ackInfo.Ack
+			dstMsgRecvPacket[seq] = recvPacketInfo
+		} else if sendCache, ok := srcCache[chantypes.EventTypeSendPacket]; ok {
+			if sendInfo, ok := sendCache[seq]; ok {
+				sendInfo.Ack = ackInfo.Ack
+				dstMsgRecvPacket[seq] = sendInfo
+			} else {
+				dstMsgRecvPacket[seq] = ackInfo
+			}
+		} else {
+			dstMsgRecvPacket[seq] = ackInfo
+		}
+	}
+}
+
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
 func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func()) error {
 	// Update trusted client state for both pathends
@@ -907,40 +929,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		pathEnd1PacketCache := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey]
 		pathEnd2PacketCache := pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey]
 
-		// Append acks into recv packet info if present
-		pathEnd1DstMsgRecvPacket := pathEnd2PacketCache[chantypes.EventTypeRecvPacket]
-		for seq, ackInfo := range pathEnd2PacketCache[chantypes.EventTypeWriteAck] {
-			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
-				recvPacketInfo.Ack = ackInfo.Ack
-				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
-			} else if sendCache, ok := pathEnd1PacketCache[chantypes.EventTypeSendPacket]; ok {
-				if sendInfo, ok := sendCache[seq]; ok {
-					sendInfo.Ack = ackInfo.Ack
-					pathEnd1DstMsgRecvPacket[seq] = sendInfo
-				} else {
-					pathEnd1DstMsgRecvPacket[seq] = ackInfo
-				}
-			} else {
-				pathEnd1DstMsgRecvPacket[seq] = ackInfo
-			}
-		}
-
-		pathEnd2DstMsgRecvPacket := pathEnd1PacketCache[chantypes.EventTypeRecvPacket]
-		for seq, ackInfo := range pathEnd1PacketCache[chantypes.EventTypeWriteAck] {
-			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
-				recvPacketInfo.Ack = ackInfo.Ack
-				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
-			} else if sendCache, ok := pathEnd2PacketCache[chantypes.EventTypeSendPacket]; ok {
-				if sendInfo, ok := sendCache[seq]; ok {
-					sendInfo.Ack = ackInfo.Ack
-					pathEnd2DstMsgRecvPacket[seq] = sendInfo
-				} else {
-					pathEnd2DstMsgRecvPacket[seq] = ackInfo
-				}
-			} else {
-				pathEnd2DstMsgRecvPacket[seq] = ackInfo
-			}
-		}
+		appendAcksIntoRecv(pathEnd1PacketCache, pathEnd2PacketCache)
+		appendAcksIntoRecv(pathEnd2PacketCache, pathEnd1PacketCache)
 
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                   pp.pathEnd1,
@@ -948,7 +938,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			ChannelKey:            pair.pathEnd1ChannelKey,
 			SrcPreTransfer:        pathEnd1PacketCache[preInitKey],
 			SrcMsgTransfer:        pathEnd1PacketCache[chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:      pathEnd1DstMsgRecvPacket,
+			DstMsgRecvPacket:      pathEnd2PacketCache[chantypes.EventTypeRecvPacket],
 			SrcMsgAcknowledgement: pathEnd1PacketCache[chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pathEnd1PacketCache[chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:  pathEnd1PacketCache[chantypes.EventTypeTimeoutPacketOnClose],
@@ -959,7 +949,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			ChannelKey:            pair.pathEnd2ChannelKey,
 			SrcPreTransfer:        pathEnd2PacketCache[preInitKey],
 			SrcMsgTransfer:        pathEnd2PacketCache[chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:      pathEnd2DstMsgRecvPacket,
+			DstMsgRecvPacket:      pathEnd1PacketCache[chantypes.EventTypeRecvPacket],
 			SrcMsgAcknowledgement: pathEnd2PacketCache[chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pathEnd2PacketCache[chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:  pathEnd2PacketCache[chantypes.EventTypeTimeoutPacketOnClose],
