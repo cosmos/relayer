@@ -110,6 +110,7 @@ type CosmosProvider struct {
 
 	PCfg           CosmosProviderConfig
 	Keybase        keyring.Keyring
+	keybaseLock    sync.Mutex
 	KeyringOptions []keyring.Option
 	RPCClient      rpcclient.Client
 	LightProvider  provtypes.Provider
@@ -191,6 +192,8 @@ func (cc *CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 
 // Address returns the chains configured address as a string
 func (cc *CosmosProvider) Address() (string, error) {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	info, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return "", err
@@ -278,6 +281,8 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 
 	cc.RPCClient = rpcClient
 	cc.LightProvider = lightprovider
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	cc.Keybase = keybase
 
 	status, err := cc.QueryStatus(ctx)

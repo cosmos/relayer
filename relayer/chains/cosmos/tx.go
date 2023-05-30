@@ -1470,6 +1470,8 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 
 // CalculateGas simulates a tx to generate the appropriate gas settings before broadcasting a tx.
 func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, msgs ...sdk.Msg) (txtypes.SimulateResponse, uint64, error) {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	keyInfo, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return txtypes.SimulateResponse{}, 0, err
@@ -1514,6 +1516,8 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, msgs
 
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.
 func (cc *CosmosProvider) TxFactory() tx.Factory {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	return tx.Factory{}.
 		WithAccountRetriever(cc).
 		WithChainID(cc.PCfg.ChainID).

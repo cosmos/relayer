@@ -45,12 +45,16 @@ func (cc *CosmosProvider) CreateKeystore(path string) error {
 	if err != nil {
 		return err
 	}
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	cc.Keybase = keybase
 	return nil
 }
 
 // KeystoreCreated returns true if there is an existing keystore instance at the specified path, it returns false otherwise.
 func (cc *CosmosProvider) KeystoreCreated(path string) bool {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	if _, err := os.Stat(cc.PCfg.KeyDirectory); errors.Is(err, os.ErrNotExist) {
 		return false
 	} else if cc.Keybase == nil {
@@ -111,6 +115,8 @@ func (cc *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, signi
 		}
 	}
 
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	info, err := cc.Keybase.NewAccount(keyName, mnemonicStr, "", hd.CreateHDPath(coinType, 0, 0).String(), algo)
 	if err != nil {
 		return nil, err
@@ -130,6 +136,8 @@ func (cc *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, signi
 
 // ShowAddress retrieves a key by name from the keystore and returns the bech32 encoded string representation of that key.
 func (cc *CosmosProvider) ShowAddress(name string) (address string, err error) {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	info, err := cc.Keybase.Key(name)
 	if err != nil {
 		return "", err
@@ -148,6 +156,8 @@ func (cc *CosmosProvider) ShowAddress(name string) (address string, err error) {
 // ListAddresses returns a map of bech32 encoded strings representing all keys currently in the keystore.
 func (cc *CosmosProvider) ListAddresses() (map[string]string, error) {
 	out := map[string]string{}
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	info, err := cc.Keybase.List()
 	if err != nil {
 		return nil, err
@@ -168,6 +178,8 @@ func (cc *CosmosProvider) ListAddresses() (map[string]string, error) {
 
 // DeleteKey removes a key from the keystore for the specified name.
 func (cc *CosmosProvider) DeleteKey(name string) error {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	if err := cc.Keybase.Delete(name); err != nil {
 		return err
 	}
@@ -176,23 +188,28 @@ func (cc *CosmosProvider) DeleteKey(name string) error {
 
 // KeyExists returns true if a key with the specified name exists in the keystore, it returns false otherwise.
 func (cc *CosmosProvider) KeyExists(name string) bool {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	k, err := cc.Keybase.Key(name)
 	if err != nil {
 		return false
 	}
 
 	return k.Name == name
-
 }
 
 // ExportPrivKeyArmor returns a private key in ASCII armored format.
 // It returns an error if the key does not exist or a wrong encryption passphrase is supplied.
 func (cc *CosmosProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	return cc.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
 }
 
 // GetKeyAddress returns the account address representation for the currently configured key.
 func (cc *CosmosProvider) GetKeyAddress() (sdk.AccAddress, error) {
+	cc.keybaseLock.Lock()
+	defer cc.keybaseLock.Unlock()
 	info, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return nil, err
