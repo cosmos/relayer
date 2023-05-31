@@ -898,7 +898,6 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 func sendPacketQuery(channelID string, portID string, seq uint64) string {
 	x := []string{
 		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
 	}
 	return strings.Join(x, " AND ")
@@ -907,7 +906,6 @@ func sendPacketQuery(channelID string, portID string, seq uint64) string {
 func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
 	x := []string{
 		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
 	}
 	return strings.Join(x, " AND ")
