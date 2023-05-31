@@ -363,3 +363,44 @@ $ %s k e cosmoshub testkey`, appName, appName)),
 
 	return cmd
 }
+
+// addressCmd represents the address of a relayer
+func addressCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "address",
+		Aliases: []string{"a"},
+		Short:   "Manage keys held by the relayer for each chain",
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s address ibc-0
+$ %s address ibc-1 key2
+$ %s a ibc-2 testkey`, appName, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+
+			var keyName string
+			if len(args) == 2 {
+				keyName = args[1]
+			} else {
+				keyName = chain.ChainProvider.Key()
+			}
+
+			if !chain.ChainProvider.KeyExists(keyName) {
+				return errKeyDoesntExist(keyName)
+			}
+
+			address, err := chain.ChainProvider.ShowAddress(keyName)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), address)
+			return nil
+		},
+	}
+
+	return cmd
+}
