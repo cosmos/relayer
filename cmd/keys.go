@@ -367,7 +367,7 @@ $ %s k e cosmoshub testkey`, appName, appName)),
 // addressCmd represents the address of a relayer
 func addressCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "address",
+		Use:     "address chain_name [key_name]",
 		Aliases: []string{"a"},
 		Short:   "Manage keys held by the relayer for each chain",
 		Args:    withUsage(cobra.RangeArgs(1, 2)),
