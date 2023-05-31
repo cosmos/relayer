@@ -48,8 +48,8 @@ func keysCmd(a *appState) *cobra.Command {
 		keysRestoreCmd(a),
 		keysDeleteCmd(a),
 		keysListCmd(a),
-		keysShowCmd(a),
 		keysExportCmd(a),
+		keysShowCmd(a),
 	)
 
 	return cmd
@@ -289,47 +289,6 @@ $ %s k l ibc-1`, appName, appName)),
 	return cmd
 }
 
-// keysShowCmd respresents the `keys show` command
-func keysShowCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "show chain_name [key_name]",
-		Aliases: []string{"s"},
-		Short:   "Shows a key from the keychain associated with a particular chain",
-		Args:    withUsage(cobra.RangeArgs(1, 2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys show ibc-0
-$ %s keys show ibc-1 key2
-$ %s k s ibc-2 testkey`, appName, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-
-			var keyName string
-			if len(args) == 2 {
-				keyName = args[1]
-			} else {
-				keyName = chain.ChainProvider.Key()
-			}
-
-			if !chain.ChainProvider.KeyExists(keyName) {
-				return errKeyDoesntExist(keyName)
-			}
-
-			address, err := chain.ChainProvider.ShowAddress(keyName)
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), address)
-			return nil
-		},
-	}
-
-	return cmd
-}
-
 // keysExportCmd respresents the `keys export` command
 func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
@@ -364,6 +323,50 @@ $ %s k e cosmoshub testkey`, appName, appName)),
 	return cmd
 }
 
+// ShowAddressByChainAndKey represents the logic for showing relayer address by chain_name and key_name
+func (a *appState) showAddressByChainAndKey(cmd *cobra.Command, args []string) error {
+	chain, ok := a.config.Chains[args[0]]
+	if !ok {
+		return errChainNotFound(args[0])
+	}
+
+	var keyName string
+	if len(args) == 2 {
+		keyName = args[1]
+	} else {
+		keyName = chain.ChainProvider.Key()
+	}
+
+	if !chain.ChainProvider.KeyExists(keyName) {
+		return errKeyDoesntExist(keyName)
+	}
+
+	address, err := chain.ChainProvider.ShowAddress(keyName)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), address)
+	return nil
+}
+
+// keysShowCmd respresents the `keys show` command
+func keysShowCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "show chain_name [key_name]",
+		Aliases: []string{"s"},
+		Short:   "Shows a key from the keychain associated with a particular chain",
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys show ibc-0
+$ %s keys show ibc-1 key2
+$ %s k s ibc-2 testkey`, appName, appName, appName)),
+		RunE: a.showAddressByChainAndKey,
+	}
+
+	return cmd
+}
+
 // addressCmd represents the address of a relayer
 func addressCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
@@ -375,31 +378,7 @@ func addressCmd(a *appState) *cobra.Command {
 $ %s address ibc-0
 $ %s address ibc-1 key2
 $ %s a ibc-2 testkey`, appName, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-
-			var keyName string
-			if len(args) == 2 {
-				keyName = args[1]
-			} else {
-				keyName = chain.ChainProvider.Key()
-			}
-
-			if !chain.ChainProvider.KeyExists(keyName) {
-				return errKeyDoesntExist(keyName)
-			}
-
-			address, err := chain.ChainProvider.ShowAddress(keyName)
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), address)
-			return nil
-		},
+		RunE: a.showAddressByChainAndKey,
 	}
 
 	return cmd
