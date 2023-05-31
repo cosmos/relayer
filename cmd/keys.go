@@ -369,7 +369,7 @@ func addressCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "address chain_name [key_name]",
 		Aliases: []string{"a"},
-		Short:   "Manage keys held by the relayer for each chain",
+		Short:   "Shows the address of a relayer",
 		Args:    withUsage(cobra.RangeArgs(1, 2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s address ibc-0
