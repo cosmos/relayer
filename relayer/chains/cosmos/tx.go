@@ -213,8 +213,11 @@ func (cc *CosmosProvider) broadcastTx(
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
 	}
-
-	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
+	address, err := cc.Address()
+	if err != nil {
+		return fmt.Errorf("failed to get relayer wallet address, %w", err)
+	}
+	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
 
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
@@ -1257,7 +1260,7 @@ func (cc *CosmosProvider) NewClientState(
 	}, nil
 }
 
-func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
+func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.Coins) {
 	// Don't set the metrics in testing
 	if cc.metrics == nil {
 		return
@@ -1270,7 +1273,7 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
 	for _, fee := range cc.TotalFees {
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(fee.Amount.BigInt()).Float64()
-		cc.metrics.SetFeesSpent(chain, key, fee.GetDenom(), f)
+		cc.metrics.SetFeesSpent(chain, key, address, fee.GetDenom(), f)
 	}
 }
 
