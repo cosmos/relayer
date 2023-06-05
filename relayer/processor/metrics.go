@@ -26,8 +26,8 @@ func (m *PrometheusMetrics) SetLatestHeight(chain string, height int64) {
 	m.LatestHeightGauge.WithLabelValues(chain).Set(float64(height))
 }
 
-func (m *PrometheusMetrics) SetWalletBalance(chain, key, denom string, balance float64) {
-	m.WalletBalance.WithLabelValues(chain, key, denom).Set(balance)
+func (m *PrometheusMetrics) SetWalletBalance(chain, key, address, denom string, balance float64) {
+	m.WalletBalance.WithLabelValues(chain, key, address, denom).Set(balance)
 }
 
 func (m *PrometheusMetrics) SetFeesSpent(chain, key, denom string, amount float64) {
@@ -37,7 +37,7 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, key, denom string, amount float6
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
-	walletLabels := []string{"chain", "key", "denom"}
+	walletLabels := []string{"chain", "key", "address", "denom"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
