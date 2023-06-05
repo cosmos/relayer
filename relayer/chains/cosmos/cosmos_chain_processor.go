@@ -516,7 +516,7 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	}
 
 	// Get the balance for the chain provider's key
-	relayerWalletBalance, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
+	relayerWalletBalances, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
 	if err != nil {
 		ccp.log.Error(
 			"Failed to query relayer balance",
@@ -532,12 +532,9 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	}
 	// Print the relevant gas prices
 	for _, gasDenom := range *ccp.parsedGasPrices {
-		for _, balance := range relayerWalletBalance {
-			if balance.Denom == gasDenom.Denom {
-				// Convert to a big float to get a float64 for metrics
-				f, _ := big.NewFloat(0.0).SetInt(balance.Amount.BigInt()).Float64()
-				ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), address, balance.Denom, f)
-			}
-		}
+		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
+		// Convert to a big float to get a float64 for metrics
+		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }
