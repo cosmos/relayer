@@ -215,7 +215,7 @@ func (cc *CosmosProvider) broadcastTx(
 	}
 	address, err := cc.Address()
 	if err != nil {
-		return fmt.Errorf("failed to get relayer wallet address, %w", err)
+		return fmt.Errorf("Failed to get relayer bech32 wallet addresss, %w", err)
 	}
 	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
 
