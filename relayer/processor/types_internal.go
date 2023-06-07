@@ -13,6 +13,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+var _ zapcore.ObjectMarshaler = packetIBCMessage{}
+var _ zapcore.ObjectMarshaler = channelIBCMessage{}
+var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
+var _ zapcore.ObjectMarshaler = clientICQMessage{}
+
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
 type pathEndMessages struct {
@@ -386,16 +391,15 @@ type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type pathEndPacketFlowMessages struct {
-	Src                       *pathEndRuntime
-	Dst                       *pathEndRuntime
-	ChannelKey                ChannelKey
-	SrcPreTransfer            PacketSequenceCache
-	SrcMsgTransfer            PacketSequenceCache
-	DstMsgRecvPacket          PacketSequenceCache
-	SrcMsgAcknowledgement     PacketSequenceCache
-	SrcMsgTimeout             PacketSequenceCache
-	SrcMsgTimeoutOnClose      PacketSequenceCache
-	DstMsgChannelCloseConfirm *provider.ChannelInfo
+	Src                   *pathEndRuntime
+	Dst                   *pathEndRuntime
+	ChannelKey            ChannelKey
+	SrcPreTransfer        PacketSequenceCache
+	SrcMsgTransfer        PacketSequenceCache
+	DstMsgRecvPacket      PacketSequenceCache
+	SrcMsgAcknowledgement PacketSequenceCache
+	SrcMsgTimeout         PacketSequenceCache
+	SrcMsgTimeoutOnClose  PacketSequenceCache
 }
 
 type pathEndConnectionHandshakeMessages struct {
@@ -416,6 +420,14 @@ type pathEndChannelHandshakeMessages struct {
 	DstMsgChannelOpenTry     ChannelMessageCache
 	SrcMsgChannelOpenAck     ChannelMessageCache
 	DstMsgChannelOpenConfirm ChannelMessageCache
+}
+
+type pathEndChannelCloseMessages struct {
+	Src                       *pathEndRuntime
+	Dst                       *pathEndRuntime
+	SrcMsgChannelPreInit      ChannelMessageCache
+	SrcMsgChannelCloseInit    ChannelMessageCache
+	DstMsgChannelCloseConfirm ChannelMessageCache
 }
 
 type pathEndPacketFlowResponse struct {

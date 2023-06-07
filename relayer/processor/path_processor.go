@@ -29,6 +29,9 @@ const (
 	// Amount of time to wait for interchain queries.
 	interchainQueryTimeout = 60 * time.Second
 
+	// Amount of time between flushes if the previous flush failed.
+	flushFailureRetry = 15 * time.Second
+
 	// If message assembly fails from either proof query failure on the source
 	// or assembling the message for the destination, how many blocks should pass
 	// before retrying.
@@ -65,7 +68,7 @@ type PathProcessor struct {
 	messageLifecycle MessageLifecycle
 
 	initialFlushComplete bool
-	flushTicker          *time.Ticker
+	flushTimer           *time.Timer
 	flushInterval        time.Duration
 
 	// Signals to retry.
@@ -75,6 +78,8 @@ type PathProcessor struct {
 
 	// true if this is a localhost IBC connection
 	localhost bool
+
+	maxMsgs uint64
 
 	metrics *PrometheusMetrics
 }
@@ -99,6 +104,7 @@ func NewPathProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
+	maxMsgs uint64,
 ) *PathProcessor {
 	var isLocalhost bool
 	if pathEnd1.ClientID == ibcexported.LocalhostClientID {
@@ -115,6 +121,7 @@ func NewPathProcessor(
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
 		localhost:                 isLocalhost,
+		maxMsgs:                   maxMsgs,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
@@ -191,7 +198,7 @@ func (pp *PathProcessor) channelPairs() []channelPair {
 	}
 	pairs := make([]channelPair, len(channels))
 	i := 0
-	for k, _ := range channels {
+	for k := range channels {
 		pairs[i] = channelPair{
 			pathEnd1ChannelKey: k,
 			pathEnd2ChannelKey: k.Counterparty(),
@@ -290,6 +297,16 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 	}
 }
 
+func (pp *PathProcessor) handleFlush(ctx context.Context) {
+	flushTimer := pp.flushInterval
+	if err := pp.flush(ctx); err != nil {
+		pp.log.Warn("Flush not complete", zap.Error(err))
+		flushTimer = flushFailureRetry
+	}
+	pp.flushTimer.Stop()
+	pp.flushTimer = time.NewTimer(flushTimer)
+}
+
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
 // It returns whether or not the pathProcessor should quit.
 func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel func()) bool {
@@ -313,9 +330,9 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
-	case <-pp.flushTicker.C:
+	case <-pp.flushTimer.C:
 		// Periodic flush to clear out any old packets
-		pp.flush(ctx)
+		pp.handleFlush(ctx)
 	}
 	return false
 }
@@ -324,8 +341,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	var retryTimer *time.Timer
 
-	pp.flushTicker = time.NewTicker(pp.flushInterval)
-	defer pp.flushTicker.Stop()
+	pp.flushTimer = time.NewTimer(time.Hour)
 
 	for {
 		// block until we have any signals to process
@@ -345,15 +361,15 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
-			pp.flush(ctx)
+			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
-		} else if pp.shouldTerminateForFlushComplete(ctx, cancel) {
+		} else if pp.shouldTerminateForFlushComplete() {
 			cancel()
 			return
 		}
 
 		// process latest message cache state from both pathEnds
-		if err := pp.processLatestMessages(ctx); err != nil {
+		if err := pp.processLatestMessages(ctx, cancel); err != nil {
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

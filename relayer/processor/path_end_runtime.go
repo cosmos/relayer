@@ -236,6 +236,12 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		foundCounterpartyChannelID := m.Termination.Info.CounterpartyChannelID == ""
 		foundCounterpartyPortID := m.Termination.Info.CounterpartyPortID == ""
 		for _, ci := range cache {
+			pathEnd.log.Info("Channel handshake termination candidate",
+				zap.String("termination_port_id", m.Termination.Info.PortID),
+				zap.String("observed_port_id", ci.PortID),
+				zap.String("termination_counterparty_port_id", m.Termination.Info.CounterpartyPortID),
+				zap.String("observed_counterparty_port_id", ci.CounterpartyPortID),
+			)
 			if ci.ChannelID == m.Termination.Info.ChannelID {
 				foundChannelID = true
 			}
@@ -251,6 +257,41 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		}
 		if foundChannelID && foundPortID && foundCounterpartyChannelID && foundCounterpartyPortID {
 			pathEnd.log.Info("Found termination condition for channel handshake")
+			return true
+		}
+	case *ChannelCloseLifecycle:
+		cache, ok := ibcMessagesCache.ChannelHandshake[chantypes.EventTypeChannelCloseConfirm]
+		if !ok {
+			return false
+		}
+		// check against m.Termination.Info
+		foundChannelID := m.SrcChannelID == ""
+		foundPortID := m.SrcPortID == ""
+		for _, ci := range cache {
+			pathEnd.log.Info("Channel close termination candidate",
+				zap.String("termination_port_id", m.SrcPortID),
+				zap.String("observed_port_id", ci.PortID),
+				zap.String("termination_channel_id", m.SrcChannelID),
+				zap.String("observed_channel_id", ci.ChannelID),
+			)
+			if pathEnd.info.ChainID == m.SrcChainID {
+				if ci.ChannelID == m.SrcChannelID {
+					foundChannelID = true
+				}
+				if ci.PortID == m.SrcPortID {
+					foundPortID = true
+				}
+			} else {
+				if ci.CounterpartyChannelID == m.SrcChannelID {
+					foundChannelID = true
+				}
+				if ci.CounterpartyPortID == m.SrcPortID {
+					foundPortID = true
+				}
+			}
+		}
+		if foundChannelID && foundPortID {
+			pathEnd.log.Info("Found termination condition for channel close")
 			return true
 		}
 	case *ConnectionMessageLifecycle:
@@ -487,7 +528,10 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
-	k := ConnectionInfoConnectionKey(message.info).Counterparty()
+	k := ConnectionInfoConnectionKey(message.info)
+	if eventType != conntypes.EventTypeConnectionOpenInit {
+		k = k.Counterparty()
+	}
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
 			zap.Inline(k),
@@ -559,6 +603,10 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
+	channelKey := ChannelInfoChannelKey(message.info)
+	if eventType != chantypes.EventTypeChannelOpenInit {
+		channelKey = channelKey.Counterparty()
+	}
 	channelKey := ChannelInfoChannelKey(message.info).Counterparty()
 
 	// For localhost cache the channel order on OpenInit so that we can access it during the other channel handshake steps
@@ -625,8 +673,9 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			toDeleteCounterparty[chantypes.EventTypeChannelOpenInit] = []ChannelKey{counterpartyKey.MsgInitKey()}
 			toDeleteCounterparty[preInitKey] = []ChannelKey{counterpartyKey.MsgInitKey()}
 		case chantypes.EventTypeChannelCloseConfirm:
-			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
 			toDelete[chantypes.EventTypeChannelCloseConfirm] = []ChannelKey{channelKey}
+			toDeleteCounterparty[chantypes.EventTypeChannelCloseInit] = []ChannelKey{counterpartyKey}
+			toDeleteCounterparty[preCloseKey] = []ChannelKey{counterpartyKey}
 
 			// Gather relevant send packet messages, for this channel key, that should be deleted if we
 			// are operating on an ordered channel.

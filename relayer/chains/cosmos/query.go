@@ -629,7 +629,12 @@ func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, heigh
 			return nil, err
 		}
 
-		connections.Connections = append(connections.Connections, res.Connections...)
+		for _, conn := range res.Connections {
+			if conn.ClientId == clientid {
+				connections.Connections = append(connections.Connections, conn)
+			}
+		}
+
 		next := res.GetPagination().GetNextKey()
 		if len(next) == 0 {
 			break
@@ -684,7 +689,6 @@ func (cc *CosmosProvider) GenerateConnHandshakeProof(ctx context.Context, height
 func (cc *CosmosProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 	res, err := cc.queryChannelABCI(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
-
 		return &chantypes.QueryChannelResponse{
 			Channel: &chantypes.Channel{
 				State:    chantypes.UNINITIALIZED,
@@ -893,7 +897,6 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 func sendPacketQuery(channelID string, portID string, seq uint64) string {
 	x := []string{
 		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
 	}
 	return strings.Join(x, " AND ")
@@ -902,7 +905,6 @@ func sendPacketQuery(channelID string, portID string, seq uint64) string {
 func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
 	x := []string{
 		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
 	}
 	return strings.Join(x, " AND ")

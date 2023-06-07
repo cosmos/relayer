@@ -15,7 +15,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -215,8 +215,8 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
-	AddKey(name string, coinType uint32) (output *KeyOutput, err error)
-	RestoreKey(name, mnemonic string, coinType uint32) (address string, err error)
+	AddKey(name string, coinType uint32, signingAlgorithm string) (output *KeyOutput, err error)
+	RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error)
 	ShowAddress(name string) (address string, err error)
 	ListAddresses() (map[string]string, error)
 	DeleteKey(name string) error
@@ -288,6 +288,9 @@ type ChainProvider interface {
 	// and assembles a full MsgTimeoutOnClose ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
 	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
+
+	// Get the commitment prefix of the chain.
+	CommitmentPrefix() commitmenttypes.MerklePrefix
 
 	// [End] Packet flow IBC message assembly
 
@@ -391,11 +394,13 @@ type ChainProvider interface {
 		asyncCallback func(*RelayerTxResponse, error),
 	) error
 
+	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage,error)
+	
+
 	ChainName() string
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig
-	CommitmentPrefix() commitmenttypes.MerklePrefix
 	Key() string
 	Address() (string, error)
 	Timeout() string
