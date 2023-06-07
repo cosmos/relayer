@@ -11,7 +11,10 @@ import (
 
 	"github.com/CosmWasm/wasmd/app"
 	provtypes "github.com/cometbft/cometbft/light/provider"
+	comettypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/cosmos-sdk/client"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	prov "github.com/cometbft/cometbft/light/provider/http"
@@ -20,6 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -58,6 +62,122 @@ type ArchwayProviderConfig struct {
 	Slip44            int                     `json:"coin-type" yaml:"coin-type"`
 	Broadcast         provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 	IbcHandlerAddress string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+}
+
+type ArchwayIBCHeader struct {
+	SignedHeader *itm.SignedHeader
+	ValidatorSet *itm.ValidatorSet
+}
+
+func NewArchwayIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet) ArchwayIBCHeader {
+	return ArchwayIBCHeader{
+		SignedHeader: header,
+		ValidatorSet: validators,
+	}
+}
+
+func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) ArchwayIBCHeader {
+	vSets := make([]*itm.Validator, 0)
+	for _, v := range lightBlock.ValidatorSet.Validators {
+		_v := &itm.Validator{
+			Address: v.Address,
+			PubKey: &itm.PublicKey{
+				Sum: itm.GetPubKeyFromTx(v.PubKey.Type(), v.PubKey.Bytes()),
+			},
+			VotingPower:      v.VotingPower,
+			ProposerPriority: v.ProposerPriority,
+		}
+
+		vSets = append(vSets, _v)
+	}
+
+	signatures := make([]*itm.CommitSig, 0)
+	for _, d := range lightBlock.Commit.Signatures {
+
+		_d := &itm.CommitSig{
+			BlockIdFlag:      itm.BlockIDFlag(d.BlockIDFlag),
+			ValidatorAddress: d.ValidatorAddress,
+			Timestamp: &itm.Timestamp{
+				Seconds: int64(d.Timestamp.Unix()),
+				Nanos:   int32(d.Timestamp.Nanosecond()),
+			},
+			Signature: d.Signature,
+		}
+		signatures = append(signatures, _d)
+	}
+
+	return ArchwayIBCHeader{
+		SignedHeader: &itm.SignedHeader{
+			Header: &itm.LightHeader{
+				Version: &itm.Consensus{
+					Block: lightBlock.Version.Block,
+					App:   lightBlock.Version.App,
+				},
+				ChainId: lightBlock.ChainID,
+
+				Height: lightBlock.Height,
+				Time: &itm.Timestamp{
+					Seconds: int64(lightBlock.Time.Unix()),
+					Nanos:   int32(lightBlock.Time.Nanosecond()), // this is the offset after the nanosecond
+				},
+				LastBlockId: &itm.BlockID{
+					Hash: lightBlock.LastBlockID.Hash,
+					PartSetHeader: &itm.PartSetHeader{
+						Total: lightBlock.LastBlockID.PartSetHeader.Total,
+						Hash:  lightBlock.LastBlockID.PartSetHeader.Hash,
+					},
+				},
+				LastCommitHash:     lightBlock.LastCommitHash,
+				DataHash:           lightBlock.DataHash,
+				ValidatorsHash:     lightBlock.ValidatorsHash,
+				NextValidatorsHash: lightBlock.NextValidatorsHash,
+				ConsensusHash:      lightBlock.ConsensusHash,
+				AppHash:            lightBlock.AppHash,
+				LastResultsHash:    lightBlock.LastResultsHash,
+				EvidenceHash:       lightBlock.EvidenceHash,
+				ProposerAddress:    lightBlock.ProposerAddress,
+			},
+			Commit: &itm.Commit{
+				Height: lightBlock.Commit.Height,
+				Round:  lightBlock.Commit.Round,
+				BlockId: &itm.BlockID{
+					Hash: lightBlock.Commit.BlockID.Hash,
+					PartSetHeader: &itm.PartSetHeader{
+						Total: lightBlock.Commit.BlockID.PartSetHeader.Total,
+						Hash:  lightBlock.Commit.BlockID.PartSetHeader.Hash,
+					},
+				},
+				Signatures: signatures,
+			},
+		},
+		ValidatorSet: &itm.ValidatorSet{
+			Validators: vSets,
+		},
+	}
+}
+
+func (h ArchwayIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return &itm.ConsensusState{
+		Timestamp:          h.SignedHeader.Header.Time,
+		Root:               &itm.MerkleRoot{Hash: h.SignedHeader.Header.AppHash},
+		NextValidatorsHash: h.SignedHeader.Header.NextValidatorsHash,
+	}
+}
+
+func (a ArchwayIBCHeader) Height() uint64 {
+	return uint64(a.SignedHeader.Header.Height)
+}
+
+func (a ArchwayIBCHeader) IsCompleteBlock() bool {
+	return true
+}
+
+func (a ArchwayIBCHeader) NextValidatorsHash() []byte {
+	return a.SignedHeader.Header.NextValidatorsHash
+}
+
+func (a ArchwayIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	return false
 }
 
 func (pp *ArchwayProviderConfig) Validate() error {

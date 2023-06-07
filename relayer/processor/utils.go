@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-const clientName = "tendermint"
+const clientName = "iconclient"
 
 func ClientIsIcon(cs provider.ClientState) bool {
 	if strings.Contains(cs.ClientID, clientName) {

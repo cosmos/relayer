@@ -9,6 +9,6 @@ import (
 
 func TestStorageKey(t *testing.T) {
 	s := getKey(STORAGEKEY__Commitments)
-	expected := fmt.Sprintf("000b%s", STORAGEKEY__Commitments)
+	expected := fmt.Sprintf("000b%x", STORAGEKEY__Commitments)
 	assert.Equal(t, expected, s)
 }

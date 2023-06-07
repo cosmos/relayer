@@ -274,6 +274,7 @@ loop:
 
 			go func(ctx context.Context, cancel context.CancelFunc) {
 				blockReq.Height = types.NewHexInt(processedheight)
+				icp.log.Debug("Querying Height", zap.Int64("height", processedheight))
 				err := icp.chainProvider.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
 					if !errors.Is(ctx.Err(), context.Canceled) {
 						btpBlockNotifCh <- v

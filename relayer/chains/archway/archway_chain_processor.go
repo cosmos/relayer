@@ -349,7 +349,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 
 	ppChanged := false
 
-	var latestHeader provider.TendermintIBCHeader
+	var latestHeader ArchwayIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -363,6 +363,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
+			// fmt.Println("the lastqueried Block", i)
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
 		})
@@ -378,19 +379,19 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 			break
 		}
 
-		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
+		latestHeader = ibcHeader.(ArchwayIBCHeader)
 
 		heightUint64 := uint64(i)
 
 		ccp.latestBlock = provider.LatestBlock{
 			Height: heightUint64,
-			Time:   latestHeader.SignedHeader.Time,
+			// Time:   latestHeader.SignedHeader.Header.Time,
 		}
 
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := ccp.chainProvider.cometLegacyEncoding
+		base64Encoded := true
 
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {

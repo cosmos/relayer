@@ -3,6 +3,7 @@ package icon
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
@@ -37,7 +38,7 @@ var (
 // Default IBC settings
 var (
 	defaultChainPrefix = icon.MerklePrefix{
-		KeyPrefix: []byte("ibc"),
+		KeyPrefix: []byte("commitments"),
 	}
 	defaultDelayPeriod = types.NewHexInt(0)
 
@@ -47,23 +48,22 @@ var (
 		Identifier: DefaultIBCVersionIdentifier,
 		Features:   []string{"ORDER_ORDERED", "ORDER_UNORDERED"},
 	}
-
-	clientStoragePrefix = []byte("icon")
 )
 
 type IconProviderConfig struct {
-	Key               string `json:"key" yaml:"key"`
-	ChainName         string `json:"-" yaml:"-"`
-	ChainID           string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
-	Timeout           string `json:"timeout" yaml:"timeout"`
-	Keystore          string `json:"keystore" yaml:"keystore"`
-	Password          string `json:"password" yaml:"password"`
-	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
-	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
-	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
-	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	Key                   string `json:"key" yaml:"key"`
+	ChainName             string `json:"-" yaml:"-"`
+	ChainID               string `json:"chain-id" yaml:"chain-id"`
+	RPCAddr               string `json:"rpc-addr" yaml:"rpc-addr"`
+	Timeout               string `json:"timeout" yaml:"timeout"`
+	Keystore              string `json:"keystore" yaml:"keystore"`
+	Password              string `json:"password" yaml:"password"`
+	ICONNetworkID         int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
+	BTPNetworkID          int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID      int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
+	BTPHeight             int64  `json:"start-btp-height" yaml:"start-btp-height"`
+	IbcHandlerAddress     string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	ArchwayHandlerAddress string `json:"archway-handler-address" yaml:"archway-handler-address"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -249,8 +249,9 @@ func (icp *IconProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
+
 	if !dstUpdateHeader.IsCompleteBlock() {
-		return nil, fmt.Errorf("Not complete block")
+		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
 	}
 
 	validatorSet, err := icp.GetProofContextByHeight(int64(dstUpdateHeader.Height()))
@@ -260,12 +261,14 @@ func (icp *IconProvider) NewClientState(
 
 	iconHeader := dstUpdateHeader.(IconIBCHeader)
 
+	networkSectionhash := types.NewNetworkSection(iconHeader.Header).Hash()
+
 	return &icon.ClientState{
 		TrustingPeriod:     uint64(dstTrustingPeriod),
 		FrozenHeight:       0,
 		MaxClockDrift:      3600,
 		LatestHeight:       dstUpdateHeader.Height(),
-		NetworkSectionHash: iconHeader.Header.PrevNetworkSectionHash,
+		NetworkSectionHash: networkSectionhash,
 		Validators:         validatorSet,
 	}, nil
 
@@ -277,9 +280,11 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
-	// if len(connStateProof) == 0 {
-	// 	return provider.ConnectionProof{}, fmt.Errorf("Received invalid zero length connection state proof")
-	// }
+
+	if len(connStateProof) == 0 {
+		return provider.ConnectionProof{}, fmt.Errorf("Received invalid zero length connection state proof")
+	}
+
 	return provider.ConnectionProof{
 		ClientState:          clientState,
 		ClientStateProof:     clientStateProof,
@@ -349,7 +354,7 @@ func (icp *IconProvider) PacketCommitment(ctx context.Context, msgTransfer provi
 	)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetCommitmentResponse.Proof,
@@ -490,7 +495,7 @@ func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
 }
 
 func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	return commitmenttypes.NewMerklePrefix([]byte("commitments"))
 }
 
 func (icp *IconProvider) Key() string {
@@ -587,4 +592,12 @@ func (icp *IconProvider) GetProofContextByHeight(height int64) ([][]byte, error)
 		return nil, err
 	}
 	return validatorList.Validators, nil
+}
+
+func (icp *IconProvider) getClientStoragePrefix() ([]byte, error) {
+	ibcAddr, err := sdk.AccAddressFromBech32(icp.PCfg.ArchwayHandlerAddress)
+	if err != nil {
+		return nil, err
+	}
+	return hex.DecodeString(fmt.Sprintf("03%x", ibcAddr))
 }

@@ -205,11 +205,17 @@ func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 	if debug {
 		level = zap.DebugLevel
 	}
-	return zap.New(zapcore.NewCore(
-		enc,
-		os.Stderr,
-		level,
-	)), nil
+
+	logFile, _ := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	writer := zapcore.AddSync(logFile)
+
+	core := zapcore.NewTee(
+		zapcore.NewCore(enc,
+			writer,
+			level),
+		zapcore.NewCore(enc, os.Stderr, level),
+	)
+	return zap.New(core), nil
 }
 
 // readLine reads one line from the given reader.

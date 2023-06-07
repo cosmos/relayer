@@ -45,7 +45,7 @@ func TestRestoreIconKeyStore(t *testing.T) {
 		ChainName: "icon",
 		BTPHeight: 10,
 	}
-	p, err := pcfg.NewProvider(zap.NewNop(), "", false, "icon")
+	p, err := pcfg.NewProvider(zap.NewNop(), "not_correct", false, "icon")
 	require.NoError(t, err)
 	iconp := p.(*IconProvider)
 	fmt.Println(iconp)

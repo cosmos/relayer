@@ -1,7 +1,6 @@
 package icon
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -25,7 +24,6 @@ import (
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -96,13 +94,18 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	var err error
 	retry.Do(func() error {
 		block, err = icp.client.GetLastBlock()
+
 		return err
 	}, retry.Context(ctx),
 		retry.Attempts(queryRetries),
 		retry.OnRetry(func(n uint, err error) {
 			icp.log.Warn("failed to query latestHeight", zap.String("Chain Id", icp.ChainId()))
 		}))
-	return block.Height, err
+
+	if block != nil {
+		return block.Height, nil
+	}
+	return 0, fmt.Errorf("failed to query Block")
 }
 
 // legacy
@@ -199,49 +202,6 @@ func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, heigh
 
 }
 
-// Implement when a new chain is added to ICON IBC Contract
-func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*codectypes.Any, error) {
-	if strings.Contains(clientId, "icon") {
-		var clientState icon.ClientState
-		err := icp.codec.Marshaler.Unmarshal(clientStateB, &clientState)
-		if err != nil {
-			return nil, err
-		}
-		return clienttypes.PackClientState(&clientState)
-	}
-	if strings.Contains(clientId, "tendermint") {
-		var clientState itm.ClientState
-		err := icp.codec.Marshaler.Unmarshal(clientStateB, &clientState)
-		if err != nil {
-			return nil, err
-		}
-
-		return clienttypes.PackClientState(&clientState)
-	}
-	return nil, fmt.Errorf("unknown client type")
-}
-
-func (icp *IconProvider) ConsensusToAny(clientId string, cb []byte) (*codectypes.Any, error) {
-	if strings.Contains(clientId, "icon") {
-		var consensusState icon.ConsensusState
-		err := icp.codec.Marshaler.Unmarshal(cb, &consensusState)
-		if err != nil {
-			return nil, err
-		}
-		return clienttypes.PackConsensusState(&consensusState)
-	}
-	if strings.Contains(clientId, "tendermint") {
-		var consensusState itm.ConsensusState
-		err := icp.codec.Marshaler.Unmarshal(cb, &consensusState)
-		if err != nil {
-			return nil, err
-		}
-
-		return clienttypes.PackConsensusState(&consensusState)
-	}
-	return nil, fmt.Errorf("unknown consensus type")
-}
-
 func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 
 	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
@@ -260,14 +220,12 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		return nil, err
 	}
 
-	// TODO: Use ICON Client State after cosmos chain integrated--
 	any, err := icp.ClientToAny(srcClientId, clientStateByte)
 	if err != nil {
 		return nil, err
 	}
 
 	commitmentHash := getCommitmentHash(common.GetClientStateCommitmentKey(srcClientId), clientStateByte)
-
 	proof, err := icp.QueryIconProof(ctx, height, commitmentHash)
 	if err != nil {
 		return nil, err
@@ -277,12 +235,24 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 }
 
 func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+
+	h, ok := clientHeight.(clienttypes.Height)
+	if !ok {
+		return nil, fmt.Errorf("clientHeight type mismatched ")
+	}
+
+	heightBytes, err := icp.codec.Marshaler.Marshal(&h)
+	if err != nil {
+		return nil, err
+	}
+
 	callParams := icp.prepareCallParams(MethodGetConsensusState, map[string]interface{}{
 		"clientId": clientid,
-		"height":   clientHeight,
+		"height":   types.NewHexBytes(heightBytes),
 	})
+
 	var cnsStateHexByte types.HexBytes
-	err := icp.client.Call(callParams, cnsStateHexByte)
+	err = icp.client.Call(callParams, &cnsStateHexByte)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +266,7 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 		return nil, err
 	}
 
-	key := common.GetConsensusStateCommitmentKey(clientid, big.NewInt(0), big.NewInt(chainHeight))
+	key := common.GetConsensusStateCommitmentKey(clientid, big.NewInt(0), big.NewInt(int64(h.RevisionHeight)))
 	commitmentHash := getCommitmentHash(key, cnsStateByte)
 
 	proof, err := icp.QueryIconProof(ctx, chainHeight, commitmentHash)
@@ -381,7 +351,7 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 	}
 
 	var conn conntypes.ConnectionEnd
-	_, err = icp.HexBytesToProtoUnmarshal(connectionBytes, &conn)
+	_, err = HexBytesToProtoUnmarshal(conn_string_, &conn)
 	if err != nil {
 		return emptyConnRes, err
 	}
@@ -427,7 +397,7 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
 		connectionId := fmt.Sprintf("connection-%d", i)
-		var conn_string_ string
+		var conn_string_ types.HexBytes
 		err := icp.client.Call(icp.prepareCallParams(MethodGetConnection, map[string]interface{}{
 			"connectionId": connectionId,
 		}), &conn_string_)
@@ -437,7 +407,7 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 		}
 
 		var conn conntypes.ConnectionEnd
-		_, err = HexStringToProtoUnmarshal(conn_string_, &conn)
+		_, err = HexBytesToProtoUnmarshal(conn_string_, &conn)
 		if err != nil {
 			icp.log.Info("unable to unmarshal connection for ", zap.String("connection id ", connectionId))
 			continue
@@ -489,9 +459,9 @@ func (icp *IconProvider) QueryConnectionsUsingClient(ctx context.Context, height
 	// TODO
 	return nil, fmt.Errorf("not implemented")
 }
-func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
-	clientStateProof []byte, consensusProof []byte, connectionProof []byte,
-	connectionProofHeight ibcexported.Height, err error) {
+func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (ibcexported.ClientState,
+	[]byte, []byte, []byte,
+	ibcexported.Height, error) {
 
 	// clientProof
 	clientResponse, err := icp.QueryClientStateResponse(ctx, height, clientId)
@@ -499,26 +469,17 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	// consensusProof
+	// clientState
 	anyClientState := clientResponse.ClientState
 	clientState_, err := clienttypes.UnpackClientState(anyClientState)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	// TODO: Once you stop using mock client, uncomment this block of code
-	// x := clientState_.GetLatestHeight()
-	// consensusResponse, err := icp.QueryClientConsensusState(ctx, height, clientId, x)
-	// if err != nil {
-	// 	return nil, nil, nil, nil, clienttypes.Height{}, err
-	// }
-	///// AND REMOVE THIS LINE  /////
-	type consensusResponseX struct {
-		Proof []byte
-	}
-
-	consensusResponse := consensusResponseX{
-		Proof: []byte("0x"),
+	// consensusRes
+	consensusRes, err := icp.QueryClientConsensusState(ctx, height, clientId, clientState_.GetLatestHeight())
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
 	// connectionProof
@@ -527,7 +488,7 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	return clientState_, clientResponse.Proof, consensusResponse.Proof, connResponse.Proof, clienttypes.NewHeight(0, uint64(height)), nil
+	return clientState_, clientResponse.Proof, consensusRes.Proof, connResponse.Proof, clienttypes.NewHeight(0, uint64(height)), nil
 }
 
 // ics 04 - channel
@@ -538,19 +499,19 @@ func (icp *IconProvider) QueryChannel(ctx context.Context, height int64, channel
 		"portId":    portid,
 	}, callParamsWithHeight(types.NewHexInt(height)))
 
-	var channel_string_ types.HexBytes
-	err = icp.client.Call(callParam, &channel_string_)
+	var _channel types.HexBytes
+	err = icp.client.Call(callParam, &_channel)
 	if err != nil {
 		return emptyChannelRes, err
 	}
 
-	channelBytes, err := channel_string_.Value()
+	channelBytes, err := _channel.Value()
 	if err != nil {
 		return emptyChannelRes, err
 	}
 
 	var channel icon.Channel
-	_, err = icp.HexBytesToProtoUnmarshal(channelBytes, &channel)
+	_, err = HexBytesToProtoUnmarshal(_channel, &channel)
 	if err != nil {
 		return emptyChannelRes, err
 	}
@@ -616,18 +577,18 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
 		channelId := fmt.Sprintf("channel-%d", i)
-		var channel_string_ string
+		var _channel types.HexBytes
 		err := icp.client.Call(icp.prepareCallParams(MethodGetChannel, map[string]interface{}{
 			"channelId": channelId,
 			"portId":    testPort,
-		}), &channel_string_)
+		}), &_channel)
 		if err != nil {
 			icp.log.Error("unable to fetch channel for  ", zap.String("channel id ", channelId), zap.Error(err))
 			continue
 		}
 
 		var channel chantypes.Channel
-		_, err = HexStringToProtoUnmarshal(channel_string_, &channel)
+		_, err = HexBytesToProtoUnmarshal(_channel, &channel)
 		if err != nil {
 			icp.log.Info("Unable to unmarshal channel for ",
 				zap.String("channel id ", channelId), zap.Error(err))
@@ -705,7 +666,7 @@ func (icp *IconProvider) QueryPacketCommitment(ctx context.Context, height int64
 	callParam := icp.prepareCallParams(MethodGetPacketCommitment, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
-		"sequence":  seq,
+		"sequence":  types.NewHexInt(int64(seq)),
 	}, callParamsWithHeight(types.NewHexInt(height)))
 	var packetCommitmentHexBytes types.HexBytes
 	if err := icp.client.Call(callParam, &packetCommitmentHexBytes); err != nil {
@@ -781,14 +742,6 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	if err != nil {
 		return nil, err
 	}
-	// TODO:: Is there packetReceipt proof on ICON??
-	// key := common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq)))
-	// keyHash := common.Sha3keccak256(key)
-
-	// proof, err := icp.QueryIconProof(ctx, height, keyHash)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    packetReceipt == 1,
@@ -812,6 +765,7 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 	merkleProofs := icon.MerkleProofs{}
 
 	messages, err := icp.GetBtpMessage(height)
+
 	if err != nil {
 		return nil, err
 	}
@@ -819,7 +773,6 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		icp.log.Info("BTP Message not present",
 			zap.Int64("Height", height),
 			zap.Int64("BtpNetwork", icp.PCfg.BTPNetworkID))
-		return nil, err
 	}
 
 	if len(messages) > 1 {
@@ -831,15 +784,15 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		if hashIndex == -1 {
 			return nil, errors.New("Btp message for this hash not found")
 		}
+
 		proof := merkleHashTree.MerkleProof(hashIndex)
 
 		merkleProofs = icon.MerkleProofs{
 			Proofs: proof,
 		}
+		return icp.codec.Marshaler.Marshal(&merkleProofs)
 	}
-
-	proofBytes, err := icp.codec.Marshaler.Marshal(&merkleProofs)
-	return proofBytes, nil
+	return nil, nil
 }
 
 func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Message) ([]byte, error) {
@@ -859,25 +812,4 @@ func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Messa
 	}
 	return inputBytes, nil
 
-}
-
-func (icp *IconProvider) HexBytesToProtoUnmarshal(inputBytes []byte, v proto.Message) ([]byte, error) {
-
-	if bytes.Equal(inputBytes, make([]byte, 0)) {
-		return nil, fmt.Errorf("Encoded hexbyte is empty ")
-	}
-
-	// TODO: To use this, register all to codec
-	// err := icp.codec.Marshaler.UnmarshalInterface(inputBytes, v)
-	err := proto.Unmarshal(inputBytes, v)
-	if err != nil {
-		return nil, err
-	}
-	return inputBytes, nil
-
-}
-
-func getCommitmentHash(key, msg []byte) []byte {
-	msgHash := common.Sha3keccak256(msg)
-	return common.Sha3keccak256(key, msgHash)
 }

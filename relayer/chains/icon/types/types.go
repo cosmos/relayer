@@ -27,7 +27,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common"
+	"github.com/icon-project/goloop/common/codec"
 
+	relayer_common "github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/icon-bridge/common/intconv"
 	"github.com/icon-project/icon-bridge/common/jsonrpc"
 )
@@ -151,28 +153,6 @@ type CallData struct {
 	Params interface{} `json:"params,omitempty"`
 }
 
-type ClientStateParam struct {
-	ClientID string `json:"client_id"`
-	Height   string `json:"height"`
-}
-
-type MerkleRoot struct {
-	Hash []byte
-}
-
-type Duration struct {
-	Seconds big.Int
-	Nanos   big.Int
-}
-
-type Fraction struct {
-	Numerator   big.Int
-	Denominator big.Int
-}
-
-type ProofSpec struct {
-}
-
 type GenericClientParams[T MsgCreateClient | MsgUpdateClient] struct {
 	Msg T `json:"msg"`
 }
@@ -293,23 +273,6 @@ type MsgPacketRecv struct {
 	Packet      HexBytes `json:"packet"`
 	Proof       HexBytes `json:"proof"`
 	ProofHeight HexBytes `json:"proofHeight"`
-}
-
-type ChannelCounterparty struct {
-	PortId    string
-	ChannelId string
-}
-
-type ConnectionCounterparty struct {
-	ClientId     string
-	ConnectionId string
-	Prefix       icon.MerklePrefix
-}
-
-func NewMerklePrefix(keyPrefix []byte) icon.MerklePrefix {
-	return icon.MerklePrefix{
-		KeyPrefix: keyPrefix,
-	}
 }
 
 type CallParam struct {
@@ -478,15 +441,6 @@ func NewAddress(b []byte) Address {
 	}
 }
 
-// T_SIG
-type Signature string
-
-type ReceiptProof struct {
-	Index  int
-	Events []byte
-	Height int64
-}
-
 type Block struct {
 	//BlockHash              HexBytes  `json:"block_hash" validate:"required,t_hash"`
 	//Version                HexInt    `json:"version" validate:"required,t_int"`
@@ -550,11 +504,6 @@ type BTPNetworkInfo struct {
 	NetworkTypeName         string   `json:"networkTypeName"`
 }
 
-type BTPBlockUpdate struct {
-	BTPBlockHeader []byte
-	BTPBlockProof  []byte
-}
-
 type BTPBlockHeader struct {
 	MainHeight             uint64
 	Round                  int32
@@ -575,11 +524,6 @@ const (
 	DirRight
 )
 
-// type MerkleNode struct {
-// 	Dir   Dir
-// 	Value []byte
-// }
-
 type BTPQueryParam struct {
 	Height HexInt `json:"height,omitempty" validate:"optional,t_int"`
 	Id     HexInt `json:"id" validate:"required,t_int"`
@@ -598,4 +542,29 @@ type ValidatorList struct {
 
 type ValidatorSignatures struct {
 	Signatures [][]byte `json:"signatures"`
+}
+
+type NetworkSection struct {
+	Nid          int64
+	UpdateNumber int64
+	Prev         []byte
+	MessageCount int64
+	MessageRoot  []byte
+}
+
+func NewNetworkSection(
+	header *BTPBlockHeader,
+) *NetworkSection {
+	return &NetworkSection{
+		Nid:          int64(header.NetworkID),
+		UpdateNumber: int64(header.UpdateNumber),
+		Prev:         header.PrevNetworkSectionHash,
+		MessageCount: int64(header.MessageCount),
+		MessageRoot:  header.MessageRoot,
+	}
+}
+
+func (h *NetworkSection) Hash() []byte {
+	return relayer_common.Sha3keccak256(codec.RLP.MustMarshalToBytes(h))
+
 }

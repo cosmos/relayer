@@ -112,6 +112,7 @@ func (msg packetIBCMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("dst_port", msg.info.DestPort)
 	enc.AddString("dst_channel", msg.info.DestChannel)
 	enc.AddUint64("sequence", msg.info.Sequence)
+	enc.AddUint64("packet height", msg.info.Height)
 	enc.AddString("timeout_height", fmt.Sprintf(
 		"%d-%d",
 		msg.info.TimeoutHeight.RevisionNumber,

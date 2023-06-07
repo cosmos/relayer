@@ -80,8 +80,10 @@ func ibcMessagesFromEvents(
 		var evt sdk.StringEvent
 		if base64Encoded {
 			evt = parseBase64Event(log, event)
+			// fmt.Printf("event %v \n", evt)
 		} else {
 			evt = sdk.StringifyEvent(event)
+
 		}
 		m := parseIBCMessageFromEvent(log, evt, chainID, height, contractAddress)
 		if m == nil || m.info == nil {
@@ -102,9 +104,6 @@ func parseIBCMessageFromEvent(
 ) *ibcMessage {
 
 	if len(event.Attributes) == 0 {
-		return nil
-	}
-	if !eventFromIBCContractAddress(event.Attributes[0], contractAddress) {
 		return nil
 	}
 

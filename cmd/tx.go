@@ -444,6 +444,7 @@ $ %s tx conn demo-path --timeout 5s`,
 	cmd = overrideFlag(a.Viper, cmd)
 	cmd = memoFlag(a.Viper, cmd)
 	cmd = initBlockFlag(a.Viper, cmd)
+	cmd = iconStartHeightFlag(a.Viper, cmd)
 	return cmd
 }
 

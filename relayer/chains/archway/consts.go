@@ -15,7 +15,7 @@ const (
 	MethodChannelCloseInit      = "channel_close_init"
 	MethodChannelCloseConfirm   = "channel_close_confirm"
 	MethodSendPacket            = "send_packet"
-	MethodRecvPacket            = "recv_packet"
+	MethodRecvPacket            = "receive_packet"
 	MethodWriteAcknowledgement  = "write_acknowledgement"
 	MethodAcknowledgePacket     = "acknowledge_packet"
 	MethodTimeoutPacket         = "timeout_packet"

@@ -119,7 +119,7 @@ func __merkleProof(data []byte, idx int) []*icon.MerkleNode {
 	return proof
 }
 
-func (m *MerkleHashTree) VerifyMerkleProof(root []byte, value []byte, proof []icon.MerkleNode) bool {
+func VerifyMerkleProof(root []byte, value []byte, proof []*icon.MerkleNode) bool {
 	computedHash := make([]byte, len(value))
 	copy(computedHash, value)
 
@@ -133,13 +133,36 @@ func (m *MerkleHashTree) VerifyMerkleProof(root []byte, value []byte, proof []ic
 			if node.Value != nil {
 				copy(hashBuf[hashLen:], node.Value)
 			} else {
-				copy(hashBuf[hashLen:], make([]byte, hashLen))
+				continue
 			}
 		}
 		AppendHash(computedHash[:0], hashBuf)
 	}
 
 	return bytes.Equal(root, computedHash)
+}
+
+func CalculateRootFromProof(value []byte, proof []*icon.MerkleNode) []byte {
+	computedHash := make([]byte, len(value))
+	copy(computedHash, value)
+
+	for _, node := range proof {
+		hashBuf := make([]byte, hashLen*2)
+		if node.Dir == int32(types.DirLeft) {
+			copy(hashBuf[:hashLen], node.Value)
+			copy(hashBuf[hashLen:], computedHash)
+		} else {
+			copy(hashBuf[:hashLen], computedHash)
+			if node.Value != nil {
+				copy(hashBuf[hashLen:], node.Value)
+			} else {
+				continue
+
+			}
+		}
+		AppendHash(computedHash[:0], hashBuf)
+	}
+	return computedHash
 }
 
 func (m *MerkleHashTree) MerkleProof(idx int) []*icon.MerkleNode {
