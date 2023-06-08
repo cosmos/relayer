@@ -219,6 +219,10 @@ github.com/containers/ocicrypt v1.1.3/go.mod h1:xpdkbVAuaH3WzbEabUd5yDsl9SwJA5pA
 github.com/coreos/etcd v3.3.13+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-iptables v0.6.0/go.mod h1:Qe8Bv2Xik5FyTXwgIbLAnv2sWSBmvWdFETJConOQ//Q=
 github.com/coreos/go-systemd/v22 v22.3.3-0.20220203105225-a9a7ef127534/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
+github.com/cosmos/cosmos-sdk v0.47.0/go.mod h1:FTtZbqiHCZ2vun9WrPq6qLQafNKkAuIhLAxzLjr2TiI=
+github.com/cosmos/cosmos-sdk v0.47.2/go.mod h1:zYzgI8w8hhotXTSoGbbSOAKfpJTx4wOy4XgbaKhtRtc=
+github.com/cosmos/cosmos-sdk v0.47.3 h1:r0hGmZoAzP2D+MaPaFGHwAaTdFQq3pNpHaUp1BsffbM=
+github.com/cosmos/cosmos-sdk v0.47.3/go.mod h1:c4OfLdAykA9zsj1CqrxBRqXzVz48I++JSvIMPSPcEmk=
 github.com/cosmos/cosmos-sdk/db v1.0.0-beta.1.0.20220726092710-f848e4300a8a/go.mod h1:c8IO23vgNxueCCJlSI9awQtcxsvc+buzaeThB85qfBU=
 github.com/cosmos/gogoproto v1.4.1/go.mod h1:Ac9lzL4vFpBMcptJROQ6dQ4M3pOEK5Z/l0Q9p+LoCr4=
 github.com/cosmos/gogoproto v1.4.3/go.mod h1:0hLIG5TR7IvV1fme1HCFKjfzW9X2x0Mo+RooWXCnOWU=
