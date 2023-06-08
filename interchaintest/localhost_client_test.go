@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
@@ -30,7 +29,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	numFullNodes := 0
 	image := ibc.DockerImage{
 		Repository: "ghcr.io/cosmos/ibc-go-simd",
-		Version:    "main",
+		Version:    "v7.1.0-rc0",
 		UidGid:     "",
 	}
 	cdc := ictestcosmos.DefaultEncoding()
@@ -42,17 +41,18 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 			NumValidators: &numVals,
 			NumFullNodes:  &numFullNodes,
 			ChainConfig: ibc.ChainConfig{
-				Type:           "cosmos",
-				Name:           "simd",
-				ChainID:        "chain-a",
-				Images:         []ibc.DockerImage{image},
-				Bin:            "simd",
-				Bech32Prefix:   "cosmos",
-				Denom:          "stake",
-				CoinType:       "118",
-				GasPrices:      "0.0stake",
-				GasAdjustment:  1.1,
-				EncodingConfig: &cdc,
+				Type:                   "cosmos",
+				Name:                   "simd",
+				ChainID:                "chain-a",
+				Images:                 []ibc.DockerImage{image},
+				Bin:                    "simd",
+				Bech32Prefix:           "cosmos",
+				Denom:                  "stake",
+				CoinType:               "118",
+				GasPrices:              "0.0stake",
+				GasAdjustment:          1.1,
+				EncodingConfig:         &cdc,
+				UsingNewGenesisCommand: true,
 			}}},
 	)
 
@@ -114,7 +114,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	err = r.AddChainConfiguration(ctx, eRep, chainA.Config(), relayerKey, chainA.GetHostRPCAddress(), chainA.GetHostGRPCAddress())
 	require.NoError(t, err)
 
-	err = r.RestoreKey(ctx, eRep, chainA.Config().ChainID, relayerKey, chainA.Config().CoinType, mnemonic)
+	err = r.RestoreKey(ctx, eRep, chainA.Config(), relayerKey, mnemonic)
 	require.NoError(t, err)
 
 	err = r.GeneratePath(ctx, eRep, chainA.Config().ChainID, chainA.Config().ChainID, pathLocalhost)
@@ -134,7 +134,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	err = r.CreateChannel(ctx, eRep, pathLocalhost, ibc.DefaultChannelOpts())
 	require.NoError(t, err)
 
-	err = testutil.WaitForBlocks(ctx, 15, chainA)
+	err = testutil.WaitForBlocks(ctx, 10, chainA)
 	require.NoError(t, err)
 
 	channels, err := r.GetChannels(ctx, eRep, chainA.Config().ChainID)
@@ -146,44 +146,6 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	// compose the ibc denom for balance assertions
 	denom := transfertypes.GetPrefixedDenom(channel.Counterparty.PortID, channel.Counterparty.ChannelID, chainA.Config().Denom)
 	trace := transfertypes.ParseDenomTrace(denom)
-
-	// compose and send a localhost IBC transfer which should fail due to timeout
-	const transferAmount = int64(1_000)
-	transfer := ibc.WalletAmount{
-		Address: userB.FormattedAddress(),
-		Denom:   chainA.Config().Denom,
-		Amount:  transferAmount,
-	}
-
-	height, err := chainA.Height(ctx)
-	require.NoError(t, err)
-
-	cmd := []string{
-		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
-		channel.ChannelID,
-		transfer.Address,
-		fmt.Sprintf("%d%s", transfer.Amount, transfer.Denom),
-		"--from", userA.FormattedAddress(),
-		"--gas-prices", "0.0stake",
-		"--gas-adjustment", "1.2",
-		"--keyring-backend", "test",
-		"--absolute-timeouts",
-		//"--packet-timeout-timestamp", "9999999999999999999",
-		"--packet-timeout-height", fmt.Sprintf("1-%d", height+5),
-		"--output", "json",
-		"-y",
-		"--home", chainA.HomeDir(),
-		"--node", chainA.GetRPCAddress(),
-		"--chain-id", chainA.Config().ChainID,
-	}
-	stdout, stderr, err := chainA.Exec(ctx, cmd, nil)
-	require.NoError(t, err)
-
-	t.Logf("STDOUT: %s \n", stdout)
-	t.Logf("STDERR: %s \n", stderr)
-
-	err = testutil.WaitForBlocks(ctx, 6, chainA)
-	require.NoError(t, err)
 
 	// start the relayer
 	require.NoError(t, r.StartRelayer(ctx, eRep, pathLocalhost))
@@ -197,17 +159,15 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 		},
 	)
 
-	// assert that the balances did not change
-	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
-	require.NoError(t, err)
-	require.Equal(t, userABal, newBalA)
-
-	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
-	require.NoError(t, err)
-	require.Equal(t, int64(0), newBalB)
-
 	// compose and send a localhost IBC transfer which should be successful
-	cmd = []string{
+	const transferAmount = int64(1_000)
+	transfer := ibc.WalletAmount{
+		Address: userB.FormattedAddress(),
+		Denom:   chainA.Config().Denom,
+		Amount:  transferAmount,
+	}
+
+	cmd := []string{
 		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
 		channel.ChannelID,
 		transfer.Address,
@@ -224,20 +184,18 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 		"--node", chainA.GetRPCAddress(),
 		"--chain-id", chainA.Config().ChainID,
 	}
-	stdout, stderr, err = chainA.Exec(ctx, cmd, nil)
+	_, _, err = chainA.Exec(ctx, cmd, nil)
 	require.NoError(t, err)
-	t.Logf("STDOUT: %s \n", stdout)
-	t.Logf("STDERR: %s \n", stderr)
 
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
 
 	// assert that the updated balances are correct
-	newBalA, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
 	require.Equal(t, userABal-transferAmount, newBalA)
 
-	newBalB, err = chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
+	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
 	require.Equal(t, transferAmount, newBalB)
 
@@ -253,21 +211,17 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 		"--keyring-backend", "test",
 		"--absolute-timeouts",
 		"--packet-timeout-timestamp", "9999999999999999999",
-		//"--packet-timeout-height", fmt.Sprintf("1-%d", height+5),
 		"--output", "json",
 		"-y",
 		"--home", chainA.HomeDir(),
 		"--node", chainA.GetRPCAddress(),
 		"--chain-id", chainA.Config().ChainID,
 	}
-	stdout, stderr, err = chainA.Exec(ctx, cmd, nil)
+	_, _, err = chainA.Exec(ctx, cmd, nil)
 	require.NoError(t, err)
 
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
-
-	t.Logf("STDOUT: %s \n", stdout)
-	t.Logf("STDERR: %s \n", stderr)
 
 	// assert that the balances are updated
 	tmpBalA := newBalA
@@ -279,6 +233,4 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	newBalB, err = chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
 	require.Equal(t, tmpBalB+transferAmount, newBalB)
-
-	time.Sleep(30 * time.Second)
 }

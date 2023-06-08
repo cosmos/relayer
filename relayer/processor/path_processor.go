@@ -407,14 +407,12 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
 		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		if err != nil {
-			pp.log.Error("here is the error 1")
 			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
 		chan2, err := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 		if err != nil {
-			pp.log.Error("here is the error 2")
 			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
@@ -461,9 +459,6 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	channelStateCache2 := make(map[ChannelKey]bool)
 
 	for k, v := range cacheData.ChannelStateCache {
-		pp.log.Info("Channel ID", zap.String("id", k.ChannelID))
-		pp.log.Info("Ctprty channel ID", zap.String("id", k.CounterpartyChannelID))
-
 		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		chan2, secErr := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 
