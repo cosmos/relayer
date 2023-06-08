@@ -607,7 +607,6 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	if eventType != chantypes.EventTypeChannelOpenInit {
 		channelKey = channelKey.Counterparty()
 	}
-	channelKey := ChannelInfoChannelKey(message.info).Counterparty()
 
 	// For localhost cache the channel order on OpenInit so that we can access it during the other channel handshake steps
 	if pathEnd.info.ClientID == ibcexported.LocalhostClientID && eventType == chantypes.EventTypeChannelOpenInit {
