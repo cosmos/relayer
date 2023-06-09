@@ -437,6 +437,10 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 				if order, ok := pp.pathEnd2.channelOrderCache[k.CounterpartyChannelID]; ok {
 					v.Order = order
 				}
+				// TODO this is insanely hacky, need to figure out how to handle the ordering dilemma on ordered chans
+				if v.Order == chantypes.NONE {
+					v.Order = chantypes.ORDERED
+				}
 				pathEnd1Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
 			case chantypes.EventTypeChannelOpenTry, chantypes.EventTypeChannelOpenConfirm, chantypes.EventTypeChannelCloseConfirm:
 				if _, ok := pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType]; !ok {
@@ -448,6 +452,7 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 				if order, ok := pp.pathEnd1.channelOrderCache[k.CounterpartyChannelID]; ok {
 					v.Order = order
 				}
+
 				pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
 			default:
 				pp.log.Error("Invalid IBC channel event type", zap.String("event_type", eventType))
