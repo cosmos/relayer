@@ -325,3 +325,17 @@ func NewNextChannelSequence() *GetNextChannelSequence {
 		Sequence: struct{}{},
 	}
 }
+
+type GetAllPorts struct {
+	AllPorts struct{} `json:"get_all_ports"`
+}
+
+func (x *GetAllPorts) Bytes() ([]byte, error) {
+	return json.Marshal(x)
+}
+
+func NewGetAllPorts() *GetAllPorts {
+	return &GetAllPorts{
+		AllPorts: struct{}{},
+	}
+}

@@ -309,7 +309,7 @@ func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connection
 func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	channel := &icon.Channel{
 		State:    icon.Channel_STATE_INIT,
-		Ordering: icon.Channel_ORDER_ORDERED,
+		Ordering: icon.Channel_Order(info.Order),
 		Counterparty: &icon.Channel_Counterparty{
 			PortId:    info.CounterpartyPortID,
 			ChannelId: "",
@@ -335,7 +335,7 @@ func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pro
 func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	channel := &icon.Channel{
 		State:    icon.Channel_STATE_TRYOPEN,
-		Ordering: icon.Channel_ORDER_ORDERED,
+		Ordering: icon.Channel_Order(proof.Ordering),
 		Counterparty: &icon.Channel_Counterparty{
 			PortId:    msgOpenInit.PortID,
 			ChannelId: msgOpenInit.ChannelID,

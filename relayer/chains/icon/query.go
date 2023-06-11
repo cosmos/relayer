@@ -455,6 +455,15 @@ func (icp *IconProvider) getNextSequence(ctx context.Context, methodName string)
 	return uint64(val), nil
 }
 
+func (icp *IconProvider) getAllPorts(ctx context.Context) ([]string, error) {
+	var portIds []string
+	callParam := icp.prepareCallParams(MethodGetAllPorts, map[string]interface{}{})
+	if err := icp.client.Call(callParam, &portIds); err != nil {
+		return nil, err
+	}
+	return portIds, nil
+}
+
 func (icp *IconProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	// TODO
 	return nil, fmt.Errorf("not implemented")
@@ -573,40 +582,49 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 	}
 	var channels []*chantypes.IdentifiedChannel
 
-	testPort := "mock" //TODO:
+	allPorts, err := icp.getAllPorts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if allPorts == nil || len(allPorts) <= 0 {
+		return nil, fmt.Errorf("No ports available")
+	}
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
-		channelId := fmt.Sprintf("channel-%d", i)
-		var _channel types.HexBytes
-		err := icp.client.Call(icp.prepareCallParams(MethodGetChannel, map[string]interface{}{
-			"channelId": channelId,
-			"portId":    testPort,
-		}), &_channel)
-		if err != nil {
-			icp.log.Error("unable to fetch channel for  ", zap.String("channel id ", channelId), zap.Error(err))
-			continue
-		}
-
-		var channel chantypes.Channel
-		_, err = HexBytesToProtoUnmarshal(_channel, &channel)
-		if err != nil {
-			icp.log.Info("Unable to unmarshal channel for ",
-				zap.String("channel id ", channelId), zap.Error(err))
-			continue
-		}
-
-		// check if the channel is open
-		if channel.State == 3 {
-			identifiedChannel := chantypes.IdentifiedChannel{
-				State:          channel.State,
-				Ordering:       channel.Ordering,
-				Counterparty:   channel.Counterparty,
-				ConnectionHops: channel.ConnectionHops,
-				Version:        channel.Version,
-				PortId:         testPort,
-				ChannelId:      channelId,
+		for _, portId := range allPorts {
+			channelId := fmt.Sprintf("channel-%d", i)
+			var _channel types.HexBytes
+			err := icp.client.Call(icp.prepareCallParams(MethodGetChannel, map[string]interface{}{
+				"channelId": channelId,
+				"portId":    portId,
+			}), &_channel)
+			if err != nil {
+				icp.log.Error("unable to fetch channel for  ", zap.String("channel id ", channelId), zap.Error(err))
+				continue
 			}
-			channels = append(channels, &identifiedChannel)
+
+			var channel chantypes.Channel
+			_, err = HexBytesToProtoUnmarshal(_channel, &channel)
+			if err != nil {
+				icp.log.Info("Unable to unmarshal channel for ",
+					zap.String("channel id ", channelId), zap.Error(err))
+				continue
+			}
+
+			// check if the channel is open
+			if channel.State == 3 {
+				identifiedChannel := chantypes.IdentifiedChannel{
+					State:          channel.State,
+					Ordering:       channel.Ordering,
+					Counterparty:   channel.Counterparty,
+					ConnectionHops: channel.ConnectionHops,
+					Version:        channel.Version,
+					PortId:         portId,
+					ChannelId:      channelId,
+				}
+				channels = append(channels, &identifiedChannel)
+			}
 		}
 	}
 

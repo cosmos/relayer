@@ -38,4 +38,6 @@ const (
 	MethodGetNextClientSequence     = "getNextClientSequence"
 	MethodGetNextChannelSequence    = "getNextChannelSequence"
 	MethodGetNextConnectionSequence = "getNextConnectionSequence"
+
+	MethodGetAllPorts = "getAllPorts"
 )
