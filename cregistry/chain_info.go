@@ -84,9 +84,10 @@ type ChainInfo struct {
 			Provider string `json:"provider"`
 		} `json:"rest"`
 	} `json:"apis"`
-	MaxGasAmount     uint64                     `json:"max_gas_amount"`
-	ExtraCodecs      []string                   `json:"extra_codecs"`
-	ExtensionOptions []provider.ExtensionOption `json:"extension_options"`
+	MaxGasAmount               uint64                     `json:"max_gas_amount"`
+	ExtraCodecs                []string                   `json:"extra_codecs"`
+	ExtensionOptions           []provider.ExtensionOption `json:"extension_options"`
+	PrecompiledContractAddress string                     `json:"precompiled_contract_address"`
 }
 
 // NewChainInfo returns a ChainInfo that is uninitialized other than the provided zap.Logger.
@@ -256,22 +257,23 @@ func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderCo
 	}
 
 	return &cosmos.CosmosProviderConfig{
-		Key:              "default",
-		ChainID:          c.ChainID,
-		RPCAddr:          rpc,
-		AccountPrefix:    c.Bech32Prefix,
-		KeyringBackend:   "test",
-		GasAdjustment:    1.2,
-		GasPrices:        gasPrices,
-		KeyDirectory:     home,
-		Debug:            debug,
-		Timeout:          "20s",
-		OutputFormat:     "json",
-		SignModeStr:      "direct",
-		Slip44:           c.Slip44,
-		SigningAlgorithm: c.SigningAlgorithm,
-		ExtraCodecs:      c.ExtraCodecs,
-		MaxGasAmount:     c.MaxGasAmount,
-		ExtensionOptions: c.ExtensionOptions,
+		Key:                        "default",
+		ChainID:                    c.ChainID,
+		RPCAddr:                    rpc,
+		AccountPrefix:              c.Bech32Prefix,
+		KeyringBackend:             "test",
+		GasAdjustment:              1.2,
+		GasPrices:                  gasPrices,
+		KeyDirectory:               home,
+		Debug:                      debug,
+		Timeout:                    "20s",
+		OutputFormat:               "json",
+		SignModeStr:                "direct",
+		Slip44:                     c.Slip44,
+		SigningAlgorithm:           c.SigningAlgorithm,
+		ExtraCodecs:                c.ExtraCodecs,
+		MaxGasAmount:               c.MaxGasAmount,
+		ExtensionOptions:           c.ExtensionOptions,
+		PrecompiledContractAddress: c.PrecompiledContractAddress,
 	}, nil
 }

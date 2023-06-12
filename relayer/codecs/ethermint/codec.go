@@ -3,9 +3,11 @@ package ethermint
 import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/cosmos/relayer/v2/relayer/ethermint"
+	etherminttypes "github.com/evmos/ethermint/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 )
 
 // RegisterInterfaces register the Ethermint key concrete types.
@@ -15,15 +17,28 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 
 	registry.RegisterImplementations(
 		(*authtypes.AccountI)(nil),
-		&EthAccount{},
+		&etherminttypes.EthAccount{},
 	)
 	registry.RegisterImplementations(
 		(*authtypes.GenesisAccount)(nil),
-		&EthAccount{},
+		&etherminttypes.EthAccount{},
 	)
 	registry.RegisterImplementations(
 		(*tx.TxExtensionOptionI)(nil),
-		&ExtensionOptionsWeb3Tx{},
-		&ethermint.ExtensionOptionDynamicFeeTx{},
+		&etherminttypes.ExtensionOptionsWeb3Tx{},
+		&etherminttypes.ExtensionOptionDynamicFeeTx{},
+		&evmtypes.ExtensionOptionsEthereumTx{},
+	)
+	registry.RegisterImplementations(
+		(*sdk.Msg)(nil),
+		&evmtypes.MsgEthereumTx{},
+		&evmtypes.MsgUpdateParams{},
+	)
+	registry.RegisterInterface(
+		"ethermint.evm.v1.TxData",
+		(*evmtypes.TxData)(nil),
+		&evmtypes.DynamicFeeTx{},
+		&evmtypes.AccessListTx{},
+		&evmtypes.LegacyTx{},
 	)
 }
