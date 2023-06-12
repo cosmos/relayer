@@ -482,6 +482,10 @@ func (ap *ArchwayProvider) QueryArchwayProof(ctx context.Context, storageKey []b
 		return nil, err
 	}
 
+	if height > 2 {
+		height--
+	}
+
 	req := abci.RequestQuery{
 		Path:   fmt.Sprintf("store/wasm/key"),
 		Data:   key,
@@ -519,8 +523,6 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		return nil, err
 	}
 
-	fmt.Println("sequence numner is ", seq)
-
 	if seq == 0 {
 		return nil, nil
 	}
@@ -531,8 +533,6 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		if err != nil {
 			continue
 		}
-
-		fmt.Println("connection is ", conn)
 
 		// Only return open conenctions
 		if conn.State == 3 {

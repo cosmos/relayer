@@ -17,7 +17,7 @@ const (
 	MethodSendPacket            = "send_packet"
 	MethodRecvPacket            = "receive_packet"
 	MethodWriteAcknowledgement  = "write_acknowledgement"
-	MethodAcknowledgePacket     = "acknowledge_packet"
+	MethodAcknowledgePacket     = "acknowledgement_packet"
 	MethodTimeoutPacket         = "timeout_packet"
 
 	MethodGetNextClientSequence     = "get_next_client_sequence"

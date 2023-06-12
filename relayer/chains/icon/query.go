@@ -716,7 +716,7 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 	callParam := icp.prepareCallParams(MethodGetPacketAcknowledgementCommitment, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
-		"sequence":  seq,
+		"sequence":  types.NewHexInt(int64(seq)),
 	}, callParamsWithHeight(types.NewHexInt(height)))
 
 	var packetAckHexBytes types.HexBytes
@@ -750,7 +750,7 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
-		"sequence":  seq,
+		"sequence":  types.NewHexInt(int64(seq)),
 	})
 	var packetReceiptHexByte types.HexInt
 	if err := icp.client.Call(callParam, &packetReceiptHexByte); err != nil {
