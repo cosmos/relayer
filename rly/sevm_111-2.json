@@ -1,0 +1,24 @@
+{
+    "type": "cosmos",
+    "value": {
+      "key_algos": [
+        "ethsecp256k1"
+      ],
+      "extra_codecs": [
+        "ethermint"
+      ],
+      "slip44": 60,
+      "key": "key2",
+      "chain-id": "sevm_111-2",
+      "rpc-addr": "http://192.167.10.7:26657",
+      "account-prefix": "saga",
+      "keyring-backend": "test",
+      "gas-adjustment": 1.2,
+      "gas-prices": "1asaga",
+      "min-gas-amount": 1,
+      "debug": true,
+      "timeout": "20s",
+      "output-format": "json",
+      "sign-mode": "direct"
+    }
+  }
