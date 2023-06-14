@@ -104,9 +104,10 @@ var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
 	EventTypeConnectionOpenTry:  {},
 	EventTypeConnectionOpenAck:  {},
 
-	EventTypeChannelOpenInit: {},
-	EventTypeChannelOpenTry:  {},
-	EventTypeChannelOpenAck:  {},
+	EventTypeChannelOpenInit:  {},
+	EventTypeChannelOpenTry:   {},
+	EventTypeChannelOpenAck:   {},
+	EventTypeChannelCloseInit: {},
 }
 
 var MonitorEvents []string = []string{
@@ -122,6 +123,8 @@ var MonitorEvents []string = []string{
 	EventTypeChannelOpenTry,
 	EventTypeChannelOpenAck,
 	EventTypeChannelOpenConfirm,
+	EventTypeChannelCloseInit,
+	EventTypeChannelCloseConfirm,
 
 	//no BTP block produced
 	EventTypeRecvPacket,

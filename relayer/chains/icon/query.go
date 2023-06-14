@@ -604,6 +604,11 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 				continue
 			}
 
+			if _channel == "" {
+				icp.log.Debug("channel not present for ", zap.String("Channel id ", channelId), zap.String("port id ", portId))
+				continue
+			}
+
 			var channel chantypes.Channel
 			_, err = HexBytesToProtoUnmarshal(_channel, &channel)
 			if err != nil {

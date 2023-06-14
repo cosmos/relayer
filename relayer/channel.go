@@ -139,6 +139,7 @@ func (c *Chain) CloseChannel(
 				Info: provider.ChannelInfo{
 					PortID:    srcPortID,
 					ChannelID: srcChanID,
+					ConnID:    c.PathEnd.ConnectionID,
 				},
 			},
 			Termination: &processor.ChannelMessage{

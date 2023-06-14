@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -406,16 +407,17 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	// pathEndForHeight = pathEnd
 	// }
 
-	// if message.info.Height >= pathEndForHeight.latestBlock.Height {
-	// 	pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
-	// 		zap.String("event_type", eventType),
-	// 		zap.Uint64("sequence", sequence),
-	// 		zap.Uint64("message_height", message.info.Height),
-	// 		zap.Uint64("counterparty_height", counterparty.latestBlock.Height),
-	// 		zap.Inline(k),
-	// 	)
-	// 	return false
-	// }
+	pathEndForHeight := counterparty
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
+			zap.String("event_type", eventType),
+			zap.Uint64("sequence", sequence),
+			zap.Uint64("message_height", message.info.Height),
+			zap.Uint64("counterparty_height", counterparty.latestBlock.Height),
+			zap.Inline(k),
+		)
+		return false
+	}
 	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
@@ -501,13 +503,15 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 	eventType := message.eventType
 	k := connectionInfoConnectionKey(message.info).Counterparty()
 
-	// if message.info.Height >= counterparty.latestBlock.Height {
-	// 	pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
-	// 		zap.Inline(k),
-	// 		zap.String("event_type", eventType),
-	// 	)
-	// 	return false
-	// }
+	pathEndForHeight := counterparty
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
+			zap.Inline(k),
+			zap.String("event_type", eventType),
+		)
+		return false
+	}
+
 	msgProcessCache, ok := pathEnd.connProcessing[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send.
@@ -568,13 +572,15 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
 	channelKey := channelInfoChannelKey(message.info).Counterparty()
-	// if message.info.Height >= counterparty.latestBlock.Height {
-	// 	pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
-	// 		zap.Inline(channelKey),
-	// 		zap.String("event_type", eventType),
-	// 	)
-	// 	return false
-	// }
+
+	pathEndForHeight := counterparty
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
+			zap.Inline(channelKey),
+			zap.String("event_type", eventType),
+		)
+		return false
+	}
 	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send.

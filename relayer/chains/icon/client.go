@@ -151,7 +151,6 @@ func (c *Client) WaitForResults(ctx context.Context, thp *types.TransactionHashP
 				return
 			}
 			retryCounter++
-			//c.log.Debugf("GetTransactionResult Attempt: %d", retryCounter)
 			txr, err = c.GetTransactionResult(thp)
 			if err != nil {
 				switch re := err.(type) {
@@ -162,7 +161,6 @@ func (c *Client) WaitForResults(ctx context.Context, thp *types.TransactionHashP
 					}
 				}
 			}
-			//c.log.Debugf("GetTransactionResult hash:%v, txr:%+v, err:%+v", thp.Hash, txr, err)
 			return
 		}
 	}

@@ -451,33 +451,6 @@ func (icp *IconProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibc
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (icp *IconProvider) SendMessagesToMempool(
-	ctx context.Context,
-	msgs []provider.RelayerMessage,
-	memo string,
-	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error),
-) error {
-	if len(msgs) == 0 {
-		icp.log.Info("Length of Messages is empty ")
-		return nil
-	}
-
-	for _, msg := range msgs {
-		if msg != nil {
-			res, bool, err := icp.SendMessage(ctx, msg, memo)
-			if err != nil {
-				return err
-			}
-			if !bool {
-				return fmt.Errorf("Transaction Failed, Transaction Hash: %x", res.TxHash)
-			}
-		}
-	}
-
-	return nil
-}
-
 func (icp *IconProvider) ChainName() string {
 	return icp.PCfg.ChainName
 }

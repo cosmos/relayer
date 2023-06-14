@@ -52,10 +52,6 @@ func (msg packetIBCMessage) assemble(
 	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
 	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
 
-	if strings.Contains(dst.clientState.ClientID, "tendermint") && msg.info.Height >= src.latestBlock.Height {
-		return nil, fmt.Errorf("Not ready to send the message %v with latestheight %d", msg, src.latestBlock.Height)
-	}
-
 	switch msg.eventType {
 	case chantypes.EventTypeRecvPacket:
 		packetProof = src.chainProvider.PacketCommitment
@@ -151,9 +147,6 @@ func (msg channelIBCMessage) assemble(
 	var chanProof func(context.Context, provider.ChannelInfo, uint64) (provider.ChannelProof, error)
 	var assembleMessage func(provider.ChannelInfo, provider.ChannelProof) (provider.RelayerMessage, error)
 
-	if strings.Contains(dst.clientState.ClientID, "tendermint") && msg.info.Height >= src.latestBlock.Height {
-		return nil, fmt.Errorf("Not ready to send the message %v with latestheight %d", msg, src.latestBlock.Height)
-	}
 	switch msg.eventType {
 	case chantypes.EventTypeChannelOpenInit:
 		// don't need proof for this message
@@ -231,9 +224,6 @@ func (msg connectionIBCMessage) assemble(
 	var connProof func(context.Context, provider.ConnectionInfo, uint64) (provider.ConnectionProof, error)
 	var assembleMessage func(provider.ConnectionInfo, provider.ConnectionProof) (provider.RelayerMessage, error)
 
-	if strings.Contains(dst.clientState.ClientID, "tendermint") && msg.info.Height >= src.latestBlock.Height {
-		return nil, fmt.Errorf("Not ready to send the message %v with latestheight %d", msg, src.latestBlock.Height)
-	}
 	switch msg.eventType {
 	case conntypes.EventTypeConnectionOpenInit:
 		// don't need proof for this message

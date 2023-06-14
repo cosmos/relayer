@@ -1,8 +1,10 @@
 package icon
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -20,6 +22,28 @@ func NewTestClient() *Client {
 	uri := "https://lisbon.net.solidwallet.io/api/v3"
 	l := zap.NewNop()
 	return NewClient(uri, l)
+}
+
+func GetLisbonIconProvider(network_id int, contractAddress string) *IconProvider {
+
+	absPath, _ := filepath.Abs("../../../env/godWallet.json")
+
+	pcfg := IconProviderConfig{
+		Keystore:          absPath,
+		ChainID:           "icon",
+		Password:          "gochain",
+		ICONNetworkID:     2,
+		BTPNetworkID:      int64(network_id),
+		BTPNetworkTypeID:  1,
+		IbcHandlerAddress: contractAddress,
+		RPCAddr:           "https://lisbon.net.solidwallet.io/api/v3",
+		Timeout:           "20s",
+	}
+	log, _ := zap.NewProduction()
+	p, _ := pcfg.NewProvider(log, "", false, "icon")
+
+	iconProvider, _ := p.(*IconProvider)
+	return iconProvider
 }
 
 func getTestWallet() (module.Wallet, error) {
@@ -49,6 +73,15 @@ func TestClientSetup(t *testing.T) {
 	res, err := i.GetTransactionResult(param)
 	require.NoError(t, err)
 	assert.Equal(t, types.HexInt("0x1"), res.Status)
+}
+
+func TestSendMessageToMempool(t *testing.T) {
+	c := GetLisbonIconProvider(1, "cx6e24351b49133f2337a01c968cb864958ffadce8")
+	ctx := context.Background()
+	msg := c.NewIconMessage(map[string]interface{}{}, "sendEvent")
+	resp, _, err := c.SendMessage(ctx, msg, "memo")
+	assert.NoError(t, err)
+	assert.Equal(t, resp.Code, uint32(1))
 }
 
 func TestTransaction(t *testing.T) {
