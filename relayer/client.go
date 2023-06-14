@@ -10,6 +10,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	icon "github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -30,12 +31,28 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return "", "", err
 	}
 
-	if iconStartHeight != 0 {
-		if c.ChainProvider.Type() == "icon" {
-			srch = iconStartHeight
+	if c.ChainProvider.Type() == "icon" {
+
+		srch = iconStartHeight
+		if srch == 0 {
+			iconP := c.ChainProvider.(*icon.IconProvider)
+			h, err := iconP.GetCurrentBtpNetworkStartHeight()
+			if err != nil {
+				return "", "", fmt.Errorf("Error querying btpNetwork start height %v", err)
+			}
+			srch = h + 1
 		}
-		if dst.ChainProvider.Type() == "icon" {
-			dsth = iconStartHeight
+
+	}
+	if dst.ChainProvider.Type() == "icon" {
+		dsth = iconStartHeight
+		if dsth == 0 {
+			iconP := c.ChainProvider.(*icon.IconProvider)
+			h, err := iconP.GetCurrentBtpNetworkStartHeight()
+			if err != nil {
+				return "", "", fmt.Errorf("Error querying btpNetwork start height %v", err)
+			}
+			dsth = h + 1
 		}
 	}
 

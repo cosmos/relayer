@@ -601,3 +601,13 @@ func (icp *IconProvider) getClientStoragePrefix() ([]byte, error) {
 	}
 	return hex.DecodeString(fmt.Sprintf("03%x", ibcAddr))
 }
+
+func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
+	info, err := icp.client.GetBTPNetworkInfo(&types.BTPNetworkInfoParam{
+		Id: types.NewHexInt(icp.PCfg.BTPNetworkID),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return info.StartHeight.Value()
+}
