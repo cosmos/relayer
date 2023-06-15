@@ -19,7 +19,7 @@ _test/keys/
 dist/
 .release-env
 
-**/log-*.txt
+**/log*.txt
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor

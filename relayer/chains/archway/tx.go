@@ -264,7 +264,7 @@ func (ap *ArchwayProvider) PacketAcknowledgement(ctx context.Context, msgRecvPac
 }
 
 func (ap *ArchwayProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+	packetReceiptResponse, err := ap.QueryPacketCommitment(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil
