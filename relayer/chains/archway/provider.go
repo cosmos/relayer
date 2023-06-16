@@ -309,34 +309,23 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 
 	ap.SetSDKContext()
 
-	// checking if key exist
-	addr, err := ap.GetKeyAddress()
-	if err != nil {
-		fmt.Println("check should be inserted here ")
-
-		output, err := ap.AddKey(ap.PCfg.Key, 118)
-		if err != nil {
-			return err
-		}
-		ap.log.Info("Didn't found Address, so added new key", zap.String("Address", output.Address))
-		addr, err = ap.GetKeyAddress()
-		if err != nil {
-			return nil
-		}
-	}
-
 	clientCtx := client.Context{}.
 		WithClient(rpcClient).
 		WithFromName(ap.PCfg.Key).
-		WithFromAddress(addr).
 		WithTxConfig(app.MakeEncodingConfig().TxConfig).
 		WithSkipConfirmation(true).
 		WithBroadcastMode("sync").
 		WithCodec(ap.Cdc.Marshaler)
 
+	addr, _ := ap.GetKeyAddress()
+	if addr != nil {
+		clientCtx = clientCtx.
+			WithFromAddress(addr)
+
+	}
+
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)
 	ap.ClientCtx = clientCtx
-
 	return nil
 }
 

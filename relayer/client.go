@@ -10,7 +10,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	icon "github.com/cosmos/relayer/v2/relayer/chains/icon"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -29,31 +29,6 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return "", "", err
-	}
-
-	if c.ChainProvider.Type() == "icon" {
-
-		srch = iconStartHeight
-		if srch == 0 {
-			iconP := c.ChainProvider.(*icon.IconProvider)
-			h, err := iconP.GetCurrentBtpNetworkStartHeight()
-			if err != nil {
-				return "", "", fmt.Errorf("Error querying btpNetwork start height %v", err)
-			}
-			srch = h + 1
-		}
-
-	}
-	if dst.ChainProvider.Type() == "icon" {
-		dsth = iconStartHeight
-		if dsth == 0 {
-			iconP := c.ChainProvider.(*icon.IconProvider)
-			h, err := iconP.GetCurrentBtpNetworkStartHeight()
-			if err != nil {
-				return "", "", fmt.Errorf("Error querying btpNetwork start height %v", err)
-			}
-			dsth = h + 1
-		}
 	}
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
@@ -86,7 +61,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -96,7 +71,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -128,7 +103,10 @@ func CreateClient(
 	allowUpdateAfterMisbehaviour bool,
 	override bool,
 	customClientTrustingPeriod time.Duration,
-	memo string) (string, error) {
+	memo string,
+	iconStartHeight int64,
+) (string, error) {
+	var err error
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
 		_, err := src.ChainProvider.QueryClientStateResponse(ctx, int64(srcUpdateHeader.Height()), src.ClientID())
@@ -179,6 +157,32 @@ func CreateClient(
 		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return "", err
+	}
+
+	// if the dst chainProvider is ICON
+	if dst.ChainProvider.Type() == "icon" {
+		if iconStartHeight != 0 {
+			dstUpdateHeader, err = dst.ChainProvider.QueryIBCHeader(ctx, iconStartHeight)
+			if err != nil {
+				return "", fmt.Errorf("Error while creating client, failed to fetch ibcHeader for height %d  due to %v", iconStartHeight, dstUpdateHeader)
+			}
+		} else {
+			if !dstUpdateHeader.IsCompleteBlock() {
+				iconProvider, ok := dst.ChainProvider.(*icon.IconProvider)
+				if !ok {
+					return "", fmt.Errorf("Error while creating client icon chain type %s mismatched with chain name %s", dst.ChainProvider.Type(), dst.ChainID())
+				}
+				h, err := iconProvider.GetCurrentBtpNetworkStartHeight()
+				if err != nil {
+					return "", fmt.Errorf("Error while creating client, failed to fetch btpnetwork for chain iD   %s ", dst.ChainProvider.Type())
+				}
+				dstUpdateHeader, err = dst.ChainProvider.QueryIBCHeader(ctx, h+1)
+				if err != nil {
+					return "", fmt.Errorf("Error while creating client, failed to fetch ibcHeader for height %d  due to %v", h, err)
+				}
+
+			}
+		}
 	}
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.

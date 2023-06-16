@@ -39,11 +39,12 @@ func TestRestoreIconKeyStore(t *testing.T) {
 	kwName := "../../../env/godWallet.json"
 
 	pcfg := &IconProviderConfig{
-		Keystore:  kwName,
-		Password:  "gochain",
-		Timeout:   "20s",
-		ChainName: "icon",
-		BTPHeight: 10,
+		Keystore:          kwName,
+		Password:          "gochain",
+		Timeout:           "20s",
+		ChainName:         "icon",
+		BTPHeight:         10,
+		IbcHandlerAddress: "aa",
 	}
 	p, err := pcfg.NewProvider(zap.NewNop(), "not_correct", false, "icon")
 	require.NoError(t, err)

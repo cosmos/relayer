@@ -234,7 +234,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd))
+			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd), iconStartHeight)
 			if err != nil {
 				return err
 			}
@@ -519,10 +519,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			if err != nil {
 				return err
 			}
-
-			// if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
-			// 	return err
-			// }
 
 			return nil
 		},

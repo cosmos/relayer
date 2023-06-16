@@ -358,7 +358,7 @@ func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func initBlockFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
+	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 0, "initial block history to query when using 'events' as the processor for relaying")
 	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
 		panic(err)
 	}

@@ -1,36 +1,26 @@
 FROM --platform=$BUILDPLATFORM golang:alpine AS build-env
 
-RUN apk add --update --no-cache wget make git
+RUN apk add --update --no-cache make git musl-dev gcc binutils-gold cargo
 
-ARG TARGETARCH=arm64
-ARG BUILDARCH=amd64
+ARG BUILDPLATFORM=arm64
+ARG TARGETPLATFORM=arm64
+ARG COSMWASM_VERSION=1.2.3
 
-ARG CC=aarch64-linux-musl-gcc
-ARG CXX=aarch64-linux-musl-g++
+RUN wget https://github.com/CosmWasm/wasmvm/releases/download/v${COSMWASM_VERSION}/libwasmvm_muslc.aarch64.a -O /usr/lib/libwasmvm.aarch64.a && \
+    wget https://github.com/CosmWasm/wasmvm/releases/download/v${COSMWASM_VERSION}/libwasmvm_muslc.x86_64.a -O /usr/lib/libwasmvm.x86_64.a
 
-RUN \
-    if [ "${TARGETARCH}" = "arm64" ] && [ "${BUILDARCH}" != "arm64" ]; then \
-    wget -q https://musl.cc/aarch64-linux-musl-cross.tgz -O - | tar -xzvv --strip-components 1 -C /usr && \
-    wget -q https://github.com/CosmWasm/wasmvm/releases/download/v1.2.3/libwasmvm_muslc.aarch64.a -O /usr/aarch64-linux-musl/lib/libwasmvm.aarch64.a; \
-    elif [ "${TARGETARCH}" = "amd64" ] && [ "${BUILDARCH}" != "amd64" ]; then \
-    wget -q https://musl.cc/x86_64-linux-musl-cross.tgz -O - | tar -xzvv --strip-components 1 -C /usr && \
-    wget -q https://github.com/CosmWasm/wasmvm/releases/download/v1.2.3/libwasmvm_muslc.x86_64.a -O /usr/x86_64-linux-musl/lib/libwasmvm.x86_64.a; \
-    fi
+COPY . .
 
-COPY . /usr/app
+RUN LDFLAGS='-linkmode external -extldflags "-static"' make install
 
-WORKDIR /usr/app
-
-RUN GOOS=linux CC=${CC} CXX=${CXX} CGO_ENABLED=1 GOARCH=${TARGETARCH} LDFLAGS='-linkmode external -extldflags "-static"' make install
-
-RUN if [ -d "/go/bin/linux_${TARGETARCH}" ]; then mv /go/bin/linux_${TARGETARCH}/* /go/bin/; fi
+RUN if [ -d "/go/bin/linux_${TARGETPLATFORM}" ]; then mv /go/bin/linux_${TARGETPLATFORM}/* /go/bin/; fi
 
 # Use minimal busybox from infra-toolkit image for final scratch image
-FROM ghcr.io/strangelove-ventures/infra-toolkit:v0.0.6 AS busybox-min
+FROM --platform=$BUILDPLATFORM ghcr.io/strangelove-ventures/infra-toolkit:v0.0.6 AS busybox-min
 RUN addgroup --gid 1000 -S relayer && adduser --uid 100 -S relayer -G relayer
 
 # Use ln and rm from full featured busybox for assembling final image
-FROM busybox:musl AS busybox-full
+FROM --platform=$BUILDPLATFORM busybox:musl AS busybox-full
 
 # Build final image from scratch
 FROM scratch
@@ -60,7 +50,7 @@ RUN ln sh pwd && \
     rm ln rm
 
 # Install chain binaries
-COPY --from=build-env /go/bin/rly /bin
+COPY --from=build-env /bin/rly /bin
 
 # Install trusted CA certificates
 COPY --from=busybox-min /etc/ssl/cert.pem /etc/ssl/cert.pem
@@ -69,10 +59,10 @@ COPY --from=busybox-min /etc/ssl/cert.pem /etc/ssl/cert.pem
 COPY --from=busybox-min /etc/passwd /etc/passwd
 COPY --from=busybox-min --chown=100:1000 /home/relayer /home/relayer
 
-COPY ./env/godWallet.json /home/relayer/keys/godwallet.json
+USER relayer
 
 WORKDIR /home/relayer
 
-USER relayer
+COPY ./env/godWallet.json ./keys/godwallet.json
 
-VOLUME [ "/home/relayer" ]
+CMD ["/bin/rly"]

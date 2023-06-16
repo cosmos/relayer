@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	testCA = "cx54f9e239d347fcdf7f46976601a48231949bb671"
+	testCA = "cx58bca8a4110e96b50e1bd9eeb5e429eed5ba94b4"
 )
 
 func TestConnectionDecode(t *testing.T) {
@@ -302,8 +302,8 @@ func TestMsgOpenTryProof(t *testing.T) {
 
 // func TestConnectionProofOny(t *testing.T) {
 
-// 	icp := GetMockIconProvider(1, testCA)
-// 	height := int64(22612)
+// 	icp := GetMockIconProvider(20, testCA)
+// 	height := int64(82441)
 // 	clientID := "07-tendermint-0"
 // 	connID := "connection-0"
 // 	ctx := context.Background()
@@ -329,7 +329,7 @@ func TestMsgOpenTryProof(t *testing.T) {
 // 			ClientId:     "iconclient-0",
 // 			ConnectionId: "",
 // 			Prefix: &icn.MerklePrefix{
-// 				KeyPrefix: []byte("ibc"),
+// 				KeyPrefix: []byte("03489bdaa58d7036d4bee2f7aaffcf93853782ba8c96f213c38e11e713a1fcf221000b636f6d6d69746d656e7473"),
 // 			},
 // 		},
 // 	}
@@ -371,26 +371,26 @@ func TestMsgOpenTryProof(t *testing.T) {
 // 	fmt.Println("the proof is ", p)
 // }
 
-func TestCase(t *testing.T) {
+// func TestCase(t *testing.T) {
 
-	// var byteArray []byte
-	// str := "[237,251,49,138,154,148,89,201,134,105,90,10,197,188,15,78,147,228,42,239,95,31,53,224,29,119,46,191,132,161,62,222]"
+// 	// var byteArray []byte
+// 	// str := "[237,251,49,138,154,148,89,201,134,105,90,10,197,188,15,78,147,228,42,239,95,31,53,224,29,119,46,191,132,161,62,222]"
 
-	// err := json.Unmarshal([]byte(str), &byteArray)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+// 	// err := json.Unmarshal([]byte(str), &byteArray)
+// 	// if err != nil {
+// 	// 	fmt.Println(err)
+// 	// }
 
-	// fmt.Printf("%x \n ", byteArray)
+// 	// fmt.Printf("%x \n ", byteArray)
 
-	b, _ := hex.DecodeString("0a0f30372d74656e6465726d696e742d3112230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803222b0a0c69636f6e636c69656e742d30120c636f6e6e656374696f6e2d301a0d0a0b636f6d6d69746d656e7473")
+// 	// b, _ := hex.DecodeString("0a0f30372d74656e6465726d696e742d3112230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803222b0a0c69636f6e636c69656e742d30120c636f6e6e656374696f6e2d301a0d0a0b636f6d6d69746d656e7473")
 
-	byteHash := common.Sha3keccak256(b)
+// 	byteHash := common.Sha3keccak256([]byte("connections/connection-0"))
 
-	common.Sha3keccak256()
-	fmt.Printf("heashed value %x \n", byteHash)
+// 	common.Sha3keccak256()
+// 	fmt.Printf("heashed value %x \n", byteHash)
 
-}
+// }
 
 // goloop rpc sendtx call \
 //     --uri http://localhost:9082/api/v3  \

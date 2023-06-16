@@ -10,7 +10,6 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/gogoproto/proto"
-	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -20,7 +19,6 @@ import (
 	// tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
-	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -497,51 +495,6 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	fmt.Println(iconee.GetLatestHeight())
 // }
 
-func TestStructCast(t *testing.T) {
-
-	type Struct1 struct {
-		Fieldx int
-		Fieldy []byte
-	}
-	type StructA struct {
-		Field1 int
-		Field2 string
-		Field3 Struct1
-	}
-
-	type Struct2 struct {
-		Fieldx int
-		Fieldy []byte
-	}
-	type StructB struct {
-		Field1 uint
-		Field2 string
-		Field3 Struct2
-	}
-
-	a := &StructA{
-		Field1: 1,
-		Field2: "helo",
-		Field3: Struct1{
-			Fieldx: 0,
-			Fieldy: []byte("Hellllllllo"),
-		},
-	}
-
-	b, _ := json.Marshal(a)
-	var c StructB
-	err := json.Unmarshal(b, &c)
-	assert.NoError(t, err)
-	assert.Equal(t, c, StructB{
-		Field1: uint(a.Field1),
-		Field2: a.Field2,
-		Field3: Struct2{
-			Fieldx: a.Field3.Fieldx,
-			Fieldy: a.Field3.Fieldy,
-		},
-	})
-}
-
 // func TestArchwayLightHeader(t *testing.T) {
 // 	ctx := context.Background()
 // 	apx, err := GetProvider(ctx, "abcd", true)
@@ -606,8 +559,6 @@ func TestDecodeProto(t *testing.T) {
 	codec := MakeCodec(ModuleBasics, []string{})
 	err := codec.Marshaler.Unmarshal(by, &cl)
 	assert.NoError(t, err)
-	op := cl.LatestHeight
-	fmt.Println(op)
 
 }
 
@@ -681,47 +632,48 @@ func TestDecodeProto(t *testing.T) {
 
 // }
 
-func TestCommitmentKey(t *testing.T) {
-	fmt.Printf("%x \n ", common.GetConnectionCommitmentKey("connection-0"))
+// func TestCommitmentKey(t *testing.T) {
+// 	fmt.Printf("%x \n ", common.GetConnectionCommitmentKey("connection-0"))
 
-}
+// }
 
-func TestGetProofTendermint(t *testing.T) {
-
-	ctx := context.Background()
-	contractAddr := "archway17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgssf05p7"
-	pro, err := GetProvider(ctx, contractAddr, true)
-	assert.NoError(t, err)
-
-	archwayP := pro.(*ArchwayProvider)
-
-	connectionKey := common.GetConnectionCommitmentKey("connection-3")
-
-	connStorageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), connectionKey)
-	hexStrkey, err := hex.DecodeString(connStorageKey)
-	assert.NoError(t, err)
-	fmt.Printf("the main key is %x \n ", hexStrkey)
-
-	proofConnBytes, err := archwayP.QueryArchwayProof(ctx, hexStrkey, int64(2273))
-
-	var op icn.MerkleProof
-	err = proto.Unmarshal(proofConnBytes, &op)
-	assert.NoError(t, err)
-	for ind, xx := range op.Proofs {
-		fmt.Println("index ", ind)
-		fmt.Printf("Get Exist  %x \n", xx.GetExist())
-		fmt.Printf("non ExistP %x \n", xx.GetNonexist())
-	}
-
-}
-
-// func TestVerifyMembership(t *testing.T) {
+// func TestGetProofTendermint(t *testing.T) {
 
 // 	ctx := context.Background()
 // 	contractAddr := "archway17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgssf05p7"
 // 	pro, err := GetProvider(ctx, contractAddr, true)
 // 	assert.NoError(t, err)
+
 // 	archwayP := pro.(*ArchwayProvider)
+
+// 	connectionKey := common.GetConnectionCommitmentKey("connection-3")
+
+// 	connStorageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), connectionKey)
+// 	hexStrkey, err := hex.DecodeString(connStorageKey)
+// 	assert.NoError(t, err)
+// 	fmt.Printf("the main key is %x \n ", hexStrkey)
+
+// 	proofConnBytes, err := archwayP.QueryArchwayProof(ctx, hexStrkey, int64(2273))
+
+// 	var op icn.MerkleProof
+// 	err = proto.Unmarshal(proofConnBytes, &op)
+// 	assert.NoError(t, err)
+// 	for ind, xx := range op.Proofs {
+// 		fmt.Println("index ", ind)
+// 		fmt.Printf("Get Exist  %x \n", xx.GetExist())
+// 		fmt.Printf("non ExistP %x \n", xx.GetNonexist())
+// 	}
+
+// }
+
+// func TestVerifyMembership(t *testing.T) {
+
+// 	ctx := context.Background()
+// 	contractAddr := "archway10qt8wg0n7z740ssvf3urmvgtjhxpyp74hxqvqt7z226gykuus7eqzla6h5"
+// 	pro, err := GetProvider(ctx, contractAddr, true)
+// 	assert.NoError(t, err)
+// 	archwayP := pro.(*ArchwayProvider)
+// 	height := 410
 
 // 	ibcAddr, err := sdk.AccAddressFromBech32(archwayP.PCfg.IbcHandlerAddress)
 // 	assert.NoError(t, err)
@@ -731,19 +683,27 @@ func TestGetProofTendermint(t *testing.T) {
 
 // 	// map_key := []byte("state")
 // 	map_key := []byte("commitments")
-// 	keyV := fmt.Sprintf("03%x000B%x%x", ibcAddr.Bytes(), map_key, connectionKey)
+// 	keyV := fmt.Sprintf("03%x000b%x%x", ibcAddr.Bytes(), map_key, connectionKey)
 // 	// keyV := fmt.Sprintf("03%x00077374617465", ibcAddr.Bytes())
 // 	key, _ := hex.DecodeString(keyV)
 // 	fmt.Printf("contract Address  %x \n ", ibcAddr.Bytes())
 
-// 	fmt.Printf("the main key is : %x%x \n", map_key, connectionKey)
+// 	key1, err := hex.DecodeString(fmt.Sprintf("%s%x", archwayP.CommitmentPrefix().KeyPrefix, common.GetConnectionCommitmentKey("connection-0")))
+// 	assert.NoError(t, err)
+
+// 	fmt.Printf("%x", key1)
+// 	assert.Equal(t, key, key1)
 
 // 	req := abci.RequestQuery{
 // 		Path:   fmt.Sprintf("store/wasm/key"),
 // 		Data:   key,
 // 		Prove:  true,
-// 		Height: 31,
+// 		Height: int64(height),
 // 	}
+
+// 	ibcH, err := archwayP.QueryIBCHeader(ctx, req.Height+1)
+// 	assert.NoError(t, err)
+// 	header := ibcH.(ArchwayIBCHeader)
 
 // 	path := commitmenttypes.MerklePath{KeyPath: []string{
 // 		"wasm",
@@ -759,8 +719,7 @@ func TestGetProofTendermint(t *testing.T) {
 // 	result, err := archwayP.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 // 	assert.NoError(t, err)
 
-// 	rootB, _ := hex.DecodeString("49215D5CBBFEFD52D85166303F42ED61C7397079BE23AC13324B1C9B619EFF8B")
-// 	root := commitmenttypes.MerkleRoot{Hash: rootB}
+// 	root := commitmenttypes.MerkleRoot{Hash: header.SignedHeader.Header.AppHash}
 
 // 	rootMarshalled, _ := proto.Marshal(&root)
 
@@ -886,3 +845,14 @@ func TestProtoUnmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, channelS.State, chantypes.State(2))
 }
+
+// func TestCommitmentPrefix(t *testing.T) {
+
+// 	ctx := context.Background()
+// 	p, _ := GetProvider(ctx, "archway13we0myxwzlpx8l5ark8elw5gj5d59dl6cjkzmt80c5q5cv5rt54quagxpp", true)
+
+// 	archwayP := p.(*ArchwayProvider)
+
+// 	_, err := archwayP.GetCommitmentPrefixFromContract(ctx)
+// 	assert.NoError(t, err)
+// }
