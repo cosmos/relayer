@@ -108,6 +108,11 @@ type SendMsgsResult struct {
 	SrcSendError, DstSendError error
 }
 
+// SuccessfullySent reports the presence successfully sent batches
+func (r SendMsgsResult) SuccessfullySent() bool {
+	return (r.SuccessfulSrcBatches > 0 || r.SuccessfulDstBatches > 0)
+}
+
 // PartiallySent reports the presence of both some successfully sent batches
 // and some errors.
 func (r SendMsgsResult) PartiallySent() bool {
