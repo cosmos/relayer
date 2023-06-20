@@ -762,6 +762,16 @@ func (ap *ArchwayProvider) QueryPacketReceipt(ctx context.Context, height int64,
 	}, nil
 }
 
+func (ap *ArchwayProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]byte, error) {
+
+	pktCommitmentParams, err := types.NewCommitmentPrefix().Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return ap.QueryIBCHandlerContractProcessed(ctx, pktCommitmentParams)
+
+}
+
 // ics 20 - transfer
 func (ap *ArchwayProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
 	return nil, fmt.Errorf("Not implemented for Archway")

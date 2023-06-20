@@ -44,18 +44,12 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
-	storagePrefix, err := icp.getClientStoragePrefix()
-	if err != nil {
-		return nil, err
-	}
-
 	clS := &types.GenericClientParams[types.MsgCreateClient]{
 		Msg: types.MsgCreateClient{
 			ClientState:    types.NewHexBytes(clientStateBytes),
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
 			ClientType:     clientState.ClientType(),
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
-			StoragePrefix:  types.NewHexBytes(storagePrefix),
 		},
 	}
 
@@ -165,9 +159,9 @@ func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pro
 	cc := &icon.Counterparty{
 		ClientId:     info.CounterpartyClientID,
 		ConnectionId: info.CounterpartyConnID,
-		Prefix:       &defaultChainPrefix,
+		Prefix:       (*icon.MerklePrefix)(&info.CounterpartyCommitmentPrefix),
 	}
-	ccEncode, err := proto.Marshal(cc)
+	ccEncode, err := icp.codec.Marshaler.Marshal(cc)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +182,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	cc := &icon.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       &defaultChainPrefix,
+		Prefix:       (*icon.MerklePrefix)(&msgOpenInit.CounterpartyCommitmentPrefix),
 	}
 
 	ccEncode, err := proto.Marshal(cc)

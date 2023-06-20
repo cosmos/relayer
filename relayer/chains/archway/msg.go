@@ -1,6 +1,8 @@
 package archway
 
 import (
+	"fmt"
+
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,8 +13,9 @@ import (
 )
 
 type WasmContractMessage struct {
-	Msg    *wasmtypes.MsgExecuteContract
-	Method string
+	Msg          *wasmtypes.MsgExecuteContract
+	Method       string
+	MessageBytes []byte
 }
 
 func (w *WasmContractMessage) Type() string {
@@ -20,7 +23,10 @@ func (w *WasmContractMessage) Type() string {
 }
 
 func (w *WasmContractMessage) MsgBytes() ([]byte, error) {
-	return []byte("ibc"), nil
+	if w.MessageBytes != nil {
+		return w.MessageBytes, nil
+	}
+	return nil, fmt.Errorf("Invalid format")
 }
 
 func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMarshaler) (provider.RelayerMessage, error) {
@@ -46,6 +52,7 @@ func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMa
 			Contract: contract,
 			Msg:      msgParam,
 		},
+		MessageBytes: protoMsg,
 	}, nil
 }
 

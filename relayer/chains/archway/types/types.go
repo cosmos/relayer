@@ -339,3 +339,17 @@ func NewGetAllPorts() *GetAllPorts {
 		AllPorts: struct{}{},
 	}
 }
+
+type GetCommitmentPrefix struct {
+	GetCommitment struct{} `json:"get_commitment_prefix"`
+}
+
+func (x *GetCommitmentPrefix) Bytes() ([]byte, error) {
+	return json.Marshal(x)
+}
+
+func NewCommitmentPrefix() *GetCommitmentPrefix {
+	return &GetCommitmentPrefix{
+		GetCommitment: struct{}{},
+	}
+}

@@ -3,7 +3,6 @@ package icon
 import (
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
@@ -51,19 +50,18 @@ var (
 )
 
 type IconProviderConfig struct {
-	Key                   string `json:"key" yaml:"key"`
-	ChainName             string `json:"-" yaml:"-"`
-	ChainID               string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr               string `json:"rpc-addr" yaml:"rpc-addr"`
-	Timeout               string `json:"timeout" yaml:"timeout"`
-	Keystore              string `json:"keystore" yaml:"keystore"`
-	Password              string `json:"password" yaml:"password"`
-	ICONNetworkID         int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
-	BTPNetworkID          int64  `json:"btp-network-id" yaml:"btp-network-id"`
-	BTPNetworkTypeID      int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	BTPHeight             int64  `json:"start-btp-height" yaml:"start-btp-height"`
-	IbcHandlerAddress     string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
-	ArchwayHandlerAddress string `json:"archway-handler-address" yaml:"archway-handler-address"`
+	Key               string `json:"key" yaml:"key"`
+	ChainName         string `json:"-" yaml:"-"`
+	ChainID           string `json:"chain-id" yaml:"chain-id"`
+	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
+	Timeout           string `json:"timeout" yaml:"timeout"`
+	Keystore          string `json:"keystore" yaml:"keystore"`
+	Password          string `json:"password" yaml:"password"`
+	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
+	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
+	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
+	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -565,14 +563,6 @@ func (icp *IconProvider) GetProofContextByHeight(height int64) ([][]byte, error)
 		return nil, err
 	}
 	return validatorList.Validators, nil
-}
-
-func (icp *IconProvider) getClientStoragePrefix() ([]byte, error) {
-	ibcAddr, err := sdk.AccAddressFromBech32(icp.PCfg.ArchwayHandlerAddress)
-	if err != nil {
-		return nil, err
-	}
-	return hex.DecodeString(fmt.Sprintf("03%x", ibcAddr))
 }
 
 func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {

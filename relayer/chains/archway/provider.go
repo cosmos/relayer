@@ -246,7 +246,8 @@ type ArchwayProvider struct {
 	Output         io.Writer
 	ClientCtx      client.Context
 
-	txMu sync.Mutex
+	nextAccountSeq uint64
+	txMu           sync.Mutex
 
 	metrics *processor.PrometheusMetrics
 
@@ -280,7 +281,9 @@ func (ap *ArchwayProvider) Timeout() string {
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
 func (ap *ArchwayProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return defaultChainPrefix
+	ctx := context.Background()
+	b, _ := ap.GetCommitmentPrefixFromContract(ctx)
+	return commitmenttypes.NewMerklePrefix(b)
 }
 
 func (ap *ArchwayProvider) Init(ctx context.Context) error {
@@ -437,6 +440,12 @@ func (ac *ArchwayProvider) BlockTime(ctx context.Context, height int64) (time.Ti
 
 func (ac *ArchwayProvider) Codec() Codec {
 	return ac.Cdc
+}
+
+func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
+	if seq > ap.nextAccountSeq {
+		ap.nextAccountSeq = seq
+	}
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
