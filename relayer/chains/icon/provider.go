@@ -268,6 +268,9 @@ func (icp *IconProvider) NewClientState(
 		LatestHeight:       dstUpdateHeader.Height(),
 		NetworkSectionHash: networkSectionhash,
 		Validators:         validatorSet,
+		SrcNetworkId:       getSrcNetworkId(icp.PCfg.ICONNetworkID),
+		NetworkId:          uint64(icp.PCfg.BTPNetworkID),
+		NetworkTypeId:      uint64(icp.PCfg.BTPNetworkTypeID),
 	}, nil
 
 }

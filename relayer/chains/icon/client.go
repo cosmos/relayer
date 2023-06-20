@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	DefaultSendTransactionRetryInterval        = 3 * time.Second         //3sec
-	DefaultGetTransactionResultPollingInterval = 1500 * time.Millisecond //1.5sec
+	DefaultSendTransactionRetryInterval        = 3 * time.Second        //3sec
+	DefaultGetTransactionResultPollingInterval = 500 * time.Millisecond //1.5sec
 )
 
 type Wallet interface {
@@ -136,7 +136,7 @@ func (c *Client) Call(p *types.CallParam, r interface{}) error {
 
 func (c *Client) WaitForResults(ctx context.Context, thp *types.TransactionHashParam) (txh *types.HexBytes, txr *types.TransactionResult, err error) {
 	ticker := time.NewTicker(time.Duration(DefaultGetTransactionResultPollingInterval) * time.Nanosecond)
-	retryLimit := 10
+	retryLimit := 20
 	retryCounter := 0
 	txh = &thp.Hash
 	for {

@@ -133,6 +133,12 @@ func TestMsgOpenTryProof(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGetSrcId(t *testing.T) {
+	op := getSrcNetworkId(3)
+	fmt.Printf("test %s", op)
+	assert.Equal(t, op, "0x3.icon")
+}
+
 // func TestConnectionProof(t *testing.T) {
 
 // 	icp := GetMockIconProvider(1, testCA)

@@ -569,9 +569,17 @@ func (icp *IconProvider) QueryChannelClient(ctx context.Context, height int64, c
 // is not needed currently for the operation
 // get all the channel and start the init-process
 func (icp *IconProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
-	// TODO:
-	//get all the channel of a connection
-	return nil, nil
+	allChannel, err := icp.QueryChannels(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error querying Channels %v", err)
+	}
+	var identifiedChannels []*chantypes.IdentifiedChannel
+	for _, c := range allChannel {
+		if c.ConnectionHops[0] == connectionid {
+			identifiedChannels = append(identifiedChannels, c)
+		}
+	}
+	return identifiedChannels, nil
 
 }
 

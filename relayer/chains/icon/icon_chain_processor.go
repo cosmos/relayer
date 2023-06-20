@@ -309,19 +309,19 @@ loop:
 
 				ibcHeaderCache[uint64(br.Height)] = br.Header
 				if br.Header.IsCompleteBlock() || icp.firstTime || !ibcMessageCache.IsEmpty() {
-					icp.log.Info("Processing for block ",
-						zap.String("chain id ", icp.chainProvider.ChainId()),
-						zap.Int64("height", br.Height))
-					err := icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
-					if err != nil {
-						reconnect()
-						icp.log.Warn("Reconnect: error occured during handle block response  ",
-							zap.Int64("got", br.Height),
-						)
-						break
-					}
-					icp.firstTime = false
-					time.Sleep(100 * time.Millisecond)
+				icp.log.Info("Processing for block ",
+					zap.String("chain id ", icp.chainProvider.ChainId()),
+					zap.Int64("height", br.Height))
+				err := icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
+				if err != nil {
+					reconnect()
+					icp.log.Warn("Reconnect: error occured during handle block response  ",
+						zap.Int64("got", br.Height),
+					)
+					break
+				}
+				icp.firstTime = false
+				time.Sleep(100 * time.Millisecond)
 				}
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
@@ -517,13 +517,10 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 			return
 		}
 		if btpBlockNotPresent(err) {
-			if containsEventlogs {
-				request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
-			}
+			request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
 			request.response.IsProcessed = processed
 			return
 		}
-
 		request.err = errors.Wrapf(err, "failed to get btp header: %v", err)
 		return
 	}

@@ -59,8 +59,6 @@ func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 		Message types.HexBytes `json:"message"`
 	}
 
-	fmt.Println("here inside saveMsgtoFile")
-
 	if len(msgs) == 0 {
 		return
 	}
@@ -87,6 +85,5 @@ func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 		// resetting update
 		update = ""
 	}
-	fmt.Println("save all to Exising file ", d)
 	jsonDumpDataFile(filename, d)
 }

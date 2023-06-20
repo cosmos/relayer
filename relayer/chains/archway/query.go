@@ -287,7 +287,6 @@ func (ap *ArchwayProvider) QueryChannelContract(ctx context.Context, portId, cha
 		return nil, err
 	}
 
-	fmt.Printf("the channel is %x \n", channelState)
 	var channelS chantypes.Channel
 	if err = proto.Unmarshal(channelState, &channelS); err != nil {
 		return nil, err
@@ -616,7 +615,17 @@ func (ap *ArchwayProvider) QueryChannelClient(ctx context.Context, height int64,
 }
 
 func (ap *ArchwayProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	allChannel, err := ap.QueryChannels(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error querying Channels %v", err)
+	}
+	var identifiedChannels []*chantypes.IdentifiedChannel
+	for _, c := range allChannel {
+		if c.ConnectionHops[0] == connectionid {
+			identifiedChannels = append(identifiedChannels, c)
+		}
+	}
+	return identifiedChannels, nil
 }
 
 func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {

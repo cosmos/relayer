@@ -111,3 +111,7 @@ func VerifyProof(commitmentkey []byte, msgval []byte, root []byte, proof []byte)
 	}
 	return cryptoutils.VerifyMerkleProof(root, leaf, decodedProof.Proofs), nil
 }
+
+func getSrcNetworkId(id int64) string {
+	return fmt.Sprintf("%s.icon", types.NewHexInt(id))
+}
