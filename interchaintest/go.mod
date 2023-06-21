@@ -1,6 +1,6 @@
 module github.com/cosmos/relayer/v2/interchaintest
 
-go 1.19
+go 1.20
 
 require (
 	cosmossdk.io/simapp v0.0.0-20230323161446-0af178d721ff
