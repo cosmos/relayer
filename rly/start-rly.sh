@@ -1,5 +1,7 @@
 #!/bin/bash
 
+KEYPASSWD=${KEYPASSWD:-DoNoTuSeInPrOd}
+
 rly config init
 
 echo $RELAYER_SAGAEVM_MNEMONIC > mnemo.file.sevm
@@ -29,10 +31,10 @@ rly chains add $SPC_CHAINID --file /root/.relayer/config/$SPC_CHAINID.json
 
 yq -i '.chains."'$CHAINLET_CHAIN_ID'".value.extra-codecs |= ["ethermint"]' /root/.relayer/config/config.yaml
 
-rly keys restore $CHAINLET_CHAIN_ID key1 "$(cat /root/mnemo.file.sevm)" --coin-type=60
-rly keys restore $SPC_CHAINID key2 "$(cat /root/mnemo.file.spc)"
+(echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $CHAINLET_CHAIN_ID key1 "$(cat /root/mnemo.file.sevm)" --coin-type=60
+(echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $SPC_CHAINID key2 "$(cat /root/mnemo.file.spc)"
 
 rly paths new $CHAINLET_CHAIN_ID $SPC_CHAINID dp
-rly transact link dp
+(echo $KEYPASSWD; sleep 1; echo $KEYPASSWD) | rly transact link dp
 
-rly start dp
+(echo $KEYPASSWD; sleep 1; echo $KEYPASSWD) | rly start dp
