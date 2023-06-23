@@ -35,6 +35,18 @@ yq -i '.chains."'$CHAINLET_CHAIN_ID'".value.extra-codecs |= ["ethermint"]' /root
 (echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $SPC_CHAINID key2 "$(cat /root/mnemo.file.spc)"
 
 rly paths new $CHAINLET_CHAIN_ID $SPC_CHAINID dp
+
+# we want to make sure that chainlet is up and running
+while true
+do
+    rly q node-state $CHAINLET_CHAIN_ID
+    RETCODE=$?
+    if [[ ${RETCODE} -eq 0 ]]; then
+        break
+    fi
+    sleep 5
+done
+
 (echo $KEYPASSWD; sleep 1; echo $KEYPASSWD) | rly transact link dp
 
 (echo $KEYPASSWD; sleep 1; echo $KEYPASSWD) | rly start dp
