@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
 )
 
 const defaultStepLimit = 13610920010
@@ -15,11 +14,11 @@ type IconMessage struct {
 }
 
 func (im *IconMessage) Type() string {
-	return "icon"
+	return im.Method
 }
 
 func (im *IconMessage) MsgBytes() ([]byte, error) {
-	return json.Marshal(im)
+	return json.Marshal(im.Params)
 }
 
 func (icp *IconProvider) NewIconMessage(msg interface{}, method string) provider.RelayerMessage {
@@ -29,7 +28,7 @@ func (icp *IconProvider) NewIconMessage(msg interface{}, method string) provider
 		Method: method,
 	}
 
-	icp.log.Debug("Icon Message ", zap.String("method", method), zap.Any("message ", msg))
+	// icp.log.Debug("Icon Message ", zap.String("method", method), zap.Any("message ", msg))
 
 	return im
 }

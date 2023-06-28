@@ -11,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
@@ -202,10 +203,10 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			if iconStartHeight != 0 {
-				if src.ChainProvider.Type() == "icon" {
+				if src.ChainProvider.Type() == common.IconModule {
 					srch = iconStartHeight
 				}
-				if dst.ChainProvider.Type() == "icon" {
+				if dst.ChainProvider.Type() == common.IconModule {
 					dsth = iconStartHeight
 				}
 			}

@@ -308,8 +308,7 @@ loop:
 				}
 
 				ibcHeaderCache[uint64(br.Height)] = br.Header
-				if br.Header.IsCompleteBlock() || icp.firstTime || !ibcMessageCache.IsEmpty() {
-				icp.log.Info("Processing for block ",
+				icp.log.Info("Queried Latest height: ",
 					zap.String("chain id ", icp.chainProvider.ChainId()),
 					zap.Int64("height", br.Height))
 				err := icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
@@ -322,7 +321,6 @@ loop:
 				}
 				icp.firstTime = false
 				time.Sleep(100 * time.Millisecond)
-				}
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}

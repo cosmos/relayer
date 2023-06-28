@@ -774,9 +774,16 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 		return nil, err
 	}
 
+	keyhash := common.Sha3keccak256(common.GetPacketReceiptCommitmentPath(portid, channelid, big.NewInt(height)))
+
+	proof, err := icp.QueryIconProof(ctx, height, keyhash)
+	if err != nil {
+		return nil, err
+	}
+
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    packetReceipt == 1,
-		Proof:       nil,
+		Proof:       proof,
 		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
 	}, nil
 }
@@ -800,6 +807,7 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 	if err != nil {
 		return nil, err
 	}
+
 	if len(messages) == 0 {
 		icp.log.Info("BTP Message not present",
 			zap.Int64("Height", height),

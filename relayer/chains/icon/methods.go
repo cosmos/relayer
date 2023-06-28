@@ -23,7 +23,7 @@ const (
 
 	MethodGetPacketCommitment                = "getPacketCommitment"
 	MethodGetPacketAcknowledgementCommitment = "getPacketAcknowledgementCommitment"
-	MethodHasPacketReceipt                   = "hadPacketReceipt"
+	MethodHasPacketReceipt                   = "hasPacketReceipt"
 	MethodGetPacketReceipt                   = "getPacketReceipt"
 	MethodGetNextSequenceReceive             = "getNextSequenceReceive"
 	MethodGetNextSequenceSend                = "getNextSequenceSend"
@@ -39,6 +39,8 @@ const (
 	MethodGetNextChannelSequence    = "getNextChannelSequence"
 	MethodGetNextConnectionSequence = "getNextConnectionSequence"
 
+	MethodRequestTimeout = "requestTimeout"
+	MethodTimeoutPacket  = "timeoutPacket"
 
 	MethodGetAllPorts = "getAllPorts"
 )

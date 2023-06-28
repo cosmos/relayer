@@ -9,6 +9,8 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -34,6 +36,10 @@ func (pp *PathProcessor) getMessagesToSend(
 			if dst.shouldSendPacketMessage(firstMsg, src) {
 				dstMsgs = append(dstMsgs, firstMsg)
 			}
+		case common.EventTimeoutRequest:
+			if dst.shouldSendPacketMessage(firstMsg, src) {
+				dstMsgs = append(dstMsgs, firstMsg)
+			}
 		default:
 			if src.shouldSendPacketMessage(firstMsg, dst) {
 				srcMsgs = append(srcMsgs, firstMsg)
@@ -46,6 +52,10 @@ func (pp *PathProcessor) getMessagesToSend(
 	for _, msg := range msgs {
 		switch msg.eventType {
 		case chantypes.EventTypeRecvPacket:
+			if dst.shouldSendPacketMessage(msg, src) {
+				dstMsgs = append(dstMsgs, msg)
+			}
+		case common.EventTimeoutRequest:
 			if dst.shouldSendPacketMessage(msg, src) {
 				dstMsgs = append(dstMsgs, msg)
 			}
@@ -109,22 +119,38 @@ MsgTransferLoop:
 						res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm] = append(res.ToDeleteDstChannel[chantypes.EventTypeChannelCloseConfirm], pathEndPacketFlowMessages.ChannelKey.Counterparty())
 						res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 						res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
+						res.ToDeleteDst[common.EventTimeoutRequest] = append(res.ToDeleteDst[common.EventTimeoutRequest], transferSeq)
+
 					}
 				} else {
 					// unordered channel, and we have a timeout for this packet, so packet flow is complete
 					// remove all retention of this sequence number
 					res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 					res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], transferSeq)
+					res.ToDeleteDst[common.EventTimeoutRequest] = append(res.ToDeleteDst[common.EventTimeoutRequest], transferSeq)
+
 				}
 				continue MsgTransferLoop
 			}
 		}
+
 		for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
 			if transferSeq == timeoutOnCloseSeq {
 				// we have a timeout for this packet, so packet flow is complete
 				// remove all retention of this sequence number
 				res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], transferSeq)
 				res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacketOnClose], transferSeq)
+				continue MsgTransferLoop
+			}
+		}
+
+		for requestTimeoutSeq, msgTimeoutRequest := range pathEndPacketFlowMessages.DstMsgRequestTimeout {
+			if transferSeq == requestTimeoutSeq {
+				timeoutMsg := packetIBCMessage{
+					eventType: chantypes.EventTypeTimeoutPacket,
+					info:      msgTimeoutRequest,
+				}
+				msgs = append(msgs, timeoutMsg)
 				continue MsgTransferLoop
 			}
 		}
@@ -148,6 +174,25 @@ MsgTransferLoop:
 			var timeoutHeightErr *provider.TimeoutHeightError
 			var timeoutTimestampErr *provider.TimeoutTimestampError
 			var timeoutOnCloseErr *provider.TimeoutOnCloseError
+
+			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == common.IconModule {
+				switch {
+				case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
+					timeoutRequestMsg := packetIBCMessage{
+						eventType: common.EventTimeoutRequest,
+						info:      msgTransfer,
+					}
+					msgs = append(msgs, timeoutRequestMsg)
+
+				default:
+					pp.log.Error("Packet is invalid",
+						zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
+						zap.Error(err),
+					)
+				}
+				continue MsgTransferLoop
+
+			}
 
 			switch {
 			case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
@@ -190,6 +235,8 @@ MsgTransferLoop:
 		if msgTimeout.ChannelOrder != chantypes.ORDERED.String() {
 			res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
 			res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
+			res.ToDeleteDst[common.EventTimeoutRequest] = append(res.ToDeleteDst[common.EventTimeoutRequest], timeoutSeq)
+
 		}
 	}
 	for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
@@ -637,6 +684,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 			SrcMsgTimeout:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 			DstMsgChannelCloseConfirm: pathEnd2ChannelCloseConfirm,
+			DstMsgRequestTimeout:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][common.EventTimeoutRequest],
 		}
 
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
@@ -649,6 +697,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 			SrcMsgTimeout:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 			DstMsgChannelCloseConfirm: pathEnd1ChannelCloseConfirm,
+			DstMsgRequestTimeout:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][common.EventTimeoutRequest],
 		}
 
 		pathEnd1ProcessRes[i] = pp.getUnrelayedPacketsAndAcksAndToDelete(ctx, pathEnd1PacketFlowMessages)

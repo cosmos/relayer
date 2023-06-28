@@ -151,8 +151,10 @@ func parseIBCMessageFromEvent(
 	eventType := getEventTypeFromEventName(eventName)
 
 	switch eventName {
-	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket, EventTypeWriteAcknowledgement:
-		//  EventTypeTimeoutPacket, EventTypeTimeoutPacketOnClose:
+	case EventTypeSendPacket, EventTypeRecvPacket,
+		EventTypeAcknowledgePacket, EventTypeWriteAcknowledgement,
+		EventTypePacketTimeout, EventTypeTimeoutRequest:
+		// EventTypeTimeoutPacketOnClose:
 
 		info := &packetInfo{Height: height}
 		info.parseAttrs(log, event)

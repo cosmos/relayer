@@ -218,8 +218,8 @@ func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height 
 		return nil, err
 	}
 
-	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetClientStateCommitmentKey(srcClientId))
-	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
+	storageKey := getStorageKeyFromPath(common.GetClientStateCommitmentKey(srcClientId))
+	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
 	if err != nil {
 		return nil, err
 	}
@@ -465,8 +465,8 @@ func (ap *ArchwayProvider) QueryConnection(ctx context.Context, height int64, co
 		return nil, err
 	}
 
-	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetConnectionCommitmentKey(connectionid))
-	connProof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
+	storageKey := getStorageKeyFromPath(common.GetConnectionCommitmentKey(connectionid))
+	connProof, err := ap.QueryArchwayProof(ctx, storageKey, height)
 
 	return conntypes.NewQueryConnectionResponse(conn, connProof, clienttypes.NewHeight(0, uint64(height))), nil
 }
@@ -569,13 +569,15 @@ func (ap *ArchwayProvider) GenerateConnHandshakeProof(ctx context.Context, heigh
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	connStorageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetConnectionCommitmentKey(connId))
-	proofConnBytes, err := ap.QueryArchwayProof(ctx,
-		common.MustHexStrToBytes(connStorageKey),
-		height)
+	connStorageKey := getStorageKeyFromPath(common.GetConnectionCommitmentKey(connId))
+	proofConnBytes, err := ap.QueryArchwayProof(ctx, connStorageKey, height)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
 
-	consStorageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetConsensusStateCommitmentKey(clientId, big.NewInt(0), big.NewInt(height)))
-	proofConsensusBytes, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(consStorageKey), height)
+	}
+
+	consStorageKey := getStorageKeyFromPath(common.GetConsensusStateCommitmentKey(clientId, big.NewInt(0), big.NewInt(height)))
+	proofConsensusBytes, err := ap.QueryArchwayProof(ctx, consStorageKey, height)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -594,7 +596,6 @@ func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, chann
 		return nil, err
 	}
 
-	fmt.Printf("the channelState is %x \n ", channelState)
 	if channelState == nil {
 		return nil, err
 	}
@@ -604,8 +605,8 @@ func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, chann
 		return nil, err
 	}
 
-	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetChannelCommitmentKey(portid, channelid))
-	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
+	storageKey := getStorageKeyFromPath(common.GetChannelCommitmentKey(portid, channelid))
+	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
 
 	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
 }
@@ -716,8 +717,8 @@ func (ap *ArchwayProvider) QueryPacketCommitment(ctx context.Context, height int
 	if err != nil {
 		return nil, err
 	}
-	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
-	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
+	storageKey := getStorageKeyFromPath(common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
 
 	if err != nil {
 		return nil, err
@@ -739,8 +740,8 @@ func (ap *ArchwayProvider) QueryPacketAcknowledgement(ctx context.Context, heigh
 	if err != nil {
 		return nil, err
 	}
-	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
-	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
+	storageKey := getStorageKeyFromPath(common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
 
 	return &chantypes.QueryPacketAcknowledgementResponse{
 		Acknowledgement: pktAcknowledgement.Data.Bytes(),
@@ -750,20 +751,24 @@ func (ap *ArchwayProvider) QueryPacketAcknowledgement(ctx context.Context, heigh
 }
 
 func (ap *ArchwayProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-	pktReceiptParams, err := types.NewPacketReceipt(portid, channelid, seq).Bytes()
-	if err != nil {
-		return nil, err
-	}
-	pktReceipt, err := ap.QueryIBCHandlerContract(ctx, pktReceiptParams)
+
+	// getting proof from commitment map in contract
+	storageKey := getStorageKeyFromPath(common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
 	if err != nil {
 		return nil, err
 	}
 
-	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
-	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
+	pktReceiptParams, err := types.NewPacketReceipt(portid, channelid, seq).Bytes()
 	if err != nil {
 		return nil, err
 	}
+
+	pktReceipt, err := ap.QueryIBCHandlerContract(ctx, pktReceiptParams)
+	if err != nil && !strings.Contains(err.Error(), "PacketCommitmentNotFound") {
+		return nil, err
+	}
+
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    pktReceipt != nil, // TODO: Bytes to boolean
 		Proof:       proof,

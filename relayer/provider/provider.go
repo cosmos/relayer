@@ -288,6 +288,8 @@ type ChainProvider interface {
 	// i.e. the chain where the MsgTransfer was committed.
 	MsgTimeout(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
 
+	MsgTimeoutRequest(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
+
 	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along
 	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,

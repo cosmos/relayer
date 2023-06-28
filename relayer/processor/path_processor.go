@@ -34,7 +34,7 @@ const (
 
 	// If the message was assembled successfully, but sending the message failed,
 	// how many blocks should pass before retrying.
-	blocksToRetrySendAfter = 1
+	blocksToRetrySendAfter = 5
 
 	// How many times to retry sending a message before giving up on it.
 	maxMessageSendRetries = 5

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 )
 
 func getKey(data string) string {
@@ -32,4 +33,8 @@ func ProcessContractResponse(p *wasmtypes.QuerySmartContractStateResponse) ([]by
 	data := string(p.Data.Bytes())
 	trimmedData := strings.ReplaceAll(data, `"`, "")
 	return hex.DecodeString(trimmedData)
+}
+
+func getStorageKeyFromPath(path []byte) []byte {
+	return common.MustHexStrToBytes(fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), path))
 }

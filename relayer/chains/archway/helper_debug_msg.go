@@ -29,7 +29,7 @@ func jsonDumpDataFile(filename string, bufs interface{}) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully created or appended JSON in %s", filename)
+	fmt.Printf("Successfully created or appended JSON in %s \n", filename)
 }
 
 func readExistingData(filename string, opPointer interface{}) error {
@@ -40,6 +40,10 @@ func readExistingData(filename string, opPointer interface{}) error {
 		jsonData, err := ioutil.ReadFile(filename)
 		if err != nil {
 			return fmt.Errorf("Error reading JSON from file: %v", err)
+		}
+
+		if jsonData == nil {
+			return nil
 		}
 
 		// Unmarshal JSON data into a slice of structs
@@ -66,7 +70,7 @@ func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 	var d []DataFormat
 	err := readExistingData(filename, &d)
 	if err != nil {
-		fmt.Println("error savetoFile ")
+		fmt.Println("error savingtoFile ", err)
 		return
 	}
 

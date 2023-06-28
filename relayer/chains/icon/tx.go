@@ -108,21 +108,8 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 }
 
 func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proofAcked provider.PacketProof) (provider.RelayerMessage, error) {
-	pkt := &icon.Packet{
-		Sequence:           msgRecvPacket.Sequence,
-		SourcePort:         msgRecvPacket.SourcePort,
-		SourceChannel:      msgRecvPacket.SourceChannel,
-		DestinationPort:    msgRecvPacket.DestPort,
-		DestinationChannel: msgRecvPacket.DestChannel,
-		TimeoutHeight: &icon.Height{
-			RevisionNumber: msgRecvPacket.TimeoutHeight.RevisionNumber,
-			RevisionHeight: msgRecvPacket.TimeoutHeight.RevisionHeight,
-		},
-		TimeoutTimestamp: msgRecvPacket.TimeoutTimestamp,
-		Data:             msgRecvPacket.Data,
-	}
 
-	pktEncode, err := proto.Marshal(pkt)
+	pktEncode, err := getIconPacketEncodedBytes(msgRecvPacket)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +135,56 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 }
 
 func (icp *IconProvider) MsgTimeout(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented on icon")
+	// return nil, fmt.Errorf("Not implemented on icon")
+	pktEncode, err := getIconPacketEncodedBytes(msgTransfer)
+	if err != nil {
+		return nil, err
+	}
+
+	htEncode, err := proto.Marshal(&icon.Height{
+		RevisionNumber: proofUnreceived.ProofHeight.RevisionNumber,
+		RevisionHeight: proofUnreceived.ProofHeight.RevisionHeight,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	msg := types.MsgTimeoutPacket{
+		Packet:           types.NewHexBytes(pktEncode),
+		Proof:            types.NewHexBytes(proofUnreceived.Proof),
+		ProofHeight:      types.NewHexBytes(htEncode),
+		NextSequenceRecv: types.NewHexInt(int64(msgTransfer.Sequence)),
+	}
+
+	packetTimeoutMsg := types.GenericPacketParams[types.MsgTimeoutPacket]{
+		Msg: msg,
+	}
+	return icp.NewIconMessage(packetTimeoutMsg, MethodTimeoutPacket), nil
+}
+
+func (ip *IconProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+
+	pktEncode, err := getIconPacketEncodedBytes(msgTransfer)
+	if err != nil {
+		return nil, err
+	}
+
+	proofHeight, err := proto.Marshal(&proof.ProofHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	timeoutMsg := types.MsgRequestTimeout{
+		Packet:      types.NewHexBytes(pktEncode),
+		Proof:       types.NewHexBytes(proof.Proof),
+		ProofHeight: types.NewHexBytes(proofHeight),
+	}
+
+	msg := types.GenericPacketParams[types.MsgRequestTimeout]{
+		Msg: timeoutMsg,
+	}
+	return ip.NewIconMessage(msg, MethodRequestTimeout), nil
+
 }
 
 func (icp *IconProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {

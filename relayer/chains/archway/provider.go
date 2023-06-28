@@ -442,6 +442,10 @@ func (ac *ArchwayProvider) Codec() Codec {
 	return ac.Cdc
 }
 
+func (ap *ArchwayProvider) ClientContext() client.Context {
+	return ap.ClientCtx
+}
+
 func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 	if seq > ap.nextAccountSeq {
 		ap.nextAccountSeq = seq

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func MustHexStrToBytes(s string) []byte {
-	enc, _ := hex.DecodeString(strings.TrimPrefix(s, "0x"))
+func MustHexStrToBytes(hex_string string) []byte {
+	enc, _ := hex.DecodeString(strings.TrimPrefix(hex_string, "0x"))
 	return enc
 }

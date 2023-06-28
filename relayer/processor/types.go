@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
@@ -500,7 +501,7 @@ func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKe
 	switch eventType {
 	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
 		return packetInfoChannelKey(info).Counterparty(), nil
-	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose, common.EventTimeoutRequest:
 		return packetInfoChannelKey(info), nil
 	}
 	return ChannelKey{}, fmt.Errorf("eventType not expected for packetIBCMessage channelKey: %s", eventType)

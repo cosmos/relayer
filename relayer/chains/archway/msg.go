@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
 )
 
 type WasmContractMessage struct {
@@ -37,7 +36,7 @@ func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMa
 	if err != nil {
 		return nil, err
 	}
-	ap.log.Debug("Archway Constructed message ", zap.String("MethodName", method), zap.Any("Message", types.NewHexBytes(protoMsg)))
+	// ap.log.Debug("Archway Constructed message ", zap.String("MethodName", method), zap.Any("Message", types.NewHexBytes(protoMsg)))
 
 	msgParam, err := types.GenerateTxnParams(method, types.NewHexBytes(protoMsg))
 

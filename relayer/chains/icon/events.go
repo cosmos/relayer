@@ -8,6 +8,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 )
 
 // Events
@@ -35,7 +36,7 @@ var (
 	EventTypeRecvPacket           = "RecvPacket(bytes)"
 	EventTypeWriteAcknowledgement = "WriteAcknowledgement(bytes,bytes)"
 	EventTypeAcknowledgePacket    = "AcknowledgePacket(bytes,bytes)"
-	EventTypeTimeoutRequest       = "TimeoutRequest(bytes)"
+	EventTypeTimeoutRequest       = common.EventTimeoutRequest
 	EventTypePacketTimeout        = "PacketTimeout(bytes)"
 )
 
@@ -64,6 +65,7 @@ var IconCosmosEventMap = map[string]string{
 	EventTypeWriteAcknowledgement: chantypes.EventTypeWriteAck,
 	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
 	EventTypePacketTimeout:        chantypes.EventTypeTimeoutPacket,
+	EventTypeTimeoutRequest:       common.EventTimeoutRequest,
 }
 
 func MustConvertEventNameToBytes(eventName string) []byte {
@@ -108,6 +110,8 @@ var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
 	EventTypeChannelOpenTry:   {},
 	EventTypeChannelOpenAck:   {},
 	EventTypeChannelCloseInit: {},
+
+	EventTypeTimeoutRequest: {},
 }
 
 var MonitorEvents []string = []string{
@@ -130,6 +134,10 @@ var MonitorEvents []string = []string{
 	EventTypeRecvPacket,
 	EventTypeAcknowledgePacket,
 	EventTypeUpdateClient,
+
+	// TimeoutRequest
+	EventTypeTimeoutRequest,
+	EventTypePacketTimeout,
 }
 
 func GetMonitorEventFilters(address string) []*types.EventFilter {

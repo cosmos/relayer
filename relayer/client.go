@@ -11,6 +11,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -160,7 +161,7 @@ func CreateClient(
 	}
 
 	// if the dst chainProvider is ICON
-	if dst.ChainProvider.Type() == "icon" {
+	if dst.ChainProvider.Type() == common.IconModule {
 		if iconStartHeight != 0 {
 			dstUpdateHeader, err = dst.ChainProvider.QueryIBCHeader(ctx, iconStartHeight)
 			if err != nil {
