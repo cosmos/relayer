@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -83,8 +84,9 @@ type ChainInfo struct {
 			Provider string `json:"provider"`
 		} `json:"rest"`
 	} `json:"apis"`
-	ExtraCodecs  []string `json:"extra_codecs"`
-	MaxGasAmount uint64   `json:"max_gas_amount"`
+	MaxGasAmount     uint64                     `json:"max_gas_amount"`
+	ExtraCodecs      []string                   `json:"extra_codecs"`
+	ExtensionOptions []provider.ExtensionOption `json:"extension_options"`
 }
 
 // NewChainInfo returns a ChainInfo that is uninitialized other than the provided zap.Logger.
@@ -270,5 +272,6 @@ func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderCo
 		SigningAlgorithm: c.SigningAlgorithm,
 		ExtraCodecs:      c.ExtraCodecs,
 		MaxGasAmount:     c.MaxGasAmount,
+		ExtensionOptions: c.ExtensionOptions,
 	}, nil
 }
