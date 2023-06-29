@@ -40,7 +40,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 	}
 
 	if eventType == chantypes.EventTypeTimeoutPacket && pi.ChannelOrder == chantypes.ORDERED.String() {
-		ccp.channelStateCache[k] = false
+		ccp.channelStateCache.SetOpen(k, false)
 	}
 
 	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, k, ccp.chainProvider.ChainId(), eventType, pi.Sequence) {
@@ -63,7 +63,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 }
 
 func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
-	ccp.channelConnections[ci.ChannelID] = ci.ConnID
+	ccp.channelConnections[ci.ChannelID] = ci.ConnectionHops()
 	channelKey := processor.ChannelInfoChannelKey(ci)
 
 	if eventType == chantypes.EventTypeChannelOpenInit {
@@ -78,19 +78,27 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 			}
 		}
 		if !found {
-			ccp.channelStateCache[channelKey] = false
+			ccp.channelStateCache.Set(channelKey, &processor.ChannelState{
+				Open:                       false,
+				ConnectionHops:             ci.ConnectionHops(),
+				CounterpartyConnectionHops: ci.CounterpartyConnectionHops(),
+			})
 		}
 	} else {
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
-			ccp.channelStateCache[channelKey] = false
+			ccp.channelStateCache.Set(channelKey, &processor.ChannelState{
+				Open:                       false,
+				ConnectionHops:             ci.ConnectionHops(),
+				CounterpartyConnectionHops: ci.CounterpartyConnectionHops(),
+			})
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-			ccp.channelStateCache[channelKey] = true
+			ccp.channelStateCache.SetOpen(channelKey, true)
 			ccp.logChannelOpenMessage(eventType, ci)
 		case chantypes.EventTypeChannelCloseConfirm:
 			for k := range ccp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-					ccp.channelStateCache[k] = false
+					ccp.channelStateCache.SetOpen(k, false)
 					break
 				}
 			}
@@ -185,7 +193,6 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 
 func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo) {
 	fields := []zap.Field{
-
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("port_id", ci.PortID),

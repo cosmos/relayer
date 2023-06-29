@@ -12,10 +12,39 @@ import (
 	"go.uber.org/zap"
 )
 
+func newPathEnd(pathName, chainID, clientID, connectionID string) processor.PathEnd {
+	return processor.NewPathEnd(pathName, chainID, clientID, connectionID, "", []processor.ChainChannelKey{})
+}
+
+func newRelayPathEnds(pathName string, hops []*Chain) ([]*processor.PathEnd, []*processor.PathEnd) {
+	relayPathEndsSrcToDst := make([]*processor.PathEnd, len(hops))
+	// RelayPathEnds are set in user friendly order so they're just listed as they appear left to right without
+	// acounting for directionality. So for a 1 hop case they would look like this:
+	// A -> B (BA, BC) -> C
+	// Here we want to account for directionality left to right so we want to return:
+	// BC, BA
+	// Hence the index reversal in the call to newPathEnd().
+	for i, hop := range hops {
+		relayPath1 := hop.RelayPathEnds[1]
+		pathEnd1 := newPathEnd(pathName, relayPath1.ChainID, relayPath1.ClientID, relayPath1.ConnectionID)
+		relayPathEndsSrcToDst[i] = &pathEnd1
+	}
+	var relayPathEndsDstToSrc []*processor.PathEnd
+	// TODO: is it ok to reverse here?
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop := hops[i]
+		relayPath2 := hop.RelayPathEnds[0]
+		pathEnd2 := newPathEnd(pathName, relayPath2.ChainID, relayPath2.ClientID, relayPath2.ConnectionID)
+		relayPathEndsDstToSrc = append(relayPathEndsDstToSrc, &pathEnd2)
+	}
+	return relayPathEndsSrcToDst, relayPathEndsDstToSrc
+}
+
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
 func (c *Chain) CreateOpenChannels(
 	ctx context.Context,
 	dst *Chain,
+	hops []*Chain,
 	maxRetries uint64,
 	timeout time.Duration,
 	srcPortID, dstPortID, order, version string,
@@ -51,10 +80,22 @@ func (c *Chain) CreateOpenChannels(
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
 
+	hopConnectionIDs := make([]string, len(hops)+1)
+	counterpartyHopConnectionIDs := make([]string, len(hops)+1)
+	hopConnectionIDs[0] = c.PathEnd.ConnectionID
+	counterpartyHopConnectionIDs[0] = dst.PathEnd.ConnectionID
+	for i, hop := range hops {
+		hopConnectionIDs[i+1] = hop.RelayPathEnds[1].ConnectionID
+		counterpartyHop := hops[len(hops)-i-1]
+		counterpartyHopConnectionIDs[i+1] = counterpartyHop.RelayPathEnds[0].ConnectionID
+	}
+	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
 	pp := processor.NewPathProcessor(
 		c.log,
-		processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-		processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+		newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID),
+		newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID),
+		relayPathEndsSrcToDst,
+		relayPathEndsDstToSrc,
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
@@ -68,26 +109,38 @@ func (c *Chain) CreateOpenChannels(
 		zap.String("dst_chain_id", dst.PathEnd.ChainID),
 		zap.String("dst_port_id", dstPortID),
 	)
-
+	connectionHops := chantypes.FormatConnectionID(hopConnectionIDs)
+	counterpartyConnectionHops := chantypes.FormatConnectionID(counterpartyHopConnectionIDs)
+	openInitMsg := &processor.ChannelMessage{
+		ChainID:   c.PathEnd.ChainID,
+		EventType: chantypes.EventTypeChannelOpenInit,
+		Info: provider.ChannelInfo{
+			PortID:             srcPortID,
+			CounterpartyPortID: dstPortID,
+			ConnID:             connectionHops,
+			CounterpartyConnID: counterpartyConnectionHops,
+			Version:            version,
+			Order:              OrderFromString(order),
+		},
+	}
+	c.log.Info("Initializing channel",
+		zap.String("chain_id", c.PathEnd.ChainID),
+		zap.String("port_id", srcPortID),
+		zap.String("conn_id", connectionHops),
+	)
+	chainProcessors := []processor.ChainProcessor{
+		c.chainProcessor(c.log, nil),
+		dst.chainProcessor(c.log, nil),
+	}
+	for _, hop := range hops {
+		chainProcessors = append(chainProcessors, hop.chainProcessor(c.log, nil))
+	}
 	return processor.NewEventProcessor().
-		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
-		).
+		WithChainProcessors(chainProcessors...).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
 		WithMessageLifecycle(&processor.ChannelMessageLifecycle{
-			Initial: &processor.ChannelMessage{
-				ChainID:   c.PathEnd.ChainID,
-				EventType: chantypes.EventTypeChannelOpenInit,
-				Info: provider.ChannelInfo{
-					PortID:             srcPortID,
-					CounterpartyPortID: dstPortID,
-					ConnID:             c.PathEnd.ConnectionID,
-					Version:            version,
-					Order:              OrderFromString(order),
-				},
-			},
+			Initial: openInitMsg,
 			Termination: &processor.ChannelMessage{
 				ChainID:   dst.PathEnd.ChainID,
 				EventType: chantypes.EventTypeChannelOpenConfirm,
@@ -105,6 +158,7 @@ func (c *Chain) CreateOpenChannels(
 func (c *Chain) CloseChannel(
 	ctx context.Context,
 	dst *Chain,
+	hops []*Chain,
 	maxRetries uint64,
 	timeout time.Duration,
 	srcChanID,
@@ -119,6 +173,8 @@ func (c *Chain) CloseChannel(
 	flushCtx, flushCancel := context.WithTimeout(ctx, processorTimeout)
 	defer flushCancel()
 
+	relayPathEndsSrcToDst, relayPathEndsDstToSrc := newRelayPathEnds(pathName, hops)
+
 	flushProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
 			c.chainProcessor(c.log, nil),
@@ -126,8 +182,10 @@ func (c *Chain) CloseChannel(
 		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
-			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
+			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", "", []processor.ChainChannelKey{}),
+			relayPathEndsSrcToDst,
+			relayPathEndsDstToSrc,
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,
@@ -150,6 +208,13 @@ func (c *Chain) CloseChannel(
 
 	ctx, cancel := context.WithTimeout(ctx, processorTimeout)
 	defer cancel()
+	chainProcessors := []processor.ChainProcessor{
+		c.chainProcessor(c.log, nil),
+		dst.chainProcessor(c.log, nil),
+	}
+	for _, hop := range hops {
+		chainProcessors = append(chainProcessors, hop.chainProcessor(c.log, nil))
+	}
 
 	c.log.Info("Starting event processor for channel close",
 		zap.String("src_chain_id", c.PathEnd.ChainID),
@@ -158,14 +223,13 @@ func (c *Chain) CloseChannel(
 	)
 
 	return processor.NewEventProcessor().
-		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
-		).
+		WithChainProcessors(chainProcessors...).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
-			processor.NewPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
-			processor.NewPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, "", []processor.ChainChannelKey{}),
+			newPathEnd(pathName, c.PathEnd.ChainID, c.PathEnd.ClientID, c.PathEnd.ConnectionID),
+			newPathEnd(pathName, dst.PathEnd.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID),
+			relayPathEndsSrcToDst,
+			relayPathEndsDstToSrc,
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,

@@ -8,6 +8,8 @@ import (
 	"path"
 	"time"
 
+	"github.com/cosmos/ibc-go/v7/modules/core/multihop"
+
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -145,6 +147,36 @@ type PenumbraProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+}
+
+func (cc *PenumbraProvider) MultihopEndpoint(clientID, connectionID string) multihop.Endpoint {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (cc *PenumbraProvider) SetMultihopCounterparty(endpoint, counterparty multihop.Endpoint) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (cc *PenumbraProvider) AddChanPath(connectionHops []string, chanPath *multihop.ChanPath) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (cc *PenumbraProvider) GetChanPath(connectionHops []string) *multihop.ChanPath {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (cc *PenumbraProvider) GetCounterpartyChanPath(connectionHops []string) *multihop.ChanPath {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (cc *PenumbraProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64, connectionHops []string) (provider.PacketProof, error) {
+	// TODO implement me
+	panic("implement me")
 }
 
 func (cc *PenumbraProvider) ProviderConfig() provider.ProviderConfig {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/label"
 	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
 )
 
@@ -39,10 +38,6 @@ func (rf RelayerFactory) Build(
 func (RelayerFactory) Capabilities() map[interchaintestrelayer.Capability]bool {
 	// It is currently expected that the main branch of the relayer supports all tested features.
 	return interchaintestrelayer.FullCapabilities()
-}
-
-func (RelayerFactory) Labels() []label.Relayer {
-	return []label.Relayer{label.Rly}
 }
 
 func (RelayerFactory) Name() string { return "github.com/cosmos/relayer" }

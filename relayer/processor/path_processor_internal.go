@@ -788,13 +788,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			return
 		}
 
-		for k, open := range pp.pathEnd1.channelStateCache {
+		for k, state := range pp.pathEnd1.channelStateCache {
 			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
-				if open {
+				if state.Open {
 					// channel is still open on pathEnd1
 					break
 				}
-				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
+				if counterpartyState, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -814,13 +814,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			}
 		}
 
-		for k, open := range pp.pathEnd2.channelStateCache {
+		for k, state := range pp.pathEnd2.channelStateCache {
 			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
-				if open {
+				if state.Open {
 					// channel is still open on pathEnd2
 					break
 				}
-				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
+				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -849,34 +849,38 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 
 // messages from both pathEnds are needed in order to determine what needs to be relayed for a single pathEnd
 func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func()) error {
-	// Update trusted client state for both pathends
-	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
-	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
+	var pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes pathEndConnectionHandshakeResponse
+	if len(pp.hopsPathEnd1to2) == 0 {
+		// Update trusted client state for both pathends
+		pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
+		pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
 
+		pp.queuePreInitMessages(cancel)
+
+		pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
+			Src:                         pp.pathEnd1,
+			Dst:                         pp.pathEnd2,
+			SrcMsgConnectionPreInit:     pp.pathEnd1.messageCache.ConnectionHandshake[preInitKey],
+			SrcMsgConnectionOpenInit:    pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
+			DstMsgConnectionOpenTry:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
+			SrcMsgConnectionOpenAck:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
+			DstMsgConnectionOpenConfirm: pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
+		}
+		pathEnd2ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
+			Src:                         pp.pathEnd2,
+			Dst:                         pp.pathEnd1,
+			SrcMsgConnectionPreInit:     pp.pathEnd2.messageCache.ConnectionHandshake[preInitKey],
+			SrcMsgConnectionOpenInit:    pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
+			DstMsgConnectionOpenTry:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
+			SrcMsgConnectionOpenAck:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
+			DstMsgConnectionOpenConfirm: pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
+		}
+		pathEnd1ConnectionHandshakeRes = pp.unrelayedConnectionHandshakeMessages(pathEnd1ConnectionHandshakeMessages)
+		pathEnd2ConnectionHandshakeRes = pp.unrelayedConnectionHandshakeMessages(pathEnd2ConnectionHandshakeMessages)
+	} else {
+		pp.queuePreInitMessages(cancel)
+	}
 	channelPairs := pp.channelPairs()
-
-	pp.queuePreInitMessages(cancel)
-
-	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
-		Src:                         pp.pathEnd1,
-		Dst:                         pp.pathEnd2,
-		SrcMsgConnectionPreInit:     pp.pathEnd1.messageCache.ConnectionHandshake[preInitKey],
-		SrcMsgConnectionOpenInit:    pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
-		DstMsgConnectionOpenTry:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
-		SrcMsgConnectionOpenAck:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
-		DstMsgConnectionOpenConfirm: pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
-	}
-	pathEnd2ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
-		Src:                         pp.pathEnd2,
-		Dst:                         pp.pathEnd1,
-		SrcMsgConnectionPreInit:     pp.pathEnd2.messageCache.ConnectionHandshake[preInitKey],
-		SrcMsgConnectionOpenInit:    pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenInit],
-		DstMsgConnectionOpenTry:     pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenTry],
-		SrcMsgConnectionOpenAck:     pp.pathEnd2.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenAck],
-		DstMsgConnectionOpenConfirm: pp.pathEnd1.messageCache.ConnectionHandshake[conntypes.EventTypeConnectionOpenConfirm],
-	}
-	pathEnd1ConnectionHandshakeRes := pp.unrelayedConnectionHandshakeMessages(pathEnd1ConnectionHandshakeMessages)
-	pathEnd2ConnectionHandshakeRes := pp.unrelayedConnectionHandshakeMessages(pathEnd2ConnectionHandshakeMessages)
 
 	pathEnd1ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd1,
@@ -1006,11 +1010,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	var eg errgroup.Group
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
+		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1, pp.hopsPathEnd1to2)
 	})
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime)
-		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
+		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2, pp.hopsPathEnd2to1)
 	})
 	return eg.Wait()
 }
@@ -1330,8 +1334,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 
 	// Query remaining packet commitments on both chains
 	var eg errgroup.Group
-	for k, open := range pp.pathEnd1.channelStateCache {
-		if !open {
+	for k, state := range pp.pathEnd1.channelStateCache {
+		if !state.Open {
 			continue
 		}
 		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
@@ -1343,8 +1347,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
-	for k, open := range pp.pathEnd2.channelStateCache {
-		if !open {
+	for k, state := range pp.pathEnd2.channelStateCache {
+		if !state.Open {
 			continue
 		}
 		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
@@ -1417,7 +1421,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		return false
 	}
 	for k, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if state, ok := pp.pathEnd1.channelStateCache[k]; !ok || !state.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1433,6 +1437,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 			}
 		}
 	}
+	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd1.messageCache.ConnectionHandshake {
 		for k := range pp.pathEnd1.connectionStateCache {
 			if _, ok := c[k]; ok {
@@ -1441,7 +1446,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		}
 	}
 	for k, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if state, ok := pp.pathEnd1.channelStateCache[k]; !ok || !state.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1457,6 +1462,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 			}
 		}
 	}
+	// TODO: should we do this for hops?
 	for _, c := range pp.pathEnd2.messageCache.ConnectionHandshake {
 		for k := range pp.pathEnd1.connectionStateCache {
 			if _, ok := c[k]; ok {

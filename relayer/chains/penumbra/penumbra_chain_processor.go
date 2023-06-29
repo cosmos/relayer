@@ -47,7 +47,7 @@ type PenumbraChainProcessor struct {
 	connectionClients map[string]string
 
 	// map of channel ID to connection ID
-	channelConnections map[string]string
+	channelConnections map[string][]string
 }
 
 func NewPenumbraChainProcessor(log *zap.Logger, provider *PenumbraProvider) *PenumbraChainProcessor {
@@ -58,7 +58,7 @@ func NewPenumbraChainProcessor(log *zap.Logger, provider *PenumbraProvider) *Pen
 		connectionStateCache: make(processor.ConnectionStateCache),
 		channelStateCache:    make(processor.ChannelStateCache),
 		connectionClients:    make(map[string]string),
-		channelConnections:   make(map[string]string),
+		channelConnections:   make(map[string][]string),
 	}
 }
 
@@ -256,13 +256,13 @@ func (pcp *PenumbraChainProcessor) initializeChannelState(ctx context.Context) e
 			)
 			continue
 		}
-		pcp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		pcp.channelStateCache[processor.ChannelKey{
+		pcp.channelConnections[ch.ChannelId] = ch.ConnectionHops
+		pcp.channelStateCache.SetOpen(processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}, (ch.State == chantypes.OPEN))
 	}
 	return nil
 }
@@ -392,26 +392,28 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 	}
 
 	for _, pp := range pcp.pathProcessors {
-		clientID := pp.RelevantClientID(chainID)
-		clientState, err := pcp.clientState(ctx, clientID)
-		if err != nil {
-			pcp.log.Error("Error fetching client state",
-				zap.String("client_id", clientID),
-				zap.Error(err),
-			)
-			continue
-		}
+		clientIDs := pp.RelevantClientIDs(chainID)
+		for _, clientID := range clientIDs {
+			clientState, err := pcp.clientState(ctx, clientID)
+			if err != nil {
+				pcp.log.Error("Error fetching client state",
+					zap.String("client_id", clientID),
+					zap.Error(err),
+				)
+				continue
+			}
 
-		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-			LatestBlock:          pcp.latestBlock,
-			LatestHeader:         latestHeader,
-			IBCMessagesCache:     ibcMessagesCache.Clone(),
-			InSync:               pcp.inSync,
-			ClientState:          clientState,
-			ConnectionStateCache: pcp.connectionStateCache.FilterForClient(clientID),
-			ChannelStateCache:    pcp.channelStateCache.FilterForClient(clientID, pcp.channelConnections, pcp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache.Clone(),
-		})
+			pp.HandleNewData(chainID, clientID, processor.ChainProcessorCacheData{
+				LatestBlock:          pcp.latestBlock,
+				LatestHeader:         latestHeader,
+				IBCMessagesCache:     ibcMessagesCache.Clone(),
+				InSync:               pcp.inSync,
+				ClientState:          clientState,
+				ConnectionStateCache: pcp.connectionStateCache.FilterForClient(clientID),
+				ChannelStateCache:    pcp.channelStateCache.FilterForClient(clientID, pcp.channelConnections, pcp.connectionClients),
+				IBCHeaderCache:       ibcHeaderCache.Clone(),
+			})
+		}
 	}
 
 	persistence.latestQueriedBlock = newLatestQueriedBlock

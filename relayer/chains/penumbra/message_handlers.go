@@ -48,7 +48,7 @@ func (pcp *PenumbraChainProcessor) handlePacketMessage(action string, pi provide
 }
 
 func (pcp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
-	pcp.channelConnections[ci.ChannelID] = ci.ConnID
+	pcp.channelConnections[ci.ChannelID] = ci.ConnectionHops()
 	channelKey := processor.ChannelInfoChannelKey(ci)
 
 	if eventType == chantypes.EventTypeChannelOpenInit {
@@ -63,18 +63,26 @@ func (pcp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci pro
 			}
 		}
 		if !found {
-			pcp.channelStateCache[channelKey] = false
+			pcp.channelStateCache.Set(channelKey, &processor.ChannelState{
+				Open:                       false,
+				ConnectionHops:             ci.ConnectionHops(),
+				CounterpartyConnectionHops: ci.CounterpartyConnectionHops(),
+			})
 		}
 	} else {
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
-			pcp.channelStateCache[channelKey] = false
+			pcp.channelStateCache.Set(channelKey, &processor.ChannelState{
+				Open:                       false,
+				ConnectionHops:             ci.ConnectionHops(),
+				CounterpartyConnectionHops: ci.CounterpartyConnectionHops(),
+			})
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-			pcp.channelStateCache[channelKey] = true
+			pcp.channelStateCache.SetOpen(channelKey, true)
 		case chantypes.EventTypeChannelCloseConfirm:
 			for k := range pcp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-					pcp.channelStateCache[k] = false
+					pcp.channelStateCache.SetOpen(k, false)
 					break
 				}
 			}
