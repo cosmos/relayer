@@ -12,7 +12,6 @@ import (
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	ictestcosmos "github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v7/testutil"
@@ -34,7 +33,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 		Version:    "v7.1.0-rc0",
 		UidGid:     "",
 	}
-	cdc := ictestcosmos.DefaultEncoding()
+	cdc := cosmos.DefaultEncoding()
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "ibc-go-simd",
@@ -251,7 +250,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		Version:    "v7.1.0-rc0",
 		UidGid:     "",
 	}
-	cdc := ictestcosmos.DefaultEncoding()
+	cdc := cosmos.DefaultEncoding()
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "ibc-go-simd",

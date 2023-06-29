@@ -471,7 +471,6 @@ func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
 	processRemovals()
 
 	for chanKey, info := range pathEndChannelHandshakeMessages.DstMsgChannelOpenTry {
-
 		// need to send an open ack to src
 		msgOpenAck := channelIBCMessage{
 			eventType: chantypes.EventTypeChannelOpenAck,
@@ -1007,11 +1006,11 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.localhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
 		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
 	})
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.localhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
 		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
 	})
 	return eg.Wait()

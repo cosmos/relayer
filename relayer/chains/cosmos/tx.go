@@ -1227,7 +1227,7 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 	clientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
 		return &tmclient.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to tendermint type")
+			fmt.Errorf("error when casting exported clientstate to tendermint type, got(%T)", clientStateExported)
 	}
 
 	return clientState, nil
@@ -1249,7 +1249,7 @@ func (cc *CosmosProvider) queryLocalhostClientState(ctx context.Context, srch in
 	clientState, ok := clientStateExported.(*localhost.ClientState)
 	if !ok {
 		return &localhost.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to localhost client type")
+			fmt.Errorf("error when casting exported clientstate to localhost client type, got(%T)", clientStateExported)
 	}
 
 	return clientState, nil

@@ -93,6 +93,7 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	// create a new user account and wait a few blocks for it to be created on chain
 	user := interchaintest.GetAndFundTestUsers(t, ctx, "user-1", 10_000_000, chainA)[0]
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
+	require.NoError(t, err)
 
 	// Start the relayer
 	require.NoError(t, r.StartRelayer(ctx, eRep, pathChainAChainB))
@@ -177,12 +178,12 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	m, ok := newHeader.(proto.Message)
 	require.True(t, ok)
 
-	any, err := codectypes.NewAnyWithValue(m)
+	protoAny, err := codectypes.NewAnyWithValue(m)
 	require.NoError(t, err)
 
 	msg := &clienttypes.MsgUpdateClient{
 		ClientId:      clientID,
-		ClientMessage: any,
+		ClientMessage: protoAny,
 		Signer:        user.FormattedAddress(),
 	}
 
@@ -212,6 +213,7 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 }
 
 func assertTransactionIsValid(t *testing.T, resp sdk.TxResponse) {
+	t.Helper()
 	require.NotNil(t, resp)
 	require.NotEqual(t, 0, resp.GasUsed)
 	require.NotEqual(t, 0, resp.GasWanted)
@@ -227,6 +229,7 @@ func queryHeaderAtHeight(
 	height int64,
 	chain *cosmos.CosmosChain,
 ) (*ibccomettypes.Header, error) {
+	t.Helper()
 	var (
 		page    = 1
 		perPage = 100000
@@ -257,6 +260,7 @@ func createTMClientHeader(
 	signers []comettypes.PrivValidator,
 	oldHeader *ibccomettypes.Header,
 ) exported.ClientMessage {
+	t.Helper()
 	var (
 		valSet      *cometproto.ValidatorSet
 		trustedVals *cometproto.ValidatorSet

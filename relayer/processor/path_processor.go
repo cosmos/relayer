@@ -77,7 +77,7 @@ type PathProcessor struct {
 	sentInitialMsg bool
 
 	// true if this is a localhost IBC connection
-	localhost bool
+	isLocalhost bool
 
 	maxMsgs uint64
 
@@ -106,10 +106,7 @@ func NewPathProcessor(
 	flushInterval time.Duration,
 	maxMsgs uint64,
 ) *PathProcessor {
-	var isLocalhost bool
-	if pathEnd1.ClientID == ibcexported.LocalhostClientID {
-		isLocalhost = true
-	}
+	isLocalhost := pathEnd1.ClientID == ibcexported.LocalhostClientID
 
 	pp := &PathProcessor{
 		log:                       log,
@@ -120,7 +117,7 @@ func NewPathProcessor(
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 		flushInterval:             flushInterval,
 		metrics:                   metrics,
-		localhost:                 isLocalhost,
+		isLocalhost:               isLocalhost,
 		maxMsgs:                   maxMsgs,
 	}
 	if flushInterval == 0 {
@@ -217,7 +214,7 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 	if pp.pathEnd1.info.ChainID == chainProvider.ChainId() {
 		pp.pathEnd1.chainProvider = chainProvider
 
-		if pp.localhost {
+		if pp.isLocalhost {
 			pp.pathEnd2.chainProvider = chainProvider
 		}
 
@@ -225,7 +222,7 @@ func (pp *PathProcessor) SetChainProviderIfApplicable(chainProvider provider.Cha
 	} else if pp.pathEnd2.info.ChainID == chainProvider.ChainId() {
 		pp.pathEnd2.chainProvider = chainProvider
 
-		if pp.localhost {
+		if pp.isLocalhost {
 			pp.pathEnd1.chainProvider = chainProvider
 		}
 
@@ -285,7 +282,7 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 
 // ChainProcessors call this method when they have new IBC messages
 func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorCacheData) {
-	if pp.localhost {
+	if pp.isLocalhost {
 		pp.handleLocalhostData(cacheData)
 		return
 	}
@@ -403,17 +400,17 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 		IBCHeaderCache:       cacheData.IBCHeaderCache,
 	}
 
-	// split up data and send lower channel-id data to pathEnd1 and higher channel-id data to pathEnd2
+	// split up data and send lower channel-id data to pathEnd1 and higher channel-id data to pathEnd2.
 	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
 		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		if err != nil {
-			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+			pp.log.Error("Failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
 		chan2, err := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 		if err != nil {
-			pp.log.Error("failed to parse channel ID int from string", zap.Error(err))
+			pp.log.Error("Failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
@@ -463,6 +460,7 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	channelStateCache1 := make(map[ChannelKey]bool)
 	channelStateCache2 := make(map[ChannelKey]bool)
 
+	// split up data and send lower channel-id data to pathEnd2 and higher channel-id data to pathEnd1.
 	for k, v := range cacheData.ChannelStateCache {
 		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		chan2, secErr := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
@@ -470,14 +468,15 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 		if err != nil && secErr != nil {
 			continue
 		}
+
+		// error parsing counterparty chan ID so write chan state to src cache.
+		// this should indicate that the chan handshake has not progressed past the TRY so,
+		// counterparty chan id has not been initialized yet.
 		if secErr != nil && err == nil {
 			channelStateCache1[k] = v
 			continue
 		}
-		if secErr == nil && err != nil {
-			channelStateCache2[k] = v
-			continue
-		}
+
 		if chan1 > chan2 {
 			channelStateCache2[k] = v
 		} else {

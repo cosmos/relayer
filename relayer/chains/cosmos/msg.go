@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-
 type CosmosMessage struct {
 	Msg sdk.Msg
 }
