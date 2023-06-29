@@ -396,7 +396,6 @@ type ChainProvider interface {
 
 	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage, error)
 
-
 	ChainName() string
 	ChainId() string
 	Type() string
