@@ -35,36 +35,34 @@ var (
 const cometEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
-	KeyDirectory   string                  `json:"key-directory" yaml:"key-directory"`
-	Key            string                  `json:"key" yaml:"key"`
-	ChainName      string                  `json:"-" yaml:"-"`
-	ChainID        string                  `json:"chain-id" yaml:"chain-id"`
-	RPCAddr        string                  `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix  string                  `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend string                  `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment  float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices      string                  `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount   uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
-	Debug          bool                    `json:"debug" yaml:"debug"`
-	Timeout        string                  `json:"timeout" yaml:"timeout"`
-	BlockTimeout   string                  `json:"block-timeout" yaml:"block-timeout"`
-	OutputFormat   string                  `json:"output-format" yaml:"output-format"`
-	SignModeStr    string                  `json:"sign-mode" yaml:"sign-mode"`
-	ExtraCodecs    []string                `json:"extra-codecs" yaml:"extra-codecs"`
-	Modules        []module.AppModuleBasic `json:"-" yaml:"-"`
-	Slip44         int                     `json:"coin-type" yaml:"coin-type"`
-	Broadcast      provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
+	KeyDirectory     string                  `json:"key-directory" yaml:"key-directory"`
+	Key              string                  `json:"key" yaml:"key"`
+	ChainName        string                  `json:"-" yaml:"-"`
+	ChainID          string                  `json:"chain-id" yaml:"chain-id"`
+	RPCAddr          string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix    string                  `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend   string                  `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment    float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices        string                  `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount     uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
+	MaxGasAmount     uint64                  `json:"max-gas-amount" yaml:"max-gas-amount"`
+	Debug            bool                    `json:"debug" yaml:"debug"`
+	Timeout          string                  `json:"timeout" yaml:"timeout"`
+	BlockTimeout     string                  `json:"block-timeout" yaml:"block-timeout"`
+	OutputFormat     string                  `json:"output-format" yaml:"output-format"`
+	SignModeStr      string                  `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs      []string                `json:"extra-codecs" yaml:"extra-codecs"`
+	Modules          []module.AppModuleBasic `json:"-" yaml:"-"`
+	Slip44           *int                    `json:"coin-type" yaml:"coin-type"`
+	SigningAlgorithm string                  `json:"signing-algorithm" yaml:"signing-algorithm"`
+	Broadcast        provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
+	MinLoopDuration  time.Duration           `json:"min-loop-duration" yaml:"min-loop-duration"`
 }
 
 func (pc CosmosProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pc.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
-	return nil
-}
-
-func (pc CosmosProviderConfig) Set(field string, value interface{}) error {
-	// TODO:
 	return nil
 }
 

@@ -20,11 +20,11 @@ func (cp *IconProvider) KeystoreCreated(path string) bool {
 	return false
 }
 
-func (cp *IconProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
+func (cp *IconProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
 	return nil, fmt.Errorf("Not implemented on icon")
 }
 
-func (cp *IconProvider) RestoreKey(name, mnemonic string, coinType uint32) (address string, err error) {
+func (cp *IconProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {
 	return "", fmt.Errorf("Not implemented on icon")
 }
 

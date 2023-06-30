@@ -31,7 +31,6 @@ type ProviderConfig interface {
 	NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (ChainProvider, error)
 	Validate() error
 	BroadcastMode() BroadcastMode
-	Set(field string, value interface{}) error
 }
 
 type RelayerMessage interface {
@@ -218,8 +217,8 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
-	AddKey(name string, coinType uint32) (output *KeyOutput, err error)
-	RestoreKey(name, mnemonic string, coinType uint32) (address string, err error)
+	AddKey(name string, coinType uint32, signingAlgorithm string) (output *KeyOutput, err error)
+	RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error)
 	ShowAddress(name string) (address string, err error)
 	ListAddresses() (map[string]string, error)
 	DeleteKey(name string) error
@@ -237,7 +236,7 @@ type ChainProvider interface {
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	// TODO: Remove later
-	NewClientStateMock(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
+	// NewClientStateMock(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (RelayerMessage, error)
 
@@ -296,6 +295,9 @@ type ChainProvider interface {
 	// and assembles a full MsgTimeoutOnClose ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
 	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
+
+	// Get the commitment prefix of the chain.
+	CommitmentPrefix() commitmenttypes.MerklePrefix
 
 	// [End] Packet flow IBC message assembly
 
@@ -399,11 +401,12 @@ type ChainProvider interface {
 		asyncCallback func(*RelayerTxResponse, error),
 	) error
 
+	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage, error)
+
 	ChainName() string
 	ChainId() string
 	Type() string
 	ProviderConfig() ProviderConfig
-	CommitmentPrefix() commitmenttypes.MerklePrefix
 	Key() string
 	Address() (string, error)
 	Timeout() string

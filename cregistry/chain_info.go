@@ -55,8 +55,9 @@ type ChainInfo struct {
 	Genesis      struct {
 		GenesisURL string `json:"genesis_url"`
 	} `json:"genesis"`
-	Slip44   int `json:"slip44"`
-	Codebase struct {
+	Slip44           *int   `json:"slip44"`
+	SigningAlgorithm string `json:"signing-algorithm"`
+	Codebase         struct {
 		GitRepo            string   `json:"git_repo"`
 		RecommendedVersion string   `json:"recommended_version"`
 		CompatibleVersions []string `json:"compatible_versions"`
@@ -82,6 +83,8 @@ type ChainInfo struct {
 			Provider string `json:"provider"`
 		} `json:"rest"`
 	} `json:"apis"`
+	ExtraCodecs  []string `json:"extra_codecs"`
+	MaxGasAmount uint64   `json:"max_gas_amount"`
 }
 
 // NewChainInfo returns a ChainInfo that is uninitialized other than the provided zap.Logger.
@@ -251,18 +254,21 @@ func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderCo
 	}
 
 	return &cosmos.CosmosProviderConfig{
-		Key:            "default",
-		ChainID:        c.ChainID,
-		RPCAddr:        rpc,
-		AccountPrefix:  c.Bech32Prefix,
-		KeyringBackend: "test",
-		GasAdjustment:  1.2,
-		GasPrices:      gasPrices,
-		KeyDirectory:   home,
-		Debug:          debug,
-		Timeout:        "20s",
-		OutputFormat:   "json",
-		SignModeStr:    "direct",
-		Slip44:         c.Slip44,
+		Key:              "default",
+		ChainID:          c.ChainID,
+		RPCAddr:          rpc,
+		AccountPrefix:    c.Bech32Prefix,
+		KeyringBackend:   "test",
+		GasAdjustment:    1.2,
+		GasPrices:        gasPrices,
+		KeyDirectory:     home,
+		Debug:            debug,
+		Timeout:          "20s",
+		OutputFormat:     "json",
+		SignModeStr:      "direct",
+		Slip44:           c.Slip44,
+		SigningAlgorithm: c.SigningAlgorithm,
+		ExtraCodecs:      c.ExtraCodecs,
+		MaxGasAmount:     c.MaxGasAmount,
 	}, nil
 }

@@ -765,7 +765,7 @@ func (ap *ArchwayProvider) QueryPacketReceipt(ctx context.Context, height int64,
 	}
 
 	pktReceipt, err := ap.QueryIBCHandlerContract(ctx, pktReceiptParams)
-	if err != nil && !strings.Contains(err.Error(), "PacketCommitmentNotFound") {
+	if err != nil && !strings.Contains(err.Error(), "PacketReceiptNotFound") {
 		return nil, err
 	}
 

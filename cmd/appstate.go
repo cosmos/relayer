@@ -11,10 +11,8 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/gofrs/flock"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,18 +21,61 @@ type appState struct {
 	// Log is the root logger of the application.
 	// Consumers are expected to store and use local copies of the logger
 	// after modifying with the .With method.
-	Log *zap.Logger
+	log *zap.Logger
 
-	Viper *viper.Viper
+	viper *viper.Viper
 
-	HomePath string
-	Debug    bool
-	Config   *Config
+	homePath string
+	debug    bool
+	config   *Config
 }
 
-// AddPathFromFile modifies a.config.Paths to include the content stored in the given file.
+func (a *appState) configPath() string {
+	return path.Join(a.homePath, "config", "config.yaml")
+}
+
+// loadConfigFile reads config file into a.Config if file is present.
+func (a *appState) loadConfigFile(ctx context.Context) error {
+	cfgPath := a.configPath()
+
+	if _, err := os.Stat(cfgPath); err != nil {
+		// don't return error if file doesn't exist
+		return nil
+	}
+
+	// read the config file bytes
+	file, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+
+	// unmarshall them into the wrapper struct
+	cfgWrapper := &ConfigInputWrapper{}
+	err = yaml.Unmarshal(file, cfgWrapper)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling config: %w", err)
+	}
+
+	// retrieve the runtime configuration from the disk configuration.
+	newCfg, err := cfgWrapper.RuntimeConfig(ctx, a)
+	if err != nil {
+		return err
+	}
+
+	// validate runtime configuration
+	if err := newCfg.validateConfig(); err != nil {
+		return fmt.Errorf("error parsing chain config: %w", err)
+	}
+
+	// save runtime configuration in app state
+	a.config = newCfg
+
+	return nil
+}
+
+// addPathFromFile modifies a.config.Paths to include the content stored in the given file.
 // If a non-nil error is returned, a.config.Paths is not modified.
-func (a *appState) AddPathFromFile(ctx context.Context, stderr io.Writer, file, name string) error {
+func (a *appState) addPathFromFile(ctx context.Context, stderr io.Writer, file, name string) error {
 	if _, err := os.Stat(file); err != nil {
 		return err
 	}
@@ -49,17 +90,22 @@ func (a *appState) AddPathFromFile(ctx context.Context, stderr io.Writer, file, 
 		return err
 	}
 
-	if err = a.Config.ValidatePath(ctx, stderr, p); err != nil {
+	if err = a.config.ValidatePath(ctx, stderr, p); err != nil {
 		return err
 	}
 
-	return a.Config.Paths.Add(name, p)
+	return a.config.AddPath(name, p)
 }
 
-// AddPathFromUserInput manually prompts the user to specify all the path details.
+// addPathFromUserInput manually prompts the user to specify all the path details.
 // It returns any input or validation errors.
 // If the path was successfully added, it returns nil.
-func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, stderr io.Writer, src, dst, name string) error {
+func (a *appState) addPathFromUserInput(
+	ctx context.Context,
+	stdin io.Reader,
+	stderr io.Writer,
+	src, dst, name string,
+) error {
 	// TODO: confirm name is available before going through input.
 
 	var (
@@ -119,65 +165,15 @@ func (a *appState) AddPathFromUserInput(ctx context.Context, stdin io.Reader, st
 		return err
 	}
 
-	if err := a.Config.ValidatePath(ctx, stderr, path); err != nil {
+	if err := a.config.ValidatePath(ctx, stderr, path); err != nil {
 		return err
 	}
 
-	return a.Config.Paths.Add(name, path)
+	return a.config.AddPath(name, path)
 }
 
-// OverwriteConfig overwrites the config files on disk with the serialization of cfg,
-// and it replaces a.Config with cfg.
-//
-// It is possible to use a brand new Config argument,
-// but typically the argument is a.Config.
-func (a *appState) OverwriteConfig(cfg *Config) error {
-	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
-	if _, err := os.Stat(cfgPath); err != nil {
-		return fmt.Errorf("failed to check existence of config file at %s: %w", cfgPath, err)
-	}
-
-	a.Viper.SetConfigFile(cfgPath)
-	if err := a.Viper.ReadInConfig(); err != nil {
-		// TODO: if we failed to read in the new config, should we restore the old config?
-		return fmt.Errorf("failed to read config file at %s: %w", cfgPath, err)
-	}
-
-	// ensure validateConfig runs properly
-	if err := validateConfig(cfg); err != nil {
-		return fmt.Errorf("failed to validate config at %s: %w", cfgPath, err)
-	}
-
-	// marshal the new config
-	out, err := yaml.Marshal(cfg.Wrapped())
-	if err != nil {
-		return err
-	}
-
-	// Overwrite the config file.
-	if err := os.WriteFile(a.Viper.ConfigFileUsed(), out, 0600); err != nil {
-		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
-	}
-
-	// Write the config back into the app state.
-	a.Config = cfg
-	return nil
-}
-
-// OverwriteConfigOnTheFly overwrites the config file concurrently,
-// locking to read, modify, then write the config.
-func (a *appState) OverwriteConfigOnTheFly(
-	cmd *cobra.Command,
-	pathName string,
-	clientSrc, clientDst string,
-	connectionSrc, connectionDst string,
-) error {
-	if pathName == "" {
-		return errors.New("empty path name not allowed")
-	}
-
-	// use lock file to guard concurrent access to config.yaml
-	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
+func (a *appState) performConfigLockingOperation(ctx context.Context, operation func() error) error {
+	lockFilePath := path.Join(a.homePath, "config", "config.lock")
 	fileLock := flock.New(lockFilePath)
 	_, err := fileLock.TryLock()
 	if err != nil {
@@ -185,7 +181,7 @@ func (a *appState) OverwriteConfigOnTheFly(
 	}
 	defer func() {
 		if err := fileLock.Unlock(); err != nil {
-			a.Log.Error("error unlocking config file lock, please manually delete",
+			a.log.Error("error unlocking config file lock, please manually delete",
 				zap.String("filepath", lockFilePath),
 			)
 		}
@@ -193,46 +189,39 @@ func (a *appState) OverwriteConfigOnTheFly(
 
 	// load config from file and validate it. don't want to miss
 	// any changes that may have been made while unlocked.
-	if err := initConfig(cmd, a); err != nil {
+	if err := a.loadConfigFile(ctx); err != nil {
 		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
-	path, ok := a.Config.Paths[pathName]
+	// perform the operation that requires config flock.
+	if err := operation(); err != nil {
+		return err
+	}
 
-	if !ok {
-		return fmt.Errorf("config does not exist for that path: %s", pathName)
-	}
-	if clientSrc != "" {
-		path.Src.ClientID = clientSrc
-	}
-	if clientDst != "" {
-		path.Dst.ClientID = clientDst
-	}
-	if connectionSrc != "" {
-		path.Src.ConnectionID = connectionSrc
-	}
-	if connectionDst != "" {
-		path.Dst.ConnectionID = connectionDst
+	// validate config after changes have been made.
+	if err := a.config.validateConfig(); err != nil {
+		return fmt.Errorf("error parsing chain config: %w", err)
 	}
 
 	// marshal the new config
-	out, err := yaml.Marshal(a.Config.Wrapped())
+	out, err := yaml.Marshal(a.config.Wrapped())
 	if err != nil {
 		return err
 	}
 
-	cfgPath := a.Viper.ConfigFileUsed()
+	cfgPath := a.configPath()
 
 	// Overwrite the config file.
 	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
 	}
+
 	return nil
 }
 
 func (a *appState) GetConfigProviderNameFromChainId(chainId string) (string, error) {
 
-	chains := a.Config.Chains
+	chains := a.config.Chains
 	for k, v := range chains {
 		if v.ChainID() == chainId {
 			return k, nil
@@ -243,7 +232,7 @@ func (a *appState) GetConfigProviderNameFromChainId(chainId string) (string, err
 }
 
 func (a *appState) CheckIfProviderType(providerName string, providerType string) bool {
-	providers := a.Config.Wrapped()
+	providers := a.config.Wrapped()
 	for p, v := range providers.ProviderConfigs {
 		if p == providerName && v.Type == providerType {
 			return true
@@ -252,119 +241,152 @@ func (a *appState) CheckIfProviderType(providerName string, providerType string)
 	return false
 }
 
-func (a *appState) UpdateConfigsIfContainIcon(cmd *cobra.Command, src *relayer.Chain, dst *relayer.Chain) error {
+// func (a *appState) UpdateConfigsIfContainIcon(cmd *cobra.Command, src *relayer.Chain, dst *relayer.Chain) error {
 
-	ctx := context.Background()
-	eg, egCtx := errgroup.WithContext(ctx)
+// 	ctx := context.Background()
+// 	eg, egCtx := errgroup.WithContext(ctx)
 
-	eg.Go(func() error {
-		var err error
-		err = a.UpdateProviderIfIcon(cmd, egCtx, src)
-		if err != nil {
-			return err
-		}
+// 	eg.Go(func() error {
+// 		var err error
+// 		err = a.UpdateProviderIfIcon(cmd, egCtx, src)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		return nil
+// 		return nil
 
-	})
-	eg.Go(func() error {
-		var err error
-		err = a.UpdateProviderIfIcon(cmd, egCtx, dst)
-		if err != nil {
-			return err
-		}
-		return nil
+// 	})
+// 	eg.Go(func() error {
+// 		var err error
+// 		err = a.UpdateProviderIfIcon(cmd, egCtx, dst)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		return nil
 
-	})
+// 	})
 
-	if err := eg.Wait(); err != nil {
-		return err
-	}
+// 	if err := eg.Wait(); err != nil {
+// 		return err
+// 	}
 
-	return nil
+// 	return nil
 
-}
+// }
 
-func (a *appState) UpdateProviderIfIcon(cmd *cobra.Command, ctx context.Context, chain *relayer.Chain) error {
+// func (a *appState) UpdateProviderIfIcon(cmd *cobra.Command, ctx context.Context, chain *relayer.Chain) error {
 
-	providerName, err := a.GetConfigProviderNameFromChainId(chain.ChainID())
-	if err != nil {
-		return err
-	}
+// 	providerName, err := a.GetConfigProviderNameFromChainId(chain.ChainID())
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if !a.CheckIfProviderType(providerName, "icon") {
-		return nil
-	}
-	height, err := chain.ChainProvider.QueryLatestHeight(ctx)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error fetching chain latest height %s ", chain.ChainID()))
-	}
+// 	if !a.CheckIfProviderType(providerName, "icon") {
+// 		return nil
+// 	}
+// 	// height, err := chain.ChainProvider.QueryLatestHeight(ctx)
+// 	// if err != nil {
+// 	// 	return errors.New(fmt.Sprintf("Error fetching chain latest height %s ", chain.ChainID()))
+// 	// }
 
-	err = a.OverwriteChainConfig(cmd, providerName, "btpHeight", height)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error updating BTPHeight of config of chain %s ", chain.ChainID()))
-	}
-	return nil
-}
+// 	// err = a.OverwriteChainConfig(cmd, providerName, "btpHeight", height)
+// 	// if err != nil {
+// 	// 	return errors.New(fmt.Sprintf("Error updating BTPHeight of config of chain %s ", chain.ChainID()))
+// 	// }
+// 	return nil
+// }
 
-func (a *appState) OverwriteChainConfig(
-	cmd *cobra.Command,
-	providerName string,
-	fieldName string,
-	fieldValue interface{},
+// func (a *appState) OverwriteChainConfig(
+// 	cmd *cobra.Command,
+// 	providerName string,
+// 	fieldName string,
+// 	fieldValue interface{},
+// ) error {
+
+// 	// use lock file to guard concurrent access to config.yaml
+// 	lockFilePath := path.Join(a.homePath, "config", "config.lock")
+// 	fileLock := flock.New(lockFilePath)
+// 	err := fileLock.Lock()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to acquire config lock: %w", err)
+// 	}
+// 	defer func() {
+// 		if err := fileLock.Unlock(); err != nil {
+// 			a.Log.Error("error unlocking config file lock, please manually delete",
+// 				zap.String("filepath", lockFilePath),
+// 			)
+// 		}
+// 	}()
+
+// 	if err := initConfig(cmd, a); err != nil {
+// 		return fmt.Errorf("failed to initialize config from file: %w", err)
+// 	}
+
+// 	wrappedConfig := a.config.Wrapped()
+// 	err = setProviderConfigField(wrappedConfig, providerName, fieldName, fieldValue)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	out, err := yaml.Marshal(wrappedConfig)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	cfgPath := a.viper.ConfigFileUsed()
+
+// 	// Overwrite the config file.
+// 	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+// 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
+// 	}
+
+// 	return nil
+// }
+
+// func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
+// 	providerConfigs := cfg.ProviderConfigs
+// 	providerConfigWrapper, ok := providerConfigs[providerName]
+// 	if !ok {
+// 		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
+// 	}
+// 	providerConfigValue := providerConfigWrapper.Value
+// 	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
+// 		return err
+// 	}
+// 	providerConfigWrapper.Value = providerConfigValue
+
+// 	return nil
+// }
+
+// updatePathConfig overwrites the config file concurrently,
+// locking to read, modify, then write the config.
+func (a *appState) updatePathConfig(
+	ctx context.Context,
+	pathName string,
+	clientSrc, clientDst string,
+	connectionSrc, connectionDst string,
 ) error {
-
-	// use lock file to guard concurrent access to config.yaml
-	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
-	fileLock := flock.New(lockFilePath)
-	err := fileLock.Lock()
-	if err != nil {
-		return fmt.Errorf("failed to acquire config lock: %w", err)
+	if pathName == "" {
+		return errors.New("empty path name not allowed")
 	}
-	defer func() {
-		if err := fileLock.Unlock(); err != nil {
-			a.Log.Error("error unlocking config file lock, please manually delete",
-				zap.String("filepath", lockFilePath),
-			)
+
+	return a.performConfigLockingOperation(ctx, func() error {
+		path, ok := a.config.Paths[pathName]
+		if !ok {
+			return fmt.Errorf("config does not exist for that path: %s", pathName)
 		}
-	}()
-
-	if err := initConfig(cmd, a); err != nil {
-		return fmt.Errorf("failed to initialize config from file: %w", err)
-	}
-
-	wrappedConfig := a.Config.Wrapped()
-	err = setProviderConfigField(wrappedConfig, providerName, fieldName, fieldValue)
-	if err != nil {
-		return err
-	}
-
-	out, err := yaml.Marshal(wrappedConfig)
-	if err != nil {
-		return err
-	}
-
-	cfgPath := a.Viper.ConfigFileUsed()
-
-	// Overwrite the config file.
-	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
-		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
-	}
-
-	return nil
-}
-
-func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
-	providerConfigs := cfg.ProviderConfigs
-	providerConfigWrapper, ok := providerConfigs[providerName]
-	if !ok {
-		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
-	}
-	providerConfigValue := providerConfigWrapper.Value
-	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
-		return err
-	}
-	providerConfigWrapper.Value = providerConfigValue
-
-	return nil
+		if clientSrc != "" {
+			path.Src.ClientID = clientSrc
+		}
+		if clientDst != "" {
+			path.Dst.ClientID = clientDst
+		}
+		if connectionSrc != "" {
+			path.Src.ConnectionID = connectionSrc
+		}
+		if connectionDst != "" {
+			path.Dst.ConnectionID = connectionDst
+		}
+		return nil
+	})
 }

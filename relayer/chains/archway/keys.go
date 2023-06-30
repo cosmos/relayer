@@ -58,8 +58,8 @@ func (cc *ArchwayProvider) KeystoreCreated(path string) bool {
 
 // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *ArchwayProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
-	ko, err := cc.KeyAddOrRestore(name, coinType)
+func (cc *ArchwayProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
+	ko, err := cc.KeyAddOrRestore(name, coinType, signingAlgorithm)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (cc *ArchwayProvider) AddKey(name string, coinType uint32) (output *provide
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *ArchwayProvider) RestoreKey(name, mnemonic string, coinType uint32) (address string, err error) {
+func (cc *ArchwayProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {
 	ko, err := cc.KeyAddOrRestore(name, coinType, mnemonic)
 	if err != nil {
 		return "", err

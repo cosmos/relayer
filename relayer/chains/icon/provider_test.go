@@ -55,6 +55,7 @@ func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
 
 	iconProvider, _ := p.(*IconProvider)
 	return iconProvider
+
 }
 
 func TestNetworkSectionHashCheck(t *testing.T) {

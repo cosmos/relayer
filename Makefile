@@ -31,7 +31,7 @@ ifeq ($(OS),Windows_NT)
 	@go build -mod=readonly $(BUILD_FLAGS) -o build/rly.exe main.go
 else
 	@echo "building rly binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o build/rly main.go
+	@go build  $(BUILD_FLAGS) -o build/rly main.go
 endif
 
 build-zip: go.sum
@@ -83,7 +83,7 @@ interchaintest-multiple:
 	cd interchaintest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
 interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
-	cd interchaintest && go test -timeout 15m -race -v -run TestScenario ./...
+	cd interchaintest && go test -timeout 30m -race -v -run TestScenario ./...
 
 coverage:
 	@echo "Generating coverage report..."

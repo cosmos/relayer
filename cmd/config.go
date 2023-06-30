@@ -33,6 +33,7 @@ import (
 	archway "github.com/cosmos/relayer/v2/relayer/chains/archway"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
+	"github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -89,14 +90,14 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			case yml && jsn:
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
 			case jsn:
-				out, err := json.Marshal(a.Config.Wrapped())
+				out, err := json.Marshal(a.config.Wrapped())
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 				return nil
 			default:
-				out, err := yaml.Marshal(a.Config.Wrapped())
+				out, err := yaml.Marshal(a.config.Wrapped())
 				if err != nil {
 					return err
 				}
@@ -106,7 +107,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 		},
 	}
 
-	return yamlFlag(a.Viper, jsonFlag(a.Viper, cmd))
+	return yamlFlag(a.viper, jsonFlag(a.viper, cmd))
 }
 
 // Command for initializing an empty config at the --home location
@@ -167,7 +168,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 			return fmt.Errorf("config already exists: %s", cfgPath)
 		},
 	}
-	cmd = memoFlag(a.Viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -177,48 +178,51 @@ $ %s cfg i`, appName, defaultHome, appName)),
 // If any files fail to parse or otherwise are not able to be added to a's chains,
 // the error is logged.
 // An error is only returned if the directory cannot be read at all.
-func addChainsFromDirectory(stderr io.Writer, a *appState, dir string) error {
+func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		pth := filepath.Join(dir, f.Name())
-		if f.IsDir() {
-			fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
-			continue
-		}
 
-		byt, err := os.ReadFile(pth)
-		if err != nil {
-			fmt.Fprintf(stderr, "failed to read file %s. Err: %v skipping...\n", pth, err)
-			continue
-		}
+	return a.performConfigLockingOperation(ctx, func() error {
+		for _, f := range files {
+			pth := filepath.Join(dir, f.Name())
+			if f.IsDir() {
+				fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
+				continue
+			}
 
-		var pcw ProviderConfigWrapper
-		if err = json.Unmarshal(byt, &pcw); err != nil {
-			fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
-			continue
-		}
-		chainName := strings.Split(f.Name(), ".")[0]
-		prov, err := pcw.Value.NewProvider(
-			a.Log.With(zap.String("provider_type", pcw.Type)),
-			a.HomePath, a.Debug, chainName,
-		)
-		if err != nil {
-			fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
-			continue
-		}
+			byt, err := os.ReadFile(pth)
+			if err != nil {
+				fmt.Fprintf(stderr, "failed to read file %s. Err: %v skipping...\n", pth, err)
+				continue
+			}
 
-		c := relayer.NewChain(a.Log, prov, a.Debug)
-		if err = a.Config.AddChain(c); err != nil {
-			fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
-			continue
+			var pcw ProviderConfigWrapper
+			if err = json.Unmarshal(byt, &pcw); err != nil {
+				fmt.Fprintf(stderr, "failed to unmarshal file %s. Err: %v skipping...\n", pth, err)
+				continue
+			}
+			chainName := strings.Split(f.Name(), ".")[0]
+			prov, err := pcw.Value.NewProvider(
+				a.log.With(zap.String("provider_type", pcw.Type)),
+				a.homePath, a.debug, chainName,
+			)
+			if err != nil {
+				fmt.Fprintf(stderr, "failed to build ChainProvider for %s. Err: %v \n", pth, err)
+				continue
+			}
+
+			c := relayer.NewChain(a.log, prov, a.debug)
+			if err = a.config.AddChain(c); err != nil {
+				fmt.Fprintf(stderr, "failed to add chain %s: %v \n", pth, err)
+				continue
+			}
+			fmt.Fprintf(stderr, "added chain %s...\n", c.ChainProvider.ChainId())
 		}
-		fmt.Fprintf(stderr, "added chain %s...\n", c.ChainProvider.ChainId())
-	}
-	return nil
+		return nil
+	})
 }
 
 // addPathsFromDirectory parses all the files containing JSON-encoded paths in dir,
@@ -232,36 +236,38 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 	if err != nil {
 		return err
 	}
-	for _, f := range files {
-		pth := filepath.Join(dir, f.Name())
-		if f.IsDir() {
-			fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
-			continue
+	return a.performConfigLockingOperation(ctx, func() error {
+		for _, f := range files {
+			pth := filepath.Join(dir, f.Name())
+			if f.IsDir() {
+				fmt.Fprintf(stderr, "directory at %s, skipping...\n", pth)
+				continue
+			}
+
+			byt, err := os.ReadFile(pth)
+			if err != nil {
+				return fmt.Errorf("failed to read file %s: %w", pth, err)
+			}
+
+			p := &relayer.Path{}
+			if err = json.Unmarshal(byt, p); err != nil {
+				return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+			}
+
+			pthName := strings.Split(f.Name(), ".")[0]
+			if err := a.config.ValidatePath(ctx, stderr, p); err != nil {
+				return fmt.Errorf("failed to validate path %s: %w", pth, err)
+			}
+
+			if err := a.config.AddPath(pthName, p); err != nil {
+				return fmt.Errorf("failed to add path %s: %w", pth, err)
+			}
+
+			fmt.Fprintf(stderr, "added path %s...\n\n", pthName)
 		}
 
-		byt, err := os.ReadFile(pth)
-		if err != nil {
-			return fmt.Errorf("failed to read file %s: %w", pth, err)
-		}
-
-		p := &relayer.Path{}
-		if err = json.Unmarshal(byt, p); err != nil {
-			return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
-		}
-
-		pthName := strings.Split(f.Name(), ".")[0]
-		if err := a.Config.ValidatePath(ctx, stderr, p); err != nil {
-			return fmt.Errorf("failed to validate path %s: %w", pth, err)
-		}
-
-		if err := a.Config.AddPath(pthName, p); err != nil {
-			return fmt.Errorf("failed to add path %s: %w", pth, err)
-		}
-
-		fmt.Fprintf(stderr, "added path %s...\n\n", pthName)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // Wrapped converts the Config struct into a ConfigOutputWrapper struct
@@ -278,8 +284,8 @@ func (c *Config) Wrapped() *ConfigOutputWrapper {
 }
 
 // rlyMemo returns a formatted message memo string
-// that includes "rly" and the version, e.g. "rly(v2.0.0)"
-// or "My custom memo | rly(v2.0.0)"
+// that includes "rly" and the version, e.g. "rly(v2.3.0)"
+// or "My custom memo | rly(v2.3.0)"
 func rlyMemo(memo string) string {
 	if memo == "-" {
 		// omit memo entirely
@@ -324,6 +330,34 @@ type ConfigInputWrapper struct {
 	Paths           relayer.Paths                         `yaml:"paths"`
 }
 
+// RuntimeConfig converts the input disk config into the relayer runtime config.
+func (c *ConfigInputWrapper) RuntimeConfig(ctx context.Context, a *appState) (*Config, error) {
+	// build providers for each chain
+	chains := make(relayer.Chains)
+	for chainName, pcfg := range c.ProviderConfigs {
+		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
+			a.log.With(zap.String("provider_type", pcfg.Type)),
+			a.homePath, a.debug, chainName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build ChainProviders: %w", err)
+		}
+
+		if err := prov.Init(ctx); err != nil {
+			return nil, fmt.Errorf("failed to initialize provider: %w", err)
+		}
+
+		chain := relayer.NewChain(a.log, prov, a.debug)
+		chains[chainName] = chain
+	}
+
+	return &Config{
+		Global: c.Global,
+		Chains: chains,
+		Paths:  c.Paths,
+	}, nil
+}
+
 type ProviderConfigs map[string]*ProviderConfigWrapper
 
 // ProviderConfigWrapper is an intermediary type for parsing arbitrary ProviderConfigs from json files and writing to json/yaml files
@@ -342,9 +376,10 @@ type ProviderConfigYAMLWrapper struct {
 // NOTE: Add new ProviderConfig types in the map here with the key set equal to the type of ChainProvider (e.g. cosmos, substrate, etc.)
 func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
-		"cosmos":  reflect.TypeOf(cosmos.CosmosProviderConfig{}),
-		"icon":    reflect.TypeOf(icon.IconProviderConfig{}),
-		"archway": reflect.TypeOf(archway.ArchwayProviderConfig{}),
+		"cosmos":   reflect.TypeOf(cosmos.CosmosProviderConfig{}),
+		"icon":     reflect.TypeOf(icon.IconProviderConfig{}),
+		"archway":  reflect.TypeOf(archway.ArchwayProviderConfig{}),
+		"penumbra": reflect.TypeOf(penumbra.PenumbraProviderConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
 	if err != nil {
@@ -401,6 +436,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 		iw.Value = new(icon.IconProviderConfig)
 	case "archway":
 		iw.Value = new(archway.ArchwayProviderConfig)
+	case "penumbra":
+		iw.Value = new(penumbra.PenumbraProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}
@@ -516,6 +553,10 @@ func checkPathEndConflict(pathID, direction string, oldPe, newPe *relayer.PathEn
 
 // AddPath adds an additional path to the config
 func (c *Config) AddPath(name string, path *relayer.Path) (err error) {
+	// Ensure path is initialized.
+	if c.Paths == nil {
+		c.Paths = make(relayer.Paths)
+	}
 	// Check if the path does not yet exist.
 	oldPath, err := c.Paths.Get(name)
 	if err != nil {
@@ -539,85 +580,17 @@ func (c *Config) DeleteChain(chain string) {
 }
 
 // validateConfig is used to validate the GlobalConfig values
-func validateConfig(c *Config) error {
+func (c *Config) validateConfig() error {
 	_, err := time.ParseDuration(c.Global.Timeout)
 	if err != nil {
 		return fmt.Errorf("did you remember to run 'rly config init' error:%w", err)
 	}
 
-	return nil
-}
-
-// initConfig reads config file into a.Config if file is present.
-func initConfig(cmd *cobra.Command, a *appState) error {
-	if a.HomePath == "" {
-		var err error
-		a.HomePath, err = cmd.PersistentFlags().GetString(flagHome)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfgPath := path.Join(a.HomePath, "config", "config.yaml")
-	if _, err := os.Stat(cfgPath); err != nil {
-		// don't return error if file doesn't exist
-		return nil
-	}
-	a.Viper.SetConfigFile(cfgPath)
-	if err := a.Viper.ReadInConfig(); err != nil {
-		return err
-	}
-	// read the config file bytes
-	file, err := os.ReadFile(a.Viper.ConfigFileUsed())
-	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Error reading file:", err)
-		return err
-	}
-
-	// unmarshall them into the wrapper struct
-	cfgWrapper := &ConfigInputWrapper{}
-	err = yaml.Unmarshal(file, cfgWrapper)
-	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Error unmarshalling config:", err)
-		return err
-	}
-
 	// verify that the channel filter rule is valid for every path in the config
-	for _, p := range cfgWrapper.Paths {
+	for _, p := range c.Paths {
 		if err := p.ValidateChannelFilterRule(); err != nil {
 			return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
 		}
-	}
-
-	// build the config struct
-	chains := make(relayer.Chains)
-	for chainName, pcfg := range cfgWrapper.ProviderConfigs {
-		prov, err := pcfg.Value.(provider.ProviderConfig).NewProvider(
-			a.Log.With(zap.String("provider_type", pcfg.Type)),
-			a.HomePath, a.Debug, chainName,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to build ChainProviders: %w", err)
-		}
-
-		if err := prov.Init(cmd.Context()); err != nil {
-			return fmt.Errorf("failed to initialize provider: %w", err)
-		}
-
-		chain := relayer.NewChain(a.Log, prov, a.Debug)
-		chains[chainName] = chain
-	}
-
-	a.Config = &Config{
-		Global: cfgWrapper.Global,
-		Chains: chains,
-		Paths:  cfgWrapper.Paths,
-	}
-
-	// ensure config has []*relayer.Chain used for all chain operations
-	if err := validateConfig(a.Config); err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Error parsing chain config:", err)
-		return err
 	}
 
 	return nil

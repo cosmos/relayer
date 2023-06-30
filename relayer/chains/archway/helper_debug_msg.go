@@ -29,7 +29,6 @@ func jsonDumpDataFile(filename string, bufs interface{}) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully created or appended JSON in %s \n", filename)
 }
 
 func readExistingData(filename string, opPointer interface{}) error {

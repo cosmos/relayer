@@ -22,6 +22,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ import (
 
 const (
 	flagCoinType           = "coin-type"
+	flagAlgo               = "signing-algorithm"
 	defaultCoinType uint32 = sdk.CoinType
 )
 
@@ -46,8 +48,8 @@ func keysCmd(a *appState) *cobra.Command {
 		keysRestoreCmd(a),
 		keysDeleteCmd(a),
 		keysListCmd(a),
-		keysShowCmd(a),
 		keysExportCmd(a),
+		keysShowCmd(a),
 	)
 
 	return cmd
@@ -65,7 +67,7 @@ $ %s keys add ibc-0
 $ %s keys add ibc-1 key2
 $ %s k a cosmoshub testkey`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -75,20 +77,35 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			coinType, err := cmd.Flags().GetInt32(flagCoinType)
+			cmdFlags := cmd.Flags()
+
+			coinType, err := cmdFlags.GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
 
 			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					coinType = int32(ccp.PCfg.Slip44)
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+					coinType = int32(*ccp.PCfg.Slip44)
 				} else {
 					coinType = int32(defaultCoinType)
 				}
 			}
 
-			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType))
+			algo, err := cmdFlags.GetString(flagAlgo)
+			if err != nil {
+				return err
+			}
+
+			if algo == "" {
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+					algo = ccp.PCfg.SigningAlgorithm
+				} else {
+					algo = string(hd.Secp256k1Type)
+				}
+			}
+
+			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType), algo)
 			if err != nil {
 				return fmt.Errorf("failed to add key: %w", err)
 			}
@@ -103,6 +120,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 		},
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
+	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
 
 	return cmd
 }
@@ -120,7 +138,7 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
 
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -129,20 +147,35 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 				return errKeyExists(keyName)
 			}
 
-			coinType, err := cmd.Flags().GetInt32(flagCoinType)
+			cmdFlags := cmd.Flags()
+
+			coinType, err := cmdFlags.GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
 
 			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					coinType = int32(ccp.PCfg.Slip44)
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+					coinType = int32(*ccp.PCfg.Slip44)
 				} else {
 					coinType = int32(defaultCoinType)
 				}
 			}
 
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType))
+			algo, err := cmdFlags.GetString(flagAlgo)
+			if err != nil {
+				return err
+			}
+
+			if algo == "" {
+				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+					algo = ccp.PCfg.SigningAlgorithm
+				} else {
+					algo = string(hd.Secp256k1Type)
+				}
+			}
+
+			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType), algo)
 			if err != nil {
 				return err
 			}
@@ -152,6 +185,7 @@ $ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
 		},
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
+	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
 
 	return cmd
 }
@@ -168,7 +202,7 @@ $ %s keys delete ibc-0 -y
 $ %s keys delete ibc-1 key2 -y
 $ %s k d cosmoshub default`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -195,7 +229,7 @@ $ %s k d cosmoshub default`, appName, appName, appName)),
 		},
 	}
 
-	return skipConfirm(a.Viper, cmd)
+	return skipConfirm(a.viper, cmd)
 }
 
 func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
@@ -203,7 +237,7 @@ func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 
 	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
-		a.Log.Fatal("Failed to read input", zap.Error(err))
+		a.log.Fatal("Failed to read input", zap.Error(err))
 	}
 
 	switch strings.ToLower(response) {
@@ -230,7 +264,7 @@ $ %s k l ibc-1`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 
-			chain, ok := a.Config.Chains[chainName]
+			chain, ok := a.config.Chains[chainName]
 			if !ok {
 				return errChainNotFound(chainName)
 			}
@@ -255,47 +289,6 @@ $ %s k l ibc-1`, appName, appName)),
 	return cmd
 }
 
-// keysShowCmd respresents the `keys show` command
-func keysShowCmd(a *appState) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "show chain_name [key_name]",
-		Aliases: []string{"s"},
-		Short:   "Shows a key from the keychain associated with a particular chain",
-		Args:    withUsage(cobra.RangeArgs(1, 2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys show ibc-0
-$ %s keys show ibc-1 key2
-$ %s k s ibc-2 testkey`, appName, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.Config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-
-			var keyName string
-			if len(args) == 2 {
-				keyName = args[1]
-			} else {
-				keyName = chain.ChainProvider.Key()
-			}
-
-			if !chain.ChainProvider.KeyExists(keyName) {
-				return errKeyDoesntExist(keyName)
-			}
-
-			address, err := chain.ChainProvider.ShowAddress(keyName)
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), address)
-			return nil
-		},
-	}
-
-	return cmd
-}
-
 // keysExportCmd respresents the `keys export` command
 func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
@@ -308,7 +301,7 @@ $ %s keys export ibc-0 testkey
 $ %s k e cosmoshub testkey`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			keyName := args[1]
-			chain, ok := a.Config.Chains[args[0]]
+			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
 			}
@@ -325,6 +318,67 @@ $ %s k e cosmoshub testkey`, appName, appName)),
 			fmt.Fprintln(cmd.OutOrStdout(), info)
 			return nil
 		},
+	}
+
+	return cmd
+}
+
+// ShowAddressByChainAndKey represents the logic for showing relayer address by chain_name and key_name
+func (a *appState) showAddressByChainAndKey(cmd *cobra.Command, args []string) error {
+	chain, ok := a.config.Chains[args[0]]
+	if !ok {
+		return errChainNotFound(args[0])
+	}
+
+	var keyName string
+	if len(args) == 2 {
+		keyName = args[1]
+	} else {
+		keyName = chain.ChainProvider.Key()
+	}
+
+	if !chain.ChainProvider.KeyExists(keyName) {
+		return errKeyDoesntExist(keyName)
+	}
+
+	address, err := chain.ChainProvider.ShowAddress(keyName)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), address)
+	return nil
+}
+
+// keysShowCmd respresents the `keys show` command
+func keysShowCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "show chain_name [key_name]",
+		Aliases: []string{"s"},
+		Short:   "Shows a key from the keychain associated with a particular chain",
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys show ibc-0
+$ %s keys show ibc-1 key2
+$ %s k s ibc-2 testkey`, appName, appName, appName)),
+		RunE: a.showAddressByChainAndKey,
+	}
+
+	return cmd
+}
+
+// addressCmd represents the address of a relayer
+func addressCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "address chain_name [key_name]",
+		Aliases: []string{"a"},
+		Short:   "Shows the address of a relayer",
+		Args:    withUsage(cobra.RangeArgs(1, 2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s address ibc-0
+$ %s address ibc-1 key2
+$ %s a ibc-2 testkey`, appName, appName, appName)),
+		RunE: a.showAddressByChainAndKey,
 	}
 
 	return cmd

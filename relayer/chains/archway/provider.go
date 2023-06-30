@@ -191,11 +191,6 @@ func (pp *ArchwayProviderConfig) Validate() error {
 	return nil
 }
 
-func (pp *ArchwayProviderConfig) Set(field string, value interface{}) error {
-	// TODO: implement
-	return nil
-}
-
 func (pp *ArchwayProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }
@@ -450,6 +445,10 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 	if seq > ap.nextAccountSeq {
 		ap.nextAccountSeq = seq
 	}
+}
+
+func (app *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("Not implemented for Icon")
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

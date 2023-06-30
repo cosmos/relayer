@@ -3,7 +3,6 @@ package ethermint
 import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -20,9 +19,5 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		(*authtypes.GenesisAccount)(nil),
 		&EthAccount{},
 	)
-	registry.RegisterImplementations(
-		(*tx.ExtensionOptionI)(nil),
-		&ExtensionOptionsWeb3Tx{},
-		&ExtensionOptionDynamicFeeTx{},
-	)
+
 }

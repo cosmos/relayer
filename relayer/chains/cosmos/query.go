@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -52,14 +53,55 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
-	if err != nil {
-		return nil, err
-	}
-	var ibcMsgs []ibcMessage
+	var eg errgroup.Group
 	chainID := cc.ChainId()
-	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+	var ibcMsgs []ibcMessage
+	var mu sync.Mutex
+
+	eg.Go(func() error {
+		res, err := cc.RPCClient.BlockSearch(ctx, query, &page, &limit, "")
+		if err != nil {
+			return err
+		}
+
+		var nestedEg errgroup.Group
+
+		for _, b := range res.Blocks {
+			b := b
+			nestedEg.Go(func() error {
+				block, err := cc.RPCClient.BlockResults(ctx, &b.Block.Height)
+				if err != nil {
+					return err
+				}
+
+				mu.Lock()
+				defer mu.Unlock()
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.BeginBlockEvents, chainID, 0, base64Encoded)...)
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.EndBlockEvents, chainID, 0, base64Encoded)...)
+
+				return nil
+			})
+		}
+		return nestedEg.Wait()
+	})
+
+	eg.Go(func() error {
+		res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+		if err != nil {
+			return err
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		for _, tx := range res.Txs {
+			ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+		}
+
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	return ibcMsgs, nil
@@ -587,7 +629,12 @@ func (cc *CosmosProvider) QueryConnectionsUsingClient(ctx context.Context, heigh
 			return nil, err
 		}
 
-		connections.Connections = append(connections.Connections, res.Connections...)
+		for _, conn := range res.Connections {
+			if conn.ClientId == clientid {
+				connections.Connections = append(connections.Connections, conn)
+			}
+		}
+
 		next := res.GetPagination().GetNextKey()
 		if len(next) == 0 {
 			break
@@ -642,7 +689,6 @@ func (cc *CosmosProvider) GenerateConnHandshakeProof(ctx context.Context, height
 func (cc *CosmosProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 	res, err := cc.queryChannelABCI(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
-
 		return &chantypes.QueryChannelResponse{
 			Channel: &chantypes.Channel{
 				State:    chantypes.UNINITIALIZED,
@@ -851,7 +897,6 @@ func (cc *CosmosProvider) QueryUnreceivedPackets(ctx context.Context, height uin
 func sendPacketQuery(channelID string, portID string, seq uint64) string {
 	x := []string{
 		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_src_port='%s'", spTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
 	}
 	return strings.Join(x, " AND ")
@@ -860,7 +905,6 @@ func sendPacketQuery(channelID string, portID string, seq uint64) string {
 func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
 	x := []string{
 		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_dst_port='%s'", waTag, portID),
 		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
 	}
 	return strings.Join(x, " AND ")

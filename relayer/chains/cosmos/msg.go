@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ provider.RelayerMessage = &CosmosMessage{}
 
 type CosmosMessage struct {
 	Msg sdk.Msg

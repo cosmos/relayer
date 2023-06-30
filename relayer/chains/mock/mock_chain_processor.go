@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -49,7 +50,7 @@ func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string,
 	}
 	chainProvider, _ := chainProviderCfg.NewProvider(zap.NewNop(), "/tmp", true, "mock-chain-name-"+chainID)
 	_ = chainProvider.Init(ctx)
-	_, _ = chainProvider.AddKey(chainProvider.Key(), 118)
+	_, _ = chainProvider.AddKey(chainProvider.Key(), 118, string(hd.Secp256k1Type))
 	return &MockChainProcessor{
 		log:             log,
 		chainID:         chainID,
@@ -156,6 +157,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.EventType]; ok {
 				handler(msgHandlerParams{
+					height:           i,
 					mcp:              mcp,
 					packetInfo:       m.PacketInfo,
 					ibcMessagesCache: ibcMessagesCache,
@@ -175,6 +177,10 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		for _, pp := range mcp.pathProcessors {
 			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
 			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
+				LatestBlock: provider.LatestBlock{
+					Height: uint64(i),
+					Time:   time.Now(),
+				},
 				IBCMessagesCache:  ibcMessagesCache,
 				InSync:            mcp.inSync,
 				ChannelStateCache: channelStateCache,

@@ -11,7 +11,6 @@ import (
 	authz "github.com/cosmos/cosmos-sdk/x/authz/module"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/capability"
-	"github.com/cosmos/cosmos-sdk/x/crisis"
 	"github.com/cosmos/cosmos-sdk/x/distribution"
 	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
 	"github.com/cosmos/cosmos-sdk/x/gov"
@@ -21,8 +20,8 @@ import (
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
+	ibcfee "github.com/cosmos/ibc-go/v7/modules/apps/29-fee"
 	"github.com/cosmos/ibc-go/v7/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
 
@@ -46,18 +45,19 @@ var ModuleBasics = []module.AppModuleBasic{
 			upgradeclient.LegacyCancelProposalHandler,
 		},
 	),
-	crisis.AppModuleBasic{},
+	// crisis.AppModuleBasic{},
 	distribution.AppModuleBasic{},
 	feegrant.AppModuleBasic{},
 	mint.AppModuleBasic{},
 	params.AppModuleBasic{},
 	slashing.AppModuleBasic{},
 	staking.AppModuleBasic{},
-	upgrade.AppModuleBasic{},
+	// upgrade.AppModuleBasic{},
 	transfer.AppModuleBasic{},
 	ibc.AppModuleBasic{},
 	cosmosmodule.AppModuleBasic{},
 	stride.AppModuleBasic{},
+	ibcfee.AppModuleBasic{},
 }
 
 type Codec struct {

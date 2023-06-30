@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -211,8 +213,14 @@ func (cc *CosmosProvider) broadcastTx(
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
 	}
-
-	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), fees)
+	address, err := cc.Address()
+	if err != nil {
+		cc.log.Error(
+			"failed to get relayer bech32 wallet addresss",
+			zap.Error(err),
+		)
+	}
+	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
 
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
@@ -1271,7 +1279,7 @@ func (cc *CosmosProvider) NewClientState(
 	}, nil
 }
 
-func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
+func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.Coins) {
 	// Don't set the metrics in testing
 	if cc.metrics == nil {
 		return
@@ -1284,8 +1292,14 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key string, fees sdk.Coins) {
 	for _, fee := range cc.TotalFees {
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(fee.Amount.BigInt()).Float64()
-		cc.metrics.SetFeesSpent(chain, key, fee.GetDenom(), f)
+		cc.metrics.SetFeesSpent(chain, key, address, fee.GetDenom(), f)
 	}
+}
+
+// MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
+func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
+	msg := feetypes.NewMsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee)
+	return NewCosmosMessage(msg), nil
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
@@ -1351,6 +1365,25 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 	return txf, nil
 }
 
+// AdjustEstimatedGas adjusts the estimated gas usage by multiplying it by the gas adjustment factor
+// and bounding the result by the maximum gas amount option. If the gas usage is zero, the adjusted gas
+// is also zero. If the gas adjustment factor produces an infinite result, an error is returned.
+// max-gas-amount is enforced.
+func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
+	if gasUsed == 0 {
+		return gasUsed, nil
+	}
+	gas := cc.PCfg.GasAdjustment * float64(gasUsed)
+	if math.IsInf(gas, 1) {
+		return 0, fmt.Errorf("infinite gas used")
+	}
+	// Bound the gas estimate by the max_gas option
+	if cc.PCfg.MaxGasAmount > 0 {
+		gas = math.Min(gas, float64(cc.PCfg.MaxGasAmount))
+	}
+	return uint64(gas), nil
+}
+
 // CalculateGas simulates a tx to generate the appropriate gas settings before broadcasting a tx.
 func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, msgs ...sdk.Msg) (txtypes.SimulateResponse, uint64, error) {
 	keyInfo, err := cc.Keybase.Key(cc.PCfg.Key)
@@ -1391,8 +1424,8 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, msgs
 	if err := simRes.Unmarshal(res.Value); err != nil {
 		return txtypes.SimulateResponse{}, 0, err
 	}
-
-	return simRes, uint64(txf.GasAdjustment() * float64(simRes.GasInfo.GasUsed)), nil
+	gas, err := cc.AdjustEstimatedGas(simRes.GasInfo.GasUsed)
+	return simRes, gas, err
 }
 
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.

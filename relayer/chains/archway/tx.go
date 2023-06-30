@@ -763,6 +763,9 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false)
 	}
 
+	//uncomment for saving msg
+	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+
 	return nil
 
 }
@@ -1004,6 +1007,8 @@ func (ap *ArchwayProvider) BroadcastTx(
 	ap.log.Info("Submitted transaction",
 		zap.String("chain_id", ap.PCfg.ChainID),
 		zap.String("txHash", res.TxHash),
+		zap.Int64("Height", res.Height),
+		zap.Any("Methods called", msgTypesField(msgs)),
 	)
 
 	if shouldWait {
@@ -1045,9 +1050,6 @@ func (ap *ArchwayProvider) waitForTx(
 		}
 		return
 	}
-
-	//uncomment for saving msg
-	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
 
 	rlyResp := &provider.RelayerTxResponse{
 		Height:    res.Height,

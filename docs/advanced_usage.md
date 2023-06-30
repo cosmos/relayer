@@ -38,15 +38,19 @@ By default, the Relayer will automatically update clients (`MsgUpdateClient`) if
 > This auto-update functionality is specifically useful on low trafficked paths where messages aren't regularly being relayed.
 
 
-You can choose to update clients more regularly by using the `--time-threshold` flag when running the `rly start` command.
+Alternitavely, you can choose to update clients more frequently by using the `--time-threshold` flag when running the `rly start` command.
 
 Example:
 
-- You are relaying on a path that has a client trusting period of 9 minutes.
+- Say... You are relaying on a path that has a client trusting period of 9 minutes.
 - If no messages are sent for 6 minutes and the client is 3 minutes (1/3) to expiration, the relayer will automatically update the client.
 - If you wish to update the client more frequently, say anytime two minutes have passed without a `MsgUpdateClient` being sent, use flag: `--time-threshold 2m`
 
 Selecting a time-threshold that is greater than 2/3 of the client trusting period will deem itself useless.
+
+Use cases for configuring the `--time-threshold` flag:
+- The underlying chain node that the relayer is using as an endpoint has restrictive pruning. Client updates are needed more frequently since states 2/3 trusting period ago would not be available due to pruning.  
+- Mitiage relayer operational errors allowing more frequent updates incase a relayer node goes down for > the client trusting period.
 
 \* It is not mandatory for relayers to include the `MsgUpdateClient` when relaying packets, however most, if not all relayers currently do.
 

@@ -4,13 +4,12 @@ import (
 	"math"
 	"strings"
 
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-const clientName = "iconclient"
-
 func ClientIsIcon(cs provider.ClientState) bool {
-	if strings.Contains(cs.ClientID, clientName) {
+	if strings.Contains(cs.ClientID, common.IconLightClient) {
 		return true
 	}
 	return false
@@ -54,5 +53,3 @@ func nextIconIBCHeader(heightMap IBCHeaderCache, height uint64) (provider.IBCHea
 	header, ok := heightMap[nextHeight]
 	return header, ok
 }
-
-// The next header is {<nil> false [] 0}  true

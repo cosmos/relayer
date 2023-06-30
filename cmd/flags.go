@@ -234,11 +234,12 @@ func urlFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func strategyFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagMaxTxSize, "s", "2", "strategy of path to generate of the messages in a relay transaction")
-	cmd.Flags().StringP(flagMaxMsgLength, "l", "5", "maximum number of messages in a relay transaction")
-	if err := v.BindPFlag(flagMaxTxSize, cmd.Flags().Lookup(flagMaxTxSize)); err != nil {
-		panic(err)
-	}
+	cmd.Flags().Uint64P(
+		flagMaxMsgLength,
+		"l",
+		relayer.DefaultMaxMsgLength,
+		"maximum number of messages per transaction",
+	)
 	if err := v.BindPFlag(flagMaxMsgLength, cmd.Flags().Lookup(flagMaxMsgLength)); err != nil {
 		panic(err)
 	}
