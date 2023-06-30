@@ -7,8 +7,8 @@ rly config init
 echo $RELAYER_SAGAEVM_MNEMONIC > mnemo.file.sevm
 echo $RELAYER_SPC_MNEMONIC > mnemo.file.spc
 
-mv /root/tmp/sevm_111-1.json /root/tmp/$CHAINLET_CHAIN_ID.json
-mv /root/tmp/sevm_111-2.json /root/tmp/$SPC_CHAINID.json
+mv /root/tmp/sevm_111-1.json.example /root/tmp/$CHAINLET_CHAIN_ID.json
+mv /root/tmp/sevm_111-2.json.example /root/tmp/$SPC_CHAINID.json
 
 cat /root/tmp/$CHAINLET_CHAIN_ID.json | jq '.value."chain-id"="'$CHAINLET_CHAIN_ID'"' > /root/tmp/$CHAINLET_CHAIN_ID.json.tmp && mv /root/tmp/$CHAINLET_CHAIN_ID.json.tmp /root/tmp/$CHAINLET_CHAIN_ID.json
 cat /root/tmp/$SPC_CHAINID.json | jq '.value."chain-id"="'$SPC_CHAINID'"' > /root/tmp/$SPC_CHAINID.json.tmp && mv /root/tmp/$SPC_CHAINID.json.tmp /root/tmp/$SPC_CHAINID.json

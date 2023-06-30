@@ -20,10 +20,9 @@ WORKDIR /root
 
 COPY --from=build-env /root/build/rly /usr/bin/rly
 COPY --from=build-env /root/rly/start-rly.sh /root/start-rly.sh
-COPY --from=build-env /root/rly/mnemo.file /root/mnemo.file
 RUN mkdir -p /root/tmp
-COPY --from=build-env /root/rly/sevm_111-1.json /root/tmp/
-COPY --from=build-env /root/rly/sevm_111-2.json /root/tmp/
+COPY --from=build-env /root/rly/sevm_111-1.json.example /root/tmp/
+COPY --from=build-env /root/rly/sevm_111-2.json.example /root/tmp/
 
 RUN chmod -R 755 /root/start-rly.sh
 
