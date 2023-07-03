@@ -43,8 +43,6 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 		t.Skip()
 	}
 
-	t.Parallel()
-
 	numVals := 1
 	numFullNodes := 0
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
