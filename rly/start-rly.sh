@@ -15,7 +15,7 @@ cat /root/tmp/$SPC_CHAIN_ID.json | jq '.value."chain-id"="'$SPC_CHAIN_ID'"' > /r
 
 # TODO: hardcoded port; http
 cat /root/tmp/$CHAINLET_CHAIN_ID.json | jq '.value."rpc-addr"="'$CHAINLET_RPC_ADDRESS'"' > /root/tmp/$CHAINLET_CHAIN_ID.json.tmp && mv /root/tmp/$CHAINLET_CHAIN_ID.json.tmp /root/tmp/$CHAINLET_CHAIN_ID.json
-cat /root/tmp/$SPC_CHAIN_ID.json | jq '.value."rpc-addr"="'$SPC_EXTERNAL_ADDRESS'"' > /root/tmp/$SPC_CHAIN_ID.json.tmp && mv /root/tmp/$SPC_CHAIN_ID.json.tmp /root/tmp/$SPC_CHAIN_ID.json
+cat /root/tmp/$SPC_CHAIN_ID.json | jq '.value."rpc-addr"="'$SPC_RPC_EXTERNAL_ADDRESS'"' > /root/tmp/$SPC_CHAIN_ID.json.tmp && mv /root/tmp/$SPC_CHAIN_ID.json.tmp /root/tmp/$SPC_CHAIN_ID.json
 
 cat /root/tmp/$CHAINLET_CHAIN_ID.json | jq '.value."keyring-backend"="file"' > /root/tmp/$CHAINLET_CHAIN_ID.json.tmp && mv /root/tmp/$CHAINLET_CHAIN_ID.json.tmp /root/tmp/$CHAINLET_CHAIN_ID.json
 cat /root/tmp/$SPC_CHAIN_ID.json | jq '.value."keyring-backend"="file"' > /root/tmp/$SPC_CHAIN_ID.json.tmp && mv /root/tmp/$SPC_CHAIN_ID.json.tmp /root/tmp/$SPC_CHAIN_ID.json
