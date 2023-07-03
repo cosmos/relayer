@@ -859,7 +859,17 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
 				if open {
 					// channel is still open on pathEnd1
-					break
+					if _, ok := pp.pathEnd1.messageCache.ChannelHandshake[preCloseKey]; !ok {
+						pp.pathEnd1.messageCache.ChannelHandshake[preCloseKey] = make(ChannelMessageCache)
+						pp.pathEnd1.messageCache.ChannelHandshake[preCloseKey][k] = provider.ChannelInfo{
+							PortID:                k.PortID,
+							ChannelID:             k.ChannelID,
+							CounterpartyPortID:    k.CounterpartyPortID,
+							CounterpartyChannelID: k.CounterpartyChannelID,
+							ConnID:                m.SrcConnID,
+						}
+					}
+					return
 				}
 				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
 					pp.log.Info("Channel already closed on both sides")
@@ -885,7 +895,17 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
 				if open {
 					// channel is still open on pathEnd2
-					break
+					if _, ok := pp.pathEnd2.messageCache.ChannelHandshake[preCloseKey]; !ok {
+						pp.pathEnd2.messageCache.ChannelHandshake[preCloseKey] = make(ChannelMessageCache)
+						pp.pathEnd2.messageCache.ChannelHandshake[preCloseKey][k] = provider.ChannelInfo{
+							PortID:                k.PortID,
+							ChannelID:             k.ChannelID,
+							CounterpartyPortID:    k.CounterpartyPortID,
+							CounterpartyChannelID: k.CounterpartyChannelID,
+							ConnID:                m.SrcConnID,
+						}
+					}
+					return
 				}
 				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
 					pp.log.Info("Channel already closed on both sides")

@@ -401,6 +401,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
 
 			for _, m := range messages {
+				ccp.log.Info("Detected Eventlog", zap.String("Eventlog", m.eventType))
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 		}
