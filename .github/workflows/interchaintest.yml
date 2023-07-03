@@ -73,6 +73,28 @@ jobs:
       - name: interchaintest
         run: make interchaintest-multiple
 
+  misbehaviour:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.20
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.20
+        id: go
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: interchaintest
+        run: make interchaintest-misbehaviour
+
   scenarios:
     runs-on: ubuntu-latest
     steps:

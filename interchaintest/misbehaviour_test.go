@@ -38,10 +38,12 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestScenarioMisbehaviourDetection(t *testing.T) {
+func TestRelayerMisbehaviourDetection(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
+
+	t.Parallel()
 
 	numVals := 1
 	numFullNodes := 0
