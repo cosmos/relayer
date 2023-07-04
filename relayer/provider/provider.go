@@ -116,6 +116,7 @@ type ConnectionInfo struct {
 	Height                       uint64
 	ConnID                       string
 	ClientID                     string
+	CommitmentPrefix             commitmenttypes.MerklePrefix
 	CounterpartyClientID         string
 	CounterpartyConnID           string
 	CounterpartyCommitmentPrefix commitmenttypes.MerklePrefix

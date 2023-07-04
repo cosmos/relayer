@@ -218,7 +218,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	cc := &icon.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       (*icon.MerklePrefix)(&msgOpenInit.CounterpartyCommitmentPrefix),
+		Prefix:       (*icon.MerklePrefix)(&msgOpenInit.CommitmentPrefix),
 	}
 
 	ccEncode, err := proto.Marshal(cc)

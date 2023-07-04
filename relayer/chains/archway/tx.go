@@ -412,7 +412,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionI
 	counterparty := conntypes.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       defaultChainPrefix,
+		Prefix:       msgOpenInit.CommitmentPrefix,
 	}
 
 	params := &conntypes.MsgConnectionOpenTry{

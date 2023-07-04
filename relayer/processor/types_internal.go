@@ -243,7 +243,7 @@ func (msg connectionIBCMessage) assemble(
 		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
 		assembleMessage = dst.chainProvider.MsgConnectionOpenInit
 	case conntypes.EventTypeConnectionOpenTry:
-		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
+		msg.info.CommitmentPrefix = src.chainProvider.CommitmentPrefix()
 		connProof = src.chainProvider.ConnectionHandshakeProof
 		assembleMessage = dst.chainProvider.MsgConnectionOpenTry
 	case conntypes.EventTypeConnectionOpenAck:

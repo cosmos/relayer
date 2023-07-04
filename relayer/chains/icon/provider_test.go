@@ -12,6 +12,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 
 	"github.com/stretchr/testify/assert"
@@ -121,7 +122,9 @@ func TestMsgOpenTryProof(t *testing.T) {
 		Counterparty: &icn.Counterparty{
 			ClientId:     msgOpenTry.ClientId,
 			ConnectionId: "",
-			Prefix:       &defaultChainPrefix,
+			Prefix: &icon.MerklePrefix{
+				KeyPrefix: []byte("commitments"),
+			},
 		},
 	}
 	key = common.GetConnectionCommitmentKey("connection-0")
