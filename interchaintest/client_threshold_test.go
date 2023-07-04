@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
@@ -24,6 +25,7 @@ const (
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
 func TestScenarioClientThresholdUpdate(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	t.Parallel()
 
 	ctx := context.Background()
@@ -144,6 +146,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 // Tests that without the threshold flag, the clients will be updated
 // automatically due to passing 2/3 trusting period expiration.
 func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	t.Parallel()
 
 	ctx := context.Background()

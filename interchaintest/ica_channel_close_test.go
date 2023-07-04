@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
@@ -22,6 +23,7 @@ import (
 // TestScenarioICAChannelClose is very similar to the TestScenarioInterchainAccounts,
 // but instead it tests manually closing the channel using the relayer CLI.
 func TestScenarioICAChannelClose(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
@@ -14,6 +15,7 @@ import (
 )
 
 func TestScenarioTendermint37Boundary(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}

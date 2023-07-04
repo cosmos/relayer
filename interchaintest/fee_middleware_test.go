@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
@@ -17,6 +18,7 @@ import (
 )
 
 func TestScenarioFeeMiddleware(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	if testing.Short() {
 		t.Skip()
 	}

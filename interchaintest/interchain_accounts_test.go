@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
@@ -23,6 +24,7 @@ import (
 // TestScenarioInterchainAccounts is a test case that performs simulations and assertions around some basic
 // features and packet flows surrounding interchain accounts. See: https://github.com/cosmos/interchain-accounts-demo
 func TestScenarioInterchainAccounts(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}

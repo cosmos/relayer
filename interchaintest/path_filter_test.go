@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -21,6 +22,7 @@ import (
 
 // TestScenarioPathFilterAllow tests the channel allowlist
 func TestScenarioPathFilterAllow(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	t.Parallel()
 	ctx := context.Background()
 
@@ -159,6 +161,7 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 // TestScenarioPathFilterDeny tests the channel denylist
 func TestScenarioPathFilterDeny(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	t.Parallel()
 	ctx := context.Background()
 

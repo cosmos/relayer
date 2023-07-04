@@ -39,6 +39,7 @@ import (
 )
 
 func TestScenarioMisbehaviourDetection(t *testing.T) {
+	sdk.SetAddrCacheEnabled(false)
 	if testing.Short() {
 		t.Skip()
 	}
