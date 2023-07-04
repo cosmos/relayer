@@ -596,7 +596,7 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 	}
 
 	if allPorts == nil || len(allPorts) <= 0 {
-		return nil, fmt.Errorf("No ports available")
+		return channels, nil
 	}
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
