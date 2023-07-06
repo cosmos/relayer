@@ -154,6 +154,10 @@ func getFeePayer(tx *typestx.Tx) string {
 	case *clienttypes.MsgUpdateClient:
 		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
+	case *clienttypes.MsgUpgradeClient:
+		return firstMsg.Signer
+	case *clienttypes.MsgSubmitMisbehaviour:
+		return firstMsg.Signer
 	default:
 		return firstMsg.GetSigners()[0].String()
 	}
