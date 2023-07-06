@@ -22,6 +22,7 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -39,7 +40,9 @@ import (
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -1499,7 +1502,29 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 	clientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
 		return &tmclient.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to tendermint type")
+			fmt.Errorf("error when casting exported clientstate to tendermint type, got(%T)", clientStateExported)
+	}
+
+	return clientState, nil
+}
+
+// queryLocalhostClientState retrieves the latest consensus state for a client in state at a given height
+// and unpacks/cast it to localhost client state.
+func (cc *CosmosProvider) queryLocalhostClientState(ctx context.Context, srch int64) (*localhost.ClientState, error) {
+	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, ibcexported.LocalhostClientID)
+	if err != nil {
+		return &localhost.ClientState{}, err
+	}
+
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return &localhost.ClientState{}, err
+	}
+
+	clientState, ok := clientStateExported.(*localhost.ClientState)
+	if !ok {
+		return &localhost.ClientState{},
+			fmt.Errorf("error when casting exported clientstate to localhost client type, got(%T)", clientStateExported)
 	}
 
 	return clientState, nil
@@ -1622,6 +1647,10 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 		txf = txf.WithGas(cc.PCfg.MinGasAmount)
 	}
 
+	txf, err = cc.SetWithExtensionOptions(txf)
+	if err != nil {
+		return tx.Factory{}, err
+	}
 	return txf, nil
 }
 
@@ -1642,6 +1671,35 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 		gas = math.Min(gas, float64(cc.PCfg.MaxGasAmount))
 	}
 	return uint64(gas), nil
+}
+
+// SetWithExtensionOptions sets the dynamic fee extension options on the given
+// transaction factory using the configuration options from the CosmosProvider.
+// The function creates an extension option for each configuration option and
+// serializes it into a byte slice before adding it to the list of extension
+// options. The function returns the updated transaction factory with the new
+// extension options or an error if the serialization fails or an invalid option
+// value is encountered.
+func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, error) {
+	extOpts := make([]*types.Any, 0, len(cc.PCfg.ExtensionOptions))
+	for _, opt := range cc.PCfg.ExtensionOptions {
+		max, ok := sdk.NewIntFromString(opt.Value)
+		if !ok {
+			return txf, fmt.Errorf("invalid opt value")
+		}
+		extensionOption := ethermint.ExtensionOptionDynamicFeeTx{
+			MaxPriorityPrice: max,
+		}
+		extBytes, err := extensionOption.Marshal()
+		if err != nil {
+			return txf, err
+		}
+		extOpts = append(extOpts, &types.Any{
+			TypeUrl: "/ethermint.types.v1.ExtensionOptionDynamicFeeTx",
+			Value:   extBytes,
+		})
+	}
+	return txf.WithExtensionOptions(extOpts...), nil
 }
 
 // CalculateGas simulates a tx to generate the appropriate gas settings before broadcasting a tx.

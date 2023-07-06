@@ -12,6 +12,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -166,15 +167,29 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 	if state, ok := ccp.latestClientState[clientID]; ok && state.TrustingPeriod > 0 {
 		return state, nil
 	}
-	cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
-	if err != nil {
-		return provider.ClientState{}, err
+
+	var clientState provider.ClientState
+	if clientID == ibcexported.LocalhostClientID {
+		cs, err := ccp.chainProvider.queryLocalhostClientState(ctx, int64(ccp.latestBlock.Height))
+		if err != nil {
+			return provider.ClientState{}, err
+		}
+		clientState = provider.ClientState{
+			ClientID:        clientID,
+			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+		}
+	} else {
+		cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
+		if err != nil {
+			return provider.ClientState{}, err
+		}
+		clientState = provider.ClientState{
+			ClientID:        clientID,
+			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+			TrustingPeriod:  cs.TrustingPeriod,
+		}
 	}
-	clientState := provider.ClientState{
-		ClientID:        clientID,
-		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
-		TrustingPeriod:  cs.TrustingPeriod,
-	}
+
 	ccp.latestClientState[clientID] = clientState
 	return clientState, nil
 }

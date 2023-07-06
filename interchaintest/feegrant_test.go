@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
@@ -153,7 +152,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	grantee2KeyPrefix := "grantee2"
 	grantee3KeyPrefix := "grantee3"
 	granterKeyPrefix := "default"
-	coinType := "118"
+	//coinType := "118"
 
 	mnemonicAny := genMnemonic(t)
 	gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, int64(fundAmount), gaia)
@@ -187,10 +186,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
-		gaia.Config().ChainID,
+		gaia.Config(),
 		gaiaGranterWallet.KeyName(),
-		coinType,
-		string(hd.Secp256k1Type),
+		//coinType,
+		//string(hd.Secp256k1Type),
 		gaiaGranterWallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -199,10 +198,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
-		gaia.Config().ChainID,
+		gaia.Config(),
 		gaiaGranteeWallet.KeyName(),
-		coinType,
-		string(hd.Secp256k1Type),
+		//coinType,
+		//string(hd.Secp256k1Type),
 		gaiaGranteeWallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -211,10 +210,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
-		gaia.Config().ChainID,
+		gaia.Config(),
 		gaiaGrantee2Wallet.KeyName(),
-		coinType,
-		string(hd.Secp256k1Type),
+		//coinType,
+		//string(hd.Secp256k1Type),
 		gaiaGrantee2Wallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -223,10 +222,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
-		gaia.Config().ChainID,
+		gaia.Config(),
 		gaiaGrantee3Wallet.KeyName(),
-		coinType,
-		string(hd.Secp256k1Type),
+		//coinType,
+		//string(hd.Secp256k1Type),
 		gaiaGrantee3Wallet.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
@@ -235,10 +234,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
-		osmosis.Config().ChainID,
+		osmosis.Config(),
 		osmosisUser.KeyName(),
-		coinType,
-		string(hd.Secp256k1Type),
+		//coinType,
+		//string(hd.Secp256k1Type),
 		osmosisUser.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
@@ -247,10 +246,10 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	//IBC chain config is unrelated to RELAYER config so this step is necessary
 	if err := r.RestoreKey(ctx,
 		eRep,
-		osmosis.Config().ChainID,
+		osmosis.Config(),
 		gaiaUser.KeyName(),
-		coinType,
-		string(hd.Secp256k1Type),
+		//coinType,
+		//string(hd.Secp256k1Type),
 		gaiaUser.Mnemonic(),
 	); err != nil {
 		t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
