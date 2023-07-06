@@ -8,8 +8,8 @@ package sr25519
 import (
 	fmt "fmt"
 	github_com_cometbft_cometbft_crypto_sr25519 "github.com/cometbft/cometbft/crypto/sr25519"
+	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
-	_ "github.com/gogo/protobuf/gogoproto"
 	io "io"
 	math "math"
 	math_bits "math/bits"

@@ -89,6 +89,14 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
 	r.StartRelayer(ctx, eRep, ibcPath)
+	t.Cleanup(
+		func() {
+			err := r.StopRelayer(ctx, eRep)
+			if err != nil {
+				t.Logf("an error occured while stopping the relayer: %s", err)
+			}
+		},
+	)
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)
@@ -226,6 +234,14 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
 	r.StartRelayer(ctx, eRep, ibcPath)
+	t.Cleanup(
+		func() {
+			err := r.StopRelayer(ctx, eRep)
+			if err != nil {
+				t.Logf("an error occured while stopping the relayer: %s", err)
+			}
+		},
+	)
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)

@@ -17,6 +17,9 @@
 * [\#1178](https://github.com/cosmos/relayer/pull/1178) Add max-gas-amount parameter in chain configs.
 * [\#1180](https://github.com/cosmos/relayer/pull/1180) Update SDK from v0.47.0 to v0.47.2.
 * [\#1205](https://github.com/cosmos/relayer/pull/1205) Update ibc-go to v7.0.1.
+* [\#1179](https://github.com/cosmos/relayer/pull/1179) Add extension-options parameter in chain configs and update SDK to v0.47.3.
+* [\#1208](https://github.com/cosmos/relayer/pull/1208) Replace gogo/protobuf to cosmos/gogoproto.
+* [\#1221](https://github.com/cosmos/relayer/pull/1221) Update cometbft to v0.37.2 and ibc-go to v7.2.0.
 
 ## v0.9.3
 
