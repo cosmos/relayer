@@ -5,23 +5,15 @@ import (
 	"math"
 	"testing"
 
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
+	"github.com/cosmos/relayer/v2/relayer/ethermint"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
 )
-
-type mockAccountSequenceMismatchError struct {
-	Expected uint64
-	Actual   uint64
-}
-
-func (err mockAccountSequenceMismatchError) Error() string {
-	return fmt.Sprintf("account sequence mismatch, expected %d, got %d: incorrect account sequence", err.Expected, err.Actual)
-}
-
-func TestHandleAccountSequenceMismatchError(t *testing.T) {
-	p := &CosmosProvider{}
-	p.handleAccountSequenceMismatchError(mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
-	require.Equal(t, p.nextAccountSeq, uint64(10))
-}
 
 func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 	testCases := []struct {
@@ -80,5 +72,77 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 				require.Equal(t, adjustedGas, tc.expectedGas)
 			}
 		})
+	}
+}
+
+type mockAccountSequenceMismatchError struct {
+	Expected uint64
+	Actual   uint64
+}
+
+func (err mockAccountSequenceMismatchError) Error() string {
+	return fmt.Sprintf("account sequence mismatch, expected %d, got %d: incorrect account sequence", err.Expected, err.Actual)
+}
+
+func TestHandleAccountSequenceMismatchError(t *testing.T) {
+	p := &CosmosProvider{}
+	p.handleAccountSequenceMismatchError(mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
+	require.Equal(t, p.nextAccountSeq, uint64(10))
+}
+
+type mockTxConfig struct {
+	legacytx.StdTxConfig
+	txBuilder *mockTxBuilder
+}
+
+func (cfg mockTxConfig) NewTxBuilder() client.TxBuilder {
+	if cfg.txBuilder == nil {
+		cfg.txBuilder = &mockTxBuilder{
+			TxBuilder: cfg.StdTxConfig.NewTxBuilder(),
+		}
+	}
+	return cfg.txBuilder
+}
+
+type mockTxBuilder struct {
+	client.TxBuilder
+	extOptions []*types.Any
+}
+
+func (b *mockTxBuilder) SetExtensionOptions(extOpts ...*types.Any) {
+	b.extOptions = extOpts
+}
+
+func TestSetWithExtensionOptions(t *testing.T) {
+	cc := &CosmosProvider{PCfg: CosmosProviderConfig{
+		ExtensionOptions: []provider.ExtensionOption{
+			{Value: "1000000000"},
+			{Value: "2000000000"},
+		},
+	}}
+	txf := tx.Factory{}.
+		WithChainID("chainID").
+		WithTxConfig(mockTxConfig{})
+	updatedTxf, err := cc.SetWithExtensionOptions(txf)
+	require.NoError(t, err)
+	txb, err := updatedTxf.BuildUnsignedTx()
+	require.NoError(t, err)
+	extOptions := txb.(*mockTxBuilder).extOptions
+	actualNumExtOptions := len(extOptions)
+	expectedNumExtOptions := len(cc.PCfg.ExtensionOptions)
+	require.Equal(t, expectedNumExtOptions, actualNumExtOptions)
+	// Check that each extension option was added with the correct type URL and value
+	for i, opt := range cc.PCfg.ExtensionOptions {
+		expectedTypeURL := "/ethermint.types.v1.ExtensionOptionDynamicFeeTx"
+		max, ok := sdk.NewIntFromString(opt.Value)
+		require.True(t, ok)
+		expectedValue, err := (&ethermint.ExtensionOptionDynamicFeeTx{
+			MaxPriorityPrice: max,
+		}).Marshal()
+		require.NoError(t, err)
+		actualTypeURL := extOptions[i].TypeUrl
+		actualValue := extOptions[i].Value
+		require.Equal(t, expectedTypeURL, actualTypeURL)
+		require.Equal(t, expectedValue, actualValue)
 	}
 }

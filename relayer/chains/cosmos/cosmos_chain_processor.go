@@ -12,6 +12,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -167,15 +168,29 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 	if state, ok := ccp.latestClientState[clientID]; ok && state.TrustingPeriod > 0 {
 		return state, nil
 	}
-	cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
-	if err != nil {
-		return provider.ClientState{}, err
+
+	var clientState provider.ClientState
+	if clientID == ibcexported.LocalhostClientID {
+		cs, err := ccp.chainProvider.queryLocalhostClientState(ctx, int64(ccp.latestBlock.Height))
+		if err != nil {
+			return provider.ClientState{}, err
+		}
+		clientState = provider.ClientState{
+			ClientID:        clientID,
+			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+		}
+	} else {
+		cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
+		if err != nil {
+			return provider.ClientState{}, err
+		}
+		clientState = provider.ClientState{
+			ClientID:        clientID,
+			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+			TrustingPeriod:  cs.TrustingPeriod,
+		}
 	}
-	clientState := provider.ClientState{
-		ClientID:        clientID,
-		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
-		TrustingPeriod:  cs.TrustingPeriod,
-	}
+
 	ccp.latestClientState[clientID] = clientState
 	return clientState, nil
 }
@@ -517,22 +532,25 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	}
 
 	// Get the balance for the chain provider's key
-	relayerWalletBalance, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
+	relayerWalletBalances, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
 	if err != nil {
 		ccp.log.Error(
 			"Failed to query relayer balance",
 			zap.Error(err),
 		)
 	}
-
+	address, err := ccp.chainProvider.Address()
+	if err != nil {
+		ccp.log.Error(
+			"Failed to get relayer bech32 wallet addresss",
+			zap.Error(err),
+		)
+	}
 	// Print the relevant gas prices
 	for _, gasDenom := range *ccp.parsedGasPrices {
-		for _, balance := range relayerWalletBalance {
-			if balance.Denom == gasDenom.Denom {
-				// Convert to a big float to get a float64 for metrics
-				f, _ := big.NewFloat(0.0).SetInt(balance.Amount.BigInt()).Float64()
-				ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), balance.Denom, f)
-			}
-		}
+		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
+		// Convert to a big float to get a float64 for metrics
+		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }

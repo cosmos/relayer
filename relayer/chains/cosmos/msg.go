@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-
 type CosmosMessage struct {
 	Msg sdk.Msg
 }
@@ -34,7 +33,7 @@ func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	sdkMsgs := make([]sdk.Msg, 0)
 	for _, rMsg := range rm {
 		if val, ok := rMsg.(CosmosMessage); !ok {
-			fmt.Printf("got data of type %T but wanted provider.CosmosMessage \n", val)
+			fmt.Printf("got data of type %T but wanted provider.CosmosMessage \n", rMsg)
 			return nil
 		} else {
 			sdkMsgs = append(sdkMsgs, val.Msg)

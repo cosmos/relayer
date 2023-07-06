@@ -120,6 +120,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 		startCmd(a),
 		lineBreakCommand(),
 		getVersionCmd(a),
+		addressCmd(a),
 	)
 
 	return rootCmd

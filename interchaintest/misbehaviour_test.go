@@ -14,12 +14,15 @@ import (
 	cometprotoversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	comettypes "github.com/cometbft/cometbft/types"
 	cometversion "github.com/cometbft/cometbft/version"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibctypes "github.com/cosmos/ibc-go/v7/modules/core/types"
 	ibccomettypes "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v7/testing"
@@ -35,7 +38,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestScenarioMisbehaviourDetection(t *testing.T) {
+func TestRelayerMisbehaviourDetection(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -90,6 +93,7 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	// create a new user account and wait a few blocks for it to be created on chain
 	user := interchaintest.GetAndFundTestUsers(t, ctx, "user-1", 10_000_000, chainA)[0]
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
+	require.NoError(t, err)
 
 	// Start the relayer
 	require.NoError(t, r.StartRelayer(ctx, eRep, pathChainAChainB))
@@ -171,8 +175,17 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	// attempt to update client with duplicate header
 	b := cosmos.NewBroadcaster(t, chainA)
 
-	msg, err := clienttypes.NewMsgUpdateClient(clientID, newHeader, user.FormattedAddress())
+	m, ok := newHeader.(proto.Message)
+	require.True(t, ok)
+
+	protoAny, err := codectypes.NewAnyWithValue(m)
 	require.NoError(t, err)
+
+	msg := &clienttypes.MsgUpdateClient{
+		ClientId:      clientID,
+		ClientMessage: protoAny,
+		Signer:        user.FormattedAddress(),
+	}
 
 	resp, err := cosmos.BroadcastTx(ctx, b, user, msg)
 	require.NoError(t, err)
@@ -200,6 +213,7 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 }
 
 func assertTransactionIsValid(t *testing.T, resp sdk.TxResponse) {
+	t.Helper()
 	require.NotNil(t, resp)
 	require.NotEqual(t, 0, resp.GasUsed)
 	require.NotEqual(t, 0, resp.GasWanted)
@@ -209,7 +223,13 @@ func assertTransactionIsValid(t *testing.T, resp sdk.TxResponse) {
 	require.NotEmpty(t, resp.Events)
 }
 
-func queryHeaderAtHeight(ctx context.Context, t *testing.T, height int64, chain *cosmos.CosmosChain) (*ibccomettypes.Header, error) {
+func queryHeaderAtHeight(
+	ctx context.Context,
+	t *testing.T,
+	height int64,
+	chain *cosmos.CosmosChain,
+) (*ibccomettypes.Header, error) {
+	t.Helper()
 	var (
 		page    = 1
 		perPage = 100000
@@ -239,7 +259,8 @@ func createTMClientHeader(
 	tmValSet, tmTrustedVals *comettypes.ValidatorSet,
 	signers []comettypes.PrivValidator,
 	oldHeader *ibccomettypes.Header,
-) *ibccomettypes.Header {
+) exported.ClientMessage {
+	t.Helper()
 	var (
 		valSet      *cometproto.ValidatorSet
 		trustedVals *cometproto.ValidatorSet
