@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestScenarioFeeMiddleware(t *testing.T) {
+func TestRelayerFeeMiddleware(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
