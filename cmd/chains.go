@@ -447,7 +447,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 			continue
 		}
 
-		chainConfig, err := chainInfo.GetChainConfig(ctx)
+		chainConfig, err := chainInfo.GetChainConfig(ctx, chain)
 		if err != nil {
 			a.log.Warn(
 				"Error generating chain config",
