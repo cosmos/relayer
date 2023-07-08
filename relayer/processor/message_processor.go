@@ -141,6 +141,9 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 
 	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold)
 
+	timeToExpiration := dst.clientState.TrustingPeriod - time.Since(consensusHeightTime)
+	mp.metrics.SetSecsToClientExpiration(dst.info.ChainID, timeToExpiration)
+
 	if shouldUpdateClientNow {
 		mp.log.Info("Client update threshold condition met",
 			zap.String("chain_id", dst.info.ChainID),
