@@ -37,15 +37,15 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amou
 	m.FeesSpent.WithLabelValues(chain, key, address, denom).Set(amount)
 }
 
-func (m *PrometheusMetrics) SetSecsToClientExpiration(chain string, timeToExpiration time.Duration) {
-	m.ClientExpiration.WithLabelValues(chain).Set(timeToExpiration.Seconds())
+func (m *PrometheusMetrics) SetClientExpiration(chain, clientID, trustingPeriod string, timeToExpiration time.Duration) {
+	m.ClientExpiration.WithLabelValues(chain, clientID, trustingPeriod).Set(timeToExpiration.Seconds())
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	clientExpiration := []string{"chain"}
+	clientExpirationLables := []string{"chainID", "clientID", "trustingPeriod"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -71,8 +71,8 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
 		ClientExpiration: registerer.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "chain_client_expiration",
+			Name: "chain_client_expiration_seconds",
 			Help: "Seconds until the client expires",
-		}, clientExpiration),
+		}, clientExpirationLables),
 	}
 }
