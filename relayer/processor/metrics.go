@@ -30,8 +30,8 @@ func (m *PrometheusMetrics) SetWalletBalance(chain, gasPrice, key, address, deno
 	m.WalletBalance.WithLabelValues(chain, gasPrice, key, address, denom).Set(balance)
 }
 
-func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amount float64) {
-	m.FeesSpent.WithLabelValues(chain, key, address, denom).Set(amount)
+func (m *PrometheusMetrics) SetFeesSpent(chain, gasPrice, key, address, denom string, amount float64) {
+	m.FeesSpent.WithLabelValues(chain, gasPrice, key, address, denom).Set(amount)
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
