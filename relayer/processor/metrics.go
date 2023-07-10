@@ -37,7 +37,7 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amou
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
-	walletLabels := []string{"chain", "key", "address", "denom"}
+	walletLabels := []string{"chain", "gasPrice", "key", "address", "denom"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
