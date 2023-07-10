@@ -26,8 +26,8 @@ func (m *PrometheusMetrics) SetLatestHeight(chain string, height int64) {
 	m.LatestHeightGauge.WithLabelValues(chain).Set(float64(height))
 }
 
-func (m *PrometheusMetrics) SetWalletBalance(chain, key, address, denom string, balance float64) {
-	m.WalletBalance.WithLabelValues(chain, key, address, denom).Set(balance)
+func (m *PrometheusMetrics) SetWalletBalance(chain, gasPrice, key, address, denom string, balance float64) {
+	m.WalletBalance.WithLabelValues(chain, gasPrice, key, address, denom).Set(balance)
 }
 
 func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amount float64) {
