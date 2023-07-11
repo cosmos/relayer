@@ -35,6 +35,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -43,13 +44,13 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 		t.Skip()
 	}
 
-	t.Parallel()
-
 	numVals := 1
 	numFullNodes := 0
-	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom"}},
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom"}}},
+	logger := zaptest.NewLogger(t)
+
+	cf := interchaintest.NewBuiltinChainFactory(logger, []*interchaintest.ChainSpec{
+		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom", Bech32Prefix: "cosmos"}},
+		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom", Bech32Prefix: "cosmos"}}},
 	)
 
 	chains, err := cf.Chains(t.Name())
@@ -85,6 +86,8 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 		NetworkID:        network,
 		SkipPathCreation: false,
 	}))
+
+	t.Parallel()
 
 	t.Cleanup(func() {
 		_ = ic.Close()
@@ -186,6 +189,7 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 		ClientMessage: protoAny,
 		Signer:        user.FormattedAddress(),
 	}
+	logger.Info("Misbehaviour test, MsgUpdateClient", zap.String("Signer", user.FormattedAddress()))
 
 	resp, err := cosmos.BroadcastTx(ctx, b, user, msg)
 	require.NoError(t, err)

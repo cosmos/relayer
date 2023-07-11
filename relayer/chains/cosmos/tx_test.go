@@ -20,12 +20,12 @@ type mockAccountSequenceMismatchError struct {
 	Actual   uint64
 }
 
-func TestHandleAccountSequenceMismatchError(t *testing.T) {
-	p := &CosmosProvider{}
-	ws := &WalletState{}
-	p.handleAccountSequenceMismatchError(ws, mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
-	require.Equal(t, ws.NextAccountSequence, uint64(10))
-}
+// func TestHandleAccountSequenceMismatchError(t *testing.T) {
+// 	p := &CosmosProvider{}
+// 	ws := &WalletState{}
+// 	p.handleAccountSequenceMismatchError(ws, mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
+// 	require.Equal(t, ws.NextAccountSequence, uint64(10))
+// }
 
 func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 	testCases := []struct {

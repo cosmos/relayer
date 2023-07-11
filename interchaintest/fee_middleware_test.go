@@ -21,8 +21,6 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 		t.Skip()
 	}
 
-	t.Parallel()
-
 	nv := 1
 	nf := 0
 
@@ -73,11 +71,13 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 		SkipPathCreation: false,
 	}))
 
+	t.Parallel()
+
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
 
-	err = testutil.WaitForBlocks(ctx, 10, chainA, chainB)
+	err = testutil.WaitForBlocks(ctx, 5, chainA, chainB)
 	require.NoError(t, err)
 
 	// ChainID of ChainA

@@ -26,8 +26,6 @@ func TestScenarioICAChannelClose(t *testing.T) {
 		t.Skip("skipping in short mode")
 	}
 
-	t.Parallel()
-
 	client, network := interchaintest.DockerSetup(t)
 
 	rep := testreporter.NewNopReporter()
@@ -92,6 +90,8 @@ func TestScenarioICAChannelClose(t *testing.T) {
 		// Uncomment this to load blocks, txs, msgs, and events into sqlite db as test runs
 		// BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 	}))
+
+	t.Parallel()
 
 	// Fund a user account on chain1 and chain2
 	const userFunds = int64(10_000_000_000)
