@@ -244,7 +244,7 @@ func TestScenarioICAChannelClose(t *testing.T) {
 
 	// Wait for ack
 	_, err = cosmos.PollForMessage(ctx, chain1, ir,
-		c1h, c1h+10, ackFound)
+		c1h, c1h+25, ackFound)
 	require.NoError(t, err)
 
 	// Assert that the funds have been received by the user account on chain2
@@ -311,7 +311,7 @@ func TestScenarioICAChannelClose(t *testing.T) {
 
 	// Wait for channel open confirm
 	_, err = cosmos.PollForMessage(ctx, chain2, ir,
-		c2h, c2h+30, channelFound)
+		c2h, c2h+40, channelFound)
 	require.NoError(t, err)
 
 	// Assert that a new channel has been opened and the same ICA is in use

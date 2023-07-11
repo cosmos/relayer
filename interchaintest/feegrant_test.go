@@ -362,12 +362,7 @@ func genMnemonic(t *testing.T) string {
 // 				if cosmProv {
 // 					chain := cProv.PCfg.ChainID
 // 					feegrantInfo, isFeegrantedChain := feegrantedChains[chain]
-
 // 					done := cProv.SetSDKContext()
-// 					// sdkConf := types.GetConfig()
-// 					// sdkConf.SetBech32PrefixForAccount(cProv.PCfg.AccountPrefix, cProv.PCfg.AccountPrefix+"pub")
-// 					// sdkConf.SetBech32PrefixForValidator(cProv.PCfg.AccountPrefix+"valoper", cProv.PCfg.AccountPrefix+"valoperpub")
-// 					// sdkConf.SetBech32PrefixForConsensusNode(cProv.PCfg.AccountPrefix+"valcons", cProv.PCfg.AccountPrefix+"valconspub")
 
 // 					hash, err := hex.DecodeString(curr.Response.TxHash)
 // 					require.Nil(t, err)
