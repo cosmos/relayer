@@ -70,8 +70,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		}, walletLabels),
 		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_block_query_failure",
-			Help: `The total number of block query failures. 
-			These are separated into two catagories: "RPC Client" and "Header"`,
+			Help: "The total number of block query failures. The failures are separated into two catagories: 'RPC Client' and 'IBCHeader'",
 		}, blockQueryFailureLabels),
 	}
 }
