@@ -80,8 +80,13 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
+var seqGuardSingleton sync.Mutex
+
 // Gets the sequence guard. If it doesn't exist, initialized and returns it.
 func ensureSequenceGuard(cc *CosmosProvider, key string) *WalletState {
+	seqGuardSingleton.Lock()
+	defer seqGuardSingleton.Unlock()
+
 	if cc.walletStateMap == nil {
 		cc.walletStateMap = map[string]*WalletState{}
 	}
