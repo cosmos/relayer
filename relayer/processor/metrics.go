@@ -43,7 +43,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	queryFailureLabels := []string{"chain", "error"}
+	blockQueryFailureLabels := []string{"chain", "error"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -70,7 +70,8 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		}, walletLabels),
 		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_block_query_failure",
-			Help: "The total number of block query failures",
-		}, queryFailureLabels),
+			Help: `The total number of block query failures. 
+			These are separated into two catagories: "RPC Client" and "Header"`,
+		}, blockQueryFailureLabels),
 	}
 }
