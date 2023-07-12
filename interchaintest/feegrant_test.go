@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/avast/retry-go/v4"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
@@ -378,7 +381,7 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 
 					hash, err := hex.DecodeString(curr.Response.TxHash)
 					require.Nil(t, err)
-					txResp, err := cProv.RPCClient.Tx(ctx, hash, true)
+					txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
 					require.Nil(t, err)
 
 					require.Nil(t, err)
@@ -513,4 +516,17 @@ func TestScenarioFeegrantBasic(t *testing.T) {
 	require.NoError(t, err)
 	require.Less(t, gaiaGranterIBCBalance, fundAmount)
 	r.StopRelayer(ctx, eRep)
+}
+
+func TxWithRetry(ctx context.Context, client rpcclient.Client, hash []byte) (*ctypes.ResultTx, error) {
+	var err error
+	var res *ctypes.ResultTx
+	if err = retry.Do(func() error {
+		res, err = client.Tx(ctx, hash, true)
+		return err
+	}, retry.Context(ctx), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr); err != nil {
+		return res, err
+	}
+
+	return res, err
 }
