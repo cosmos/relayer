@@ -37,15 +37,15 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amou
 	m.FeesSpent.WithLabelValues(chain, key, address, denom).Set(amount)
 }
 
-func (m *PrometheusMetrics) SetClientExpiration(chain, clientID, trustingPeriod string, timeToExpiration time.Duration) {
-	m.ClientExpiration.WithLabelValues(chain, clientID, trustingPeriod).Set(timeToExpiration.Seconds())
+func (m *PrometheusMetrics) SetClientExpiration(pathName, chain, clientID, trustingPeriod string, timeToExpiration time.Duration) {
+	m.ClientExpiration.WithLabelValues(pathName, chain, clientID, trustingPeriod).Set(timeToExpiration.Seconds())
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	clientExpirationLables := []string{"chainID", "clientID", "trustingPeriod"}
+	clientExpirationLables := []string{"pathName", "chainID", "clientID", "trustingPeriod"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
