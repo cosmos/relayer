@@ -12,6 +12,7 @@ type PrometheusMetrics struct {
 	LatestHeightGauge     *prometheus.GaugeVec
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
+	BlockQueryFailure     *prometheus.CounterVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
@@ -34,10 +35,15 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amou
 	m.FeesSpent.WithLabelValues(chain, key, address, denom).Set(amount)
 }
 
+func (m *PrometheusMetrics) IncBlockQueryFailure(chain, err string) {
+	m.BlockQueryFailure.WithLabelValues(chain, err).Inc()
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
+	queryFailureLabels := []string{"chain", "error"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -62,5 +68,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_fees_spent",
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
+		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
+			Name: "cosmos_relayer_block_query_failure",
+			Help: "The total number of block query failures",
+		}, queryFailureLabels),
 	}
 }
