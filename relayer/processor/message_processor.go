@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -32,6 +33,9 @@ type messageProcessor struct {
 
 	isLocalhost bool
 }
+
+// catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
+var promErrorCatagories = []error{chantypes.ErrRedundantTx, sdkerrors.ErrInsufficientFunds, sdkerrors.ErrInvalidCoins, sdkerrors.ErrOutOfGas, sdkerrors.ErrWrongSequence}
 
 // trackMessage stores the message tracker in the correct slice and index based on the type.
 func (mp *messageProcessor) trackMessage(tracker messageToTrack, i int) {
@@ -354,6 +358,16 @@ func (mp *messageProcessor) sendClientUpdate(
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		)
+
+		for _, promError := range promErrorCatagories {
+			if mp.metrics != nil {
+				if errors.Is(err, promError) {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+				} else {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
+				}
+			}
+		}
 		return
 	}
 	dst.log.Debug("Client update broadcast completed")
@@ -423,6 +437,17 @@ func (mp *messageProcessor) sendBatchMessages(
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		}
+
+		for _, promError := range promErrorCatagories {
+			if mp.metrics != nil {
+				if errors.Is(err, promError) {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+				} else {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
+				}
+			}
+		}
+
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			mp.log.Debug("Redundant message(s)", errFields...)
 			return
@@ -483,6 +508,17 @@ func (mp *messageProcessor) sendSingleMessage(
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
 		}
+
+		for _, promError := range promErrorCatagories {
+			if mp.metrics != nil {
+				if errors.Is(err, promError) {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+				} else {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
+				}
+			}
+		}
+
 		errFields = append(errFields, zap.Object("msg", tracker))
 		errFields = append(errFields, zap.Error(err))
 		if errors.Is(err, chantypes.ErrRedundantTx) {

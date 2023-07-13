@@ -12,6 +12,7 @@ type PrometheusMetrics struct {
 	LatestHeightGauge     *prometheus.GaugeVec
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
+	TxFailureError        *prometheus.CounterVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
@@ -34,10 +35,15 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amou
 	m.FeesSpent.WithLabelValues(chain, key, address, denom).Set(amount)
 }
 
+func (m *PrometheusMetrics) IncTxFailure(path, chain, errDesc string) {
+	m.TxFailureError.WithLabelValues(path, chain, errDesc).Inc()
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
+	txFailureLabels := []string{"path", "chain", "err"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -62,5 +68,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_fees_spent",
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
+		TxFailureError: registerer.NewCounterVec(prometheus.CounterOpts{
+			Name: "cosmos_relayer_tx_failure",
+			Help: "The total number of tx failures broken up into categories. See https://github.com/cosmos/relayer/blob/main/docs/advanced_usage.md#monitoring for list of catagories. 'Tx Failure' is the catch-all category",
+		}, txFailureLabels),
 	}
 }
