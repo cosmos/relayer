@@ -1,0 +1,89 @@
+name: Deploy Relayer Locally
+
+on:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  relay-local-deployment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Pull & update submodules recursively
+        run: |
+          git submodule update --init --recursive
+          git submodule update --recursive --remote
+
+      # Install and setup go
+      - name: Set up Go 1.19
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+
+      # setup gopath
+      - name: Set PATH
+        run: |
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+        shell: bash
+
+      # Install rust toolchain
+      - name: Install rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.69.0
+          target: wasm32-unknown-unknown
+          override: true
+          profile: minimal
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # Build relay 
+      - name: Build relayer
+        run: make install
+
+      # Install goloop
+      - name: Install goloop
+        run: go install github.com/icon-project/goloop/cmd/goloop@latest
+
+      # Build archwayd
+      - name: Build archwayd
+        working-directory: .github/scripts/archway
+        run: |
+          echo $PWD
+          echo $GITHUB_WORKSPACE
+          make install
+
+      # Build comsmwasm
+      - name: Compile WASM
+        working-directory: .github/scripts/IBC-Integration
+        run: |
+          rustup component add rustfmt --toolchain 1.69.0-x86_64-unknown-linux-gnu
+          rustup component add clippy --toolchain 1.69.0-x86_64-unknown-linux-gnu
+          bash ./optimize_build.sh
+
+      - name: Build javascore
+        working-directory: .github/scripts/IBC-Integration/contracts/javascore
+        run: |
+          ./gradlew clean build 
+          ./gradlew optimizedJar
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          fingerprint: "C787AB518A0C08B7AE1E1ADA2809A1A84E32159A"
+          trust_level: 5
+      
+
+      - name: start relay
+        working-directory: .github/scripts
+        run: bash ./start_relay.sh
+
+                              

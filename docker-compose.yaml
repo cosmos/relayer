@@ -1,0 +1,15 @@
+version: "3.7"
+services:
+    ibc-relayer:
+        container_name: relayer01
+        image: docker.io/18cr314y/relay-node:latest
+        environment:
+            - PATH_NAME="icon-archway"
+        entrypoint:
+            - sh
+            - /opt/start-relay.sh
+        volumes:
+            - ~/.relayer:/home/relayer/.relayer:rw
+            - ./scripts:/opt
+        ports:
+            - "5183:5183"

@@ -679,6 +679,12 @@ func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	)
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		callbackErr = err
+
+		if err != nil {
+			wg.Done()
+			return
+		}
 
 		for i, e := range rtr.Events {
 			if startsWithWasm(e.EventType) {
@@ -686,7 +692,6 @@ func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 			}
 		}
 		rlyResp = rtr
-		callbackErr = err
 		wg.Done()
 	}
 
@@ -751,21 +756,27 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		if err != nil {
 			return err
 		}
-		ap.updateNextAccountSequence(sequence + 1)
 
 		if msg.Type() == MethodUpdateClient {
-			err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true)
-			if err != nil {
-				return fmt.Errorf("Archway: failed during updateClient ")
+			if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+				if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+					ap.handleAccountSequenceMismatchError(err)
+				}
+				return fmt.Errorf("Archway: failed during updateClient %v", err)
 			}
+			ap.updateNextAccountSequence(sequence + 1)
 			continue
 		}
-		ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false)
+		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
+			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+				ap.handleAccountSequenceMismatchError(err)
+			}
+		}
+		ap.updateNextAccountSequence(sequence + 1)
 	}
 
-	//uncomment for saving msg
+	//TODO: comment this on production
 	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
-
 	return nil
 
 }
@@ -1252,6 +1263,26 @@ func (cc *ArchwayProvider) QueryABCI(ctx context.Context, req abci.RequestQuery)
 	}
 
 	return result.Response, nil
+}
+
+func (cc *ArchwayProvider) handleAccountSequenceMismatchError(err error) {
+
+	clientCtx := cc.ClientContext()
+	fmt.Println("client context is ", clientCtx.GetFromAddress())
+
+	_, seq, err := cc.ClientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, clientCtx.GetFromAddress())
+
+	// sequences := numRegex.FindAllString(err.Error(), -1)
+	// if len(sequences) != 2 {
+	// 	return
+	// }
+	// nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("the next sequence is %d \n", seq)
+	cc.nextAccountSeq = seq
 }
 
 func sdkErrorToGRPCError(resp abci.ResponseQuery) error {

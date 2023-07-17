@@ -1,0 +1,20 @@
+[submodule "contracts/javascore/gochain-btp"]
+	path = contracts/javascore/gochain-btp
+	url = https://github.com/izyak/gochain-btp.git
+
+[submodule "contracts/cosmwasm-vm/archway"]
+	path = contracts/cosmwasm-vm/archway
+	url = https://github.com/archway-network/archway.git
+    
+[submodule ".github/scripts/IBC-Integration"]
+	path = .github/scripts/IBC-Integration
+	url = https://github.com/icon-project/IBC-Integration.git
+[submodule ".github/scripts/archway"]
+	path = .github/scripts/archway
+	url = https://github.com/archway-network/archway.git
+[submodule ".github/scripts/gochain-btp"]
+	path = .github/scripts/gochain-btp
+	url = https://github.com/izyak/gochain-btp.git
+[submodule ".github/scripts/icon-ibc-setup"]
+	path = .github/scripts/icon-ibc-setup
+	url = https://github.com/izyak/icon-ibc-setup.git

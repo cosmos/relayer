@@ -17,6 +17,8 @@ import (
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
 	prov "github.com/cometbft/cometbft/light/provider/http"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -313,7 +315,9 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 		WithTxConfig(app.MakeEncodingConfig().TxConfig).
 		WithSkipConfirmation(true).
 		WithBroadcastMode("sync").
-		WithCodec(ap.Cdc.Marshaler)
+		WithCodec(ap.Cdc.Marshaler).
+		WithInterfaceRegistry(ap.Cdc.InterfaceRegistry).
+		WithAccountRetriever(authtypes.AccountRetriever{})
 
 	addr, _ := ap.GetKeyAddress()
 	if addr != nil {
