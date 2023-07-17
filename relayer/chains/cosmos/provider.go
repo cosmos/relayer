@@ -310,6 +310,10 @@ func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) b
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 
+func (cc *CosmosProvider) FirstRetryBlockAfter() uint64 {
+	return 1
+}
+
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
 func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)

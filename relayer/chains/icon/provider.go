@@ -48,18 +48,19 @@ var (
 )
 
 type IconProviderConfig struct {
-	Key               string `json:"key" yaml:"key"`
-	ChainName         string `json:"-" yaml:"-"`
-	ChainID           string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
-	Timeout           string `json:"timeout" yaml:"timeout"`
-	Keystore          string `json:"keystore" yaml:"keystore"`
-	Password          string `json:"password" yaml:"password"`
-	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
-	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
-	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
-	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	Key                  string `json:"key" yaml:"key"`
+	ChainName            string `json:"-" yaml:"-"`
+	ChainID              string `json:"chain-id" yaml:"chain-id"`
+	RPCAddr              string `json:"rpc-addr" yaml:"rpc-addr"`
+	Timeout              string `json:"timeout" yaml:"timeout"`
+	Keystore             string `json:"keystore" yaml:"keystore"`
+	Password             string `json:"password" yaml:"password"`
+	ICONNetworkID        int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
+	BTPNetworkID         int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID     int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
+	BTPHeight            int64  `json:"start-btp-height" yaml:"start-btp-height"`
+	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -566,4 +567,11 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 
 func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented for Icon")
+}
+
+func (cc *IconProvider) FirstRetryBlockAfter() uint64 {
+	if cc.PCfg.FirstRetryBlockAfter != 0 {
+		return cc.PCfg.FirstRetryBlockAfter
+	}
+	return 8
 }

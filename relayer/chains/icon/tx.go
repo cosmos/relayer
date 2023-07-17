@@ -770,7 +770,7 @@ func (icp *IconProvider) SendIconTransaction(
 	if err != nil {
 		return err
 	}
-	icp.log.Debug("Submitted Icon Transaction", zap.String("chain_id", icp.ChainId()), zap.String("method", m.Method), zap.String("tx_hash", string(txParam.TxHash)))
+	icp.log.Info("Submitted Transaction", zap.String("chain_id", icp.ChainId()), zap.String("method", m.Method), zap.String("tx_hash", string(txParam.TxHash)))
 
 	// If update fails, the subsequent txn will fail, result of update not being fetched concurrently
 	switch m.Method {
