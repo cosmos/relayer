@@ -44,6 +44,10 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 		(*MerkleProofState)(nil),
 		&icon.MerkleProofs{},
 	)
+	registry.RegisterImplementations(
+		(*exported.ClientMessage)(nil),
+		&icon.SignedHeader{},
+	)
 
 }
 

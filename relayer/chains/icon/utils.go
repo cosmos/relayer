@@ -16,8 +16,13 @@ import (
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common/codec"
+	"github.com/icon-project/goloop/common/crypto"
 	"github.com/icon-project/goloop/common/db"
 	"github.com/icon-project/goloop/common/trie/ompt"
+)
+
+var (
+	ethAddressLen = 20
 )
 
 func MptProve(key types.HexInt, proofs [][]byte, hash []byte) ([]byte, error) {
@@ -131,4 +136,64 @@ func getIconPacketEncodedBytes(pkt provider.PacketInfo) ([]byte, error) {
 
 	return proto.Marshal(&iconPkt)
 
+}
+
+func GetNetworkSectionRoot(header *types.BTPBlockHeader) []byte {
+	networkSection := types.NewNetworkSection(header)
+	return cryptoutils.CalculateRootFromProof(networkSection.Hash(), header.NetworkSectionToRoot)
+}
+
+func VerifyBtpProof(decision *types.NetworkTypeSectionDecision, proof [][]byte, listValidators [][]byte) (bool, error) {
+
+	requiredVotes := (2 * len(listValidators)) / 3
+	if requiredVotes < 1 {
+		requiredVotes = 1
+	}
+
+	numVotes := 0
+	validators := make(map[types.HexBytes]struct{})
+	for _, val := range listValidators {
+		validators[types.NewHexBytes(val)] = struct{}{}
+	}
+
+	for _, raw_sig := range proof {
+		sig, err := crypto.ParseSignature(raw_sig)
+		if err != nil {
+			return false, err
+		}
+		pubkey, err := sig.RecoverPublicKey(decision.Hash())
+		if err != nil {
+			continue
+		}
+
+		address, err := newEthAddressFromPubKey(pubkey.SerializeCompressed())
+		if err != nil {
+			continue
+		}
+		if address == nil {
+			continue
+		}
+		if _, ok := validators[types.NewHexBytes(address)]; !ok {
+			continue
+		}
+		delete(validators, types.NewHexBytes(address))
+		if numVotes++; numVotes >= requiredVotes {
+			return true, nil
+		}
+	}
+
+	return false, nil
+
+}
+
+func newEthAddressFromPubKey(pubKey []byte) ([]byte, error) {
+	if len(pubKey) == crypto.PublicKeyLenCompressed {
+		pk, err := crypto.ParsePublicKey(pubKey)
+		if err != nil {
+			return nil, err
+		}
+		pubKey = pk.SerializeUncompressed()
+	}
+	digest := common.Sha3keccak256(pubKey[1:])
+	return digest[len(digest)-ethAddressLen:], nil
 }

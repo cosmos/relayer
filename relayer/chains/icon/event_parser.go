@@ -32,7 +32,9 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	packetData := event.Indexed[1]
 	var packet icon.Packet
 	if err := proto.Unmarshal(packetData, &packet); err != nil {
+
 		log.Error("failed to unmarshal packet")
+		// TODO: review return if parseAttrs add panic
 	}
 	pi.SourcePort = packet.SourcePort
 	pi.SourceChannel = packet.SourceChannel

@@ -105,6 +105,8 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
+			// TODO: make iconStartHeight compulsory
+			// if iconStartHeight is not given it can create confusion as starting relay at any time could miss number of btp block update_client
 			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight)
 			if err != nil {
 				return err
@@ -335,6 +337,7 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 	return cmd
 }
 
+// TODO: method has side_effect
 func createConnectionCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection path_name",

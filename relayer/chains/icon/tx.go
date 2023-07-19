@@ -548,59 +548,6 @@ func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibc
 	return icp.NewIconMessage(updateClientMsg, MethodUpdateClient), nil
 }
 
-// func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.RelayerMessage) (*types.TransactionResult, bool, error) {
-// 	m := msg.(*IconMessage)
-// 	txParam := &types.TransactionParam{
-// 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-// 		FromAddress: types.Address(icp.wallet.Address().String()),
-// 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
-// 		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-// 		StepLimit:   types.NewHexInt(int64(defaultStepLimit)),
-// 		DataType:    "call",
-// 		Data: types.CallData{
-// 			Method: m.Method,
-// 			Params: m.Params,
-// 		},
-// 	}
-
-// 	if err := icp.client.SignTransaction(icp.wallet, txParam); err != nil {
-// 		return nil, false, err
-// 	}
-// 	_, err := icp.client.SendTransaction(txParam)
-// 	if err != nil {
-// 		return nil, false, err
-// 	}
-
-// 	txhash, _ := txParam.TxHash.Value()
-
-// 	icp.log.Info("Submitted Transaction ", zap.String("chain Id ", icp.ChainId()),
-// 		zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
-
-// 	txResParams := &types.TransactionHashParam{
-// 		Hash: txParam.TxHash,
-// 	}
-
-// 	time.Sleep(2 * time.Second)
-
-// 	txResult, err := icp.client.GetTransactionResult(txResParams)
-
-// 	if err != nil {
-// 		return nil, false, err
-// 	}
-
-// 	if txResult.Status != types.NewHexInt(1) {
-// 		return nil, false, fmt.Errorf("Transaction Failed and the transaction Result is 0x%x", txhash)
-// 	}
-
-// 	icp.log.Info("Successful Transaction",
-// 		zap.String("chain Id ", icp.ChainId()),
-// 		zap.String("method", m.Method),
-// 		zap.String("Height", string(txResult.BlockHeight)),
-// 		zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
-
-// 	return txResult, true, err
-// }
-
 func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 
 	var (
@@ -783,6 +730,7 @@ func (icp *IconProvider) SendIconTransaction(
 	return nil
 }
 
+// TODO: review try to remove wait for Tx from packet-transfer and only use this for client and connection creation
 func (icp *IconProvider) WaitForTxResult(
 	asyncCtx context.Context,
 	txHash []byte,

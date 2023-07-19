@@ -5,7 +5,6 @@ import (
 	"math/bits"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )

@@ -74,6 +74,7 @@ const (
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
+	// TODO: review transfer to providerConfig
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
@@ -305,6 +306,7 @@ func (ccp *ArchwayChainProcessor) initializeChannelState(ctx context.Context) er
 }
 
 func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
+	// TODO : review if redundent remove
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
 		// don't want to cause ArchwayChainProcessor to quit here, can retry again next cycle.
@@ -355,6 +357,8 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 
 	chainID := ccp.chainProvider.ChainId()
 
+	// TODO review: max block sync
+	//
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
@@ -450,6 +454,8 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 
 	return nil
 }
+
+// TODO: review add verifier
 
 func (ccp *ArchwayChainProcessor) CollectMetrics(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.CurrentBlockHeight(ctx, persistence)
