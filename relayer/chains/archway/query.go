@@ -135,6 +135,18 @@ func (ap *ArchwayProvider) QueryIBCHeader(ctx context.Context, h int64) (provide
 	return NewArchwayIBCHeaderFromLightBlock(lightBlock), nil
 }
 
+func (ap *ArchwayProvider) QueryLightBlock(ctx context.Context, h int64) (provider.IBCHeader, *tmtypes.LightBlock, error) {
+	if h == 0 {
+		return nil, nil, fmt.Errorf("No header at height 0")
+	}
+	lightBlock, err := ap.LightProvider.LightBlock(ctx, h)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return NewArchwayIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
+}
+
 // query packet info for sequence
 func (ap *ArchwayProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Archway")
