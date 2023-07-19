@@ -176,20 +176,23 @@ func (cc *CosmosProvider) Address() (string, error) {
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	res, err := cc.QueryStakingParams(ctx)
+	// HERE DAN
+	unbondingTime := 86400 * time.Second
 
-	var unbondingTime time.Duration
-	if err != nil {
-		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-		if consumerErr != nil {
-			return 0,
-				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
-		}
-		unbondingTime = consumerUnbondingPeriod
-	} else {
-		unbondingTime = res.UnbondingTime
-	}
+	// res, err := cc.QueryStakingParams(ctx)
+
+	// var unbondingTime time.Duration
+	// if err != nil {
+	// 	// Attempt ICS query
+	// 	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
+	// 	if consumerErr != nil {
+	// 		return 0,
+	// 			fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+	// 	}
+	// 	unbondingTime = consumerUnbondingPeriod
+	// } else {
+	// 	unbondingTime = res.UnbondingTime
+	// }
 
 	// We want the trusting period to be 85% of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
