@@ -73,7 +73,8 @@ func (ap *ArchwayProvider) TxFactory() tx.Factory {
 		WithGasAdjustment(ap.PCfg.GasAdjustment).
 		WithGasPrices(ap.PCfg.GasPrices).
 		WithKeybase(ap.Keybase).
-		WithSignMode(ap.PCfg.SignMode())
+		WithSignMode(ap.PCfg.SignMode()).
+		WithSimulateAndExecute(true)
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
