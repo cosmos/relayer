@@ -22,8 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -34,6 +36,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const appName = "rly"
@@ -171,12 +174,31 @@ func Execute() {
 	}
 }
 
+type lumberjackSink struct {
+	*lumberjack.Logger
+}
+
+func (lumberjackSink) Sync() error { return nil }
+
 func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
 	}
 	config.LevelKey = "lvl"
+
+	ll := lumberjack.Logger{
+		Filename:   path.Join(defaultHome, "relay.log"),
+		MaxSize:    50, //MB
+		MaxBackups: 30,
+		MaxAge:     28, //days
+		Compress:   true,
+	}
+	zap.RegisterSink("lumberjack", func(*url.URL) (zap.Sink, error) {
+		return lumberjackSink{
+			Logger: &ll,
+		}, nil
+	})
 
 	var enc zapcore.Encoder
 	switch format {
@@ -195,15 +217,13 @@ func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 		level = zap.DebugLevel
 	}
 
-	logFile, _ := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	writer := zapcore.AddSync(logFile)
+	w := zapcore.AddSync(&ll)
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(enc,
-			writer,
-			level),
+		zapcore.NewCore(enc, w, level),
 		zapcore.NewCore(enc, os.Stderr, level),
 	)
+
 	return zap.New(core), nil
 }
 

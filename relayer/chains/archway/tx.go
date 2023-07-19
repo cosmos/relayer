@@ -776,8 +776,9 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		ap.updateNextAccountSequence(sequence + 1)
 	}
 
-	//TODO: comment this on production
-	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+	//uncomment for saving msg
+	// SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+
 	return nil
 
 }
