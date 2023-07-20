@@ -43,7 +43,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	txFailureLabels := []string{"path", "chain", "err"}
+	txFailureLabels := []string{"path", "chain", "cause"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -69,7 +69,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
 		TxFailureError: registerer.NewCounterVec(prometheus.CounterOpts{
-			Name: "cosmos_relayer_tx_failure",
+			Name: "cosmos_relayer_tx_errors_total",
 			Help: "The total number of tx failures broken up into categories. See https://github.com/cosmos/relayer/blob/main/docs/advanced_usage.md#monitoring for list of catagories. 'Tx Failure' is the catch-all category",
 		}, txFailureLabels),
 	}
