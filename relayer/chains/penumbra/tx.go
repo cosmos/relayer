@@ -1941,12 +1941,13 @@ var JmtSpec = &ics23.ProofSpec{
 		Hash:            ics23.HashOp_SHA256,
 		ChildOrder:      []int32{0, 1},
 		MinPrefixLength: 16,
-		MaxPrefixLength: 48,
+		MaxPrefixLength: 16,
 		ChildSize:       32,
-		EmptyChild:      nil,
+		EmptyChild:      []byte("SPARSE_MERKLE_PLACEHOLDER_HASH__"),
 	},
-	MinDepth: 0,
-	MaxDepth: 64,
+	MinDepth:                   0,
+	MaxDepth:                   64,
+	PrehashKeyBeforeComparison: true,
 }
 
 var ApphashSpec = &ics23.ProofSpec{
@@ -1965,8 +1966,9 @@ var ApphashSpec = &ics23.ProofSpec{
 		ChildSize:       32,
 		EmptyChild:      nil,
 	},
-	MinDepth: 0,
-	MaxDepth: 1,
+	MinDepth:                   0,
+	MaxDepth:                   1,
+	PrehashKeyBeforeComparison: true,
 }
 
 var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
