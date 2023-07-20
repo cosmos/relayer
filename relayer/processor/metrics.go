@@ -45,7 +45,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	clientExpirationLables := []string{"path_name", "chain_id", "client_id", "trusting_period"}
+	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
