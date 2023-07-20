@@ -43,7 +43,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	blockQueryFailureLabels := []string{"chain", "error"}
+	blockQueryFailureLabels := []string{"chain", "type"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -69,8 +69,8 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
 		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
-			Name: "cosmos_relayer_block_query_failure",
-			Help: "The total number of block query failures. The failures are separated into two catagories: 'RPC Client' and 'IBCHeader'",
+			Name: "cosmos_relayer_block_query_errors_total",
+			Help: "The total number of block query failures. The failures are separated into two catagories: 'RPC Client' and 'IBC Header'",
 		}, blockQueryFailureLabels),
 	}
 }

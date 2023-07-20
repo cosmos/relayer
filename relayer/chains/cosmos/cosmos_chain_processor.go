@@ -387,7 +387,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			defer cancelQueryCtx()
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			if err != nil && ccp.metrics != nil {
-				ccp.metrics.IncBlockQueryFailure(chainID, "Error querying block data (RPC Client)")
+				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
 			return err
 		})
@@ -396,7 +396,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			defer cancelQueryCtx()
 			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
 			if err != nil && ccp.metrics != nil {
-				ccp.metrics.IncBlockQueryFailure(chainID, "Error querying block data (IBC HEADER)")
+				ccp.metrics.IncBlockQueryFailure(chainID, "IBC Header")
 			}
 			return err
 		})
