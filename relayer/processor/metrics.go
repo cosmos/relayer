@@ -45,7 +45,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
-	clientExpirationLables := []string{"pathName", "chainID", "clientID", "trustingPeriod"}
+	clientExpirationLables := []string{"path_name", "chain_id", "client_id", "trusting_period"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -71,7 +71,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
 		ClientExpiration: registerer.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "chain_client_expiration_seconds",
+			Name: "cosmos_relayer_client_expiration_seconds",
 			Help: "Seconds until the client expires",
 		}, clientExpirationLables),
 	}
