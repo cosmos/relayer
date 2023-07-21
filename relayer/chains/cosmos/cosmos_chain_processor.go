@@ -71,6 +71,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics 
 
 const (
 	queryTimeout                = 5 * time.Second
+	queryStateTimeout           = 60 * time.Second
 	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
@@ -279,7 +280,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 // initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
 func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, queryStateTimeout)
 	defer cancel()
 	connections, err := ccp.chainProvider.QueryConnections(ctx)
 	if err != nil {
@@ -299,7 +300,7 @@ func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) 
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, queryStateTimeout)
 	defer cancel()
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
@@ -320,7 +321,10 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}] = processor.ChannelState{
+			Order: ch.Ordering,
+			Open:  ch.State == chantypes.OPEN,
+		}
 	}
 	return nil
 }

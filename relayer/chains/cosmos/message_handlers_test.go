@@ -128,7 +128,7 @@ func TestChannelStateCache(t *testing.T) {
 
 		// The channel state is not open, but the entry should exist in the channelStateCache.
 		// MsgInitKey returns the ChannelKey with an empty counterparty channel ID.
-		require.False(t, ccp.channelStateCache[k.MsgInitKey()])
+		require.False(t, ccp.channelStateCache[k.MsgInitKey()].Open)
 
 		// Observe MsgChannelOpenAck, which does have counterparty channel ID.
 		ccp.handleChannelMessage(chantypes.EventTypeChannelOpenAck, msgOpenAck, c)
@@ -139,7 +139,7 @@ func TestChannelStateCache(t *testing.T) {
 
 		// The fully populated ChannelKey should now be the only entry for this channel.
 		// The channel now open.
-		require.True(t, ccp.channelStateCache[k])
+		require.True(t, ccp.channelStateCache[k].Open)
 	})
 
 	t.Run("handshake already occurred", func(t *testing.T) {
@@ -156,7 +156,9 @@ func TestChannelStateCache(t *testing.T) {
 
 		// Initialize channelStateCache with populated channel ID and counterparty channel ID.
 		// This emulates initializeChannelState after a recent channel handshake has completed
-		ccp.channelStateCache[k] = true
+		ccp.channelStateCache[k] = processor.ChannelState{
+			Open: true,
+		}
 
 		// Observe MsgChannelOpenInit, which does not have counterparty channel ID.
 		ccp.handleChannelMessage(chantypes.EventTypeChannelOpenInit, msgOpenInit, c)
@@ -166,7 +168,7 @@ func TestChannelStateCache(t *testing.T) {
 
 		// The fully populated ChannelKey should still be the only entry for this channel.
 		// The channel is still marked open since it was open during initializeChannelState.
-		require.True(t, ccp.channelStateCache[k])
+		require.True(t, ccp.channelStateCache[k].Open)
 
 		// Observe MsgChannelOpenAck, which does have counterparty channel ID.
 		ccp.handleChannelMessage(chantypes.EventTypeChannelOpenAck, msgOpenAck, c)
@@ -175,6 +177,6 @@ func TestChannelStateCache(t *testing.T) {
 		require.Len(t, ccp.channelStateCache, 1)
 
 		// The fully populated ChannelKey should still be the only entry for this channel.
-		require.True(t, ccp.channelStateCache[k])
+		require.True(t, ccp.channelStateCache[k].Open)
 	})
 }

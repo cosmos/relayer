@@ -262,7 +262,10 @@ func (pcp *PenumbraChainProcessor) initializeChannelState(ctx context.Context) e
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}] = processor.ChannelState{
+			Open:  ch.State == chantypes.OPEN,
+			Order: ch.Ordering,
+		}
 	}
 	return nil
 }

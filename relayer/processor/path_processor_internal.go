@@ -35,7 +35,7 @@ func (pp *PathProcessor) getMessagesToSend(
 		return
 	}
 
-	if msgs[0].info.ChannelOrder == chantypes.ORDERED.String() {
+	if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; !ok || cs.Order != chantypes.UNORDERED {
 		eventMessages := make(map[string][]packetIBCMessage)
 
 		for _, m := range msgs {
@@ -62,8 +62,31 @@ func (pp *PathProcessor) getMessagesToSend(
 
 				if m[0].info.Sequence != res.NextSequenceReceive {
 					dst.log.Error("Unexpected next sequence recv",
-						zap.String("channel_id", m[0].info.DestChannel),
-						zap.String("port_id", m[0].info.DestChannel),
+						zap.String("channel_id", dstChan),
+						zap.String("port_id", dstPort),
+						zap.Uint64("expected", res.NextSequenceReceive),
+						zap.Uint64("actual", m[0].info.Sequence),
+					)
+					return
+				}
+			}
+
+			if e == chantypes.EventTypeAcknowledgePacket {
+				srcChan, srcPort := m[0].info.SourceChannel, m[0].info.SourcePort
+				res, err := src.chainProvider.QueryNextSeqAck(ctx, 0, srcChan, srcPort)
+				if err != nil {
+					src.log.Error("Failed to query next sequence ack",
+						zap.String("channel_id", srcChan),
+						zap.String("port_id", srcPort),
+						zap.Error(err),
+					)
+					return
+				}
+
+				if m[0].info.Sequence != res.NextSequenceReceive {
+					src.log.Error("Unexpected next sequence ack",
+						zap.String("channel_id", srcChan),
+						zap.String("port_id", srcPort),
 						zap.Uint64("expected", res.NextSequenceReceive),
 						zap.Uint64("actual", m[0].info.Sequence),
 					)
@@ -789,13 +812,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			return
 		}
 
-		for k, open := range pp.pathEnd1.channelStateCache {
+		for k, cs := range pp.pathEnd1.channelStateCache {
 			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
-				if open {
+				if cs.Open {
 					// channel is still open on pathEnd1
 					break
 				}
-				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
+				if counterpartyState, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -815,13 +838,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			}
 		}
 
-		for k, open := range pp.pathEnd2.channelStateCache {
+		for k, cs := range pp.pathEnd2.channelStateCache {
 			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
-				if open {
+				if cs.Open {
 					// channel is still open on pathEnd2
 					break
 				}
-				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
+				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -1193,7 +1216,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 		}
 		srcMu.Unlock()
 
-		if i >= maxPacketsPerFlush {
+		if i >= int(pp.maxMsgs) {
 			skipped = true
 			break
 		}
@@ -1331,8 +1354,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 
 	// Query remaining packet commitments on both chains
 	var eg errgroup.Group
-	for k, open := range pp.pathEnd1.channelStateCache {
-		if !open {
+	for k, cs := range pp.pathEnd1.channelStateCache {
+		if !cs.Open {
 			continue
 		}
 		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
@@ -1344,8 +1367,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
-	for k, open := range pp.pathEnd2.channelStateCache {
-		if !open {
+	for k, cs := range pp.pathEnd2.channelStateCache {
+		if !cs.Open {
 			continue
 		}
 		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
@@ -1418,7 +1441,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		return false
 	}
 	for k, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if cs, ok := pp.pathEnd1.channelStateCache[k]; !ok || !cs.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1442,7 +1465,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		}
 	}
 	for k, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if cs, ok := pp.pathEnd1.channelStateCache[k]; !ok || !cs.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
