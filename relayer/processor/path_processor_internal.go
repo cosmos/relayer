@@ -19,9 +19,8 @@ import (
 // i.e. a MsgConnectionOpenInit or a MsgChannelOpenInit should be broadcasted to start
 // the handshake if this key exists in the relevant cache.
 const (
-	preInitKey         = "pre_init"
-	preCloseKey        = "pre_close"
-	maxPacketsPerFlush = 10
+	preInitKey  = "pre_init"
+	preCloseKey = "pre_close"
 )
 
 // getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
@@ -1289,7 +1288,7 @@ SeqLoop:
 		}
 		dstMu.Unlock()
 
-		if i >= maxPacketsPerFlush {
+		if i >= int(pp.maxMsgs) {
 			skipped = true
 			break
 		}
