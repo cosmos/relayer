@@ -34,7 +34,14 @@ func (pp *PathProcessor) getMessagesToSend(
 		return
 	}
 
-	if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; !ok || cs.Order != chantypes.UNORDERED {
+	checkSeq := false
+	if msgs[0].info.ChannelOrder == chantypes.ORDERED.String() || msgs[0].info.ChannelOrder == chantypes.UNORDERED.String() {
+		checkSeq = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
+	} else if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; !ok || cs.Order != chantypes.UNORDERED {
+		checkSeq = true
+	}
+
+	if checkSeq {
 		eventMessages := make(map[string][]packetIBCMessage)
 
 		for _, m := range msgs {
