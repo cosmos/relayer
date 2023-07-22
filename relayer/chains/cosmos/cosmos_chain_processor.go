@@ -316,15 +316,13 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			continue
 		}
 		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		ccp.channelStateCache[processor.ChannelKey{
+		k := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = processor.ChannelState{
-			Order: ch.Ordering,
-			Open:  ch.State == chantypes.OPEN,
 		}
+		ccp.channelStateCache.SetOpen(k, ch.State == chantypes.OPEN, ch.Ordering)
 	}
 	return nil
 }

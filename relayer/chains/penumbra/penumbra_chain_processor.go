@@ -257,15 +257,13 @@ func (pcp *PenumbraChainProcessor) initializeChannelState(ctx context.Context) e
 			continue
 		}
 		pcp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		pcp.channelStateCache[processor.ChannelKey{
+		k := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = processor.ChannelState{
-			Open:  ch.State == chantypes.OPEN,
-			Order: ch.Ordering,
 		}
+		pcp.channelStateCache.SetOpen(k, ch.State == chantypes.OPEN, ch.Ordering)
 	}
 	return nil
 }

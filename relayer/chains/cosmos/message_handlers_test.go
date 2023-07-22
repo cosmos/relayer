@@ -156,9 +156,7 @@ func TestChannelStateCache(t *testing.T) {
 
 		// Initialize channelStateCache with populated channel ID and counterparty channel ID.
 		// This emulates initializeChannelState after a recent channel handshake has completed
-		ccp.channelStateCache[k] = processor.ChannelState{
-			Open: true,
-		}
+		ccp.channelStateCache.SetOpen(k, true, chantypes.NONE)
 
 		// Observe MsgChannelOpenInit, which does not have counterparty channel ID.
 		ccp.handleChannelMessage(chantypes.EventTypeChannelOpenInit, msgOpenInit, c)

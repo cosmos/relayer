@@ -40,10 +40,7 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 	}
 
 	if eventType == chantypes.EventTypeTimeoutPacket && pi.ChannelOrder == chantypes.ORDERED.String() {
-		ccp.channelStateCache[k] = processor.ChannelState{
-			Open:  false,
-			Order: chantypes.ORDERED,
-		}
+		ccp.channelStateCache.SetOpen(k, false, chantypes.ORDERED)
 	}
 
 	if !c.PacketFlow.ShouldRetainSequence(ccp.pathProcessors, k, ccp.chainProvider.ChainId(), eventType, pi.Sequence) {
@@ -81,31 +78,19 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 			}
 		}
 		if !found {
-			ccp.channelStateCache[channelKey] = processor.ChannelState{
-				Open:  false,
-				Order: ci.Order,
-			}
+			ccp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		}
 	} else {
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
-			ccp.channelStateCache[channelKey] = processor.ChannelState{
-				Open:  false,
-				Order: ci.Order,
-			}
+			ccp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-			ccp.channelStateCache[channelKey] = processor.ChannelState{
-				Open:  true,
-				Order: ci.Order,
-			}
+			ccp.channelStateCache.SetOpen(channelKey, true, ci.Order)
 			ccp.logChannelOpenMessage(eventType, ci)
 		case chantypes.EventTypeChannelCloseConfirm:
 			for k := range ccp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-					ccp.channelStateCache[k] = processor.ChannelState{
-						Open:  false,
-						Order: ci.Order,
-					}
+					ccp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 					break
 				}
 			}

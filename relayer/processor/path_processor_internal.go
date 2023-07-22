@@ -34,14 +34,19 @@ func (pp *PathProcessor) getMessagesToSend(
 		return
 	}
 
-	checkSeq := false
-	if msgs[0].info.ChannelOrder == chantypes.ORDERED.String() || msgs[0].info.ChannelOrder == chantypes.UNORDERED.String() {
-		checkSeq = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
-	} else if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; !ok || cs.Order != chantypes.UNORDERED {
-		checkSeq = true
+	ordered := false
+
+	// channelStateCache most likely has the ordering information.
+	if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; ok && cs.Order == chantypes.ORDERED {
+		ordered = true
 	}
 
-	if checkSeq {
+	// if packet info has the order defined, use that.
+	if msgs[0].info.ChannelOrder != chantypes.NONE.String() {
+		ordered = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
+	}
+
+	if ordered {
 		eventMessages := make(map[string][]packetIBCMessage)
 
 		for _, m := range msgs {
