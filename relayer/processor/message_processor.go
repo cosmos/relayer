@@ -143,7 +143,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 
 	if mp.metrics != nil {
 		timeToExpiration := dst.clientState.TrustingPeriod - time.Since(consensusHeightTime)
-		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.clientState.ClientID, fmt.Sprint(dst.clientState.TrustingPeriod.Seconds()), timeToExpiration)
+		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.clientState.ClientID, fmt.Sprint(dst.clientState.TrustingPeriod.String()), timeToExpiration)
 	}
 
 	if shouldUpdateClientNow {
