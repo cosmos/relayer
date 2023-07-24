@@ -34,6 +34,7 @@ var (
 )
 
 func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
+
 	clientStateBytes, err := proto.Marshal(clientState)
 	if err != nil {
 		return nil, err
@@ -499,13 +500,26 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		return nil, err
 	}
 
-	var validatorList types.ValidatorList
-	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
+	var currentValidatorList types.ValidatorList
+	// subtract 1 because it is a current validator not last validator
+	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight-1), icp.PCfg.BTPNetworkTypeID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = Base64ToData(string(info.NextProofContext), &validatorList)
+	_, err = Base64ToData(string(info.NextProofContext), &currentValidatorList)
+	if err != nil {
+		return nil, err
+	}
+
+	var nextValidators types.ValidatorList
+	// subtract 1 because it is a current validator not last validator
+	next_info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(string(next_info.NextProofContext), &nextValidators)
 	if err != nil {
 		return nil, err
 	}
@@ -521,9 +535,11 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 			PrevNetworkSectionHash: latestIconHeader.Header.PrevNetworkSectionHash,
 			MessageCount:           latestIconHeader.Header.MessageCount,
 			MessageRoot:            latestIconHeader.Header.MessageRoot,
-			NextValidators:         validatorList.Validators,
+			NextValidators:         nextValidators.Validators,
 		},
-		Signatures: btp_proof,
+		Signatures:        btp_proof,
+		TrustedHeight:     trustedHeight.RevisionHeight,
+		CurrentValidators: currentValidatorList.Validators,
 	}
 
 	return signedHeader, nil

@@ -943,8 +943,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:
 github.com/icon-project/goloop v1.2.11/go.mod h1:P7mwPMmoAWFXdt0KmlrsQkRV9Qw1JswoCKqfTBpXYCw=
 github.com/icon-project/goloop v1.3.4 h1:82x8x+zY2XLVPEuWKHvnTj4bkeC5EYlNaaiePDqdMjk=
 github.com/icon-project/goloop v1.3.4/go.mod h1:9PoWRb5kowidc9jYy0RLuLpay1zT5FXgEKijx7rDQjE=
-github.com/icon-project/ibc-integration v0.0.0-20230619065023-ddc96101b9b1 h1:AEfIOYcvh30JP7OopOYSvlvVbVdDk9oyKetZHK/h+2A=
-github.com/icon-project/ibc-integration v0.0.0-20230619065023-ddc96101b9b1/go.mod h1:lYQTcVqXxpUhhdz/cU2xsX1rPGoIkeWalIAjiEt0K+0=
+github.com/icon-project/ibc-integration v0.0.0-20230717083940-67949d73b622 h1:RHutSdyBRURe7MHx/838gVEw6Iu+tYMF/x2cx9hZSxY=
+github.com/icon-project/ibc-integration v0.0.0-20230717083940-67949d73b622/go.mod h1:lYQTcVqXxpUhhdz/cU2xsX1rPGoIkeWalIAjiEt0K+0=
 github.com/icon-project/icon-bridge v0.0.11 h1:1qUYq6YmzUQR+zCDJGnXQxXKs81NmkxATtOr8KEx4Wc=
 github.com/icon-project/icon-bridge v0.0.11/go.mod h1:7GcN+biPaXdsYLvsiwC1Y/5ro6ENPinhUqm2MZL4tgQ=
 github.com/improbable-eng/grpc-web v0.15.0 h1:BN+7z6uNXZ1tQGcNAuaU1YjsLTApzkjt2tzCixLaUPQ=

@@ -8,7 +8,9 @@
       "password":"gochain",
       "btp-network-id":2,
       "icon-network-id":3,
-      "start-btp-height":0,
-      "ibc-handler-address":"cxfffe383e4780084e48e477935099b03193d952fe"
+      "start-height":0,
+      "ibc-handler-address":"cxfffe383e4780084e48e477935099b03193d952fe",
+      "block-interval":1000,
+      "first-retry-block-after":8
     }
 }

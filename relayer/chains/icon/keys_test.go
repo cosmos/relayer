@@ -43,7 +43,7 @@ func TestRestoreIconKeyStore(t *testing.T) {
 		Password:          "gochain",
 		Timeout:           "20s",
 		ChainName:         "icon",
-		BTPHeight:         10,
+		StartHeight:       10,
 		IbcHandlerAddress: "aa",
 	}
 	p, err := pcfg.NewProvider(zap.NewNop(), "not_correct", false, "icon")

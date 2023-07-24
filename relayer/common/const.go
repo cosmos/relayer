@@ -6,4 +6,6 @@ var (
 	ArchwayModule         = "archway"
 	TendermintLightClient = "tendermint"
 	IconLightClient       = "iconclient"
+
+	NanosecondRatio = 1000_000
 )

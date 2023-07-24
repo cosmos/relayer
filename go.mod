@@ -210,5 +210,5 @@ replace (
 	github.com/CosmWasm/wasmd => github.com/cosmwasm/wasmd v0.40.0-rc.1.0.20230424144037-55647a1fd1f9
 	// github.com/CosmWasm/wasmd => github.com/archway-network/archway-wasmd v0.29.2-archway
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230619065023-ddc96101b9b1
+	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230717083940-67949d73b622
 )

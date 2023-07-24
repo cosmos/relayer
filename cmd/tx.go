@@ -80,7 +80,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			iconStartHeight, err := cmd.Flags().GetInt64(flagBtpBlockHeight)
 			if err != nil {
 				return err
 			}
@@ -129,7 +129,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 	cmd = clientParameterFlags(a.viper, cmd)
 	cmd = overrideFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
-	cmd = iconStartHeightFlag(a.viper, cmd)
+	cmd = btpBlockHeightFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -200,7 +200,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			iconStartHeight, err := cmd.Flags().GetInt64(flagBtpBlockHeight)
 			if err != nil {
 				return err
 			}
@@ -261,7 +261,7 @@ func createClientCmd(a *appState) *cobra.Command {
 	cmd = clientParameterFlags(a.viper, cmd)
 	cmd = overrideFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
-	cmd = iconStartHeightFlag(a.viper, cmd)
+	cmd = btpBlockHeightFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -405,7 +405,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			iconStartHeight, err := cmd.Flags().GetInt64(flagBtpBlockHeight)
 			if err != nil {
 				return err
 			}
@@ -449,7 +449,7 @@ $ %s tx conn demo-path --timeout 5s`,
 	cmd = overrideFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	cmd = initBlockFlag(a.viper, cmd)
-	cmd = iconStartHeightFlag(a.viper, cmd)
+	cmd = btpBlockHeightFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -690,7 +690,7 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 				return err
 			}
 
-			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			iconStartHeight, err := cmd.Flags().GetInt64(flagBtpBlockHeight)
 			if err != nil {
 				return err
 			}
@@ -728,7 +728,7 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 	cmd = overrideFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	cmd = initBlockFlag(a.viper, cmd)
-	cmd = iconStartHeightFlag(a.viper, cmd)
+	cmd = btpBlockHeightFlag(a.viper, cmd)
 	return cmd
 }
 

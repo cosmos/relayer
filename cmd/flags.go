@@ -54,7 +54,7 @@ const (
 	flagDstClientID             = "dst-client-id"
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
-	flagIconStartHeight         = "icon-start-height"
+	flagBtpBlockHeight          = "btp-block-height"
 )
 
 const (
@@ -81,9 +81,9 @@ func heightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func iconStartHeightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Int64(flagIconStartHeight, 0, "Icon Start Height to register client")
-	if err := v.BindPFlag(flagIconStartHeight, cmd.Flags().Lookup(flagIconStartHeight)); err != nil {
+func btpBlockHeightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flagBtpBlockHeight, 0, "Icon Start Height to register client")
+	if err := v.BindPFlag(flagBtpBlockHeight, cmd.Flags().Lookup(flagBtpBlockHeight)); err != nil {
 		panic(err)
 	}
 	return cmd

@@ -58,9 +58,10 @@ type IconProviderConfig struct {
 	ICONNetworkID        int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID         int64  `json:"btp-network-id" yaml:"btp-network-id"`
 	BTPNetworkTypeID     int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	BTPHeight            int64  `json:"start-btp-height" yaml:"start-btp-height"`
+	StartHeight          int64  `json:"start-height" yaml:"start-height"`
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
+	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -101,12 +102,12 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	codec := MakeCodec(ModuleBasics, []string{})
 
 	return &IconProvider{
-		log:                log.With(zap.String("sys", "chain_client")),
-		client:             NewClient(pp.getRPCAddr(), log),
-		PCfg:               pp,
-		wallet:             wallet,
-		lastBTPBlockHeight: uint64(pp.BTPHeight),
-		codec:              codec,
+		log:         log.With(zap.String("sys", "chain_client")),
+		client:      NewClient(pp.getRPCAddr(), log),
+		PCfg:        pp,
+		wallet:      wallet,
+		StartHeight: uint64(pp.StartHeight),
+		codec:       codec,
 	}, nil
 }
 
@@ -123,15 +124,14 @@ func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
 }
 
 type IconProvider struct {
-	log                  *zap.Logger
-	PCfg                 *IconProviderConfig
-	txMu                 sync.Mutex
-	client               *Client
-	wallet               module.Wallet
-	metrics              *processor.PrometheusMetrics
-	codec                Codec
-	lastBTPBlockHeight   uint64
-	lastBTPBlockHeightMu sync.Mutex
+	log         *zap.Logger
+	PCfg        *IconProviderConfig
+	txMu        sync.Mutex
+	client      *Client
+	wallet      module.Wallet
+	metrics     *processor.PrometheusMetrics
+	codec       Codec
+	StartHeight uint64
 }
 
 type IconIBCHeader struct {
@@ -177,7 +177,8 @@ func (h IconIBCHeader) IsCompleteBlock() bool {
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	if h.IsBTPBlock {
 		return &icon.ConsensusState{
-			MessageRoot: h.Header.MessageRoot,
+			MessageRoot:          h.Header.MessageRoot,
+			NextProofContextHash: h.Header.NextProofContextHash,
 		}
 	}
 	return &icon.ConsensusState{}
@@ -240,25 +241,21 @@ func (icp *IconProvider) NewClientState(
 		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
 	}
 
-	validatorSet, err := icp.GetProofContextByHeight(int64(dstUpdateHeader.Height()))
-	if err != nil {
-		return nil, err
+	if icp.PCfg.BlockInterval == 0 {
+		return nil, fmt.Errorf("Blockinterval cannot be empty in Icon config")
 	}
 
-	iconHeader := dstUpdateHeader.(IconIBCHeader)
-
-	networkSectionhash := types.NewNetworkSection(iconHeader.Header).Hash()
+	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(common.NanosecondRatio))
 
 	return &icon.ClientState{
-		TrustingPeriod:     uint64(dstTrustingPeriod),
-		FrozenHeight:       0,
-		MaxClockDrift:      3600,
-		LatestHeight:       dstUpdateHeader.Height(),
-		NetworkSectionHash: networkSectionhash,
-		Validators:         validatorSet,
-		SrcNetworkId:       getSrcNetworkId(icp.PCfg.ICONNetworkID),
-		NetworkId:          uint64(icp.PCfg.BTPNetworkID),
-		NetworkTypeId:      uint64(icp.PCfg.BTPNetworkTypeID),
+		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration
+		TrustingPeriod: trustingBlockPeriod,
+		FrozenHeight:   0,
+		MaxClockDrift:  3600,
+		LatestHeight:   dstUpdateHeader.Height(),
+		SrcNetworkId:   getSrcNetworkId(icp.PCfg.ICONNetworkID),
+		NetworkId:      uint64(icp.PCfg.BTPNetworkID),
+		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
 	}, nil
 
 }
