@@ -42,7 +42,7 @@ func (pp *PathProcessor) getMessagesToSend(
 	}
 
 	// if packet info has the order defined, use that.
-	if msgs[0].info.ChannelOrder != chantypes.NONE.String() {
+	if msgs[0].info.ChannelOrder != "" && msgs[0].info.ChannelOrder != chantypes.NONE.String() {
 		ordered = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
 	}
 
