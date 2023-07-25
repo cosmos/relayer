@@ -14,7 +14,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
 
@@ -45,6 +44,8 @@ var (
 		Identifier: DefaultIBCVersionIdentifier,
 		Features:   []string{"ORDER_ORDERED", "ORDER_UNORDERED"},
 	}
+
+	NOT_IMPLEMENTED = " :: Not implemented for ICON"
 )
 
 type IconProviderConfig struct {
@@ -69,7 +70,7 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
-	if pp.IbcHandlerAddress == "" {
+	if !isValidIconContractAddress(pp.IbcHandlerAddress) {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
@@ -194,38 +195,6 @@ func (h IconIBCHeader) ShouldUpdateWithZeroMessage() bool {
 
 func (icp *IconProvider) Init(ctx context.Context) error {
 	return nil
-}
-
-// TODO: Remove later
-func (icp *IconProvider) NewClientStateMock(
-	dstChainID string,
-	dstUpdateHeader provider.IBCHeader,
-	dstTrustingPeriod,
-	dstUbdPeriod time.Duration,
-	allowUpdateAfterExpiry,
-	allowUpdateAfterMisbehaviour bool,
-) (ibcexported.ClientState, error) {
-
-	return &itm.ClientState{
-		ChainId: dstChainID,
-		TrustLevel: &itm.Fraction{
-			Numerator:   2,
-			Denominator: 3,
-		},
-		TrustingPeriod: &itm.Duration{
-			Seconds: int64(dstTrustingPeriod),
-		},
-		UnbondingPeriod: &itm.Duration{
-			Seconds: int64(dstUbdPeriod),
-		},
-		MaxClockDrift: &itm.Duration{
-			Seconds: int64(time.Minute) * 20,
-		},
-		FrozenHeight:                 0,
-		LatestHeight:                 int64(dstUpdateHeader.Height()),
-		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-	}, nil
 }
 
 func (icp *IconProvider) NewClientState(
@@ -385,15 +354,15 @@ func (icp *IconProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.P
 }
 
 func (icp *IconProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Method not supported on ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
-	return provider.ICQProof{}, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) RelayPacketFromSequence(ctx context.Context, src provider.ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (provider.RelayerMessage, provider.RelayerMessage, error) {
@@ -433,7 +402,7 @@ func (icp *IconProvider) AcknowledgementFromSequence(ctx context.Context, dst pr
 }
 
 func (icp *IconProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) ChainName() string {
@@ -563,7 +532,7 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 }
 
 func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Icon")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (cc *IconProvider) FirstRetryBlockAfter() uint64 {

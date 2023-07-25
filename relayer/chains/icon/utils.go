@@ -3,6 +3,7 @@ package icon
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -196,4 +197,18 @@ func newEthAddressFromPubKey(pubKey []byte) ([]byte, error) {
 	}
 	digest := common.Sha3keccak256(pubKey[1:])
 	return digest[len(digest)-ethAddressLen:], nil
+}
+
+func isValidIconContractAddress(addr string) bool {
+	if !strings.HasPrefix(addr, "cx") {
+		return false
+	}
+	if len(addr) != 42 {
+		return false
+	}
+	_, err := hex.DecodeString(addr[2:])
+	if err != nil {
+		return false
+	}
+	return true
 }

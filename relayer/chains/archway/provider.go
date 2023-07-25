@@ -22,6 +22,7 @@ import (
 	prov "github.com/cometbft/cometbft/light/provider/http"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
@@ -183,14 +184,34 @@ func (a ArchwayIBCHeader) ShouldUpdateWithZeroMessage() bool {
 	return false
 }
 
+func (pp *ArchwayProviderConfig) ValidateContractAddress(addr string) bool {
+	prefix, _, err := bech32.DecodeAndConvert(addr)
+	if err != nil {
+		return false
+	}
+	if pp.AccountPrefix != prefix {
+		return false
+	}
+
+	// TODO: Is this needed?
+	// Confirmed working for neutron, archway, osmosis
+	prefixLen := len(pp.AccountPrefix)
+	if len(addr) != prefixLen+ContractAddressSizeMinusPrefix {
+		return false
+	}
+
+	return true
+}
+
 func (pp *ArchwayProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
-	if pp.IbcHandlerAddress == "" {
-		return fmt.Errorf("Ibc handler contract cannot be empty")
+	if !pp.ValidateContractAddress(pp.IbcHandlerAddress) {
+		return fmt.Errorf("Invalid contract address")
 	}
+
 	return nil
 }
 
@@ -351,11 +372,13 @@ func (ap *ArchwayProvider) Address() (string, error) {
 	return out, err
 }
 
+// TODO: CHECK AGAIN
 func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// res, err := cc.QueryStakingParams(ctx)
 
 	// TODO: check and rewrite
-	var unbondingTime time.Duration
+	// var unbondingTime time.Duration
 	// if err != nil {
 	// 	// Attempt ICS query
 	// 	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
@@ -374,15 +397,15 @@ func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, e
 	// // by converting int64 to float64.
 	// // Use integer math the whole time, first reducing by a factor of 100
 	// // and then re-growing by 85x.
-	tp := unbondingTime / 100 * 85
+	// tp := unbondingTime / 100 * 85
 
 	// // And we only want the trusting period to be whole hours.
 	// // But avoid rounding if the time is less than 1 hour
 	// //  (otherwise the trusting period will go to 0)
-	if tp > time.Hour {
-		tp = tp.Truncate(time.Hour)
-	}
-	return tp, nil
+	// if tp > time.Hour {
+	// 	tp = tp.Truncate(time.Hour)
+	// }
+	// return tp, nil
 }
 
 func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
@@ -403,6 +426,7 @@ func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatu
 
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
+	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// var initial int64
 	// h, err := cc.RPCClient.Status(ctx)
 	// if err != nil {
@@ -427,7 +451,6 @@ func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	// 		return ctx.Err()
 	// 	}
 	// }
-	return nil
 }
 
 func (ac *ArchwayProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
@@ -452,8 +475,8 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 	}
 }
 
-func (app *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Icon")
+func (ap *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (cc *ArchwayProvider) FirstRetryBlockAfter() uint64 {

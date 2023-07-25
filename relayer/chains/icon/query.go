@@ -81,12 +81,12 @@ func (icp *IconProvider) BlockTime(ctx context.Context, height int64) (time.Time
 
 // required for cosmos only
 func (icp *IconProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
-	return nil, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 // required for cosmos only
 func (icp *IconProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
-	return nil, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
@@ -125,11 +125,11 @@ func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.
 }
 
 func (icp *IconProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
-	return provider.PacketInfo{}, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (provider.PacketInfo, error) {
-	return provider.PacketInfo{}, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
@@ -143,7 +143,7 @@ func (icp *IconProvider) QueryBalance(ctx context.Context, keyName string) (sdk.
 
 // implementing is not required
 func (icp *IconProvider) QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error) {
-	return sdk.Coins{}, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
@@ -282,15 +282,15 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 }
 
 func (icp *IconProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
-	return nil, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
-	return nil, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
-	return nil, height, fmt.Errorf("Not implemented for ICON. Check QueryClientConsensusState instead")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 // query all the clients of the chain
@@ -413,7 +413,7 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 			continue
 		}
 		// Only return open conenctions
-		if conn.State == 3 {
+		if conn.State == conntypes.OPEN {
 			identifiedConn := conntypes.IdentifiedConnection{
 				Id:           connectionId,
 				ClientId:     conn.ClientId,
@@ -465,8 +465,7 @@ func (icp *IconProvider) getAllPorts(ctx context.Context) ([]string, error) {
 }
 
 func (icp *IconProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
-	// TODO
-	return nil, fmt.Errorf("not implemented")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (ibcexported.ClientState,
 	[]byte, []byte, []byte,
@@ -561,9 +560,7 @@ var emptyChannelRes = chantypes.NewQueryChannelResponse(
 )
 
 func (icp *IconProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	// TODO:
-	//if method given can be easily fetched...
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 // is not needed currently for the operation
@@ -626,7 +623,7 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 			}
 
 			// check if the channel is open
-			if channel.State == 3 {
+			if channel.State == chantypes.OPEN {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
 					Ordering:       channel.Ordering,
@@ -646,28 +643,21 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 
 // required to flush packets
 func (icp *IconProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
-
-	//get-all-packets
-	return nil, nil
-
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
+
 func (icp *IconProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// legacy
 func (icp *IconProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	// TODO: onl
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// legacy
 func (icp *IconProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	// TODO: Implement
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// legacy
 func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	callParam := icp.prepareCallParams(MethodGetNextSequenceReceive, map[string]interface{}{
 		"portId":    portid,
@@ -677,7 +667,6 @@ func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, cha
 	if err := icp.client.Call(callParam, &nextSeqRecv); err != nil {
 		return nil, err
 	}
-	// TODO: Get proof and proofheight
 	key := common.GetNextSequenceRecvCommitmentKey(portid, channelid)
 	keyHash := common.Sha3keccak256(key, []byte(types.NewHexInt(int64(nextSeqRecv))))
 
@@ -791,12 +780,12 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 // ics 20 - transfer
 // not required for icon
 func (icp *IconProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	return nil, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 // not required for icon
 func (icp *IconProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	return nil, fmt.Errorf("Not implemented for ICON")
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHash []byte) ([]byte, error) {

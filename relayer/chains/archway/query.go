@@ -34,7 +34,10 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-const PaginationDelay = 10 * time.Millisecond
+const (
+	PaginationDelay = 10 * time.Millisecond
+	NOT_IMPLEMENTED = " :: Not implemented for WASM"
+)
 
 func (ap *ArchwayProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
 	hash, err := hex.DecodeString(hashHex)
@@ -95,6 +98,7 @@ func (ap *ArchwayProvider) QueryTxs(ctx context.Context, page, limit int, events
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
+// TODO: Comet check needed?
 func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
@@ -202,6 +206,7 @@ func DefaultPageRequest() *querytypes.PageRequest {
 
 // staking
 func (ap *ArchwayProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
+	// move to provider, panic
 	return 0, nil
 }
 
@@ -219,6 +224,7 @@ func (ap *ArchwayProvider) QueryClientState(ctx context.Context, height int64, c
 	return clientStateExported, nil
 }
 
+// TODO: Check revision number
 func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 
 	clS, err := ap.QueryClientStateContract(ctx, srcClientId)
@@ -343,11 +349,11 @@ func (ap *ArchwayProvider) QueryIBCHandlerContractProcessed(ctx context.Context,
 }
 
 func (ap *ArchwayProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
@@ -546,7 +552,7 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		}
 
 		// Only return open conenctions
-		if conn.State == 3 {
+		if conn.State == conntypes.OPEN {
 			identifiedConn := conntypes.IdentifiedConnection{
 				Id:           connectionId,
 				ClientId:     conn.ClientId,
@@ -563,7 +569,7 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 }
 
 func (ap *ArchwayProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
@@ -624,7 +630,7 @@ func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, chann
 }
 
 func (ap *ArchwayProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
@@ -665,7 +671,7 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 			}
 
 			// check if the channel is open
-			if channel.State == 3 {
+			if channel.State == chantypes.OPEN {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
 					Ordering:       channel.Ordering,
@@ -682,20 +688,21 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 
 	return channels, nil
 }
+
 func (ap *ArchwayProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
@@ -800,8 +807,8 @@ func (ap *ArchwayProvider) GetCommitmentPrefixFromContract(ctx context.Context) 
 
 // ics 20 - transfer
 func (ap *ArchwayProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 func (ap *ArchwayProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }

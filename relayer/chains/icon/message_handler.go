@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// TODO: implement for all the message types
 func (icp *IconChainProcessor) handleMessage(ctx context.Context, m ibcMessage, c processor.IBCMessagesCache) {
 	switch t := m.info.(type) {
 	case *packetInfo:
@@ -27,7 +26,6 @@ func (icp *IconChainProcessor) handleMessage(ctx context.Context, m ibcMessage, 
 }
 
 func (icp *IconChainProcessor) handlePacketMessage(eventType string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
-	// TODO: implement for packet messages
 	k, err := processor.PacketInfoChannelKey(eventType, pi)
 	if err != nil {
 		icp.log.Error("Unexpected error handling packet message",

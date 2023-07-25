@@ -30,3 +30,7 @@ const (
 	ConnectionPrefix = "connection"
 	ChannelPrefix    = "channel"
 )
+
+const (
+	ContractAddressSizeMinusPrefix = 59
+)
