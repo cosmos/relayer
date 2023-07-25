@@ -145,8 +145,14 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 
 	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold)
 
+	if mp.metrics != nil {
+		timeToExpiration := dst.clientState.TrustingPeriod - time.Since(consensusHeightTime)
+		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.clientState.ClientID, fmt.Sprint(dst.clientState.TrustingPeriod.String()), timeToExpiration)
+	}
+
 	if shouldUpdateClientNow {
 		mp.log.Info("Client update threshold condition met",
+			zap.String("path_name", src.info.PathName),
 			zap.String("chain_id", dst.info.ChainID),
 			zap.String("client_id", dst.info.ClientID),
 			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
@@ -253,6 +259,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
 		mp.log.Debug("Had to query for client trusted IBC header",
+			zap.String("path_name", src.info.PathName),
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
 			zap.String("counterparty_client_id", clientID),
