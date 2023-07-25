@@ -14,6 +14,7 @@ type PrometheusMetrics struct {
 	LatestHeightGauge     *prometheus.GaugeVec
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
+	TxFailureError        *prometheus.CounterVec
 	BlockQueryFailure     *prometheus.CounterVec
 	ClientExpiration      *prometheus.GaugeVec
 }
@@ -46,9 +47,14 @@ func (m *PrometheusMetrics) IncBlockQueryFailure(chain, err string) {
 	m.BlockQueryFailure.WithLabelValues(chain, err).Inc()
 }
 
+func (m *PrometheusMetrics) IncTxFailure(path, chain, errDesc string) {
+	m.TxFailureError.WithLabelValues(path, chain, errDesc).Inc()
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
+	txFailureLabels := []string{"path", "chain", "cause"}
 	blockQueryFailureLabels := []string{"chain", "type"}
 	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
@@ -76,6 +82,10 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_fees_spent",
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
+		TxFailureError: registerer.NewCounterVec(prometheus.CounterOpts{
+			Name: "cosmos_relayer_tx_errors_total",
+			Help: "The total number of tx failures broken up into categories. See https://github.com/cosmos/relayer/blob/main/docs/advanced_usage.md#monitoring for list of catagories. 'Tx Failure' is the catch-all category",
+		}, txFailureLabels),
 		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_block_query_errors_total",
 			Help: "The total number of block query failures. The failures are separated into two catagories: 'RPC Client' and 'IBC Header'",
