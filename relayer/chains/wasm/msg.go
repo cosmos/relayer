@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -28,7 +28,7 @@ func (w *WasmContractMessage) MsgBytes() ([]byte, error) {
 	return nil, fmt.Errorf("Invalid format")
 }
 
-func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMarshaler) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) NewWasmContractMessage(method string, m codec.ProtoMarshaler) (provider.RelayerMessage, error) {
 	signer, _ := ap.Address()
 	contract := ap.PCfg.IbcHandlerAddress
 
@@ -36,7 +36,7 @@ func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMa
 	if err != nil {
 		return nil, err
 	}
-	// ap.log.Debug("Archway Constructed message ", zap.String("MethodName", method), zap.Any("Message", types.NewHexBytes(protoMsg)))
+	// ap.log.Debug("Wasm Constructed message ", zap.String("MethodName", method), zap.Any("Message", types.NewHexBytes(protoMsg)))
 
 	msgParam, err := types.GenerateTxnParams(method, types.NewHexBytes(protoMsg))
 
@@ -55,22 +55,22 @@ func (ap *ArchwayProvider) NewWasmContractMessage(method string, m codec.ProtoMa
 	}, nil
 }
 
-type ArchwayMessage struct {
+type WasmMessage struct {
 	Msg sdk.Msg
 }
 
-func (am ArchwayMessage) Type() string {
+func (am WasmMessage) Type() string {
 	return sdk.MsgTypeURL(am.Msg)
 }
 
-func (am ArchwayMessage) MsgBytes() ([]byte, error) {
+func (am WasmMessage) MsgBytes() ([]byte, error) {
 	return proto.Marshal(am.Msg)
 }
 
-func ArchwayMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
+func WasmMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	sdkMsgs := make([]sdk.Msg, 0)
 	for _, rMsg := range rm {
-		if val, ok := rMsg.(ArchwayMessage); !ok {
+		if val, ok := rMsg.(WasmMessage); !ok {
 			return nil
 		} else {
 			sdkMsgs = append(sdkMsgs, val.Msg)

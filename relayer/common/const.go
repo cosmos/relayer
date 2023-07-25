@@ -3,7 +3,7 @@ package common
 var (
 	EventTimeoutRequest   = "TimeoutRequest(bytes)"
 	IconModule            = "icon"
-	ArchwayModule         = "archway"
+	WasmModule            = "wasm"
 	TendermintLightClient = "tendermint"
 	IconLightClient       = "iconclient"
 	ONE_HOUR              = 60 * 60 * 1000

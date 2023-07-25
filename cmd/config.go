@@ -30,10 +30,10 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
-	archway "github.com/cosmos/relayer/v2/relayer/chains/archway"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/chains/penumbra"
+	wasm "github.com/cosmos/relayer/v2/relayer/chains/wasm"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -378,7 +378,7 @@ func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
 		"cosmos":   reflect.TypeOf(cosmos.CosmosProviderConfig{}),
 		"icon":     reflect.TypeOf(icon.IconProviderConfig{}),
-		"archway":  reflect.TypeOf(archway.ArchwayProviderConfig{}),
+		"wasm":     reflect.TypeOf(wasm.WasmProviderConfig{}),
 		"penumbra": reflect.TypeOf(penumbra.PenumbraProviderConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
@@ -434,8 +434,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 		iw.Value = new(cosmos.CosmosProviderConfig)
 	case "icon":
 		iw.Value = new(icon.IconProviderConfig)
-	case "archway":
-		iw.Value = new(archway.ArchwayProviderConfig)
+	case "wasm":
+		iw.Value = new(wasm.WasmProviderConfig)
 	case "penumbra":
 		iw.Value = new(penumbra.PenumbraProviderConfig)
 	default:

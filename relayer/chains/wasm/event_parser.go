@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"encoding/base64"
@@ -36,7 +36,7 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-// func (ccp *ArchwayChainProcessor) ibcMessagesFromBlockEvents(
+// func (ccp *WasmChainProcessor) ibcMessagesFromBlockEvents(
 // 	beginBlockEvents, endBlockEvents []abci.Event,
 // 	height uint64, base64Encoded bool,
 // ) (res []ibcMessage) {

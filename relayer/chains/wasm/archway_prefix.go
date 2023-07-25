@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"sync"
@@ -13,10 +13,10 @@ import (
 var sdkConfigMutex sync.Mutex
 
 // Based on cosmos bech32_hack.go
-// SetSDKContext sets the SDK config to the proper bech32 prefixes for archway.
+// SetSDKContext sets the SDK config to the proper bech32 prefixes for wasm.
 // Don't use this unless you know what you're doing.
 // TODO: :dagger: :knife: :chainsaw: remove this function
-func (ap *ArchwayProvider) SetSDKContext() {
+func (ap *WasmProvider) SetSDKContext() {
 	sdkConfigMutex.Lock()
 	cfg := sdk.GetConfig()
 	cfg.SetBech32PrefixForAccount(ap.PCfg.AccountPrefix, app.Bech32PrefixAccPub)

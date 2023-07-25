@@ -15,7 +15,7 @@ type AppModuleBasic struct{}
 
 // Name returns the module's name.
 func (AppModuleBasic) Name() string {
-	return "archway_chain_provider"
+	return "wasm_chain_provider"
 }
 
 // RegisterLegacyAminoCodec does nothing. IBC does not support amino.

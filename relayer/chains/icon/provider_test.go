@@ -56,7 +56,8 @@ func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
 		IbcHandlerAddress: contractAddress,
 		RPCAddr:           "http://localhost:9082/api/v3",
 		// RPCAddr: "https://berlin.net.solidwallet.io/api/v3",
-		Timeout: "20s",
+		Timeout:       "20s",
+		BlockInterval: 2000,
 	}
 	log, _ := zap.NewProduction()
 	p, _ := pcfg.NewProvider(log, "", false, "icon")

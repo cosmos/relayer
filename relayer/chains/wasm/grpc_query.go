@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -25,12 +25,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 )
 
-var _ gogogrpc.ClientConn = &ArchwayProvider{}
+var _ gogogrpc.ClientConn = &WasmProvider{}
 
 var protoCodec = encoding.GetCodec(proto.Name)
 
 // Invoke implements the grpc ClientConn.Invoke method
-func (ap *ArchwayProvider) Invoke(ctx context.Context, method string, req, reply interface{}, opts ...grpc.CallOption) (err error) {
+func (ap *WasmProvider) Invoke(ctx context.Context, method string, req, reply interface{}, opts ...grpc.CallOption) (err error) {
 	// Two things can happen here:
 	// 1. either we're broadcasting a Tx, in which call we call Tendermint's broadcast endpoint directly,
 	// 2. or we are querying for state, in which case we call ABCI's Querier.
@@ -86,7 +86,7 @@ func (ap *ArchwayProvider) Invoke(ctx context.Context, method string, req, reply
 }
 
 // NewStream implements the grpc ClientConn.NewStream method
-func (ap *ArchwayProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
+func (ap *WasmProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return nil, fmt.Errorf("streaming rpc not supported")
 }
 
@@ -94,7 +94,7 @@ func (ap *ArchwayProvider) NewStream(context.Context, *grpc.StreamDesc, string, 
 // arguments for the gRPC method, and returns the ABCI response. It is used
 // to factorize code between client (Invoke) and server (RegisterGRPCServer)
 // gRPC handlers.
-func (ap *ArchwayProvider) RunGRPCQuery(ctx context.Context, method string, req interface{}, md metadata.MD) (abci.ResponseQuery, metadata.MD, error) {
+func (ap *WasmProvider) RunGRPCQuery(ctx context.Context, method string, req interface{}, md metadata.MD) (abci.ResponseQuery, metadata.MD, error) {
 	reqBz, err := protoCodec.Marshal(req)
 	if err != nil {
 		return abci.ResponseQuery{}, nil, err
@@ -147,7 +147,7 @@ func (ap *ArchwayProvider) RunGRPCQuery(ctx context.Context, method string, req 
 
 // TxServiceBroadcast is a helper function to broadcast a Tx with the correct gRPC types
 // from the tx service. Calls `clientCtx.BroadcastTx` under the hood.
-func (ap *ArchwayProvider) TxServiceBroadcast(ctx context.Context, req *tx.BroadcastTxRequest) (*tx.BroadcastTxResponse, error) {
+func (ap *WasmProvider) TxServiceBroadcast(ctx context.Context, req *tx.BroadcastTxRequest) (*tx.BroadcastTxResponse, error) {
 	if req == nil || req.TxBytes == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid empty tx")
 	}
@@ -163,7 +163,7 @@ func (ap *ArchwayProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broad
 	if ap.PCfg.BlockTimeout != "" {
 		blockTimeout, err = time.ParseDuration(ap.PCfg.BlockTimeout)
 		if err != nil {
-			// Did you call Validate() method on ArchwayProviderConfig struct
+			// Did you call Validate() method on WasmProviderConfig struct
 			// before coming here?
 			return nil, err
 		}

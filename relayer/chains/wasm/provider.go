@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -39,12 +39,12 @@ import (
 )
 
 var (
-	_ provider.ChainProvider  = &ArchwayProvider{}
-	_ provider.KeyProvider    = &ArchwayProvider{}
-	_ provider.ProviderConfig = &ArchwayProviderConfig{}
+	_ provider.ChainProvider  = &WasmProvider{}
+	_ provider.KeyProvider    = &WasmProvider{}
+	_ provider.ProviderConfig = &WasmProviderConfig{}
 )
 
-type ArchwayProviderConfig struct {
+type WasmProviderConfig struct {
 	KeyDirectory         string                  `json:"key-directory" yaml:"key-directory"`
 	Key                  string                  `json:"key" yaml:"key"`
 	ChainName            string                  `json:"-" yaml:"-"`
@@ -70,19 +70,19 @@ type ArchwayProviderConfig struct {
 	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
 }
 
-type ArchwayIBCHeader struct {
+type WasmIBCHeader struct {
 	SignedHeader *itm.SignedHeader
 	ValidatorSet *itm.ValidatorSet
 }
 
-func NewArchwayIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet) ArchwayIBCHeader {
-	return ArchwayIBCHeader{
+func NewWasmIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet) WasmIBCHeader {
+	return WasmIBCHeader{
 		SignedHeader: header,
 		ValidatorSet: validators,
 	}
 }
 
-func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) ArchwayIBCHeader {
+func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHeader {
 	vSets := make([]*itm.Validator, 0)
 	for _, v := range lightBlock.ValidatorSet.Validators {
 		_v := &itm.Validator{
@@ -112,7 +112,7 @@ func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) Archwa
 		signatures = append(signatures, _d)
 	}
 
-	return ArchwayIBCHeader{
+	return WasmIBCHeader{
 		SignedHeader: &itm.SignedHeader{
 			Header: &itm.LightHeader{
 				Version: &itm.Consensus{
@@ -162,7 +162,7 @@ func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) Archwa
 	}
 }
 
-func (h ArchwayIBCHeader) ConsensusState() ibcexported.ConsensusState {
+func (h WasmIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return &itm.ConsensusState{
 		Timestamp:          h.SignedHeader.Header.Time,
 		Root:               &itm.MerkleRoot{Hash: h.SignedHeader.Header.AppHash},
@@ -170,23 +170,23 @@ func (h ArchwayIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	}
 }
 
-func (a ArchwayIBCHeader) Height() uint64 {
+func (a WasmIBCHeader) Height() uint64 {
 	return uint64(a.SignedHeader.Header.Height)
 }
 
-func (a ArchwayIBCHeader) IsCompleteBlock() bool {
+func (a WasmIBCHeader) IsCompleteBlock() bool {
 	return true
 }
 
-func (a ArchwayIBCHeader) NextValidatorsHash() []byte {
+func (a WasmIBCHeader) NextValidatorsHash() []byte {
 	return a.SignedHeader.Header.NextValidatorsHash
 }
 
-func (a ArchwayIBCHeader) ShouldUpdateWithZeroMessage() bool {
+func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
 	return false
 }
 
-func (pp *ArchwayProviderConfig) ValidateContractAddress(addr string) bool {
+func (pp *WasmProviderConfig) ValidateContractAddress(addr string) bool {
 	prefix, _, err := bech32.DecodeAndConvert(addr)
 	if err != nil {
 		return false
@@ -205,7 +205,7 @@ func (pp *ArchwayProviderConfig) ValidateContractAddress(addr string) bool {
 	return true
 }
 
-func (pp *ArchwayProviderConfig) Validate() error {
+func (pp *WasmProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
@@ -221,26 +221,26 @@ func (pp *ArchwayProviderConfig) Validate() error {
 	return nil
 }
 
-func (pp *ArchwayProviderConfig) getRPCAddr() string {
+func (pp *WasmProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }
 
-func (pp *ArchwayProviderConfig) BroadcastMode() provider.BroadcastMode {
+func (pp *WasmProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pp.Broadcast
 }
 
-func (pp *ArchwayProviderConfig) GetBlockInterval() uint64 {
+func (pp *WasmProviderConfig) GetBlockInterval() uint64 {
 	return pp.BlockInterval
 }
 
-func (pp *ArchwayProviderConfig) GetFirstRetryBlockAfter() uint64 {
+func (pp *WasmProviderConfig) GetFirstRetryBlockAfter() uint64 {
 	if pp.FirstRetryBlockAfter != 0 {
 		return pp.FirstRetryBlockAfter
 	}
 	return 3
 }
 
-func (pc *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+func (pc *WasmProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (pc *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, d
 		pc.Broadcast = provider.BroadcastModeBatch
 	}
 
-	cp := &ArchwayProvider{
+	cp := &WasmProvider{
 		log:            log,
 		PCfg:           pc,
 		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
@@ -268,10 +268,10 @@ func (pc *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, d
 	return cp, nil
 }
 
-type ArchwayProvider struct {
+type WasmProvider struct {
 	log *zap.Logger
 
-	PCfg           *ArchwayProviderConfig
+	PCfg           *WasmProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
 	RPCClient      rpcclient.Client
@@ -291,38 +291,38 @@ type ArchwayProvider struct {
 	cometLegacyEncoding bool
 }
 
-func (ap *ArchwayProvider) ProviderConfig() provider.ProviderConfig {
+func (ap *WasmProvider) ProviderConfig() provider.ProviderConfig {
 	return ap.PCfg
 }
 
-func (ap *ArchwayProvider) ChainId() string {
+func (ap *WasmProvider) ChainId() string {
 	return ap.PCfg.ChainID
 }
 
-func (ap *ArchwayProvider) ChainName() string {
+func (ap *WasmProvider) ChainName() string {
 	return ap.PCfg.ChainName
 }
 
-func (ap *ArchwayProvider) Type() string {
-	return "archway"
+func (ap *WasmProvider) Type() string {
+	return "wasm"
 }
 
-func (ap *ArchwayProvider) Key() string {
+func (ap *WasmProvider) Key() string {
 	return ap.PCfg.Key
 }
 
-func (ap *ArchwayProvider) Timeout() string {
+func (ap *WasmProvider) Timeout() string {
 	return ap.PCfg.Timeout
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
-func (ap *ArchwayProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (ap *WasmProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	ctx := context.Background()
 	b, _ := ap.GetCommitmentPrefixFromContract(ctx)
 	return commitmenttypes.NewMerklePrefix(b)
 }
 
-func (ap *ArchwayProvider) Init(ctx context.Context) error {
+func (ap *WasmProvider) Init(ctx context.Context) error {
 	keybase, err := keyring.New(ap.PCfg.ChainID, ap.PCfg.KeyringBackend, ap.PCfg.KeyDirectory, ap.Input, ap.Cdc.Marshaler, ap.KeyringOptions...)
 	if err != nil {
 		return err
@@ -370,7 +370,7 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	return nil
 }
 
-func (ap *ArchwayProvider) Address() (string, error) {
+func (ap *WasmProvider) Address() (string, error) {
 	info, err := ap.Keybase.Key(ap.PCfg.Key)
 	if err != nil {
 		return "", err
@@ -390,7 +390,7 @@ func (ap *ArchwayProvider) Address() (string, error) {
 }
 
 // TODO: CHECK AGAIN
-func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *WasmProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// res, err := cc.QueryStakingParams(ctx)
 
@@ -425,7 +425,7 @@ func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, e
 	// return tp, nil
 }
 
-func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
+func (cc *WasmProvider) Sprint(toPrint proto.Message) (string, error) {
 	out, err := cc.Cdc.Marshaler.MarshalJSON(toPrint)
 	if err != nil {
 		return "", err
@@ -433,7 +433,7 @@ func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
-func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
+func (cc *WasmProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatus, error) {
 	status, err := cc.RPCClient.Status(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query node status: %w", err)
@@ -442,7 +442,7 @@ func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatu
 }
 
 // WaitForNBlocks blocks until the next block on a given chain
-func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
+func (cc *WasmProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// var initial int64
 	// h, err := cc.RPCClient.Status(ctx)
@@ -470,7 +470,7 @@ func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	// }
 }
 
-func (ac *ArchwayProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
+func (ac *WasmProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
 	resultBlock, err := ac.RPCClient.Block(ctx, &height)
 	if err != nil {
 		return time.Time{}, err
@@ -478,21 +478,21 @@ func (ac *ArchwayProvider) BlockTime(ctx context.Context, height int64) (time.Ti
 	return resultBlock.Block.Time, nil
 }
 
-func (ac *ArchwayProvider) Codec() Codec {
+func (ac *WasmProvider) Codec() Codec {
 	return ac.Cdc
 }
 
-func (ap *ArchwayProvider) ClientContext() client.Context {
+func (ap *WasmProvider) ClientContext() client.Context {
 	return ap.ClientCtx
 }
 
-func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
+func (ap *WasmProvider) updateNextAccountSequence(seq uint64) {
 	if seq > ap.nextAccountSeq {
 		ap.nextAccountSeq = seq
 	}
 }
 
-func (ap *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 

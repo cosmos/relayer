@@ -10,10 +10,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/archway"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
+	"github.com/cosmos/relayer/v2/relayer/chains/wasm"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"go.uber.org/zap"
 )
@@ -125,8 +125,8 @@ func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.Prometheu
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	case *icon.IconProvider:
 		return icon.NewIconChainProcessor(log, p, metrics)
-	case *archway.ArchwayProvider:
-		return archway.NewArchwayChainProcessor(log, p, metrics)
+	case *wasm.WasmProvider:
+		return wasm.NewWasmChainProcessor(log, p, metrics)
 	default:
 		panic(fmt.Errorf("unsupported chain provider type: %T", chain.ChainProvider))
 	}

@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"bufio"
@@ -63,7 +63,7 @@ var (
 	defaultDelayPeriod = uint64(0)
 )
 
-func (ap *ArchwayProvider) TxFactory() tx.Factory {
+func (ap *WasmProvider) TxFactory() tx.Factory {
 	return tx.Factory{}.
 		WithAccountRetriever(ap).
 		WithChainID(ap.PCfg.ChainID).
@@ -76,7 +76,7 @@ func (ap *ArchwayProvider) TxFactory() tx.Factory {
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
-func (ap *ArchwayProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
+func (ap *WasmProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 	var (
 		err      error
 		from     sdk.AccAddress
@@ -138,7 +138,7 @@ func (ap *ArchwayProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 	return txf, nil
 }
 
-func (pc *ArchwayProviderConfig) SignMode() signing.SignMode {
+func (pc *WasmProviderConfig) SignMode() signing.SignMode {
 	signMode := signing.SignMode_SIGN_MODE_UNSPECIFIED
 	switch pc.SignModeStr {
 	case "direct":
@@ -149,7 +149,7 @@ func (pc *ArchwayProviderConfig) SignMode() signing.SignMode {
 	return signMode
 }
 
-func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 
 	return &itm.ClientState{
 		ChainId:                      dstChainID,
@@ -163,7 +163,7 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 	}, nil
 }
 
-func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -188,15 +188,15 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 	return ap.NewWasmContractMessage(MethodCreateClient, params)
 }
 
-func (ap *ArchwayProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+func (ap *WasmProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
 
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
@@ -226,7 +226,7 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 	return nil
 }
 
-func (ap *ArchwayProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetCommitmentResponse, err := ap.QueryPacketCommitment(
 		ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence,
 	)
@@ -240,7 +240,7 @@ func (ap *ArchwayProvider) PacketCommitment(ctx context.Context, msgTransfer pro
 	}, nil
 }
 
-func (ap *ArchwayProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.SourceChannel, msgRecvPacket.SourcePort, msgRecvPacket.Sequence)
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -251,7 +251,7 @@ func (ap *ArchwayProvider) PacketAcknowledgement(ctx context.Context, msgRecvPac
 	}, nil
 }
 
-func (ap *ArchwayProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 
 	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
 
@@ -264,7 +264,7 @@ func (ap *ArchwayProvider) PacketReceipt(ctx context.Context, msgTransfer provid
 	}, nil
 }
 
-func (ap *ArchwayProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	nextSeqRecvResponse, err := ap.QueryNextSeqRecv(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort)
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -275,12 +275,12 @@ func (ap *ArchwayProvider) NextSeqRecv(ctx context.Context, msgTransfer provider
 	}, nil
 }
 
-func (ap *ArchwayProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("Not implemented for Archway")
+	return nil, fmt.Errorf("Not implemented for Wasm")
 }
 
-func (ap *ArchwayProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -296,7 +296,7 @@ func (ap *ArchwayProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof 
 	return ap.NewWasmContractMessage(MethodRecvPacket, params)
 }
 
-func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -313,7 +313,7 @@ func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo,
 
 }
 
-func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -330,18 +330,18 @@ func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pro
 	return ap.NewWasmContractMessage(MethodTimeoutPacket, params)
 }
 
-func (ap *ArchwayProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Archway module")
+	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Wasm module")
 }
 
 // panic
-func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, nil
 }
 
-func (ap *ArchwayProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
+func (ap *WasmProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := ap.GenerateConnHandshakeProof(ctx, int64(height), msgOpenInit.ClientID, msgOpenInit.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -356,7 +356,7 @@ func (ap *ArchwayProvider) ConnectionHandshakeProof(ctx context.Context, msgOpen
 	}, nil
 }
 
-func (ap *ArchwayProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
+func (ap *WasmProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
 	connState, err := ap.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -367,7 +367,7 @@ func (ap *ArchwayProvider) ConnectionProof(ctx context.Context, msgOpenAck provi
 	}, nil
 }
 
-func (ap *ArchwayProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, p
 
 }
 
-func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -423,7 +423,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionI
 
 }
 
-func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -453,7 +453,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionIn
 	return ap.NewWasmContractMessage(MethodConnectionOpenAck, params)
 }
 
-func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connecti
 	return ap.NewWasmContractMessage(MethodConnectionOpenConfirm, params)
 }
 
-func (ap *ArchwayProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
+func (ap *WasmProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
 	channelResult, err := ap.QueryChannel(ctx, int64(height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, nil
@@ -483,7 +483,7 @@ func (ap *ArchwayProvider) ChannelProof(ctx context.Context, msg provider.Channe
 	}, nil
 }
 
-func (ap *ArchwayProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -505,7 +505,7 @@ func (ap *ArchwayProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof p
 	return ap.NewWasmContractMessage(MethodChannelOpenInit, params)
 }
 
-func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -535,7 +535,7 @@ func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, p
 	return ap.NewWasmContractMessage(MethodChannelOpenTry, params)
 }
 
-func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -553,7 +553,7 @@ func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pr
 	return ap.NewWasmContractMessage(MethodChannelOpenAck, params)
 }
 
-func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -569,7 +569,7 @@ func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo
 	return ap.NewWasmContractMessage(MethodChannelOpenConfirm, params)
 }
 
-func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -584,7 +584,7 @@ func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof 
 	return ap.NewWasmContractMessage(MethodChannelCloseInit, params)
 }
 
-func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -601,26 +601,26 @@ func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelI
 	return ap.NewWasmContractMessage(MethodChannelCloseConfirm, params)
 }
 
-func (ap *ArchwayProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	trustedArchwayHeader, ok := trustedHeader.(ArchwayIBCHeader)
+func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+	trustedWasmHeader, ok := trustedHeader.(WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
 	}
 
-	latestArchwayHeader, ok := latestHeader.(ArchwayIBCHeader)
+	latestWasmHeader, ok := latestHeader.(WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
 	}
 
 	return &itm.TmHeader{
-		SignedHeader:      latestArchwayHeader.SignedHeader,
-		ValidatorSet:      latestArchwayHeader.ValidatorSet,
-		TrustedValidators: trustedArchwayHeader.ValidatorSet,
+		SignedHeader:      latestWasmHeader.SignedHeader,
+		ValidatorSet:      latestWasmHeader.ValidatorSet,
+		TrustedValidators: trustedWasmHeader.ValidatorSet,
 		TrustedHeight:     int64(trustedHeight.RevisionHeight),
 	}, nil
 }
 
-func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgUpdateClient(clientID string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
 		return nil, err
@@ -640,27 +640,27 @@ func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexporte
 
 }
 
-func (ap *ArchwayProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
+func (ap *WasmProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) RelayPacketFromSequence(ctx context.Context, src provider.ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (provider.RelayerMessage, provider.RelayerMessage, error) {
+func (ap *WasmProvider) RelayPacketFromSequence(ctx context.Context, src provider.ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (provider.RelayerMessage, provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (provider.RelayerMessage, error) {
+func (ap *WasmProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (ap *WasmProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	return ap.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
-func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (ap *WasmProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	var (
 		rlyResp     *provider.RelayerTxResponse
 		callbackErr error
@@ -713,7 +713,7 @@ func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	return rlyResp, true, callbackErr
 }
 
-func (ap *ArchwayProvider) SendMessagesToMempool(
+func (ap *WasmProvider) SendMessagesToMempool(
 	ctx context.Context,
 	msgs []provider.RelayerMessage,
 	memo string,
@@ -732,16 +732,16 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 
 	for _, msg := range msgs {
 		if msg == nil {
-			ap.log.Debug("One of the message of archway")
+			ap.log.Debug("One of the message of is nil ")
 			continue
 		}
 
-		archwayMsg, ok := msg.(*WasmContractMessage)
+		wasmMsg, ok := msg.(*WasmContractMessage)
 		if !ok {
-			return fmt.Errorf("Archway Message is not valid %s", archwayMsg.Type())
+			return fmt.Errorf("Wasm Message is not valid %s", wasmMsg.Type())
 		}
 
-		txBytes, sequence, err := ap.buildMessages(cliCtx, factory, archwayMsg.Msg)
+		txBytes, sequence, err := ap.buildMessages(cliCtx, factory, wasmMsg.Msg)
 		if err != nil {
 			return err
 		}
@@ -751,7 +751,7 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 				if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 					ap.handleAccountSequenceMismatchError(err)
 				}
-				return fmt.Errorf("Archway: failed during updateClient %v", err)
+				return fmt.Errorf("Wasm: failed during updateClient %v", err)
 			}
 			ap.updateNextAccountSequence(sequence + 1)
 			continue
@@ -765,13 +765,13 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 	}
 
 	//uncomment for saving msg
-	// SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+	// SaveMsgToFile(WasmDebugMessagePath, msgs)
 
 	return nil
 
 }
 
-func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+func (ap *WasmProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 
 	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
 	// if res != nil {
@@ -784,7 +784,7 @@ func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err erro
 		// Make a copy since we may continue to the warning
 		errorFields := append(fields, zap.Error(err))
 		ap.log.Error(
-			"Failed sending archway transaction",
+			"Failed sending wasm transaction",
 			errorFields...,
 		)
 
@@ -805,7 +805,7 @@ func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err erro
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
-func (ap *ArchwayProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
+func (ap *WasmProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
 	// Include the chain_id
 	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
 
@@ -869,7 +869,7 @@ func getFeePayer(tx *txtypes.Tx) string {
 
 }
 
-func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
+func (ap *WasmProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
 	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
@@ -879,7 +879,7 @@ func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
 	return nil
 }
 
-func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, uint64, error) {
+func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, uint64, error) {
 	for _, msg := range msgs {
 		if err := msg.ValidateBasic(); err != nil {
 			return nil, 0, err
@@ -964,7 +964,7 @@ func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factor
 	return res, sequence, nil
 }
 
-func (ap *ArchwayProvider) BroadcastTx(
+func (ap *WasmProvider) BroadcastTx(
 	clientCtx client.Context,
 	txBytes []byte,
 	msgs []provider.RelayerMessage,
@@ -1024,7 +1024,7 @@ func (ap *ArchwayProvider) BroadcastTx(
 // given set of messages. It will also simulate gas requirements if necessary.
 // It will return an error upon failure.
 // UNUSED: PANIC
-func (ap *ArchwayProvider) broadcastTx(
+func (ap *WasmProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted
 	msgs []provider.RelayerMessage, // used for logging only
@@ -1037,7 +1037,7 @@ func (ap *ArchwayProvider) broadcastTx(
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) waitForTx(
+func (ap *WasmProvider) waitForTx(
 	ctx context.Context,
 	txHash []byte,
 	msgs []provider.RelayerMessage, // used for logging only
@@ -1085,7 +1085,7 @@ func (ap *ArchwayProvider) waitForTx(
 	ap.LogSuccessTx(res, msgs)
 }
 
-func (ap *ArchwayProvider) waitForTxResult(
+func (ap *WasmProvider) waitForTxResult(
 	ctx context.Context,
 	txHash []byte,
 	waitTimeout time.Duration,
@@ -1131,7 +1131,7 @@ type intoAny interface {
 	AsAny() *codectypes.Any
 }
 
-func (ap *ArchwayProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
+func (ap *WasmProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
 	txbz, err := ap.Cdc.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
@@ -1234,7 +1234,7 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 }
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
-func (cc *ArchwayProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+func (cc *WasmProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
 	opts := rpcclient.ABCIQueryOptions{
 		Height: req.Height,
 		Prove:  req.Prove,
@@ -1256,7 +1256,7 @@ func (cc *ArchwayProvider) QueryABCI(ctx context.Context, req abci.RequestQuery)
 	return result.Response, nil
 }
 
-func (cc *ArchwayProvider) handleAccountSequenceMismatchError(err error) {
+func (cc *WasmProvider) handleAccountSequenceMismatchError(err error) {
 
 	clientCtx := cc.ClientContext()
 	fmt.Println("client context is ", clientCtx.GetFromAddress())

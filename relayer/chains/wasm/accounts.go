@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -13,11 +13,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var _ client.AccountRetriever = &ArchwayProvider{}
+var _ client.AccountRetriever = &WasmProvider{}
 
 // GetAccount queries for an account given an address and a block height. An
 // error is returned if the query or decoding fails.
-func (cc *ArchwayProvider) GetAccount(clientCtx client.Context, addr sdk.AccAddress) (client.Account, error) {
+func (cc *WasmProvider) GetAccount(clientCtx client.Context, addr sdk.AccAddress) (client.Account, error) {
 	account, _, err := cc.GetAccountWithHeight(clientCtx, addr)
 	return account, err
 }
@@ -25,7 +25,7 @@ func (cc *ArchwayProvider) GetAccount(clientCtx client.Context, addr sdk.AccAddr
 // GetAccountWithHeight queries for an account given an address. Returns the
 // height of the query with the account. An error is returned if the query
 // or decoding fails.
-func (cc *ArchwayProvider) GetAccountWithHeight(clientCtx client.Context, addr sdk.AccAddress) (client.Account, int64, error) {
+func (cc *WasmProvider) GetAccountWithHeight(clientCtx client.Context, addr sdk.AccAddress) (client.Account, int64, error) {
 	var header metadata.MD
 	address, err := cc.EncodeBech32AccAddr(addr)
 	if err != nil {
@@ -57,7 +57,7 @@ func (cc *ArchwayProvider) GetAccountWithHeight(clientCtx client.Context, addr s
 }
 
 // EnsureExists returns an error if no account exists for the given address else nil.
-func (cc *ArchwayProvider) EnsureExists(clientCtx client.Context, addr sdk.AccAddress) error {
+func (cc *WasmProvider) EnsureExists(clientCtx client.Context, addr sdk.AccAddress) error {
 	if _, err := cc.GetAccount(clientCtx, addr); err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (cc *ArchwayProvider) EnsureExists(clientCtx client.Context, addr sdk.AccAd
 
 // GetAccountNumberSequence returns sequence and account number for the given address.
 // It returns an error if the account couldn't be retrieved from the state.
-func (cc *ArchwayProvider) GetAccountNumberSequence(clientCtx client.Context, addr sdk.AccAddress) (uint64, uint64, error) {
+func (cc *WasmProvider) GetAccountNumberSequence(clientCtx client.Context, addr sdk.AccAddress) (uint64, uint64, error) {
 	acc, err := cc.GetAccount(clientCtx, addr)
 	if err != nil {
 		return 0, 0, err

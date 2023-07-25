@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-var ArchwayDebugMessagePath = filepath.Join(os.Getenv("HOME"), ".relayer", "debug_archway_msg_data.json")
+var WasmDebugMessagePath = filepath.Join(os.Getenv("HOME"), ".relayer", "debug_wasm_msg_data.json")
 
 // for saving data in particular format
 func jsonDumpDataFile(filename string, bufs interface{}) {

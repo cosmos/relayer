@@ -20,7 +20,7 @@ dist/
 .release-env
 
 **/log*.txt
-**/debug_archway_msg_data.json
+**/debug_wasm_msg_data.json
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor

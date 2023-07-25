@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"github.com/CosmWasm/wasmd/x/wasm"
@@ -10,14 +10,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
-	archway_module "github.com/cosmos/relayer/v2/relayer/chains/archway/module"
 	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
+	wasm_module "github.com/cosmos/relayer/v2/relayer/chains/wasm/module"
 )
 
 var ModuleBasics = []module.AppModuleBasic{
 	auth.AppModuleBasic{},
 	ibc.AppModuleBasic{},
-	archway_module.AppModuleBasic{},
+	wasm_module.AppModuleBasic{},
 	wasm.AppModuleBasic{},
 	icon_module.AppModuleBasic{},
 }

@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
@@ -39,7 +39,7 @@ const (
 	NOT_IMPLEMENTED = " :: Not implemented for WASM"
 )
 
-func (ap *ArchwayProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
+func (ap *WasmProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
 	hash, err := hex.DecodeString(hashHex)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (ap *ArchwayProvider) QueryTx(ctx context.Context, hashHex string) (*provid
 	}, nil
 
 }
-func (ap *ArchwayProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
+func (ap *WasmProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
 	}
@@ -115,7 +115,7 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 	return events
 }
 
-func (ap *ArchwayProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
+func (ap *WasmProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 
 	stat, err := ap.RPCClient.Status(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func (ap *ArchwayProvider) QueryLatestHeight(ctx context.Context) (int64, error)
 }
 
 // QueryIBCHeader returns the IBC compatible block header at a specific height.
-func (ap *ArchwayProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
+func (ap *WasmProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("No header at height 0")
 	}
@@ -136,10 +136,10 @@ func (ap *ArchwayProvider) QueryIBCHeader(ctx context.Context, h int64) (provide
 		return nil, err
 	}
 
-	return NewArchwayIBCHeaderFromLightBlock(lightBlock), nil
+	return NewWasmIBCHeaderFromLightBlock(lightBlock), nil
 }
 
-func (ap *ArchwayProvider) QueryLightBlock(ctx context.Context, h int64) (provider.IBCHeader, *tmtypes.LightBlock, error) {
+func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.IBCHeader, *tmtypes.LightBlock, error) {
 	if h == 0 {
 		return nil, nil, fmt.Errorf("No header at height 0")
 	}
@@ -148,19 +148,19 @@ func (ap *ArchwayProvider) QueryLightBlock(ctx context.Context, h int64) (provid
 		return nil, nil, err
 	}
 
-	return NewArchwayIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
+	return NewWasmIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
 }
 
 // query packet info for sequence
-func (ap *ArchwayProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
-	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Archway")
+func (ap *WasmProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
+	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Wasm")
 }
-func (ap *ArchwayProvider) QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (provider.PacketInfo, error) {
-	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Archway")
+func (ap *WasmProvider) QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (provider.PacketInfo, error) {
+	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Wasm")
 }
 
 // bank
-func (ap *ArchwayProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
+func (ap *WasmProvider) QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error) {
 	addr, err := ap.ShowAddress(keyName)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (ap *ArchwayProvider) QueryBalance(ctx context.Context, keyName string) (sd
 	return ap.QueryBalanceWithAddress(ctx, addr)
 }
 
-func (ap *ArchwayProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
+func (ap *WasmProvider) QueryBalanceWithAddress(ctx context.Context, address string) (sdk.Coins, error) {
 	qc := bankTypes.NewQueryClient(ap)
 	p := DefaultPageRequest()
 	coins := sdk.Coins{}
@@ -205,13 +205,13 @@ func DefaultPageRequest() *querytypes.PageRequest {
 }
 
 // staking
-func (ap *ArchwayProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
+func (ap *WasmProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
 	// move to provider, panic
 	return 0, nil
 }
 
 // ics 02 - client
-func (ap *ArchwayProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
+func (ap *WasmProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
 	clientStateRes, err := ap.QueryClientStateResponse(ctx, height, clientid)
 	if err != nil {
 		return nil, err
@@ -225,7 +225,7 @@ func (ap *ArchwayProvider) QueryClientState(ctx context.Context, height int64, c
 }
 
 // TODO: Check revision number
-func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
+func (ap *WasmProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 
 	clS, err := ap.QueryClientStateContract(ctx, srcClientId)
 	if err != nil {
@@ -237,7 +237,7 @@ func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height 
 	}
 
 	storageKey := getStorageKeyFromPath(common.GetClientStateCommitmentKey(srcClientId))
-	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
+	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height 
 	}, nil
 }
 
-func (ap *ArchwayProvider) QueryClientStateContract(ctx context.Context, clientId string) (*icon.ClientState, error) {
+func (ap *WasmProvider) QueryClientStateContract(ctx context.Context, clientId string) (*icon.ClientState, error) {
 	clientStateParam, err := types.NewClientState(clientId).Bytes()
 	if err != nil {
 		return nil, err
@@ -275,7 +275,7 @@ func (ap *ArchwayProvider) QueryClientStateContract(ctx context.Context, clientI
 	return iconClientState, nil
 }
 
-func (ap *ArchwayProvider) QueryConnectionContract(ctx context.Context, connId string) (*conntypes.ConnectionEnd, error) {
+func (ap *WasmProvider) QueryConnectionContract(ctx context.Context, connId string) (*conntypes.ConnectionEnd, error) {
 	connStateParam, err := types.NewConnection(connId).Bytes()
 	if err != nil {
 		return nil, err
@@ -294,7 +294,7 @@ func (ap *ArchwayProvider) QueryConnectionContract(ctx context.Context, connId s
 	return &connS, nil
 }
 
-func (ap *ArchwayProvider) QueryChannelContract(ctx context.Context, portId, channelId string) (*chantypes.Channel, error) {
+func (ap *WasmProvider) QueryChannelContract(ctx context.Context, portId, channelId string) (*chantypes.Channel, error) {
 	channelStateParam, err := types.NewChannel(portId, channelId).Bytes()
 	if err != nil {
 		return nil, err
@@ -312,7 +312,7 @@ func (ap *ArchwayProvider) QueryChannelContract(ctx context.Context, portId, cha
 	return &channelS, nil
 }
 
-func (ap *ArchwayProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 	consensusStateParam, err := types.NewConsensusState(clientid, uint64(chainHeight)).Bytes()
 	consensusState, err := ap.QueryIBCHandlerContractProcessed(ctx, consensusStateParam)
 	if err != nil {
@@ -332,7 +332,7 @@ func (ap *ArchwayProvider) QueryClientConsensusState(ctx context.Context, chainH
 	return clienttypes.NewQueryConsensusStateResponse(anyConsensusState, nil, clienttypes.NewHeight(0, uint64(chainHeight))), nil
 }
 
-func (ap *ArchwayProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (*wasmtypes.QuerySmartContractStateResponse, error) {
+func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (*wasmtypes.QuerySmartContractStateResponse, error) {
 
 	return ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
 		Address:   ap.PCfg.IbcHandlerAddress,
@@ -340,7 +340,7 @@ func (ap *ArchwayProvider) QueryIBCHandlerContract(ctx context.Context, param wa
 	})
 }
 
-func (ap *ArchwayProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
+func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
 	res, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
@@ -348,15 +348,15 @@ func (ap *ArchwayProvider) QueryIBCHandlerContractProcessed(ctx context.Context,
 	return ProcessContractResponse(res)
 }
 
-func (ap *ArchwayProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
+func (ap *WasmProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
+func (ap *WasmProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
+func (ap *WasmProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
 
 	commit, err := ap.RPCClient.Commit(ctx, &height)
 	if err != nil {
@@ -381,7 +381,7 @@ func (ap *ArchwayProvider) QueryConsensusState(ctx context.Context, height int64
 	return state, height, nil
 }
 
-func (ap *ArchwayProvider) getAllPorts(ctx context.Context) ([]string, error) {
+func (ap *WasmProvider) getAllPorts(ctx context.Context) ([]string, error) {
 	param, err := types.NewGetAllPorts().Bytes()
 	if err != nil {
 		return make([]string, 0), err
@@ -399,7 +399,7 @@ func (ap *ArchwayProvider) getAllPorts(ctx context.Context) ([]string, error) {
 	return ports, nil
 }
 
-func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName string) (int, error) {
+func (ap *WasmProvider) getNextSequence(ctx context.Context, methodName string) (int, error) {
 	switch methodName {
 	case MethodGetNextClientSequence:
 		param, err := types.NewNextClientSequence().Bytes()
@@ -441,7 +441,7 @@ func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName strin
 	}
 }
 
-func (ap *ArchwayProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
+func (ap *WasmProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 
 	seq, err := ap.getNextSequence(ctx, MethodGetNextClientSequence)
 	if err != nil {
@@ -466,7 +466,7 @@ func (ap *ArchwayProvider) QueryClients(ctx context.Context) (clienttypes.Identi
 }
 
 // ics 03 - connection
-func (ap *ArchwayProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
+func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
 	connectionStateParams, err := types.NewConnection(connectionid).Bytes()
 	if err != nil {
 		return nil, err
@@ -484,12 +484,12 @@ func (ap *ArchwayProvider) QueryConnection(ctx context.Context, height int64, co
 	}
 
 	storageKey := getStorageKeyFromPath(common.GetConnectionCommitmentKey(connectionid))
-	connProof, err := ap.QueryArchwayProof(ctx, storageKey, height)
+	connProof, err := ap.QueryWasmProof(ctx, storageKey, height)
 
 	return conntypes.NewQueryConnectionResponse(conn, connProof, clienttypes.NewHeight(0, uint64(height))), nil
 }
 
-func (ap *ArchwayProvider) QueryArchwayProof(ctx context.Context, storageKey []byte, height int64) ([]byte, error) {
+func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, height int64) ([]byte, error) {
 	ibcAddr, err := sdk.AccAddressFromBech32(ap.PCfg.IbcHandlerAddress)
 	if err != nil {
 		return nil, err
@@ -533,7 +533,7 @@ func (ap *ArchwayProvider) QueryArchwayProof(ctx context.Context, storageKey []b
 
 }
 
-func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
+func (ap *WasmProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 
 	seq, err := ap.getNextSequence(ctx, MethodGetNextConnectionSequence)
 	if err != nil {
@@ -568,11 +568,11 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 	return conns, nil
 }
 
-func (ap *ArchwayProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
+func (ap *WasmProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
+func (ap *WasmProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
 	clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 	connectionProofHeight ibcexported.Height, err error) {
 
@@ -588,14 +588,14 @@ func (ap *ArchwayProvider) GenerateConnHandshakeProof(ctx context.Context, heigh
 	}
 
 	connStorageKey := getStorageKeyFromPath(common.GetConnectionCommitmentKey(connId))
-	proofConnBytes, err := ap.QueryArchwayProof(ctx, connStorageKey, height)
+	proofConnBytes, err := ap.QueryWasmProof(ctx, connStorageKey, height)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 
 	}
 
 	consStorageKey := getStorageKeyFromPath(common.GetConsensusStateCommitmentKey(clientId, big.NewInt(0), big.NewInt(height)))
-	proofConsensusBytes, err := ap.QueryArchwayProof(ctx, consStorageKey, height)
+	proofConsensusBytes, err := ap.QueryWasmProof(ctx, consStorageKey, height)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -603,7 +603,7 @@ func (ap *ArchwayProvider) GenerateConnHandshakeProof(ctx context.Context, heigh
 }
 
 // ics 04 - channel
-func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
+func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 	channelParams, err := types.NewChannel(portid, channelid).Bytes()
 	if err != nil {
 		return nil, err
@@ -624,16 +624,16 @@ func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, chann
 	}
 
 	storageKey := getStorageKeyFromPath(common.GetChannelCommitmentKey(portid, channelid))
-	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
+	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 
 	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
 }
 
-func (ap *ArchwayProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
+func (ap *WasmProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
+func (ap *WasmProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
 	allChannel, err := ap.QueryChannels(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error querying Channels %v", err)
@@ -647,7 +647,7 @@ func (ap *ArchwayProvider) QueryConnectionChannels(ctx context.Context, height i
 	return identifiedChannels, nil
 }
 
-func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
+func (ap *WasmProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
 	nextSeq, err := ap.getNextSequence(ctx, MethodGetNextChannelSequence)
 	if err != nil {
 		return nil, err
@@ -689,23 +689,23 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 	return channels, nil
 }
 
-func (ap *ArchwayProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (ap *WasmProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
+func (ap *WasmProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (ap *WasmProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (ap *WasmProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *ArchwayProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	nextSeqRecvParams, err := types.NewNextSequenceReceive(portid, channelid).Bytes()
 	if err != nil {
 		return nil, err
@@ -715,7 +715,7 @@ func (ap *ArchwayProvider) QueryNextSeqRecv(ctx context.Context, height int64, c
 		return nil, err
 	}
 
-	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(STORAGEKEY__NextSequenceReceive), height)
+	proof, err := ap.QueryWasmProof(ctx, common.MustHexStrToBytes(STORAGEKEY__NextSequenceReceive), height)
 	if err != nil {
 		return nil, err
 	}
@@ -727,7 +727,7 @@ func (ap *ArchwayProvider) QueryNextSeqRecv(ctx context.Context, height int64, c
 	}, nil
 }
 
-func (ap *ArchwayProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
+func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	pktCommitmentParams, err := types.NewPacketCommitment(portid, channelid, seq).Bytes()
 	if err != nil {
 		return nil, err
@@ -737,7 +737,7 @@ func (ap *ArchwayProvider) QueryPacketCommitment(ctx context.Context, height int
 		return nil, err
 	}
 	storageKey := getStorageKeyFromPath(common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
-	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
+	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 
 	if err != nil {
 		return nil, err
@@ -750,7 +750,7 @@ func (ap *ArchwayProvider) QueryPacketCommitment(ctx context.Context, height int
 
 }
 
-func (ap *ArchwayProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
 	pktAcknowledgementParams, err := types.NewPacketAcknowledgementCommitment(portid, channelid, seq).Bytes()
 	if err != nil {
 		return nil, err
@@ -760,7 +760,7 @@ func (ap *ArchwayProvider) QueryPacketAcknowledgement(ctx context.Context, heigh
 		return nil, err
 	}
 	storageKey := getStorageKeyFromPath(common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
-	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
+	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 
 	return &chantypes.QueryPacketAcknowledgementResponse{
 		Acknowledgement: pktAcknowledgement.Data.Bytes(),
@@ -769,11 +769,11 @@ func (ap *ArchwayProvider) QueryPacketAcknowledgement(ctx context.Context, heigh
 	}, nil
 }
 
-func (ap *ArchwayProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 
 	// getting proof from commitment map in contract
 	storageKey := getStorageKeyFromPath(common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
-	proof, err := ap.QueryArchwayProof(ctx, storageKey, height)
+	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +795,7 @@ func (ap *ArchwayProvider) QueryPacketReceipt(ctx context.Context, height int64,
 	}, nil
 }
 
-func (ap *ArchwayProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]byte, error) {
+func (ap *WasmProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]byte, error) {
 
 	pktCommitmentParams, err := types.NewCommitmentPrefix().Bytes()
 	if err != nil {
@@ -806,9 +806,9 @@ func (ap *ArchwayProvider) GetCommitmentPrefixFromContract(ctx context.Context) 
 }
 
 // ics 20 - transfer
-func (ap *ArchwayProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
+func (ap *WasmProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
-func (ap *ArchwayProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
+func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }

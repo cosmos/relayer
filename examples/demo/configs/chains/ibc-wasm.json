@@ -1,12 +1,12 @@
 {
-  "type": "archway",
+  "type": "wasm",
   "value": {
     "key": "default",
-    "chain-id": "constantine-2",
+    "chain-id": "test-1",
     "rpc-addr": "https://rpc.constantine-2.archway.tech:443",
-    "key-directory":"/Users/viveksharmapoudel/.relayer/keys/archway",
+    "key-directory":"/Users/viveksharmapoudel/.relayer/keys/test-1",
     "grpc-addr": "",
-    "account-prefix": "archway",
+    "account-prefix": "neutron",
     "keyring-backend": "test",
     "gas-adjustment": 1.5,
     "gas-prices": "0.02uconst",

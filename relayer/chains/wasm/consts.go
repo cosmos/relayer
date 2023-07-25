@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 const (
 	// External methods

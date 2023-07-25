@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -37,42 +37,27 @@ func (err mockAccountSequenceMismatchError) Error() string {
 func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.ChainProvider, error) {
 
 	absPath, _ := filepath.Abs("../../../env/archway/keys")
-	var config ArchwayProviderConfig
-	if local {
-		config = ArchwayProviderConfig{
-			KeyDirectory:      absPath,
-			Key:               "testWallet",
-			ChainName:         "archway",
-			ChainID:           "localnet",
-			RPCAddr:           "http://localhost:26657",
-			AccountPrefix:     "archway",
-			KeyringBackend:    "test",
-			GasAdjustment:     1.5,
-			GasPrices:         "0.02stake",
-			Debug:             true,
-			Timeout:           "20s",
-			SignModeStr:       "direct",
-			MinGasAmount:      1000_000,
-			IbcHandlerAddress: handlerAddr,
-		}
-	} else {
-
-		config = ArchwayProviderConfig{
-			KeyDirectory:      absPath,
-			Key:               "testWallet",
-			ChainName:         "archway",
-			ChainID:           "constantine-3",
-			RPCAddr:           "https://rpc.constantine.archway.tech:443",
-			AccountPrefix:     "archway",
-			KeyringBackend:    "test",
-			GasAdjustment:     1.5,
-			GasPrices:         "0.02uconst",
-			Debug:             true,
-			Timeout:           "20s",
-			SignModeStr:       "direct",
-			MinGasAmount:      1000_000,
-			IbcHandlerAddress: handlerAddr,
-		}
+	var config = WasmProviderConfig{
+		KeyDirectory:      absPath,
+		Key:               "testWallet",
+		ChainName:         "archway",
+		ChainID:           "localnet",
+		RPCAddr:           "http://localhost:26657",
+		AccountPrefix:     "archway",
+		KeyringBackend:    "test",
+		GasAdjustment:     1.5,
+		GasPrices:         "0.02stake",
+		Debug:             true,
+		Timeout:           "20s",
+		SignModeStr:       "direct",
+		MinGasAmount:      1000_000,
+		IbcHandlerAddress: handlerAddr,
+		BlockInterval:     6000,
+	}
+	if !local {
+		config.RPCAddr = "https://rpc.constantine.archway.tech:443"
+		config.ChainID = "constantine-3"
+		config.GasPrices = "0.02uconst"
 	}
 
 	p, err := config.NewProvider(zaptest.NewLogger(&testing.T{}), "../../../env/archway", true, "archway")
@@ -91,7 +76,7 @@ func TestGetAddress(t *testing.T) {
 	ctx := context.Background()
 	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", false)
 	assert.NoError(t, err)
-	pArch := p.(*ArchwayProvider)
+	pArch := p.(*WasmProvider)
 	assert.NoError(t, err)
 	a := "archway1jpdcgkwv7wmwaqc6lyvd82dwhkxxfvplp6u8gw"
 	addr, err := pArch.GetKeyAddress()
@@ -138,7 +123,7 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // 	ctx := context.Background()
 // 	contract := "archway1j2zsnnv7qpd6hqhrkg96c57wv9yff4y6amarcvsp5lkta2e4k5vstvt9j3"
 // 	p, _ := GetProvider(ctx, contract)
-// 	pArch := p.(*ArchwayProvider)
+// 	pArch := p.(*WasmProvider)
 // 	pArch.Init(ctx)
 
 // 	key := "jptKey"
@@ -166,7 +151,7 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // 	assert.NoError(t, err)
 
 // 	storageKey := fmt.Sprintf("0007%x%s", []byte("packets"), key)
-// 	_, err = pArch.QueryArchwayProof(ctx, []byte(storageKey), 1932589)
+// 	_, err = pArch.QueryWasmProof(ctx, []byte(storageKey), 1932589)
 // 	assert.NoError(t, err)
 
 // }
@@ -179,7 +164,7 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // 	ctx := context.Background()
 // 	p, err := GetProvider(ctx, "archway21", true)
 // 	assert.NoError(t, err)
-// 	pArch, ok := p.(*ArchwayProvider)
+// 	pArch, ok := p.(*WasmProvider)
 // 	assert.True(t, ok)
 
 // 	a := make(chan provider.RelayerTxResponse, 10)
@@ -214,7 +199,7 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // 	p, err := GetProvider(ctx, contractAddr, true)
 // 	assert.NoError(t, err)
 
-// 	archP := p.(*ArchwayProvider)
+// 	archP := p.(*WasmProvider)
 
 // 	clientId := "iconclient-0"
 
@@ -228,7 +213,7 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // 	ctx := context.Background()
 
 // 	p, _ := GetProvider(ctx, "", false)
-// 	pArch := p.(*ArchwayProvider)
+// 	pArch := p.(*WasmProvider)
 
 // 	// cl, _ := client.NewClientFromNode("http://localhost:26657")
 // 	cl, _ := client.NewClientFromNode("https://rpc.constantine-2.archway.tech:443")
@@ -422,7 +407,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	ap, err := GetProvider(ctx, "archway1maqs3qvslrjaq8xz9402shucnr4wzdujty8lr7ux5z5rnj989lwsmssrzk", true)
 // 	assert.NoError(t, err)
 
-// 	archwayP, ok := ap.(*ArchwayProvider)
+// 	archwayP, ok := ap.(*WasmProvider)
 // 	if !ok {
 // 		assert.Fail(t, "failed to convert to archwayP")
 // 	}
@@ -466,7 +451,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	ap, err := GetProvider(ctx, "", false)
 // 	assert.NoError(t, err)
 
-// 	archwayP, ok := ap.(*ArchwayProvider)
+// 	archwayP, ok := ap.(*WasmProvider)
 // 	if !ok {
 // 		assert.Fail(t, "failed to convert to archwayP")
 // 	}
@@ -487,7 +472,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	ctx := context.Background()
 // 	ap, err := GetProvider(ctx, "archway123", false)
 // 	assert.NoError(t, err)
-// 	archwayP, _ := ap.(*ArchwayProvider)
+// 	archwayP, _ := ap.(*WasmProvider)
 
 // 	var iconee exported.ClientState
 // 	err = archwayP.Cdc.Marshaler.UnmarshalInterface(d, &iconee)
@@ -500,7 +485,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	apx, err := GetProvider(ctx, "abcd", true)
 // 	assert.NoError(t, err)
 
-// 	ap := apx.(*ArchwayProvider)
+// 	ap := apx.(*WasmProvider)
 
 // 	tsHeight := 34055
 // 	cl := "07-tendermint-0"
@@ -585,7 +570,7 @@ func TestDecodeProto(t *testing.T) {
 // 	pro, err := GetProvider(ctx, "archway17ymdtz48qey0lpha8erch8hghj37ag4dn0qqyyrtseymvgw6lfnqgmtsrj", true)
 // 	assert.NoError(t, err)
 
-// 	archwayP := pro.(*ArchwayProvider)
+// 	archwayP := pro.(*WasmProvider)
 
 // 	height := int64(6343)
 // 	blockRes, err := archwayP.RPCClient.BlockResults(ctx, &height)
@@ -644,7 +629,7 @@ func TestDecodeProto(t *testing.T) {
 // 	pro, err := GetProvider(ctx, contractAddr, true)
 // 	assert.NoError(t, err)
 
-// 	archwayP := pro.(*ArchwayProvider)
+// 	archwayP := pro.(*WasmProvider)
 
 // 	connectionKey := common.GetConnectionCommitmentKey("connection-3")
 
@@ -653,7 +638,7 @@ func TestDecodeProto(t *testing.T) {
 // 	assert.NoError(t, err)
 // 	fmt.Printf("the main key is %x \n ", hexStrkey)
 
-// 	proofConnBytes, err := archwayP.QueryArchwayProof(ctx, hexStrkey, int64(2273))
+// 	proofConnBytes, err := archwayP.QueryWasmProof(ctx, hexStrkey, int64(2273))
 
 // 	var op icn.MerkleProof
 // 	err = proto.Unmarshal(proofConnBytes, &op)
@@ -672,7 +657,7 @@ func TestDecodeProto(t *testing.T) {
 // 	contractAddr := "archway10qt8wg0n7z740ssvf3urmvgtjhxpyp74hxqvqt7z226gykuus7eqzla6h5"
 // 	pro, err := GetProvider(ctx, contractAddr, true)
 // 	assert.NoError(t, err)
-// 	archwayP := pro.(*ArchwayProvider)
+// 	archwayP := pro.(*WasmProvider)
 // 	height := 410
 
 // 	ibcAddr, err := sdk.AccAddressFromBech32(archwayP.PCfg.IbcHandlerAddress)
@@ -703,7 +688,7 @@ func TestDecodeProto(t *testing.T) {
 
 // 	ibcH, err := archwayP.QueryIBCHeader(ctx, req.Height+1)
 // 	assert.NoError(t, err)
-// 	header := ibcH.(ArchwayIBCHeader)
+// 	header := ibcH.(WasmIBCHeader)
 
 // 	path := commitmenttypes.MerklePath{KeyPath: []string{
 // 		"wasm",
@@ -746,7 +731,7 @@ func TestDecodeProto(t *testing.T) {
 // 	// contractAddr := "archway10qt8wg0n7z740ssvf3urmvgtjhxpyp74hxqvqt7z226gykuus7eqzla6h5"
 // 	pro, err := GetProvider(ctx, contractAddr, true)
 // 	assert.NoError(t, err)
-// 	archwayP := pro.(*ArchwayProvider)
+// 	archwayP := pro.(*WasmProvider)
 
 // 	ibcAddr, err := sdk.AccAddressFromBech32(archwayP.PCfg.IbcHandlerAddress)
 // 	assert.NoError(t, err)
@@ -851,7 +836,7 @@ func TestProtoUnmarshal(t *testing.T) {
 // 	ctx := context.Background()
 // 	p, _ := GetProvider(ctx, "archway13we0myxwzlpx8l5ark8elw5gj5d59dl6cjkzmt80c5q5cv5rt54quagxpp", true)
 
-// 	archwayP := p.(*ArchwayProvider)
+// 	archwayP := p.(*WasmProvider)
 
 // 	_, err := archwayP.GetCommitmentPrefixFromContract(ctx)
 // 	assert.NoError(t, err)

@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func (ccp *ArchwayChainProcessor) handleMessage(ctx context.Context, m ibcMessage, c processor.IBCMessagesCache) {
+func (ccp *WasmChainProcessor) handleMessage(ctx context.Context, m ibcMessage, c processor.IBCMessagesCache) {
 	switch t := m.info.(type) {
 	case *packetInfo:
 		ccp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
@@ -27,7 +27,7 @@ func (ccp *ArchwayChainProcessor) handleMessage(ctx context.Context, m ibcMessag
 	}
 }
 
-func (ccp *ArchwayChainProcessor) handlePacketMessage(eventType string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
+func (ccp *WasmChainProcessor) handlePacketMessage(eventType string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
 	k, err := processor.PacketInfoChannelKey(eventType, pi)
 	if err != nil {
 		ccp.log.Error("Unexpected error handling packet message",
@@ -62,7 +62,7 @@ func (ccp *ArchwayChainProcessor) handlePacketMessage(eventType string, pi provi
 	ccp.logPacketMessage(eventType, pi)
 }
 
-func (ccp *ArchwayChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
+func (ccp *WasmChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
 	ccp.channelConnections[ci.ChannelID] = ci.ConnID
 	channelKey := processor.ChannelInfoChannelKey(ci)
 
@@ -103,7 +103,7 @@ func (ccp *ArchwayChainProcessor) handleChannelMessage(eventType string, ci prov
 	ccp.logChannelMessage(eventType, ci)
 }
 
-func (ccp *ArchwayChainProcessor) handleConnectionMessage(eventType string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
+func (ccp *WasmChainProcessor) handleConnectionMessage(eventType string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
 	ccp.connectionClients[ci.ConnID] = ci.ClientID
 	connectionKey := processor.ConnectionInfoConnectionKey(ci)
 	if eventType == conntypes.EventTypeConnectionOpenInit {
@@ -131,12 +131,12 @@ func (ccp *ArchwayChainProcessor) handleConnectionMessage(eventType string, ci p
 	ccp.logConnectionMessage(eventType, ci)
 }
 
-func (ccp *ArchwayChainProcessor) handleClientMessage(ctx context.Context, eventType string, ci clientInfo) {
+func (ccp *WasmChainProcessor) handleClientMessage(ctx context.Context, eventType string, ci clientInfo) {
 	ccp.latestClientState.update(ctx, ci, ccp)
 	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
 }
 
-func (ccp *ArchwayChainProcessor) handleClientICQMessage(
+func (ccp *WasmChainProcessor) handleClientICQMessage(
 	eventType string,
 	ci provider.ClientICQInfo,
 	c processor.IBCMessagesCache,
@@ -145,11 +145,11 @@ func (ccp *ArchwayChainProcessor) handleClientICQMessage(
 	ccp.logClientICQMessage(eventType, ci)
 }
 
-func (ccp *ArchwayChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
+func (ccp *WasmChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {
 	ccp.log.With(zap.String("event_type", m)).Debug("Observed IBC message", fields...)
 }
 
-func (ccp *ArchwayChainProcessor) logPacketMessage(message string, pi provider.PacketInfo) {
+func (ccp *WasmChainProcessor) logPacketMessage(message string, pi provider.PacketInfo) {
 	if !ccp.log.Core().Enabled(zapcore.DebugLevel) {
 		return
 	}
@@ -172,7 +172,7 @@ func (ccp *ArchwayChainProcessor) logPacketMessage(message string, pi provider.P
 	ccp.logObservedIBCMessage(message, fields...)
 }
 
-func (ccp *ArchwayChainProcessor) logChannelMessage(message string, ci provider.ChannelInfo) {
+func (ccp *WasmChainProcessor) logChannelMessage(message string, ci provider.ChannelInfo) {
 	ccp.logObservedIBCMessage(message,
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("port_id", ci.PortID),
@@ -182,7 +182,7 @@ func (ccp *ArchwayChainProcessor) logChannelMessage(message string, ci provider.
 	)
 }
 
-func (ccp *ArchwayChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
+func (ccp *WasmChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
 	ccp.logObservedIBCMessage(message,
 		zap.String("client_id", ci.ClientID),
 		zap.String("connection_id", ci.ConnID),
@@ -191,7 +191,7 @@ func (ccp *ArchwayChainProcessor) logConnectionMessage(message string, ci provid
 	)
 }
 
-func (ccp *ArchwayChainProcessor) logClientICQMessage(icqType string, ci provider.ClientICQInfo) {
+func (ccp *WasmChainProcessor) logClientICQMessage(icqType string, ci provider.ClientICQInfo) {
 	ccp.logObservedIBCMessage(icqType,
 		zap.String("type", ci.Type),
 		zap.String("query_id", string(ci.QueryID)),

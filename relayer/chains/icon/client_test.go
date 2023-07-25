@@ -38,6 +38,7 @@ func GetLisbonIconProvider(network_id int, contractAddress string) *IconProvider
 		IbcHandlerAddress: contractAddress,
 		RPCAddr:           "https://lisbon.net.solidwallet.io/api/v3",
 		Timeout:           "20s",
+		BlockInterval:     2000,
 	}
 	log, _ := zap.NewProduction()
 	p, _ := pcfg.NewProvider(log, "", false, "icon")

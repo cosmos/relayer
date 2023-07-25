@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"errors"
@@ -37,7 +37,7 @@ func KeyringAlgoOptions() keyring.Option {
 }
 
 // CreateKeystore initializes a new instance of a keyring at the specified path in the local filesystem.
-func (cc *ArchwayProvider) CreateKeystore(path string) error {
+func (cc *WasmProvider) CreateKeystore(path string) error {
 	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, KeyringAlgoOptions())
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (cc *ArchwayProvider) CreateKeystore(path string) error {
 }
 
 // KeystoreCreated returns true if there is an existing keystore instance at the specified path, it returns false otherwise.
-func (cc *ArchwayProvider) KeystoreCreated(path string) bool {
+func (cc *WasmProvider) KeystoreCreated(path string) bool {
 	if _, err := os.Stat(cc.PCfg.KeyDirectory); errors.Is(err, os.ErrNotExist) {
 		return false
 	} else if cc.Keybase == nil {
@@ -58,7 +58,7 @@ func (cc *ArchwayProvider) KeystoreCreated(path string) bool {
 
 // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *ArchwayProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
+func (cc *WasmProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
 	ko, err := cc.KeyAddOrRestore(name, coinType)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (cc *ArchwayProvider) AddKey(name string, coinType uint32, signingAlgorithm
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *ArchwayProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {
+func (cc *WasmProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {
 	ko, err := cc.KeyAddOrRestore(name, coinType, mnemonic)
 	if err != nil {
 		return "", err
@@ -78,7 +78,7 @@ func (cc *ArchwayProvider) RestoreKey(name, mnemonic string, coinType uint32, si
 
 // KeyAddOrRestore either generates a new mnemonic or uses the specified mnemonic and converts it to a private key
 // and BIP-39 HD Path which is then persisted to the keystore. It fails if there is an existing key with the same address.
-func (cc *ArchwayProvider) KeyAddOrRestore(keyName string, coinType uint32, mnemonic ...string) (*provider.KeyOutput, error) {
+func (cc *WasmProvider) KeyAddOrRestore(keyName string, coinType uint32, mnemonic ...string) (*provider.KeyOutput, error) {
 	var mnemonicStr string
 	var err error
 	algo := keyring.SignatureAlgo(hd.Secp256k1)
@@ -110,7 +110,7 @@ func (cc *ArchwayProvider) KeyAddOrRestore(keyName string, coinType uint32, mnem
 }
 
 // ShowAddress retrieves a key by name from the keystore and returns the bech32 encoded string representation of that key.
-func (cc *ArchwayProvider) ShowAddress(name string) (address string, err error) {
+func (cc *WasmProvider) ShowAddress(name string) (address string, err error) {
 	info, err := cc.Keybase.Key(name)
 	if err != nil {
 		return "", err
@@ -127,7 +127,7 @@ func (cc *ArchwayProvider) ShowAddress(name string) (address string, err error) 
 }
 
 // // ListAddresses returns a map of bech32 encoded strings representing all keys currently in the keystore.
-func (cc *ArchwayProvider) ListAddresses() (map[string]string, error) {
+func (cc *WasmProvider) ListAddresses() (map[string]string, error) {
 	out := map[string]string{}
 	info, err := cc.Keybase.List()
 	if err != nil {
@@ -148,7 +148,7 @@ func (cc *ArchwayProvider) ListAddresses() (map[string]string, error) {
 }
 
 // DeleteKey removes a key from the keystore for the specified name.
-func (cc *ArchwayProvider) DeleteKey(name string) error {
+func (cc *WasmProvider) DeleteKey(name string) error {
 	if err := cc.Keybase.Delete(name); err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (cc *ArchwayProvider) DeleteKey(name string) error {
 }
 
 // KeyExists returns true if a key with the specified name exists in the keystore, it returns false otherwise.
-func (cc *ArchwayProvider) KeyExists(name string) bool {
+func (cc *WasmProvider) KeyExists(name string) bool {
 	k, err := cc.Keybase.Key(name)
 	if err != nil {
 		return false
@@ -167,12 +167,12 @@ func (cc *ArchwayProvider) KeyExists(name string) bool {
 
 // ExportPrivKeyArmor returns a private key in ASCII armored format.
 // It returns an error if the key does not exist or a wrong encryption passphrase is supplied.
-func (cc *ArchwayProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
+func (cc *WasmProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
 	return cc.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
 }
 
 // GetKeyAddress returns the account address representation for the currently configured key.
-func (cc *ArchwayProvider) GetKeyAddress() (sdk.AccAddress, error) {
+func (cc *WasmProvider) GetKeyAddress() (sdk.AccAddress, error) {
 	info, err := cc.Keybase.Key(cc.PCfg.Key)
 	if err != nil {
 		return nil, err
@@ -196,6 +196,6 @@ func CreateMnemonic() (string, error) {
 // EncodeBech32AccAddr returns the string bech32 representation for the specified account address.
 // It returns an empty sting if the byte slice is 0-length.
 // It returns an error if the bech32 conversion fails or the prefix is empty.
-func (cc *ArchwayProvider) EncodeBech32AccAddr(addr sdk.AccAddress) (string, error) {
+func (cc *WasmProvider) EncodeBech32AccAddr(addr sdk.AccAddress) (string, error) {
 	return sdk.Bech32ifyAddressBytes(cc.PCfg.AccountPrefix, addr)
 }
