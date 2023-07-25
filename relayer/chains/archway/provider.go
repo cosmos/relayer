@@ -66,6 +66,8 @@ type ArchwayProviderConfig struct {
 	Broadcast            provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 	IbcHandlerAddress    string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
+	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
+	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
 }
 
 type ArchwayIBCHeader struct {
@@ -212,6 +214,10 @@ func (pp *ArchwayProviderConfig) Validate() error {
 		return fmt.Errorf("Invalid contract address")
 	}
 
+	if pp.BlockInterval == 0 {
+		return fmt.Errorf("Block interval cannot be zero")
+	}
+
 	return nil
 }
 
@@ -221,6 +227,17 @@ func (pp *ArchwayProviderConfig) getRPCAddr() string {
 
 func (pp *ArchwayProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pp.Broadcast
+}
+
+func (pp *ArchwayProviderConfig) GetBlockInterval() uint64 {
+	return pp.BlockInterval
+}
+
+func (pp *ArchwayProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	if pp.FirstRetryBlockAfter != 0 {
+		return pp.FirstRetryBlockAfter
+	}
+	return 3
 }
 
 func (pc *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
@@ -477,13 +494,6 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 
 func (ap *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-}
-
-func (cc *ArchwayProvider) FirstRetryBlockAfter() uint64 {
-	if cc.PCfg.FirstRetryBlockAfter != 0 {
-		return cc.PCfg.FirstRetryBlockAfter
-	}
-	return 3
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

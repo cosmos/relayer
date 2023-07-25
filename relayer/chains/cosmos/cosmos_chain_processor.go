@@ -262,6 +262,14 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	}
 }
 
+func (ccp *CosmosChainProcessor) SnapshotHeight(height int) {
+	panic("Not implemented for Cosmos")
+}
+
+func (ccp *CosmosChainProcessor) StartFromHeight(ctx context.Context) int {
+	panic("Not implemented for Cosmos")
+}
+
 // initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
 func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)

@@ -14,7 +14,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	rlycommon "github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gorilla/websocket"
@@ -152,6 +154,20 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	return err
 }
 
+func (icp *IconChainProcessor) StartFromHeight(ctx context.Context) int {
+	cfg := icp.Provider().ProviderConfig().(*IconProviderConfig)
+	if cfg.StartHeight != 0 {
+		return int(cfg.StartHeight)
+	}
+	snapshotHeight, err := rlycommon.LoadSnapshotHeight(icp.Provider().ChainId())
+	if err != nil {
+		icp.log.Warn("Failed to load height from snapshot", zap.Error(err))
+	} else {
+		icp.log.Info("Obtained start height from config", zap.Int("height", snapshotHeight))
+	}
+	return snapshotHeight
+}
+
 func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) error {
 	// TODO: review
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
@@ -248,14 +264,19 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	}
 
 	var err error
-	processedheight := int64(icp.chainProvider.StartHeight)
-	if processedheight == 0 {
+	// processedheight := int64(icp.chainProvider.lastBTPBlockHeight)
+	// if processedheight == 0 {
+	processedheight := int64(icp.StartFromHeight(ctx))
+	if processedheight <= 0 {
 		processedheight, err = icp.chainProvider.QueryLatestHeight(ctx)
 		if err != nil {
+			fmt.Println("Error fetching latest block")
 			return err
 		}
 	}
+	// }
 
+	icp.log.Debug("Start to query from height", zap.Int64("height", processedheight))
 	// subscribe to monitor block
 	ctxMonitorBlock, cancelMonitorBlock := context.WithCancel(ctx)
 	reconnect()
@@ -292,6 +313,7 @@ loop:
 				}, func(conn *websocket.Conn) {
 				}, func(conn *websocket.Conn, err error) {})
 				if err != nil {
+					icp.SnapshotHeight(int(processedheight) - 5)
 					if errors.Is(err, context.Canceled) {
 						return
 					}
@@ -342,6 +364,7 @@ loop:
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}
+				icp.SnapshotHeight(int(icp.latestBlock.Height) - 5)
 			}
 			// remove unprocessed blockResponses
 			for len(btpBlockRespCh) > 0 {
@@ -428,6 +451,22 @@ loop:
 				}
 
 			}
+		}
+	}
+}
+
+func (icp *IconChainProcessor) SnapshotHeight(height int) {
+
+	blockInterval := icp.Provider().ProviderConfig().GetBlockInterval()
+	snapshotThreshold := rlycommon.ONE_HOUR / int(blockInterval)
+
+	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
+	snapshotHeight := height - int(retryAfter)
+
+	if snapshotHeight%snapshotThreshold == 0 {
+		err := rlycommon.SnapshotHeight(icp.Provider().ChainId(), height)
+		if err != nil {
+			icp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
 		}
 	}
 }
@@ -623,7 +662,7 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 			ClientState:          clientState,
 			ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
 			ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache,
+			IBCHeaderCache:       ibcHeaderCache.Clone(),
 			IsGenesis:            icp.firstTime,
 		})
 	}

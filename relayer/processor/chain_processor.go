@@ -20,6 +20,14 @@ type ChainProcessor interface {
 	// Set the PathProcessors that this ChainProcessor should publish relevant IBC events to.
 	// ChainProcessors need reference to their PathProcessors and vice-versa, handled by EventProcessorBuilder.Build().
 	SetPathProcessors(pathProcessors PathProcessors)
+
+	// Take snapshot of height every N blocks or when the chain processor fails, so that the relayer
+	// can restart from that height
+	SnapshotHeight(height int)
+
+	// If the relay goes down, start chain processor from height returned by this function
+	// CAN return max(snapshotHeight, latestHeightFromClient)
+	StartFromHeight(ctx context.Context) int
 }
 
 // ChainProcessors is a slice of ChainProcessor instances.

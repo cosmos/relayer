@@ -492,7 +492,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
 			return false
 		}
-		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.FirstRetryBlockAfter() {
+		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.ProviderConfig().GetFirstRetryBlockAfter() {
 			return false
 		}
 	} else {
@@ -580,7 +580,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
 			return false
 		}
-		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.FirstRetryBlockAfter() {
+		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.ProviderConfig().GetFirstRetryBlockAfter() {
 			return false
 		}
 	} else {
@@ -660,7 +660,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
 			return false
 		}
-		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.FirstRetryBlockAfter() {
+		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.ProviderConfig().GetFirstRetryBlockAfter() {
 			return false
 		}
 	} else {

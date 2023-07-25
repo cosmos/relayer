@@ -16,7 +16,9 @@
     "sign-mode": "direct",
     "ibc-handler-address":"--",
     "broadcast-mode": "batch",
-    "block-timeout": ""
+    "block-timeout": "",
+    "start-height":0,
+    "block-interval": 6000
   }
 }
 

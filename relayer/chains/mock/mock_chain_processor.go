@@ -59,6 +59,14 @@ func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string,
 	}
 }
 
+func (mcp *MockChainProcessor) SnapshotHeight(height int) {
+	panic("")
+}
+
+func (mcp *MockChainProcessor) StartFromHeight(ctx context.Context) int {
+	return 0
+}
+
 func (mcp *MockChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {
 	mcp.pathProcessors = pathProcessors
 }

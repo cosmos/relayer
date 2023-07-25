@@ -267,6 +267,14 @@ func (pcp *PenumbraChainProcessor) initializeChannelState(ctx context.Context) e
 	return nil
 }
 
+func (ccp *PenumbraChainProcessor) SnapshotHeight(height int) {
+	panic("Not implemented for Penumbra")
+}
+
+func (ccp *PenumbraChainProcessor) StartFromHeight(ctx context.Context) int {
+	panic("Not implemented for Penumbra")
+}
+
 // ABCI results from a block
 type ResultBlockResults struct {
 	Height                int64                    `json:"height,string"`

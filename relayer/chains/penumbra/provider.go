@@ -67,6 +67,14 @@ func (pc PenumbraProviderConfig) Validate() error {
 	return nil
 }
 
+func (pc PenumbraProviderConfig) GetBlockInterval() uint64 {
+	panic("Not implemented for Penumbra")
+}
+
+func (pc PenumbraProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	return 1
+}
+
 func (pc PenumbraProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pc.Broadcast
 }

@@ -74,7 +74,22 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
+	if pp.BlockInterval == 0 {
+		return fmt.Errorf("Block interval cannot be zero")
+	}
+
 	return nil
+}
+
+func (pp *IconProviderConfig) GetBlockInterval() uint64 {
+	return pp.BlockInterval
+}
+
+func (pp *IconProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	if pp.FirstRetryBlockAfter != 0 {
+		return pp.FirstRetryBlockAfter
+	}
+	return 8
 }
 
 // NewProvider should provide a new Icon provider
@@ -533,11 +548,4 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 
 func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
-}
-
-func (cc *IconProvider) FirstRetryBlockAfter() uint64 {
-	if cc.PCfg.FirstRetryBlockAfter != 0 {
-		return cc.PCfg.FirstRetryBlockAfter
-	}
-	return 8
 }
