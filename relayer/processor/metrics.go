@@ -29,12 +29,12 @@ func (m *PrometheusMetrics) SetLatestHeight(chain string, height int64) {
 	m.LatestHeightGauge.WithLabelValues(chain).Set(float64(height))
 }
 
-func (m *PrometheusMetrics) SetWalletBalance(chain, key, address, denom string, balance float64) {
-	m.WalletBalance.WithLabelValues(chain, key, address, denom).Set(balance)
+func (m *PrometheusMetrics) SetWalletBalance(chain, gasPrice, key, address, denom string, balance float64) {
+	m.WalletBalance.WithLabelValues(chain, gasPrice, key, address, denom).Set(balance)
 }
 
-func (m *PrometheusMetrics) SetFeesSpent(chain, key, address, denom string, amount float64) {
-	m.FeesSpent.WithLabelValues(chain, key, address, denom).Set(amount)
+func (m *PrometheusMetrics) SetFeesSpent(chain, gasPrice, key, address, denom string, amount float64) {
+	m.FeesSpent.WithLabelValues(chain, gasPrice, key, address, denom).Set(amount)
 }
 
 func (m *PrometheusMetrics) SetClientExpiration(pathName, chain, clientID, trustingPeriod string, timeToExpiration time.Duration) {
@@ -44,7 +44,7 @@ func (m *PrometheusMetrics) SetClientExpiration(pathName, chain, clientID, trust
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
-	walletLabels := []string{"chain", "key", "address", "denom"}
+	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
