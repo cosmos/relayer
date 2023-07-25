@@ -313,8 +313,10 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 	// will have a signing protocol for this.
 
 	txBody := penumbratypes.TransactionBody{
-		Actions: make([]*penumbratypes.Action, 0),
-		Fee:     &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
+		Actions:               make([]*penumbratypes.Action, 0),
+		Fee:                   &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
+		MemoData:              &penumbratypes.MemoData{},
+		TransactionParameters: &penumbratypes.TransactionParameters{},
 	}
 
 	for _, msg := range PenumbraMsgs(msgs...) {
@@ -1941,12 +1943,13 @@ var JmtSpec = &ics23.ProofSpec{
 		Hash:            ics23.HashOp_SHA256,
 		ChildOrder:      []int32{0, 1},
 		MinPrefixLength: 16,
-		MaxPrefixLength: 48,
+		MaxPrefixLength: 16,
 		ChildSize:       32,
-		EmptyChild:      nil,
+		EmptyChild:      []byte("SPARSE_MERKLE_PLACEHOLDER_HASH__"),
 	},
-	MinDepth: 0,
-	MaxDepth: 64,
+	MinDepth:                   0,
+	MaxDepth:                   64,
+	PrehashKeyBeforeComparison: true,
 }
 
 var ApphashSpec = &ics23.ProofSpec{
@@ -1965,8 +1968,9 @@ var ApphashSpec = &ics23.ProofSpec{
 		ChildSize:       32,
 		EmptyChild:      nil,
 	},
-	MinDepth: 0,
-	MaxDepth: 1,
+	MinDepth:                   0,
+	MaxDepth:                   1,
+	PrehashKeyBeforeComparison: true,
 }
 
 var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}

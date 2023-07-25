@@ -1,6 +1,7 @@
 package cosmos
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -9,6 +10,7 @@ import (
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -53,6 +55,12 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 	fields = append(fields, msgTypesField(msgs))
 
 	if err != nil {
+
+		if errors.Is(err, chantypes.ErrRedundantTx) {
+			cc.log.Debug("Redundant message(s)", fields...)
+			return
+		}
+
 		// Make a copy since we may continue to the warning
 		errorFields := append(fields, zap.Error(err))
 		cc.log.Error(
