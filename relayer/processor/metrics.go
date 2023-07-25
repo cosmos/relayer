@@ -15,6 +15,7 @@ type PrometheusMetrics struct {
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
 	ClientExpiration      *prometheus.GaugeVec
+	ClientTrustingPeriod  *prometheus.GaugeVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
@@ -41,11 +42,16 @@ func (m *PrometheusMetrics) SetClientExpiration(pathName, chain, clientID, trust
 	m.ClientExpiration.WithLabelValues(pathName, chain, clientID, trustingPeriod).Set(timeToExpiration.Seconds())
 }
 
+func (m *PrometheusMetrics) SetClientTrustingPeriod(pathName, chain, clientID string, trustingPeriod time.Duration) {
+	m.ClientTrustingPeriod.WithLabelValues(pathName, chain, clientID).Set(trustingPeriod.Abs().Seconds())
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
+	clientTrustingPeriodLables := []string{"path_name", "chain", "client_id"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -74,5 +80,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_client_expiration_seconds",
 			Help: "Seconds until the client expires",
 		}, clientExpirationLables),
+		ClientTrustingPeriod: registerer.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cosmos_relayer_client_trusting_period_seconds",
+			Help: "The trusting period (in seconds) of the client",
+		}, clientTrustingPeriodLables),
 	}
 }
