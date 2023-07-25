@@ -301,11 +301,18 @@ func (mp *messageProcessor) trackAndSendMessages(
 	var batch []messageToTrack
 
 	for _, t := range mp.trackers() {
+
 		retries := dst.trackProcessingMessage(t)
 		if t.assembledMsg() == nil {
 			continue
 		}
-		if broadcastBatch && retries == 0 {
+
+		ordered := false
+		if m, ok := t.(packetMessageToTrack); ok && m.msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			ordered = true
+		}
+
+		if broadcastBatch && (retries == 0 || ordered) {
 			batch = append(batch, t)
 			continue
 		}
