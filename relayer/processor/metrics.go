@@ -94,7 +94,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		}, txFailureLabels),
 		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_block_query_errors_total",
-			Help: "The total number of block query failures. The failures are separated into two catagories: 'RPC Client' and 'IBC Header'",
+			Help: "The total number of block query failures. The failures are separated into two categories: 'RPC Client' and 'IBC Header'",
 		}, blockQueryFailureLabels),
 		ClientExpiration: registerer.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_client_expiration_seconds",
