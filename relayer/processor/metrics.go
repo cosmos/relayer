@@ -14,6 +14,7 @@ type PrometheusMetrics struct {
 	LatestHeightGauge     *prometheus.GaugeVec
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
+	BlockQueryFailure     *prometheus.CounterVec
 	ClientExpiration      *prometheus.GaugeVec
 }
 
@@ -41,9 +42,14 @@ func (m *PrometheusMetrics) SetClientExpiration(pathName, chain, clientID, trust
 	m.ClientExpiration.WithLabelValues(pathName, chain, clientID, trustingPeriod).Set(timeToExpiration.Seconds())
 }
 
+func (m *PrometheusMetrics) IncBlockQueryFailure(chain, err string) {
+	m.BlockQueryFailure.WithLabelValues(chain, err).Inc()
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
+	blockQueryFailureLabels := []string{"chain", "type"}
 	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
 	registry := prometheus.NewRegistry()
@@ -70,6 +76,10 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_fees_spent",
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
+		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
+			Name: "cosmos_relayer_block_query_errors_total",
+			Help: "The total number of block query failures. The failures are separated into two catagories: 'RPC Client' and 'IBC Header'",
+		}, blockQueryFailureLabels),
 		ClientExpiration: registerer.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_client_expiration_seconds",
 			Help: "Seconds until the client expires",
