@@ -556,6 +556,6 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
-		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), address, gasDenom.Denom, f)
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.PCfg.GasPrices, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }
