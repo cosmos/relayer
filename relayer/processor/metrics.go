@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -12,6 +14,7 @@ type PrometheusMetrics struct {
 	LatestHeightGauge     *prometheus.GaugeVec
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
+	ClientExpiration      *prometheus.GaugeVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
@@ -34,10 +37,15 @@ func (m *PrometheusMetrics) SetFeesSpent(chain, gasPrice, key, address, denom st
 	m.FeesSpent.WithLabelValues(chain, gasPrice, key, address, denom).Set(amount)
 }
 
+func (m *PrometheusMetrics) SetClientExpiration(pathName, chain, clientID, trustingPeriod string, timeToExpiration time.Duration) {
+	m.ClientExpiration.WithLabelValues(pathName, chain, clientID, trustingPeriod).Set(timeToExpiration.Seconds())
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
 	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
+	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -62,5 +70,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_fees_spent",
 			Help: "The amount of fees spent from the relayer's wallet",
 		}, walletLabels),
+		ClientExpiration: registerer.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cosmos_relayer_client_expiration_seconds",
+			Help: "Seconds until the client expires",
+		}, clientExpirationLables),
 	}
 }

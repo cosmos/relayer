@@ -723,6 +723,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = processorFlag(a.viper, cmd)
 	cmd = updateTimeFlags(a.viper, cmd)
+	cmd = flushIntervalFlag(a.viper, cmd)
 	return cmd
 }
 
