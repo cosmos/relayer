@@ -314,11 +314,10 @@ func SPrintClientExpiration(chain *Chain, expiration time.Time, clientInfo Clien
 	// }
 	return fmt.Sprintf(`
 	client: %s (%s)
-		HEALTH: %s
-		TIME: %s (%s)
-		LAST UPDATE HEIGHT: %d
-		TRUSTING PERIOD: %s
-
+		HEALTH:              %s
+		TIME:                %s (%s)
+		LAST UPDATE HEIGHT:  %d
+		TRUSTING PERIOD:     %s
 	`,
 		chain.ClientID(), chain.ChainID(), status, expirationFormatted, remainingTime.Round(time.Second), clientInfo.LatestHeight.GetRevisionHeight(), clientInfo.TrustingPeriod.String())
 }

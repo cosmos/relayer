@@ -1088,8 +1088,8 @@ $ %s query clients-expiration demo-path`,
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
-			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
+			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
+			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
 
 			return nil
 		},
