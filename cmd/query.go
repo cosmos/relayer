@@ -1096,7 +1096,7 @@ $ %s query clients-expiration demo-path`,
 				return nil
 			}
 
-			// if only the dst light client is found, just print info for destinatino light client
+			// if only the dst light client is found, just print info for destination light client
 			if errDst == nil && errSrc != nil {
 				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
 				return nil
