@@ -1080,13 +1080,26 @@ $ %s query clients-expiration demo-path`,
 			if err = c[dst].SetPath(path.Dst); err != nil {
 				return err
 			}
-			srcExpiration, srcClientInfo, err := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
-			if err != nil {
-				return err
+
+			srcExpiration, srcClientInfo, errSrc := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
+			if errSrc != nil && !strings.Contains(errSrc.Error(), "light client not found") {
+				return errSrc
 			}
-			dstExpiration, dstClientInfo, err := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
-			if err != nil {
-				return err
+			dstExpiration, dstClientInfo, errDst := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
+			if errDst != nil && !strings.Contains(errDst.Error(), "light client not found") {
+				return errDst
+			}
+
+			// if only the src light client is found, just print info for source light client
+			if errSrc == nil && errDst != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
+				return nil
+			}
+
+			// if only the dst light client is found, just print info for destinatino light client
+			if errDst == nil && errSrc != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
+				return nil
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
