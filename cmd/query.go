@@ -1079,18 +1079,17 @@ $ %s query clients-expiration demo-path`,
 			if err = c[dst].SetPath(path.Dst); err != nil {
 				return err
 			}
-
-			srcExpiration, err := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
+			srcExpiration, srcClientInfo, err := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
 			if err != nil {
 				return err
 			}
-			dstExpiration, err := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
+			dstExpiration, dstClientInfo, err := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration))
-			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration))
+			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
+			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
 
 			return nil
 		},
