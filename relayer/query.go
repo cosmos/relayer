@@ -308,10 +308,6 @@ func SPrintClientExpiration(chain *Chain, expiration time.Time, clientInfo Clien
 		status = "GOOD"
 	}
 
-	// if remainingTime < 0 {
-	// 	return fmt.Sprintf("client %s (%s) is already expired (%s)\n",
-	// 		chain.ClientID(), chain.ChainID(), expirationFormatted)
-	// }
 	return fmt.Sprintf(`
 	client: %s (%s)
 		HEALTH:              %s
