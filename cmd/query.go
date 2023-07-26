@@ -1055,9 +1055,10 @@ $ %s query unrelayed-acks demo-path channel-0`,
 
 func queryClientsExpiration(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients-expiration path",
-		Short: "query for light clients expiration date",
-		Args:  withUsage(cobra.ExactArgs(1)),
+		Use:     "clients-expiration path",
+		Aliases: []string{"ce"},
+		Short:   "query for light clients expiration date",
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query clients-expiration demo-path`,
 			appName,
