@@ -14,7 +14,7 @@
     "timeout": "20s",
     "output-format": "json",
     "sign-mode": "direct",
-    "ibc-handler-address":"--",
+    "ibc-handler-address":"neutron1fde8lfydxgwg6p7xe9ugx5a6ysj37zfvn9m9z5rxt4mqvdcneczsczq2a4",
     "broadcast-mode": "batch",
     "block-timeout": "",
     "start-height":0,

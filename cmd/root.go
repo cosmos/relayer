@@ -189,10 +189,10 @@ func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 
 	ll := lumberjack.Logger{
 		Filename:   path.Join(defaultHome, "relay.log"),
-		MaxSize:    50, //MB
+		MaxSize:    10, //MB
 		MaxBackups: 30,
 		MaxAge:     28, //days
-		Compress:   true,
+		Compress:   false,
 	}
 	zap.RegisterSink("lumberjack", func(*url.URL) (zap.Sink, error) {
 		return lumberjackSink{

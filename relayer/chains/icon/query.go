@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -143,7 +144,17 @@ func (icp *IconProvider) QueryBalance(ctx context.Context, keyName string) (sdk.
 
 // implementing is not required
 func (icp *IconProvider) QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error) {
-	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
+	param := types.AddressParam{
+		Address: types.Address(addr),
+	}
+	balance, err := icp.client.GetBalance(&param)
+	if err != nil {
+		return nil, err
+	}
+	return sdk.Coins{sdk.Coin{
+		Denom:  "ICX",
+		Amount: math.NewInt(balance.Int64()),
+	}}, nil
 }
 
 func (icp *IconProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {

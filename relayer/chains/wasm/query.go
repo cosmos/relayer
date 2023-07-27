@@ -807,8 +807,37 @@ func (ap *WasmProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]
 
 // ics 20 - transfer
 func (ap *WasmProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
+	transfers, err := transfertypes.NewQueryClient(ap).DenomTrace(ctx,
+		&transfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.DenomTrace, nil
 }
 func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
+	qc := transfertypes.NewQueryClient(ap)
+	p := DefaultPageRequest()
+	transfers := []transfertypes.DenomTrace{}
+	for {
+		res, err := qc.DenomTraces(ctx,
+			&transfertypes.QueryDenomTracesRequest{
+				Pagination: p,
+			})
+
+		if err != nil || res == nil {
+			return nil, err
+		}
+
+		transfers = append(transfers, res.DenomTraces...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
+	}
+	return transfers, nil
 }
