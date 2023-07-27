@@ -302,7 +302,7 @@ func SPrintClientExpiration(chain *Chain, expiration time.Time, clientInfo Clien
 	expirationFormatted := expiration.Format(time.RFC822)
 
 	var status string
-	if remainingTime < 0 {
+	if remainingTime <= 0 {
 		status = "EXPIRED"
 	} else {
 		status = "GOOD"
