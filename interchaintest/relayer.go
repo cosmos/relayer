@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -37,6 +38,9 @@ func NewRelayer(
 	t *testing.T,
 	config RelayerConfig,
 ) ibc.Relayer {
+	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+	types.SetAddrCacheEnabled(false)
+
 	r := &Relayer{
 		t:      t,
 		home:   t.TempDir(),
