@@ -391,7 +391,7 @@ type ChainProvider interface {
 		memo string,
 
 		asyncCtx context.Context,
-		asyncCallback func(*RelayerTxResponse, error),
+		asyncCallbacks []func(*RelayerTxResponse, error),
 	) error
 
 	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage, error)

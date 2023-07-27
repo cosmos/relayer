@@ -3,12 +3,13 @@ module github.com/cosmos/relayer/v2/interchaintest
 go 1.20
 
 require (
-	cosmossdk.io/simapp v0.0.0-20230323161446-0af178d721ff
+	cosmossdk.io/simapp v0.0.0-20230224204036-a6adb0821462
 	github.com/cometbft/cometbft v0.37.2
 	github.com/cosmos/cosmos-sdk v0.47.3
+	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.10
 	github.com/cosmos/ibc-go/v7 v7.2.0
-	github.com/cosmos/relayer/v2 v2.0.0-00010101000000-000000000000
+	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v24.0.1+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/moby/moby v24.0.2+incompatible
@@ -64,7 +65,6 @@ require (
 	github.com/containerd/containerd v1.6.8 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2 // indirect
-	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v0.20.0 // indirect
 	github.com/cosmos/ics23/go v0.10.0 // indirect

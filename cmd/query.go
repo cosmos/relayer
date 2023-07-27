@@ -47,6 +47,21 @@ func queryCmd(a *appState) *cobra.Command {
 		lineBreakCommand(),
 		queryIBCDenoms(a),
 		queryBaseDenomFromIBCDenom(a),
+		feegrantQueryCmd(a),
+	)
+
+	return cmd
+}
+
+// feegrantQueryCmd returns the fee grant query commands for this module
+func feegrantQueryCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "feegrant",
+		Short: "Querying commands for the feegrant module [currently BasicAllowance only]",
+	}
+
+	cmd.AddCommand(
+		feegrantBasicGrantsCmd(a),
 	)
 
 	return cmd
