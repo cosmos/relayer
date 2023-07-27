@@ -388,12 +388,18 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			if err != nil && ccp.metrics != nil {
+				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
+			}
 			return err
 		})
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
 			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			if err != nil && ccp.metrics != nil {
+				ccp.metrics.IncBlockQueryFailure(chainID, "IBC Header")
+			}
 			return err
 		})
 
@@ -552,6 +558,6 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
-		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), address, gasDenom.Denom, f)
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.PCfg.GasPrices, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }

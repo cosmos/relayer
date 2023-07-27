@@ -1301,7 +1301,7 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.C
 	for _, fee := range cc.TotalFees {
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(fee.Amount.BigInt()).Float64()
-		cc.metrics.SetFeesSpent(chain, key, address, fee.GetDenom(), f)
+		cc.metrics.SetFeesSpent(chain, cc.PCfg.GasPrices, key, address, fee.GetDenom(), f)
 	}
 }
 
