@@ -532,10 +532,18 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	case chantypes.EventTypeRecvPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
+	case chantypes.EventTypeWriteAck:
+		toDelete[eventType] = []uint64{sequence}
+	case common.EventTimeoutRequest:
+		toDelete[eventType] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
 	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeWriteAck] = []uint64{sequence}
+		toDelete[chantypes.EventTypeAcknowledgePacket] = []uint64{sequence}
 		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
+		toDeleteCounterparty[common.EventTimeoutRequest] = []uint64{sequence}
 	}
 	// delete in progress send for this specific message
 	pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{
@@ -543,7 +551,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	})
 	// delete all packet flow retention history for this sequence
 	pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
-	counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
+	counterparty.messageCache.PacketFlow[k.Counterparty()].DeleteMessages(toDeleteCounterparty)
 }
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.

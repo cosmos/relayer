@@ -38,8 +38,7 @@ import (
 var _ provider.QueryProvider = &IconProvider{}
 
 const (
-	epoch            = 24 * 3600 * 1000
-	clientNameString = "07-tendermint-"
+	epoch = 24 * 3600 * 1000
 )
 
 type CallParamOption func(*types.CallParam)
@@ -318,7 +317,7 @@ func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.Identifi
 
 	identifiedClientStates := make(clienttypes.IdentifiedClientStates, 0)
 	for i := 0; i <= int(seq)-1; i++ {
-		clientIdentifier := fmt.Sprintf("%s%d", clientNameString, i)
+		clientIdentifier := common.GetIdentifier(common.TendermintLightClient, i)
 		callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
 			"clientId": clientIdentifier,
 		})
@@ -407,7 +406,7 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 	}
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
-		connectionId := fmt.Sprintf("connection-%d", i)
+		connectionId := common.GetIdentifier(common.ConnectionKey, i)
 		var conn_string_ types.HexBytes
 		err := icp.client.Call(icp.prepareCallParams(MethodGetConnection, map[string]interface{}{
 			"connectionId": connectionId,
@@ -609,7 +608,7 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
 		for _, portId := range allPorts {
-			channelId := fmt.Sprintf("channel-%d", i)
+			channelId := common.GetIdentifier(common.ChannelKey, i)
 			var _channel types.HexBytes
 			err := icp.client.Call(icp.prepareCallParams(MethodGetChannel, map[string]interface{}{
 				"channelId": channelId,

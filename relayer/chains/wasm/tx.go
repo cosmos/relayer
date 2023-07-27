@@ -332,13 +332,11 @@ func (ap *WasmProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provid
 
 func (ap *WasmProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Wasm module")
 }
 
 // panic
 func (ap *WasmProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, nil
 }
 
 func (ap *WasmProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
@@ -1013,8 +1011,7 @@ func (ap *WasmProvider) BroadcastTx(
 	)
 
 	if shouldWait {
-		ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
-		return nil
+		return ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	}
 	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	return nil
@@ -1043,14 +1040,14 @@ func (ap *WasmProvider) waitForTx(
 	msgs []provider.RelayerMessage, // used for logging only
 	waitTimeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
-) {
+) error {
 	res, err := ap.waitForTxResult(ctx, txHash, waitTimeout)
 	if err != nil {
 		ap.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if callback != nil {
 			callback(nil, err)
 		}
-		return
+		return err
 	}
 
 	rlyResp := &provider.RelayerTxResponse{
@@ -1076,13 +1073,14 @@ func (ap *WasmProvider) waitForTx(
 			callback(nil, err)
 		}
 		ap.LogFailedTx(rlyResp, nil, msgs)
-		return
+		return err
 	}
 
 	if callback != nil {
 		callback(rlyResp, nil)
 	}
 	ap.LogSuccessTx(res, msgs)
+	return nil
 }
 
 func (ap *WasmProvider) waitForTxResult(

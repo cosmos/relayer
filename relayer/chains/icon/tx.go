@@ -738,7 +738,7 @@ func (icp *IconProvider) SendIconTransaction(
 	// If update fails, the subsequent txn will fail, result of update not being fetched concurrently
 	switch m.Method {
 	case MethodUpdateClient:
-		icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
+		return icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
 	default:
 		go icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
 	}
@@ -753,7 +753,7 @@ func (icp *IconProvider) WaitForTxResult(
 	method string,
 	timeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
-) {
+) error {
 	txhash := types.NewHexBytes(txHash)
 	_, txRes, err := icp.client.WaitForResults(asyncCtx, &types.TransactionHashParam{Hash: txhash})
 	if err != nil {
@@ -761,12 +761,12 @@ func (icp *IconProvider) WaitForTxResult(
 		if callback != nil {
 			callback(nil, err)
 		}
-		return
+		return err
 	}
 
 	height, err := txRes.BlockHeight.Value()
 	if err != nil {
-		return
+		return err
 	}
 
 	var eventLogs []provider.RelayerEvent
@@ -787,7 +787,7 @@ func (icp *IconProvider) WaitForTxResult(
 			callback(nil, err)
 		}
 		icp.LogFailedTx(method, txRes, err)
-		return
+		return err
 
 	}
 
@@ -803,6 +803,7 @@ func (icp *IconProvider) WaitForTxResult(
 	}
 	// log successful txn
 	icp.LogSuccessTx(method, txRes)
+	return nil
 }
 
 func (icp *IconProvider) LogSuccessTx(method string, result *types.TransactionResult) {

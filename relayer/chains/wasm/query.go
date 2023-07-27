@@ -454,7 +454,7 @@ func (ap *WasmProvider) QueryClients(ctx context.Context) (clienttypes.Identifie
 
 	identifiedClientStates := make(clienttypes.IdentifiedClientStates, 0)
 	for i := 0; i <= int(seq)-1; i++ {
-		clientIdentifier := fmt.Sprintf("%s-%d", ClientPrefix, i)
+		clientIdentifier := common.GetIdentifier(common.IconLightClient, i)
 		clientState, err := ap.QueryClientStateContract(ctx, clientIdentifier)
 		if err != nil {
 			return nil, err
@@ -545,7 +545,7 @@ func (ap *WasmProvider) QueryConnections(ctx context.Context) (conns []*conntype
 	}
 
 	for i := 0; i <= int(seq)-1; i++ {
-		connectionId := fmt.Sprintf("%s-%d", ConnectionPrefix, i)
+		connectionId := common.GetIdentifier(common.ConnectionKey, i)
 		conn, err := ap.QueryConnectionContract(ctx, connectionId)
 		if err != nil {
 			continue
@@ -664,7 +664,7 @@ func (ap *WasmProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identif
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
 		for _, portId := range allPorts {
-			channelId := fmt.Sprintf("%s-%d", ChannelPrefix, i)
+			channelId := common.GetIdentifier(common.ChannelKey, i)
 			channel, err := ap.QueryChannelContract(ctx, portId, channelId)
 			if err != nil {
 				continue

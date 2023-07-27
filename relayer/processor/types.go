@@ -565,9 +565,9 @@ func (c IBCHeaderCache) Prune(keep int) {
 // PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the eventType.
 func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKey, error) {
 	switch eventType {
-	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
+	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck, common.EventTimeoutRequest:
 		return packetInfoChannelKey(info).Counterparty(), nil
-	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose, common.EventTimeoutRequest:
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
 		return packetInfoChannelKey(info), nil
 	}
 	return ChannelKey{}, fmt.Errorf("eventType not expected for packetIBCMessage channelKey: %s", eventType)

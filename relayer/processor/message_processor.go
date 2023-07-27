@@ -83,7 +83,6 @@ func (mp *messageProcessor) processMessages(
 	src, dst *pathEndRuntime,
 ) error {
 
-	fmt.Println("inside process Messages")
 	// 2/3 rule enough_time_pass && context change in case of BTPBlock
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
