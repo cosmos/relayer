@@ -5,8 +5,19 @@
 **Prometheus exporter**
 
 If you started `rly` with the default `--debug-addr` argument,
-you can use `http://$IP:7597/relayer/metrics` as a target for your prometheus scraper.
+you can use `http://$IP:5183/relayer/metrics` as a target for your prometheus scraper.
 
+
+Exported metrics:
+
+|         **Exported Metric**        |                                                                                      **Description**                                                                                     | **Type** |
+|:----------------------------------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:--------:|
+| cosmos_relayer_observed_packets    | The total number of observed packets                                                                                                                                                     |  Counter |
+| cosmos_relayer_relayed_packets     | The total number of relayed packets                                                                                                                                                      |  Counter |
+| cosmos_relayer_chain_latest_height | The current height of the chain                                                                                                                                                          |   Gauge  |
+| cosmos_relayer_wallet_balance      | The current balance for the relayer's wallet                                                                                                                                             |   Gauge  |
+| cosmos_relayer_fees_spent          | The amount of fees spent from the relayer's wallet                                                                                                                                       |   Gauge  |
+| cosmos_relayer_tx_failure          | <br>The total number of tx failures broken up into catagories .<br>Categories:<br> - "packet messages are redundant"<br> - "insufficient funds"<br> - "invalid coins"<br> - "out of gas"<br> - "incorrect account sequence" <br><br> "Tx Failure" is the the catch all bucket|  Counter |
 **Example metrics**
 
 ```
