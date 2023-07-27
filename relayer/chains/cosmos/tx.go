@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -78,6 +80,26 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
+var seqGuardSingleton sync.Mutex
+
+// Gets the sequence guard. If it doesn't exist, initialized and returns it.
+func ensureSequenceGuard(cc *CosmosProvider, key string) *WalletState {
+	seqGuardSingleton.Lock()
+	defer seqGuardSingleton.Unlock()
+
+	if cc.walletStateMap == nil {
+		cc.walletStateMap = map[string]*WalletState{}
+	}
+
+	sequenceGuard, ok := cc.walletStateMap[key]
+	if !ok {
+		cc.walletStateMap[key] = &WalletState{}
+		return cc.walletStateMap[key]
+	}
+
+	return sequenceGuard
+}
+
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
 // This is used extensively in the relayer as an extension of the Provider interface
 //
@@ -101,7 +123,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	wg.Add(1)
 
 	if err := retry.Do(func() error {
-		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
+		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, []func(*provider.RelayerTxResponse, error){callback})
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		cc.log.Info(
 			"Error building or broadcasting transaction",
@@ -137,35 +159,181 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	memo string,
 
 	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error),
+	asyncCallbacks []func(*provider.RelayerTxResponse, error),
 ) error {
-	// Guard against account sequence number mismatch errors by locking for the specific wallet for
-	// the account sequence query all the way through the transaction broadcast success/fail.
-	cc.txMu.Lock()
-	defer cc.txMu.Unlock()
+	txSignerKey, feegranterKey, err := cc.buildSignerConfig(msgs)
+	if err != nil {
+		return err
+	}
 
-	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo)
+	sequenceGuard := ensureSequenceGuard(cc, txSignerKey)
+	sequenceGuard.Mu.Lock()
+	defer sequenceGuard.Mu.Unlock()
+
+	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey, sequenceGuard)
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
 		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-			cc.handleAccountSequenceMismatchError(err)
+			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
 
 		return err
 	}
 
-	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback); err != nil {
+	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallbacks); err != nil {
 		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-			cc.handleAccountSequenceMismatchError(err)
+			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
 
 		return err
 	}
 
 	// we had a successful tx broadcast with this sequence, so update it to the next
-	cc.updateNextAccountSequence(sequence + 1)
-
+	cc.updateNextAccountSequence(sequenceGuard, sequence+1)
 	return nil
+}
+
+func (cc *CosmosProvider) SubmitTxAwaitResponse(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKeyName string) (*txtypes.GetTxResponse, error) {
+	resp, err := cc.SendMsgsWith(ctx, msgs, memo, gas, signingKeyName, "")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("TX result code: %d. Waiting for TX with hash %s\n", resp.Code, resp.Hash)
+	tx1resp, err := cc.AwaitTx(resp.Hash, 15*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx1resp, err
+}
+
+// Get the TX by hash, waiting for it to be included in a block
+func (cc *CosmosProvider) AwaitTx(txHash bytes.HexBytes, timeout time.Duration) (*txtypes.GetTxResponse, error) {
+	var txByHash *txtypes.GetTxResponse
+	var txLookupErr error
+	startTime := time.Now()
+	timeBetweenQueries := 100
+
+	txClient := txtypes.NewServiceClient(cc)
+
+	for txByHash == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		if time.Since(startTime) > timeout {
+			cancel()
+			return nil, txLookupErr
+		}
+
+		txByHash, txLookupErr = txClient.GetTx(ctx, &txtypes.GetTxRequest{Hash: txHash.String()})
+		if txLookupErr != nil {
+			time.Sleep(time.Duration(timeBetweenQueries) * time.Millisecond)
+		}
+		cancel()
+	}
+
+	return txByHash, nil
+}
+
+// SendMsgs wraps the msgs in a StdTx, signs and sends it. An error is returned if there
+// was an issue sending the transaction. A successfully sent, but failed transaction will
+// not return an error. If a transaction is successfully sent, the result of the execution
+// of that transaction will be logged. A boolean indicating if a transaction was successfully
+// sent and executed successfully is returned.
+//
+// feegranterKey - key name of the address set as the feegranter, empty string will not feegrant
+func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKey string, feegranterKey string) (*coretypes.ResultBroadcastTx, error) {
+	sdkConfigMutex.Lock()
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(cc.PCfg.AccountPrefix, cc.PCfg.AccountPrefix+"pub")
+	sdkConf.SetBech32PrefixForValidator(cc.PCfg.AccountPrefix+"valoper", cc.PCfg.AccountPrefix+"valoperpub")
+	sdkConf.SetBech32PrefixForConsensusNode(cc.PCfg.AccountPrefix+"valcons", cc.PCfg.AccountPrefix+"valconspub")
+	defer sdkConfigMutex.Unlock()
+
+	rand.Seed(time.Now().UnixNano())
+	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
+
+	txf, err := cc.PrepareFactory(cc.TxFactory(), signingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	adjusted := gas
+
+	if gas == 0 {
+		// TODO: Make this work with new CalculateGas method
+		// TODO: This is related to GRPC client stuff?
+		// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
+		_, adjusted, err = cc.CalculateGas(ctx, txf, signingKey, msgs...)
+
+		if err != nil {
+			return nil, err
+		}
+
+		adjusted = uint64(float64(adjusted) * cc.PCfg.GasAdjustment)
+	}
+
+	//Cannot feegrant your own TX
+	if signingKey != feegranterKey && feegranterKey != "" {
+		//Must be set in Factory to affect gas calculation (sim tx) as well as real tx
+		txf = txf.WithFeeGranter(feegrantKeyAcc)
+	}
+
+	if memo != "" {
+		txf = txf.WithMemo(memo)
+	}
+
+	// Set the gas amount on the transaction factory
+	txf = txf.WithGas(adjusted)
+
+	// Build the transaction builder
+	txb, err := txf.BuildUnsignedTx(msgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Attach the signature to the transaction
+	// c.LogFailedTx(nil, err, msgs)
+	// Force encoding in the chain specific address
+	for _, msg := range msgs {
+		cc.Cdc.Marshaler.MustMarshalJSON(msg)
+	}
+
+	err = func() error {
+		//done := cc.SetSDKContext()
+		// ensure that we allways call done, even in case of an error or panic
+		//defer done()
+
+		if err = tx.Sign(txf, signingKey, txb, false); err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate the transaction bytes
+	txBytes, err := cc.Cdc.TxConfig.TxEncoder()(txb.GetTx())
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := cc.RPCClient.BroadcastTxAsync(ctx, txBytes)
+	if res != nil {
+		fmt.Printf("TX hash: %s\n", res.Hash)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+	if res.Code != 0 {
+		return res, fmt.Errorf("transaction failed with code: %d", res.Code)
+	}
+
+	return res, nil
 }
 
 // sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
@@ -190,7 +358,7 @@ func (cc *CosmosProvider) broadcastTx(
 
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
-	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+	asyncCallbacks []func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
 	isErr := err != nil
@@ -228,7 +396,7 @@ func (cc *CosmosProvider) broadcastTx(
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
 
-	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallback)
+	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallbacks)
 
 	return nil
 }
@@ -240,13 +408,16 @@ func (cc *CosmosProvider) waitForTx(
 	txHash []byte,
 	msgs []provider.RelayerMessage, // used for logging only
 	waitTimeout time.Duration,
-	callback func(*provider.RelayerTxResponse, error),
+	callbacks []func(*provider.RelayerTxResponse, error),
 ) {
 	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
 	if err != nil {
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
-		if callback != nil {
-			callback(nil, err)
+		if len(callbacks) > 0 {
+			for _, cb := range callbacks {
+				//Call each callback in order since waitForTx is already invoked asyncronously
+				cb(nil, err)
+			}
 		}
 		return
 	}
@@ -270,15 +441,21 @@ func (cc *CosmosProvider) waitForTx(
 		if err == nil {
 			err = fmt.Errorf("transaction failed to execute")
 		}
-		if callback != nil {
-			callback(nil, err)
+		if len(callbacks) > 0 {
+			for _, cb := range callbacks {
+				//Call each callback in order since waitForTx is already invoked asyncronously
+				cb(nil, err)
+			}
 		}
 		cc.LogFailedTx(rlyResp, nil, msgs)
 		return
 	}
 
-	if callback != nil {
-		callback(rlyResp, nil)
+	if len(callbacks) > 0 {
+		for _, cb := range callbacks {
+			//Call each callback in order since waitForTx is already invoked asyncronously
+			cb(rlyResp, nil)
+		}
 	}
 	cc.LogSuccessTx(res, msgs)
 }
@@ -345,9 +522,76 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
-func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) ([]byte, uint64, sdk.Coins, error) {
-	// Query account details
-	txf, err := cc.PrepareFactory(cc.TxFactory())
+func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
+	txSignerKey string,
+	feegranterKey string,
+	err error,
+) {
+	//Guard against race conditions when choosing a signer/feegranter
+	cc.feegrantMu.Lock()
+	defer cc.feegrantMu.Unlock()
+
+	//Some messages have feegranting disabled. If any message in the TX disables feegrants, then the TX will not be feegranted.
+	isFeegrantEligible := cc.PCfg.FeeGrants != nil
+
+	for _, curr := range msgs {
+		if cMsg, ok := curr.(CosmosMessage); ok {
+			if cMsg.FeegrantDisabled {
+				isFeegrantEligible = false
+			}
+		}
+	}
+
+	//By default, we should sign TXs with the provider's default key
+	txSignerKey = cc.PCfg.Key
+
+	if isFeegrantEligible {
+		txSignerKey, feegranterKey = cc.GetTxFeeGrant()
+		signerAcc, addrErr := cc.GetKeyAddressForKey(txSignerKey)
+		if addrErr != nil {
+			err = addrErr
+			return
+		}
+
+		signerAccAddr, encodeErr := cc.EncodeBech32AccAddr(signerAcc)
+		if encodeErr != nil {
+			err = encodeErr
+			return
+		}
+
+		//Overwrite the 'Signer' field in any Msgs that provide an 'optionalSetSigner' callback
+		for _, curr := range msgs {
+			if cMsg, ok := curr.(CosmosMessage); ok {
+				if cMsg.SetSigner != nil {
+					cMsg.SetSigner(signerAccAddr)
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func (cc *CosmosProvider) buildMessages(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
+	gas uint64,
+	txSignerKey string,
+	feegranterKey string,
+	sequenceGuard *WalletState,
+) (
+	txBytes []byte,
+	sequence uint64,
+	fees sdk.Coins,
+	err error,
+) {
+	done := cc.SetSDKContext()
+	defer done()
+
+	cMsgs := CosmosMsgs(msgs...)
+
+	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
@@ -356,73 +600,66 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 		txf = txf.WithMemo(memo)
 	}
 
-	sequence := txf.Sequence()
-	cc.updateNextAccountSequence(sequence)
-	if sequence < cc.nextAccountSeq {
-		sequence = cc.nextAccountSeq
+	sequence = txf.Sequence()
+	cc.updateNextAccountSequence(sequenceGuard, sequence)
+	if sequence < sequenceGuard.NextAccountSequence {
+		sequence = sequenceGuard.NextAccountSequence
 		txf = txf.WithSequence(sequence)
 	}
 
-	// TODO: Make this work with new CalculateGas method
-	// TODO: This is related to GRPC client stuff?
-	// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
-	// If users pass gas adjustment, then calculate gas
-	_, adjusted, err := cc.CalculateGas(ctx, txf, CosmosMsgs(msgs...)...)
-	if err != nil {
-		return nil, 0, sdk.Coins{}, err
+	adjusted := gas
+
+	if gas == 0 {
+		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
+
+		if err != nil {
+			return nil, 0, sdk.Coins{}, err
+		}
+	}
+
+	//Cannot feegrant your own TX
+	if txSignerKey != feegranterKey && feegranterKey != "" {
+		granterAddr, err := cc.GetKeyAddressForKey(feegranterKey)
+		if err != nil {
+			return nil, 0, sdk.Coins{}, err
+		}
+
+		txf = txf.WithFeeGranter(granterAddr)
 	}
 
 	// Set the gas amount on the transaction factory
 	txf = txf.WithGas(adjusted)
 
-	var txb client.TxBuilder
-	// Build the transaction builder & retry on failures
-	if err := retry.Do(func() error {
-		txb, err = txf.BuildUnsignedTx(CosmosMsgs(msgs...)...)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+	// Build the transaction builder
+	txb, err := txf.BuildUnsignedTx(cMsgs...)
+	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
 
-	done := cc.SetSDKContext()
-
-	if err := retry.Do(func() error {
-		if err := tx.Sign(txf, cc.PCfg.Key, txb, false); err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+	if err = tx.Sign(txf, txSignerKey, txb, false); err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
-
-	done()
 
 	tx := txb.GetTx()
-	fees := tx.GetFee()
+	fees = tx.GetFee()
 
-	var txBytes []byte
 	// Generate the transaction bytes
-	if err := retry.Do(func() error {
-		var err error
-		txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+	txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
+	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
 
-	return txBytes, sequence, fees, nil
+	return txBytes, txf.Sequence(), fees, nil
 }
 
 // handleAccountSequenceMismatchError will parse the error string, e.g.:
 // "account sequence mismatch, expected 10, got 9: incorrect account sequence"
 // and update the next account sequence with the expected value.
-func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
+func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *WalletState, err error) {
+	if sequenceGuard == nil {
+		panic("sequence guard not configured")
+	}
+
 	sequences := numRegex.FindAllString(err.Error(), -1)
 	if len(sequences) != 2 {
 		return
@@ -431,8 +668,23 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
 	if err != nil {
 		return
 	}
-	cc.nextAccountSeq = nextSeq
+	sequenceGuard.NextAccountSequence = nextSeq
 }
+
+// handleAccountSequenceMismatchError will parse the error string, e.g.:
+// "account sequence mismatch, expected 10, got 9: incorrect account sequence"
+// and update the next account sequence with the expected value.
+// func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
+// 	sequences := numRegex.FindAllString(err.Error(), -1)
+// 	if len(sequences) != 2 {
+// 		return
+// 	}
+// 	nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
+// 	if err != nil {
+// 		return
+// 	}
+// 	cc.nextAccountSeq = nextSeq
+// }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cc *CosmosProvider) MsgCreateClient(
@@ -460,7 +712,9 @@ func (cc *CosmosProvider) MsgCreateClient(
 		Signer:         signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgUpdateClient(srcClientID string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
@@ -478,7 +732,9 @@ func (cc *CosmosProvider) MsgUpdateClient(srcClientID string, dstHeader ibcexpor
 		ClientMessage: clientMsg,
 		Signer:        acc,
 	}
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -489,9 +745,14 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
-	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+
+	msgUpgradeClient := &clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}
+
+	return NewCosmosMessage(msgUpgradeClient, func(signer string) {
+		msgUpgradeClient.Signer = signer
+	}), nil
 }
 
 // MsgTransfer creates a new transfer message
@@ -518,7 +779,9 @@ func (cc *CosmosProvider) MsgTransfer(
 		msg.TimeoutHeight = info.TimeoutHeight
 	}
 
-	return NewCosmosMessage(msg), nil
+	msgTransfer := NewCosmosMessage(msg, nil).(CosmosMessage)
+	msgTransfer.FeegrantDisabled = true
+	return msgTransfer, nil
 }
 
 func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
@@ -584,7 +847,9 @@ func (cc *CosmosProvider) MsgRecvPacket(
 		Signer:          signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) PacketAcknowledgement(
@@ -622,7 +887,9 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 		Signer:          signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) PacketReceipt(
@@ -675,7 +942,9 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 		Signer:           signer,
 	}
 
-	return NewCosmosMessage(assembled), nil
+	return NewCosmosMessage(assembled, func(signer string) {
+		assembled.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -691,7 +960,9 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 		Signer:           signer,
 	}
 
-	return NewCosmosMessage(assembled), nil
+	return NewCosmosMessage(assembled, func(signer string) {
+		assembled.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -711,7 +982,9 @@ func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pr
 		Signer:      signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) ConnectionHandshakeProof(
@@ -773,7 +1046,9 @@ func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionIn
 		Signer:               signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -803,7 +1078,9 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		Signer:          signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) ConnectionProof(
@@ -834,7 +1111,9 @@ func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connectio
 		Signer:       signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -857,7 +1136,9 @@ func (cc *CosmosProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pr
 		Signer: signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) ChannelProof(
@@ -904,7 +1185,9 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 		Signer:              signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -922,7 +1205,9 @@ func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pro
 		Signer:                signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -938,7 +1223,9 @@ func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo,
 		Signer:      signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -952,7 +1239,9 @@ func (cc *CosmosProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof p
 		Signer:    signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -968,7 +1257,9 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 		Signer:      signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
@@ -1036,7 +1327,9 @@ func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provide
 		FromAddress: signer,
 	}
 
-	return NewCosmosMessage(msg), nil
+	submitQueryRespMsg := NewCosmosMessage(msg, nil).(CosmosMessage)
+	submitQueryRespMsg.FeegrantDisabled = true
+	return submitQueryRespMsg, nil
 }
 
 func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
@@ -1050,7 +1343,9 @@ func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ib
 		return nil, err
 	}
 
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	}), nil
 }
 
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
@@ -1308,11 +1603,11 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.C
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
 func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
 	msg := feetypes.NewMsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee)
-	return NewCosmosMessage(msg), nil
+	return NewCosmosMessage(msg, nil), nil
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
-func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
+func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.Factory, error) {
 	var (
 		err      error
 		from     sdk.AccAddress
@@ -1321,7 +1616,7 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 
 	// Get key address and retry if fail
 	if err = retry.Do(func() error {
-		from, err = cc.GetKeyAddress()
+		from, err = cc.GetKeyAddressForKey(signingKey)
 		if err != nil {
 			return err
 		}
@@ -1333,7 +1628,8 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 	cliCtx := client.Context{}.WithClient(cc.RPCClient).
 		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
 		WithChainID(cc.PCfg.ChainID).
-		WithCodec(cc.Cdc.Marshaler)
+		WithCodec(cc.Cdc.Marshaler).
+		WithFromAddress(from)
 
 	// Set the account number and sequence on the transaction factory and retry if fail
 	if err = retry.Do(func() error {
@@ -1427,8 +1723,8 @@ func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, e
 }
 
 // CalculateGas simulates a tx to generate the appropriate gas settings before broadcasting a tx.
-func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, msgs ...sdk.Msg) (txtypes.SimulateResponse, uint64, error) {
-	keyInfo, err := cc.Keybase.Key(cc.PCfg.Key)
+func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, signingKey string, msgs ...sdk.Msg) (txtypes.SimulateResponse, uint64, error) {
+	keyInfo, err := cc.Keybase.Key(signingKey)
 	if err != nil {
 		return txtypes.SimulateResponse{}, 0, err
 	}

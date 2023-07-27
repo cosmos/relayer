@@ -381,6 +381,15 @@ func (mp *messageProcessor) sendClientUpdate(
 	dst.log.Debug("Client update broadcast completed")
 }
 
+type PathProcessorMessageResp struct {
+	Response         *provider.RelayerTxResponse
+	DestinationChain provider.ChainProvider
+	SuccessfulTx     bool
+	Error            error
+}
+
+var PathProcMessageCollector chan *PathProcessorMessageResp
+
 // sendBatchMessages will send a batch of messages,
 // then increment metrics counters for successful packet messages.
 func (mp *messageProcessor) sendBatchMessages(
@@ -414,7 +423,7 @@ func (mp *messageProcessor) sendBatchMessages(
 
 	dst.log.Debug("Will relay messages", fields...)
 
-	callback := func(rtr *provider.RelayerTxResponse, err error) {
+	callback := func(_ *provider.RelayerTxResponse, err error) {
 		// only increment metrics counts for successful packets
 		if err != nil || mp.metrics == nil {
 			return
@@ -435,8 +444,23 @@ func (mp *messageProcessor) sendBatchMessages(
 			mp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, t.msg.eventType)
 		}
 	}
+	callbacks := []func(rtr *provider.RelayerTxResponse, err error){callback}
 
-	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callback); err != nil {
+	//During testing, this adds a callback so our test case can inspect the TX results
+	if PathProcMessageCollector != nil {
+		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
+			msgResult := &PathProcessorMessageResp{
+				DestinationChain: dst.chainProvider,
+				Response:         rtr,
+				SuccessfulTx:     err == nil,
+				Error:            err,
+			}
+			PathProcMessageCollector <- msgResult
+		}
+		callbacks = append(callbacks, testCallback)
+	}
+
+	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks); err != nil {
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
@@ -488,9 +512,9 @@ func (mp *messageProcessor) sendSingleMessage(
 	dst.log.Debug(fmt.Sprintf("Will broadcast %s message", msgType), zap.Object("msg", tracker))
 
 	// Set callback for packet messages so that we increment prometheus metrics on successful relays.
-	var callback func(rtr *provider.RelayerTxResponse, err error)
+	callbacks := []func(rtr *provider.RelayerTxResponse, err error){}
 	if t, ok := tracker.(packetMessageToTrack); ok {
-		callback = func(rtr *provider.RelayerTxResponse, err error) {
+		callback := func(_ *provider.RelayerTxResponse, err error) {
 			// only increment metrics counts for successful packets
 			if err != nil || mp.metrics == nil {
 				return
@@ -505,9 +529,25 @@ func (mp *messageProcessor) sendSingleMessage(
 			}
 			mp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, t.msg.eventType)
 		}
+
+		callbacks = append(callbacks, callback)
 	}
 
-	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callback)
+	//During testing, this adds a callback so our test case can inspect the TX results
+	if PathProcMessageCollector != nil {
+		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
+			msgResult := &PathProcessorMessageResp{
+				DestinationChain: dst.chainProvider,
+				Response:         rtr,
+				SuccessfulTx:     err == nil,
+				Error:            err,
+			}
+			PathProcMessageCollector <- msgResult
+		}
+		callbacks = append(callbacks, testCallback)
+	}
+
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks)
 	if err != nil {
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),

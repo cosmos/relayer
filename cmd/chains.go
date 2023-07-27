@@ -39,6 +39,7 @@ func chainsCmd(a *appState) *cobra.Command {
 		chainsShowCmd(a),
 		chainsAddrCmd(a),
 		chainsAddDirCmd(a),
+		cmdChainsConfigure(a),
 	)
 
 	return cmd
@@ -141,6 +142,19 @@ $ %s ch d ibc-0`, appName, appName)),
 			})
 		},
 	}
+	return cmd
+}
+
+func cmdChainsConfigure(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "configure",
+		Short: "manage local chain configurations",
+	}
+
+	cmd.AddCommand(
+		feegrantConfigureBaseCmd(a),
+	)
+
 	return cmd
 }
 
@@ -277,9 +291,10 @@ func chainsAddCmd(a *appState) *cobra.Command {
 			"                the chain-registry or passing a file (-f) or url (-u)",
 		Args: withUsage(cobra.MinimumNArgs(0)),
 		Example: fmt.Sprintf(` $ %s chains add cosmoshub
+ $ %s chains add testnets/cosmoshubtestnet
  $ %s chains add cosmoshub osmosis
  $ %s chains add --file chains/ibc0.json ibc0
- $ %s chains add --url https://relayer.com/ibc0.json ibc0`, appName, appName, appName, appName),
+ $ %s chains add --url https://relayer.com/ibc0.json ibc0`, appName, appName, appName, appName, appName),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file, url, err := getAddInputs(cmd)
 			if err != nil {
@@ -447,7 +462,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 			continue
 		}
 
-		chainConfig, err := chainInfo.GetChainConfig(ctx)
+		chainConfig, err := chainInfo.GetChainConfig(ctx, chain)
 		if err != nil {
 			a.log.Warn(
 				"Error generating chain config",

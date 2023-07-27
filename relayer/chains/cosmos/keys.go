@@ -192,8 +192,8 @@ func (cc *CosmosProvider) ExportPrivKeyArmor(keyName string) (armor string, err 
 }
 
 // GetKeyAddress returns the account address representation for the currently configured key.
-func (cc *CosmosProvider) GetKeyAddress() (sdk.AccAddress, error) {
-	info, err := cc.Keybase.Key(cc.PCfg.Key)
+func (cc *CosmosProvider) GetKeyAddress(key string) (sdk.AccAddress, error) {
+	info, err := cc.Keybase.Key(key)
 	if err != nil {
 		return nil, err
 	}
@@ -218,4 +218,35 @@ func CreateMnemonic() (string, error) {
 // It returns an error if the bech32 conversion fails or the prefix is empty.
 func (cc *CosmosProvider) EncodeBech32AccAddr(addr sdk.AccAddress) (string, error) {
 	return sdk.Bech32ifyAddressBytes(cc.PCfg.AccountPrefix, addr)
+}
+
+func (cc *CosmosProvider) DecodeBech32AccAddr(addr string) (sdk.AccAddress, error) {
+	return sdk.GetFromBech32(addr, cc.PCfg.AccountPrefix)
+}
+
+func (cc *CosmosProvider) GetKeyAddressForKey(key string) (sdk.AccAddress, error) {
+	info, err := cc.Keybase.Key(key)
+	if err != nil {
+		return nil, err
+	}
+	return info.GetAddress()
+}
+
+func (cc *CosmosProvider) KeyFromKeyOrAddress(keyOrAddress string) (string, error) {
+	switch {
+	case keyOrAddress == "":
+		return cc.PCfg.Key, nil
+	case cc.KeyExists(keyOrAddress):
+		return keyOrAddress, nil
+	default:
+		acc, err := cc.DecodeBech32AccAddr(keyOrAddress)
+		if err != nil {
+			return "", err
+		}
+		kr, err := cc.Keybase.KeyByAddress(acc)
+		if err != nil {
+			return "", err
+		}
+		return kr.Name, nil
+	}
 }
