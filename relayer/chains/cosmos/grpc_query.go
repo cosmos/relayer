@@ -177,7 +177,7 @@ func (cc *CosmosProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broadc
 
 	wg.Add(1)
 
-	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, blockTimeout, callback); err != nil {
+	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, blockTimeout, []func(*provider.RelayerTxResponse, error){callback}); err != nil {
 		return nil, err
 	}
 

@@ -9,6 +9,7 @@ import (
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -166,6 +167,7 @@ func getFeePayer(tx *typestx.Tx) string {
 	case *clienttypes.MsgUpgradeClient:
 		return firstMsg.Signer
 	case *clienttypes.MsgSubmitMisbehaviour:
+		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
 	case *feetypes.MsgRegisterPayee:
 		return firstMsg.Relayer
