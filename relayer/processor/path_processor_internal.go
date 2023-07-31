@@ -19,9 +19,8 @@ import (
 // i.e. a MsgConnectionOpenInit or a MsgChannelOpenInit should be broadcasted to start
 // the handshake if this key exists in the relevant cache.
 const (
-	preInitKey         = "pre_init"
-	preCloseKey        = "pre_close"
-	maxPacketsPerFlush = 10
+	preInitKey  = "pre_init"
+	preCloseKey = "pre_close"
 )
 
 // getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
@@ -35,21 +34,27 @@ func (pp *PathProcessor) getMessagesToSend(
 		return
 	}
 
-	if msgs[0].info.ChannelOrder == chantypes.ORDERED.String() {
+	ordered := false
+
+	// channelStateCache most likely has the ordering information.
+	if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; ok && cs.Order == chantypes.ORDERED {
+		ordered = true
+	}
+
+	// if packet info has the order defined, use that.
+	if msgs[0].info.ChannelOrder != "" && msgs[0].info.ChannelOrder != chantypes.NONE.String() {
+		ordered = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
+	}
+
+	if ordered {
 		eventMessages := make(map[string][]packetIBCMessage)
+		lowestSeq := make(map[string]uint64)
 
 		for _, m := range msgs {
 			eventMessages[m.eventType] = append(eventMessages[m.eventType], m)
-		}
-
-		for e, m := range eventMessages {
-			m := m
-			sort.SliceStable(m, func(i, j int) bool {
-				return m[i].info.Sequence < m[j].info.Sequence
-			})
-
-			if e == chantypes.EventTypeRecvPacket {
-				dstChan, dstPort := m[0].info.DestChannel, m[0].info.DestPort
+			switch m.eventType {
+			case chantypes.EventTypeRecvPacket:
+				dstChan, dstPort := m.info.DestChannel, m.info.DestPort
 				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, dstChan, dstPort)
 				if err != nil {
 					dst.log.Error("Failed to query next sequence recv",
@@ -59,38 +64,104 @@ func (pp *PathProcessor) getMessagesToSend(
 					)
 					return
 				}
-
-				if m[0].info.Sequence != res.NextSequenceReceive {
-					dst.log.Error("Unexpected next sequence recv",
-						zap.String("channel_id", m[0].info.DestChannel),
-						zap.String("port_id", m[0].info.DestChannel),
-						zap.Uint64("expected", res.NextSequenceReceive),
-						zap.Uint64("actual", m[0].info.Sequence),
+				lowestSeq[chantypes.EventTypeRecvPacket] = res.NextSequenceReceive
+			case chantypes.EventTypeAcknowledgePacket:
+				srcChan, srcPort := m.info.SourceChannel, m.info.SourcePort
+				res, err := src.chainProvider.QueryNextSeqAck(ctx, 0, srcChan, srcPort)
+				if err != nil {
+					src.log.Error("Failed to query next sequence ack",
+						zap.String("channel_id", srcChan),
+						zap.String("port_id", srcPort),
+						zap.Error(err),
 					)
 					return
 				}
+				lowestSeq[chantypes.EventTypeAcknowledgePacket] = res.NextSequenceReceive
 			}
+		}
 
-			for i, msg := range m {
-				// only handle consecutive sequences on ordered channels
-				if i > 0 && msg.info.Sequence-1 != m[i-1].info.Sequence {
-					dst.log.Error("Packets are not consecutive",
-						zap.String("channel_id", m[0].info.DestChannel),
-						zap.String("port_id", m[0].info.DestChannel),
-						zap.Uint64("seq", msg.info.Sequence),
-						zap.Uint64("prior_seq", m[i-1].info.Sequence),
-					)
-					break
+		for e, m := range eventMessages {
+			m := m
+			sort.SliceStable(m, func(i, j int) bool {
+				return m[i].info.Sequence < m[j].info.Sequence
+			})
+
+			foundFirst := false
+		MsgLoop:
+			for _, msg := range m {
+				if e == chantypes.EventTypeRecvPacket || e == chantypes.EventTypeAcknowledgePacket {
+					if msg.info.Sequence < lowestSeq[e] {
+						// TODO prune these from caches
+						continue MsgLoop
+					} else if msg.info.Sequence > lowestSeq[e] && !foundFirst {
+						switch e {
+						case chantypes.EventTypeRecvPacket:
+							dst.log.Debug("Not yet ready to relay this recv sequence",
+								zap.String("channel_id", msg.info.DestChannel),
+								zap.String("port_id", msg.info.DestPort),
+								zap.Uint64("expected", lowestSeq[e]),
+								zap.Uint64("actual", msg.info.Sequence),
+							)
+						case chantypes.EventTypeAcknowledgePacket:
+							src.log.Debug("Not yet ready to relay this ack sequence",
+								zap.String("channel_id", msg.info.SourceChannel),
+								zap.String("port_id", msg.info.SourcePort),
+								zap.Uint64("expected", lowestSeq[e]),
+								zap.Uint64("actual", msg.info.Sequence),
+							)
+						}
+
+						break MsgLoop
+					}
 				}
 
 				switch e {
 				case chantypes.EventTypeRecvPacket:
+					if len(dstMsgs) > 0 && dstMsgs[len(dstMsgs)-1].eventType == e && dstMsgs[len(dstMsgs)-1].info.Sequence != msg.info.Sequence-1 {
+						dst.log.Debug("Skipping non-consecutive packet(s)",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.DestChannel),
+							zap.String("port_id", msg.info.DestChannel),
+							zap.Uint64("seq", msg.info.Sequence),
+							zap.Uint64("prior_seq", dstMsgs[len(dstMsgs)-1].info.Sequence),
+						)
+						break MsgLoop
+					}
 					if uint64(len(dstMsgs)) <= pp.maxMsgs && dst.shouldSendPacketMessage(msg, src) {
+						dst.log.Debug("Appending packet",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.DestChannel),
+							zap.String("port_id", msg.info.DestChannel),
+							zap.Uint64("seq", msg.info.Sequence),
+						)
 						dstMsgs = append(dstMsgs, msg)
+						if e == chantypes.EventTypeRecvPacket && msg.info.Sequence == lowestSeq[e] {
+							foundFirst = true
+						}
 					}
 				default:
+					if len(srcMsgs) > 0 && srcMsgs[len(srcMsgs)-1].eventType == e && srcMsgs[len(srcMsgs)-1].info.Sequence != msg.info.Sequence-1 {
+						src.log.Debug("Skipping non-consecutive packet(s)",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.SourceChannel),
+							zap.String("port_id", msg.info.SourcePort),
+							zap.Uint64("seq", msg.info.Sequence),
+							zap.Uint64("prior_seq", srcMsgs[len(srcMsgs)-1].info.Sequence),
+						)
+						break MsgLoop
+					}
+
 					if uint64(len(srcMsgs)) <= pp.maxMsgs && src.shouldSendPacketMessage(msg, dst) {
+						src.log.Debug("Appending packet",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.SourceChannel),
+							zap.String("port_id", msg.info.SourcePort),
+							zap.Uint64("seq", msg.info.Sequence),
+						)
 						srcMsgs = append(srcMsgs, msg)
+						if e == chantypes.EventTypeAcknowledgePacket && msg.info.Sequence == lowestSeq[e] {
+							foundFirst = true
+						}
 					}
 				}
 			}
@@ -789,13 +860,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			return
 		}
 
-		for k, open := range pp.pathEnd1.channelStateCache {
+		for k, cs := range pp.pathEnd1.channelStateCache {
 			if k.ChannelID == m.SrcChannelID && k.PortID == m.SrcPortID && k.CounterpartyChannelID != "" && k.CounterpartyPortID != "" {
-				if open {
+				if cs.Open {
 					// channel is still open on pathEnd1
 					break
 				}
-				if counterpartyOpen, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyOpen {
+				if counterpartyState, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -815,13 +886,13 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			}
 		}
 
-		for k, open := range pp.pathEnd2.channelStateCache {
+		for k, cs := range pp.pathEnd2.channelStateCache {
 			if k.CounterpartyChannelID == m.SrcChannelID && k.CounterpartyPortID == m.SrcPortID && k.ChannelID != "" && k.PortID != "" {
-				if open {
+				if cs.Open {
 					// channel is still open on pathEnd2
 					break
 				}
-				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState {
+				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState.Open {
 					pp.log.Info("Channel already closed on both sides")
 					cancel()
 					return
@@ -1128,7 +1199,13 @@ func queryPacketCommitments(
 	}
 }
 
-// queuePendingRecvAndAcks returns whether flush can be considered complete (none skipped).
+// skippedPackets is used to track the number of packets skipped during a flush.
+type skippedPackets struct {
+	Recv uint64
+	Ack  uint64
+}
+
+// queuePendingRecvAndAcks returns the number of packets skipped during a flush (nil if none).
 func (pp *PathProcessor) queuePendingRecvAndAcks(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
@@ -1138,32 +1215,36 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	dstCache ChannelPacketMessagesCache,
 	srcMu sync.Locker,
 	dstMu sync.Locker,
-) (bool, error) {
+) (*skippedPackets, error) {
 
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
-		return true, nil
+		return nil, nil
 	}
 
 	dstChan, dstPort := k.CounterpartyChannelID, k.CounterpartyPortID
 
 	unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	dstHeight := int64(dst.latestBlock.Height)
 
+	var order chantypes.Order
+
 	if len(unrecv) > 0 {
 		channel, err := dst.chainProvider.QueryChannel(ctx, dstHeight, dstChan, dstPort)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
+
+		order = channel.Channel.Ordering
 
 		if channel.Channel.Ordering == chantypes.ORDERED {
 			nextSeqRecv, err := dst.chainProvider.QueryNextSeqRecv(ctx, dstHeight, dstChan, dstPort)
 			if err != nil {
-				return false, err
+				return nil, err
 			}
 
 			var newUnrecv []uint64
@@ -1184,7 +1265,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 
 	var eg errgroup.Group
 
-	skipped := false
+	var skipped *skippedPackets
 
 	for i, seq := range unrecv {
 		srcMu.Lock()
@@ -1193,8 +1274,11 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 		}
 		srcMu.Unlock()
 
-		if i >= maxPacketsPerFlush {
-			skipped = true
+		if i >= int(pp.maxMsgs) {
+			if skipped == nil {
+				skipped = new(skippedPackets)
+			}
+			skipped.Recv = uint64(len(unrecv) - i)
 			break
 		}
 
@@ -1211,6 +1295,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 			if err != nil {
 				return err
 			}
+			sendPacket.ChannelOrder = order.String()
 			srcMu.Lock()
 			srcCache.Cache(chantypes.EventTypeSendPacket, k, seq, sendPacket)
 			srcMu.Unlock()
@@ -1228,7 +1313,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	}
 
 	if err := eg.Wait(); err != nil {
-		return false, err
+		return skipped, err
 	}
 
 	if len(unrecv) > 0 {
@@ -1266,8 +1351,11 @@ SeqLoop:
 		}
 		dstMu.Unlock()
 
-		if i >= maxPacketsPerFlush {
-			skipped = true
+		if i >= int(pp.maxMsgs) {
+			if skipped == nil {
+				skipped = new(skippedPackets)
+			}
+			skipped.Ack = uint64(len(unacked) - i)
 			break
 		}
 
@@ -1286,6 +1374,7 @@ SeqLoop:
 			}
 
 			ck := k.Counterparty()
+			recvPacket.ChannelOrder = order.String()
 			dstMu.Lock()
 			dstCache.Cache(chantypes.EventTypeRecvPacket, ck, seq, recvPacket)
 			dstCache.Cache(chantypes.EventTypeWriteAck, ck, seq, recvPacket)
@@ -1296,7 +1385,7 @@ SeqLoop:
 	}
 
 	if err := eg.Wait(); err != nil {
-		return false, err
+		return skipped, err
 	}
 
 	if len(unacked) > 0 {
@@ -1313,7 +1402,7 @@ SeqLoop:
 		)
 	}
 
-	return !skipped, nil
+	return skipped, nil
 }
 
 // flush runs queries to relay any pending messages which may have been
@@ -1331,8 +1420,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 
 	// Query remaining packet commitments on both chains
 	var eg errgroup.Group
-	for k, open := range pp.pathEnd1.channelStateCache {
-		if !open {
+	for k, cs := range pp.pathEnd1.channelStateCache {
+		if !cs.Open {
 			continue
 		}
 		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
@@ -1344,8 +1433,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		}
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
-	for k, open := range pp.pathEnd2.channelStateCache {
-		if !open {
+	for k, cs := range pp.pathEnd2.channelStateCache {
+		if !cs.Open {
 			continue
 		}
 		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
@@ -1366,17 +1455,20 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	// 1. Packet commitment is on source, but MsgRecvPacket has not yet been relayed to destination
 	// 2. Packet commitment is on source, and MsgRecvPacket has been relayed to destination, but MsgAcknowledgement has not been written to source to clear the packet commitment.
 	// Based on above conditions, enqueue MsgRecvPacket and MsgAcknowledgement messages
-	skipped := false
+	skipped := make(map[string]map[ChannelKey]skippedPackets)
 	for k, seqs := range commitments1 {
 		k := k
 		seqs := seqs
 		eg.Go(func() error {
-			done, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd1, pp.pathEnd2, k, seqs, pathEnd1Cache.PacketFlow, pathEnd2Cache.PacketFlow, &pathEnd1CacheMu, &pathEnd2CacheMu)
+			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd1, pp.pathEnd2, k, seqs, pathEnd1Cache.PacketFlow, pathEnd2Cache.PacketFlow, &pathEnd1CacheMu, &pathEnd2CacheMu)
 			if err != nil {
 				return err
 			}
-			if !done {
-				skipped = true
+			if s != nil {
+				if _, ok := skipped[pp.pathEnd1.info.ChainID]; !ok {
+					skipped[pp.pathEnd1.info.ChainID] = make(map[ChannelKey]skippedPackets)
+				}
+				skipped[pp.pathEnd1.info.ChainID][k] = *s
 			}
 			return nil
 		})
@@ -1386,12 +1478,15 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		k := k
 		seqs := seqs
 		eg.Go(func() error {
-			done, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
+			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
 			if err != nil {
 				return err
 			}
-			if !done {
-				skipped = true
+			if s != nil {
+				if _, ok := skipped[pp.pathEnd2.info.ChainID]; !ok {
+					skipped[pp.pathEnd2.info.ChainID] = make(map[ChannelKey]skippedPackets)
+				}
+				skipped[pp.pathEnd2.info.ChainID][k] = *s
 			}
 			return nil
 		})
@@ -1404,8 +1499,20 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync)
 	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync)
 
-	if skipped {
-		return fmt.Errorf("flush was successful, but more packet sequences are still pending")
+	if len(skipped) > 0 {
+		skippedPacketsString := ""
+		for chainID, chainSkipped := range skipped {
+			for channelKey, skipped := range chainSkipped {
+				skippedPacketsString += fmt.Sprintf(
+					"{ %s %s %s recv: %d, ack: %d } ",
+					chainID, channelKey.ChannelID, channelKey.PortID, skipped.Recv, skipped.Ack,
+				)
+			}
+		}
+		return fmt.Errorf(
+			"flush was successful, but packets are still pending. %s",
+			skippedPacketsString,
+		)
 	}
 
 	return nil
@@ -1418,7 +1525,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		return false
 	}
 	for k, packetMessagesCache := range pp.pathEnd1.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if cs, ok := pp.pathEnd1.channelStateCache[k]; !ok || !cs.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
@@ -1442,7 +1549,7 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 		}
 	}
 	for k, packetMessagesCache := range pp.pathEnd2.messageCache.PacketFlow {
-		if open, ok := pp.pathEnd1.channelStateCache[k]; !ok || !open {
+		if cs, ok := pp.pathEnd1.channelStateCache[k]; !ok || !cs.Open {
 			continue
 		}
 		for _, c := range packetMessagesCache {
