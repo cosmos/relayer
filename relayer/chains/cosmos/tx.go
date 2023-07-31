@@ -55,7 +55,7 @@ var (
 	rtyAtt                      = retry.Attempts(rtyAttNum)
 	rtyDel                      = retry.Delay(time.Millisecond * 400)
 	rtyErr                      = retry.LastErrorOnly(true)
-	numRegex                    = regexp.MustCompile("[0-9]+")
+	accountSeqRegex             = regexp.MustCompile("account sequence mismatch, expected ([0-9]+), got ([0-9]+)")
 	defaultBroadcastWaitTimeout = 10 * time.Minute
 	errUnknown                  = "unknown"
 )
@@ -660,31 +660,16 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *Wall
 		panic("sequence guard not configured")
 	}
 
-	sequences := numRegex.FindAllString(err.Error(), -1)
-	if len(sequences) != 2 {
+	matches := accountSeqRegex.FindStringSubmatch(err.Error())
+	if len(matches) == 0 {
 		return
 	}
-	nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
+	nextSeq, err := strconv.ParseUint(matches[1], 10, 64)
 	if err != nil {
 		return
 	}
 	sequenceGuard.NextAccountSequence = nextSeq
 }
-
-// handleAccountSequenceMismatchError will parse the error string, e.g.:
-// "account sequence mismatch, expected 10, got 9: incorrect account sequence"
-// and update the next account sequence with the expected value.
-// func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
-// 	sequences := numRegex.FindAllString(err.Error(), -1)
-// 	if len(sequences) != 2 {
-// 		return
-// 	}
-// 	nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
-// 	if err != nil {
-// 		return
-// 	}
-// 	cc.nextAccountSeq = nextSeq
-// }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cc *CosmosProvider) MsgCreateClient(

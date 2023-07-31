@@ -55,12 +55,12 @@ func genMnemonic(t *testing.T) string {
 	return mn
 }
 
-// TestScenarioFeegrantBasic Feegrant on a single chain
-// Run this test with e.g. go test -timeout 300s -run ^TestScenarioFeegrantBasic$ github.com/cosmos/relayer/v2/ibctest.
+// TestRelayerFeeGrant Feegrant on a single chain
+// Run this test with e.g. go test -timeout 300s -run ^TestRelayerFeeGrant$ github.com/cosmos/relayer/v2/ibctest.
 //
 // Helpful to debug:
-// docker ps -a --format {{.Names}} then e.g. docker logs gaia-1-val-0-TestScenarioFeegrantBasic 2>&1 -f
-func TestScenarioFeegrantBasic(t *testing.T) {
+// docker ps -a --format {{.Names}} then e.g. docker logs gaia-1-val-0-TestRelayerFeeGrant 2>&1 -f
+func TestRelayerFeeGrant(t *testing.T) {
 	ctx := context.Background()
 	logger := zaptest.NewLogger(t)
 
