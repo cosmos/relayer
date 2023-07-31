@@ -21,7 +21,6 @@ import (
 
 // TestScenarioPathFilterAllow tests the channel allowlist
 func TestScenarioPathFilterAllow(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 
 	nv := 1
@@ -42,6 +41,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
 	}).Build(t, nil, "")
+
+	t.Parallel()
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
@@ -167,7 +168,6 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 // TestScenarioPathFilterDeny tests the channel denylist
 func TestScenarioPathFilterDeny(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 
 	nv := 1
@@ -215,6 +215,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 
 		SkipPathCreation: false,
 	}))
+
+	t.Parallel()
 
 	// Get Channel ID
 	gaiaChans, err := r.GetChannels(ctx, eRep, gaia.Config().ChainID)

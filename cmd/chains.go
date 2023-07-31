@@ -39,6 +39,7 @@ func chainsCmd(a *appState) *cobra.Command {
 		chainsShowCmd(a),
 		chainsAddrCmd(a),
 		chainsAddDirCmd(a),
+		cmdChainsConfigure(a),
 	)
 
 	return cmd
@@ -141,6 +142,19 @@ $ %s ch d ibc-0`, appName, appName)),
 			})
 		},
 	}
+	return cmd
+}
+
+func cmdChainsConfigure(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "configure",
+		Short: "manage local chain configurations",
+	}
+
+	cmd.AddCommand(
+		feegrantConfigureBaseCmd(a),
+	)
+
 	return cmd
 }
 
