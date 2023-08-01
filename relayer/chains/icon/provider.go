@@ -332,7 +332,7 @@ func (icp *IconProvider) PacketCommitment(ctx context.Context, msgTransfer provi
 }
 
 func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetAckResponse, err := icp.QueryPacketAcknowledgement(ctx, int64(msgRecvPacket.Height), msgRecvPacket.SourceChannel, msgRecvPacket.SourcePort, msgRecvPacket.Sequence)
+	packetAckResponse, err := icp.QueryPacketAcknowledgement(ctx, int64(msgRecvPacket.Height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
 		return provider.PacketProof{}, nil
 	}
@@ -344,7 +344,7 @@ func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacke
 }
 
 func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetReceiptResponse, err := icp.QueryPacketReceipt(ctx, int64(msgTransfer.Height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+	packetReceiptResponse, err := icp.QueryPacketReceipt(ctx, int64(msgTransfer.Height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil

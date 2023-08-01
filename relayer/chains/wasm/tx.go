@@ -241,7 +241,7 @@ func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provid
 }
 
 func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.SourceChannel, msgRecvPacket.SourcePort, msgRecvPacket.Sequence)
+	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
 		return provider.PacketProof{}, nil
 	}
@@ -253,7 +253,7 @@ func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket
 
 func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 
-	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -277,7 +277,6 @@ func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.Pa
 
 func (ap *WasmProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("Not implemented for Wasm")
 }
 
 func (ap *WasmProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -287,8 +286,7 @@ func (ap *WasmProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pro
 	}
 
 	params := &chantypes.MsgRecvPacket{
-		Packet: msgTransfer.Packet(),
-		// Packet:          chantypes.Packet{}, //TODO: just to check packet timeout
+		Packet:          msgTransfer.Packet(),
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
