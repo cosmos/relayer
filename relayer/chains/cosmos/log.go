@@ -164,11 +164,19 @@ func getFeePayer(tx *typestx.Tx) string {
 	case *clienttypes.MsgUpdateClient:
 		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
+	case *clienttypes.MsgUpgradeClient:
+		return firstMsg.Signer
 	case *clienttypes.MsgSubmitMisbehaviour:
 		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
+	case *feetypes.MsgRegisterPayee:
+		return firstMsg.Relayer
 	case *feetypes.MsgRegisterCounterpartyPayee:
 		return firstMsg.Relayer
+	case *feetypes.MsgPayPacketFee:
+		return firstMsg.Signer
+	case *feetypes.MsgPayPacketFeeAsync:
+		return firstMsg.PacketFee.RefundAddress
 	default:
 		return firstMsg.GetSigners()[0].String()
 	}
