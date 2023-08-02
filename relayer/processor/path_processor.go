@@ -30,7 +30,7 @@ const (
 	interchainQueryTimeout = 60 * time.Second
 
 	// Amount of time between flushes if the previous flush failed.
-	flushFailureRetry = 15 * time.Second
+	flushFailureRetry = 5 * time.Second
 
 	// If message assembly fails from either proof query failure on the source
 	// or assembling the message for the destination, how many blocks should pass
@@ -186,12 +186,12 @@ func (pp *PathProcessor) OnConnectionMessage(chainID string, eventType string, o
 
 func (pp *PathProcessor) channelPairs() []channelPair {
 	// Channel keys are from pathEnd1's perspective
-	channels := make(map[ChannelKey]bool)
-	for k, open := range pp.pathEnd1.channelStateCache {
-		channels[k] = open
+	channels := make(map[ChannelKey]ChannelState)
+	for k, cs := range pp.pathEnd1.channelStateCache {
+		channels[k] = cs
 	}
-	for k, open := range pp.pathEnd2.channelStateCache {
-		channels[k.Counterparty()] = open
+	for k, cs := range pp.pathEnd2.channelStateCache {
+		channels[k.Counterparty()] = cs
 	}
 	pairs := make([]channelPair, len(channels))
 	i := 0
@@ -457,8 +457,8 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 		}
 	}
 
-	channelStateCache1 := make(map[ChannelKey]bool)
-	channelStateCache2 := make(map[ChannelKey]bool)
+	channelStateCache1 := make(map[ChannelKey]ChannelState)
+	channelStateCache2 := make(map[ChannelKey]ChannelState)
 
 	// split up data and send lower channel-id data to pathEnd2 and higher channel-id data to pathEnd1.
 	for k, v := range cacheData.ChannelStateCache {

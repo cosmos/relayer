@@ -47,6 +47,21 @@ func queryCmd(a *appState) *cobra.Command {
 		lineBreakCommand(),
 		queryIBCDenoms(a),
 		queryBaseDenomFromIBCDenom(a),
+		feegrantQueryCmd(a),
+	)
+
+	return cmd
+}
+
+// feegrantQueryCmd returns the fee grant query commands for this module
+func feegrantQueryCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "feegrant",
+		Short: "Querying commands for the feegrant module [currently BasicAllowance only]",
+	}
+
+	cmd.AddCommand(
+		feegrantBasicGrantsCmd(a),
 	)
 
 	return cmd
@@ -1055,9 +1070,10 @@ $ %s query unrelayed-acks demo-path channel-0`,
 
 func queryClientsExpiration(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients-expiration path",
-		Short: "query for light clients expiration date",
-		Args:  withUsage(cobra.ExactArgs(1)),
+		Use:     "clients-expiration path",
+		Aliases: []string{"ce"},
+		Short:   "query for light clients expiration date",
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query clients-expiration demo-path`,
 			appName,
@@ -1080,17 +1096,29 @@ $ %s query clients-expiration demo-path`,
 				return err
 			}
 
-			srcExpiration, err := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
-			if err != nil {
-				return err
+			srcExpiration, srcClientInfo, errSrc := relayer.QueryClientExpiration(cmd.Context(), c[src], c[dst])
+			if errSrc != nil && !strings.Contains(errSrc.Error(), "light client not found") {
+				return errSrc
 			}
-			dstExpiration, err := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
-			if err != nil {
-				return err
+			dstExpiration, dstClientInfo, errDst := relayer.QueryClientExpiration(cmd.Context(), c[dst], c[src])
+			if errDst != nil && !strings.Contains(errDst.Error(), "light client not found") {
+				return errDst
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration))
-			fmt.Fprintf(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration))
+			// if only the src light client is found, just print info for source light client
+			if errSrc == nil && errDst != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
+				return nil
+			}
+
+			// if only the dst light client is found, just print info for destination light client
+			if errDst == nil && errSrc != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
+				return nil
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
+			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
 
 			return nil
 		},

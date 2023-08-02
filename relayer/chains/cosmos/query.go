@@ -17,8 +17,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/cosmos-sdk/x/feegrant"
 	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
@@ -33,6 +36,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 )
 
 const PaginationDelay = 10 * time.Millisecond
@@ -181,6 +185,93 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 		})
 	}
 	return events
+}
+
+// QueryFeegrantsByGrantee returns all requested grants for the given grantee.
+// Default behavior will return all grants.
+func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *query.PageRequest) ([]*feegrant.Grant, error) {
+	grants := []*feegrant.Grant{}
+	allPages := paginator == nil
+
+	req := &feegrant.QueryAllowancesRequest{Grantee: address, Pagination: paginator}
+	queryClient := feegrant.NewQueryClient(cc)
+	ctx, cancel := cc.GetQueryContext(0)
+	defer cancel()
+	hasNextPage := true
+
+	for {
+		res, err := queryClient.Allowances(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.Allowances != nil {
+			grants = append(grants, res.Allowances...)
+		}
+
+		if res.Pagination != nil {
+			req.Pagination.Key = res.Pagination.NextKey
+			if len(res.Pagination.NextKey) == 0 {
+				hasNextPage = false
+			}
+		} else {
+			hasNextPage = false
+		}
+
+		if !allPages || !hasNextPage {
+			break
+		}
+	}
+
+	return grants, nil
+}
+
+// Feegrant_GrantsByGranterRPC returns all requested grants for the given Granter.
+// Default behavior will return all grants.
+func (cc *CosmosProvider) QueryFeegrantsByGranter(address string, paginator *query.PageRequest) ([]*feegrant.Grant, error) {
+	grants := []*feegrant.Grant{}
+	allPages := paginator == nil
+
+	req := &feegrant.QueryAllowancesByGranterRequest{Granter: address, Pagination: paginator}
+	queryClient := feegrant.NewQueryClient(cc)
+	ctx, cancel := cc.GetQueryContext(0)
+	defer cancel()
+	hasNextPage := true
+
+	for {
+		res, err := queryClient.AllowancesByGranter(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.Allowances != nil {
+			grants = append(grants, res.Allowances...)
+		}
+
+		if res.Pagination != nil && res.Pagination.NextKey != nil {
+			req.Pagination.Key = res.Pagination.NextKey
+			if len(res.Pagination.NextKey) == 0 {
+				hasNextPage = false
+			}
+		} else {
+			hasNextPage = false
+		}
+
+		if !allPages || !hasNextPage {
+			break
+		}
+	}
+
+	return grants, nil
+}
+
+// GetQueryContext returns a context that includes the height and uses the timeout from the config
+func (cc *CosmosProvider) GetQueryContext(height int64) (context.Context, context.CancelFunc) {
+	timeout, _ := time.ParseDuration(cc.PCfg.Timeout) // Timeout is validated in the config so no error check
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	strHeight := strconv.FormatInt(height, 10)
+	ctx = metadata.AppendToOutgoingContext(ctx, grpctypes.GRPCBlockHeightHeader, strHeight)
+	return ctx, cancel
 }
 
 // QueryBalance returns the amount of coins in the relayer account
@@ -985,6 +1076,29 @@ func (cc *CosmosProvider) QueryUnreceivedAcknowledgements(ctx context.Context, h
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
 func (cc *CosmosProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	key := host.NextSequenceRecvKey(portid, channelid)
+
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if next sequence receive exists
+	if len(value) == 0 {
+		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
+	}
+
+	sequence := binary.BigEndian.Uint64(value)
+
+	return &chantypes.QueryNextSequenceReceiveResponse{
+		NextSequenceReceive: sequence,
+		Proof:               proofBz,
+		ProofHeight:         proofHeight,
+	}, nil
+}
+
+// QueryNextSeqAck returns the next seqAck for a configured channel
+func (cc *CosmosProvider) QueryNextSeqAck(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	key := host.NextSequenceAckKey(portid, channelid)
 
 	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
 	if err != nil {

@@ -170,7 +170,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 		// mocking all channels open
 		for channelKey := range ibcMessagesCache.PacketFlow {
-			channelStateCache[channelKey] = true
+			channelStateCache.SetOpen(channelKey, true, chantypes.NONE)
 		}
 
 		// now pass foundMessages to the path processors

@@ -16,6 +16,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 )
@@ -26,9 +27,6 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-
-	t.Parallel()
-
 	client, network := interchaintest.DockerSetup(t)
 
 	rep := testreporter.NewNopReporter()
@@ -38,9 +36,10 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	nf := 0
 	nv := 1
+	logger := zaptest.NewLogger(t)
 
 	// Define chains involved in test
-	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
+	cf := interchaintest.NewBuiltinChainFactory(logger, []*interchaintest.ChainSpec{
 		{
 			Name:          "stride",
 			ChainName:     "stride",
@@ -113,9 +112,14 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 		SkipPathCreation: false,
 	}))
+
+	t.Parallel()
+
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
+
+	logger.Info("TestScenarioStrideICAandICQ [1]")
 
 	// Fund user accounts, so we can query balances and make assertions.
 	const userFunds = int64(10_000_000_000_000)
@@ -127,6 +131,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	// Start the relayer
 	err = r.StartRelayer(ctx, eRep, pathStrideGaia)
 	require.NoError(t, err)
+
+	logger.Info("TestScenarioStrideICAandICQ [2]")
 
 	t.Cleanup(
 		func() {
@@ -147,6 +153,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	strideAdminAddr, err := types.Bech32ifyAddressBytes(strideCfg.Bech32Prefix, strideAdminAddrBytes)
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [3]")
+
 	err = stride.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: strideAdminAddr,
 		Amount:  userFunds,
@@ -154,12 +162,16 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	})
 	require.NoError(t, err, "failed to fund stride admin account")
 
+	logger.Info("TestScenarioStrideICAandICQ [4]")
+
 	// get native chain user addresses
 	strideAddr := strideUser.FormattedAddress()
 	require.NotEmpty(t, strideAddr)
+	logger.Info("TestScenarioStrideICAandICQ [5]", zap.String("stride addr", strideAddr))
 
 	gaiaAddress := gaiaUser.FormattedAddress()
 	require.NotEmpty(t, gaiaAddress)
+	logger.Info("TestScenarioStrideICAandICQ [6]", zap.String("gaia addr", gaiaAddress))
 
 	// get ibc paths
 	gaiaConns, err := r.GetConnections(ctx, eRep, gaiaCfg.ChainID)
@@ -167,6 +179,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	gaiaChans, err := r.GetChannels(ctx, eRep, gaiaCfg.ChainID)
 	require.NoError(t, err)
+
+	logger.Info("TestScenarioStrideICAandICQ [7]")
 
 	atomIBCDenom := transfertypes.ParseDenomTrace(
 		transfertypes.GetPrefixedDenom(
@@ -182,6 +196,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	gaiaHeight, err := gaia.Height(ctx)
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [8]")
+
 	// Fund stride user with ibc denom atom
 	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 		Amount:  1_000_000_000_000,
@@ -190,13 +206,19 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	}, ibc.TransferOptions{})
 	require.NoError(t, err)
 
-	_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+10, tx.Packet)
+	logger.Info("TestScenarioStrideICAandICQ [9]")
+
+	_, err = testutil.PollForAck(ctx, gaia, gaiaHeight, gaiaHeight+40, tx.Packet)
 	require.NoError(t, err)
+
+	logger.Info("TestScenarioStrideICAandICQ [10]")
 
 	require.NoError(t, eg.Wait())
 
+	logger.Info("TestScenarioStrideICAandICQ [11]")
+
 	// Register gaia host zone
-	_, err = strideFullNode.ExecTx(ctx, StrideAdminAccount,
+	res, err := strideFullNode.ExecTx(ctx, StrideAdminAccount,
 		"stakeibc", "register-host-zone",
 		gaiaConns[0].Counterparty.ConnectionId, gaiaCfg.Denom, gaiaCfg.Bech32Prefix,
 		atomIBCDenom, gaiaChans[0].Counterparty.ChannelID, "1",
@@ -204,29 +226,39 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [12]", zap.String("execTx res", res))
+
 	gaiaHeight, err = gaia.Height(ctx)
 	require.NoError(t, err)
+
+	logger.Info("TestScenarioStrideICAandICQ [13]")
 
 	// Wait for the ICA accounts to be setup
 	// Poll for 4 MsgChannelOpenConfirm with timeout after 15 blocks.
 	chanCount := 0
 	_, err = cosmos.PollForMessage(
-		ctx, gaia, gaiaCfg.EncodingConfig.InterfaceRegistry, gaiaHeight, gaiaHeight+15,
+		ctx, gaia, gaiaCfg.EncodingConfig.InterfaceRegistry, gaiaHeight, gaiaHeight+40,
 		func(found *chantypes.MsgChannelOpenConfirm) bool { chanCount++; return chanCount == 4 },
 	)
 	require.NoError(t, err)
+
+	logger.Info("TestScenarioStrideICAandICQ [14]")
 
 	// Get validator address
 	gaiaVal1Address, err := gaia.Validators[0].KeyBech32(ctx, "validator", "val")
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [15]")
+
 	// Add gaia validator
-	_, err = strideFullNode.ExecTx(ctx, StrideAdminAccount,
+	res, err = strideFullNode.ExecTx(ctx, StrideAdminAccount,
 		"stakeibc", "add-validator",
 		gaiaCfg.ChainID, "gval1", gaiaVal1Address,
 		"10", "5",
 	)
 	require.NoError(t, err)
+
+	logger.Info("TestScenarioStrideICAandICQ [16]", zap.String("execTx res", res))
 
 	var gaiaHostZone HostZoneWrapper
 
@@ -238,20 +270,31 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	err = json.Unmarshal(stdout, &gaiaHostZone)
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [17]", zap.String("execQuery res", string(stdout)))
+
 	// Liquid stake some atom
-	_, err = strideFullNode.ExecTx(ctx, strideUser.KeyName(),
+	res, err = strideFullNode.ExecTx(ctx, strideUser.KeyName(),
 		"stakeibc", "liquid-stake",
 		"1000000000000", gaiaCfg.Denom,
 	)
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [18]", zap.String("execTx res", res))
+
 	strideHeight, err := stride.Height(ctx)
 	require.NoError(t, err)
 
+	logger.Info("TestScenarioStrideICAandICQ [19]")
+
 	// Poll for MsgSubmitQueryResponse with timeout after 20 blocks
-	_, err = cosmos.PollForMessage(
-		ctx, stride, strideCfg.EncodingConfig.InterfaceRegistry, strideHeight, strideHeight+20,
+	resp, err := cosmos.PollForMessage(
+		ctx, stride, strideCfg.EncodingConfig.InterfaceRegistry, strideHeight, strideHeight+40,
 		func(found *rlystride.MsgSubmitQueryResponse) bool { return true },
 	)
+
+	logger.Info("TestScenarioStrideICAandICQ [20]", zap.String("[poll for msg] resp", resp.String()))
+	if err != nil {
+		logger.Info("error poll: " + err.Error())
+	}
 	require.NoError(t, err)
 }

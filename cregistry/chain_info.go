@@ -207,8 +207,8 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context) (string, error) {
 }
 
 // GetAssetList returns the asset metadata from the cosmos chain registry for this particular chain.
-func (c ChainInfo) GetAssetList(ctx context.Context) (AssetList, error) {
-	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", c.ChainName)
+func (c ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, error) {
+	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", name)
 
 	res, err := http.Get(chainRegURL)
 	if err != nil {
@@ -237,11 +237,11 @@ func (c ChainInfo) GetAssetList(ctx context.Context) (AssetList, error) {
 
 // GetChainConfig returns a CosmosProviderConfig composed from the details found in the cosmos chain registry for
 // this particular chain.
-func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderConfig, error) {
+func (c ChainInfo) GetChainConfig(ctx context.Context, name string) (*cosmos.CosmosProviderConfig, error) {
 	debug := viper.GetBool("debug")
 	home := viper.GetString("home")
 
-	assetList, err := c.GetAssetList(ctx)
+	assetList, err := c.GetAssetList(ctx, name)
 	if err != nil {
 		return nil, err
 	}
