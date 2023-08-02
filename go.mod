@@ -200,4 +200,7 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/evmos/ethermint => github.com/crypto-org-chain/ethermint v0.0.0-20230801014829-2df053357655
+replace (
+	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
+	github.com/evmos/ethermint => github.com/crypto-org-chain/ethermint v0.0.0-20230801014829-2df053357655
+)
