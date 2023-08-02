@@ -39,9 +39,11 @@ func BuildRelayerImage(t *testing.T) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	require.NoError(t, err, "error building docker client")
 
+	size := "2GB"
 	res, err := cli.ImageBuild(context.Background(), tar, dockertypes.ImageBuildOptions{
 		Dockerfile: "local.Dockerfile",
 		Tags:       []string{RelayerImageName},
+		BuildArgs:  map[string]*string{"DISK_SIZE": &size},
 	})
 	require.NoError(t, err, "error building docker image")
 
