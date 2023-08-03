@@ -92,8 +92,6 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 		// BlockDatabaseFile: interchaintest.DefaultBlockDatabaseFilepath(),
 	}))
 
-	t.Parallel()
-
 	// Fund a user account on chain1 and chain2
 	const userFunds = int64(10_000_000_000)
 	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, chain1, chain2)

@@ -56,8 +56,6 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 	})
 	r := rf.Build(t, client, network)
 
-	t.Parallel()
-
 	ic := interchaintest.NewInterchain().
 		AddChain(chain).
 		AddChain(counterpartyChain).

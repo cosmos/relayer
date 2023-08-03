@@ -85,8 +85,6 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 		NetworkID: network,
 	}))
 
-	t.Parallel()
-
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
@@ -147,7 +145,6 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 // automatically due to passing 2/3 trusting period expiration.
 func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	ctx := context.Background()
-	t.Parallel()
 
 	nv := 1
 	nf := 0
