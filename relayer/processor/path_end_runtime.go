@@ -446,8 +446,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 
 	pathEndForHeight := counterparty
 	if eventType == chantypes.EventTypeTimeoutPacket ||
-		eventType == chantypes.EventTypeTimeoutPacketOnClose ||
-		eventType == common.EventTimeoutRequest {
+		eventType == chantypes.EventTypeTimeoutPacketOnClose {
 		pathEndForHeight = pathEnd
 	}
 
