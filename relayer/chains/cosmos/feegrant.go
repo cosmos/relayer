@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -290,30 +291,16 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 	}
 
 	if len(msgs) > 0 {
-		//Make sure the granter has funds on chain, if not, we can't even pay TX fees.
-		//Also, depending how the config was initialized, the key might only exist locally, not on chain.
-		balance, err := cc.QueryBalanceWithAddress(ctx, granterAddr)
-		if err != nil {
-			return nil, err
-		}
+		cliCtx := client.Context{}.WithClient(cc.RPCClient).
+			WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
+			WithChainID(cc.PCfg.ChainID).
+			WithCodec(cc.Cdc.Marshaler).
+			WithFromAddress(granterAcc)
 
-		//Check to ensure the feegranter has funds on chain that can pay TX fees
-		weBroke := true
-		gasDenom, err := getGasTokenDenom(cc.PCfg.GasPrices)
-		if err != nil {
-			return nil, err
-		}
+		granterExists := cc.EnsureExists(cliCtx, granterAcc) == nil
 
-		for _, coin := range balance {
-			if coin.Denom == gasDenom {
-				if coin.Amount.GT(sdk.ZeroInt()) {
-					weBroke = false
-				}
-			}
-		}
-
-		//Feegranter can pay TX fees
-		if !weBroke {
+		//Feegranter exists on chain
+		if granterExists {
 			txResp, err := cc.SubmitTxAwaitResponse(ctx, msgs, memo, 0, granterKey)
 			if err != nil {
 				fmt.Printf("Error: SubmitTxAwaitResponse: %s", err.Error())
@@ -326,7 +313,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 			fmt.Printf("TX succeeded, %d new grants configured, %d grants already in place. TX hash: %s\n", grantsNeeded, numGrantees-grantsNeeded, txResp.TxResponse.TxHash)
 			return txResp.TxResponse, err
 		} else {
-			return nil, fmt.Errorf("granter %s does not have funds on chain in fee denom '%s' (no TXs submitted)", granterKey, gasDenom)
+			return nil, fmt.Errorf("granter %s does not exist on chain", granterKey)
 		}
 	} else {
 		fmt.Printf("All grantees (%d total) already had valid feegrants. Feegrant configuration verified.\n", numGrantees)

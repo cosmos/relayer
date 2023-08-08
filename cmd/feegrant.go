@@ -129,7 +129,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 	cmd.Flags().BoolVar(&update, "overwrite-granter", false, "allow overwriting the existing granter")
 	cmd.Flags().BoolVar(&updateGrantees, "overwrite-grantees", false, "allow overwriting existing grantees")
 	cmd.Flags().IntVar(&numGrantees, "num-grantees", 10, "number of grantees that will be feegranted with basic allowances")
-	cmd.Flags().StringSliceVar(&grantees, "grantees", []string{}, "comma separated list of grantee key names (keys are created if they do not exist)")
+	cmd.Flags().StringSliceVar(&grantees, "grantees", nil, "comma separated list of grantee key names (keys are created if they do not exist)")
 	cmd.MarkFlagsMutuallyExclusive("num-grantees", "grantees")
 
 	memoFlag(a.viper, cmd)

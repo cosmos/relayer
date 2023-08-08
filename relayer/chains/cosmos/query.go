@@ -20,6 +20,7 @@ import (
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
+
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/feegrant"
 	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
