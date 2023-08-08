@@ -55,7 +55,7 @@ var (
 	rtyAtt                      = retry.Attempts(rtyAttNum)
 	rtyDel                      = retry.Delay(time.Millisecond * 400)
 	rtyErr                      = retry.LastErrorOnly(true)
-	numRegex                    = regexp.MustCompile("[0-9]+")
+	accountSeqRegex             = regexp.MustCompile("account sequence mismatch, expected ([0-9]+), got ([0-9]+)")
 	defaultBroadcastWaitTimeout = 10 * time.Minute
 	errUnknown                  = "unknown"
 )
@@ -660,11 +660,11 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *Wall
 		panic("sequence guard not configured")
 	}
 
-	sequences := numRegex.FindAllString(err.Error(), -1)
-	if len(sequences) != 2 {
+	matches := accountSeqRegex.FindStringSubmatch(err.Error())
+	if len(matches) == 0 {
 		return
 	}
-	nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
+	nextSeq, err := strconv.ParseUint(matches[1], 10, 64)
 	if err != nil {
 		return
 	}

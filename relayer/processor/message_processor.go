@@ -148,6 +148,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	if mp.metrics != nil {
 		timeToExpiration := dst.clientState.TrustingPeriod - time.Since(consensusHeightTime)
 		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.clientState.ClientID, fmt.Sprint(dst.clientState.TrustingPeriod.String()), timeToExpiration)
+		mp.metrics.SetClientTrustingPeriod(src.info.PathName, dst.info.ChainID, dst.info.ClientID, time.Duration(dst.clientState.TrustingPeriod))
 	}
 
 	if shouldUpdateClientNow {
@@ -312,11 +313,18 @@ func (mp *messageProcessor) trackAndSendMessages(
 	var batch []messageToTrack
 
 	for _, t := range mp.trackers() {
+
 		retries := dst.trackProcessingMessage(t)
 		if t.assembledMsg() == nil {
 			continue
 		}
-		if broadcastBatch && retries == 0 {
+
+		ordered := false
+		if m, ok := t.(packetMessageToTrack); ok && m.msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			ordered = true
+		}
+
+		if broadcastBatch && (retries == 0 || ordered) {
 			batch = append(batch, t)
 			continue
 		}
