@@ -56,5 +56,5 @@ func LoadSnapshotHeight(chain_id string) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("Failed reading file, %w", err)
 	}
-	return strconv.Atoi(string(content))
+	return strconv.Atoi(strings.TrimSuffix(string(content), "\n"))
 }

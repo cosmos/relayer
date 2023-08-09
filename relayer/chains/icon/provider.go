@@ -93,7 +93,6 @@ func (pp *IconProviderConfig) GetFirstRetryBlockAfter() uint64 {
 }
 
 // NewProvider should provide a new Icon provider
-// NewProvider should provide a new Icon provider
 func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 
 	pp.ChainName = chainName
@@ -118,7 +117,7 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	codec := MakeCodec(ModuleBasics, []string{})
 
 	return &IconProvider{
-		log:         log.With(zap.String("sys", "chain_client")),
+		log:         log.With(zap.String("chain_id", pp.ChainID)),
 		client:      NewClient(pp.getRPCAddr(), log),
 		PCfg:        pp,
 		wallet:      wallet,

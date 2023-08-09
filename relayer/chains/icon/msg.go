@@ -28,7 +28,5 @@ func (icp *IconProvider) NewIconMessage(msg interface{}, method string) provider
 		Method: method,
 	}
 
-	// icp.log.Debug("Icon Message ", zap.String("method", method), zap.Any("message ", msg))
-
 	return im
 }

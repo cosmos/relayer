@@ -311,16 +311,14 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 	latestConsensusHeight := dst.clientState.ConsensusHeight
 
 	if !src.latestHeader.IsCompleteBlock() {
-		mp.log.Debug("Src latest IbcHeader is not complete Block",
-			zap.Int64("Height", int64(src.latestHeader.Height())))
 		return nil
 	}
 
 	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
 		mp.log.Debug("Src latest header is less then latest client State",
-			zap.String("Chainid ", src.info.ChainID),
-			zap.Int64("LatestHeader height", int64(src.latestHeader.Height())),
-			zap.Int64("Client State height", int64(latestConsensusHeight.RevisionHeight)))
+			zap.String("chain-id", src.info.ChainID),
+			zap.Int64("latest-header-height", int64(src.latestHeader.Height())),
+			zap.Int64("client-state-height", int64(latestConsensusHeight.RevisionHeight)))
 
 		return nil
 	}
@@ -502,7 +500,7 @@ func (mp *messageProcessor) sendSingleMessage(
 
 	msgType := tracker.msgType()
 
-	dst.log.Debug(fmt.Sprintf("Will broadcast %s message", msgType), zap.Object("msg", tracker))
+	// dst.log.Debug(fmt.Sprintf("Will broadcast %s message", msgType), zap.Object("msg", tracker))
 
 	// Set callback for packet messages so that we increment prometheus metrics on successful relays.
 	var callback func(rtr *provider.RelayerTxResponse, err error)

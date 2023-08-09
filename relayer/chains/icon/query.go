@@ -615,12 +615,12 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 				"portId":    portId,
 			}), &_channel)
 			if err != nil {
-				icp.log.Error("unable to fetch channel for  ", zap.String("channel id ", channelId), zap.Error(err))
+				icp.log.Error("unable to fetch channel for  ", zap.String("channel-id ", channelId), zap.Error(err))
 				continue
 			}
 
 			if _channel == "" {
-				icp.log.Debug("channel not present for ", zap.String("Channel id ", channelId), zap.String("port id ", portId))
+				icp.log.Debug("Channel not present for ", zap.String("channel-id ", channelId), zap.String("port-id ", portId))
 				continue
 			}
 
@@ -628,7 +628,7 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 			_, err = HexBytesToProtoUnmarshal(_channel, &channel)
 			if err != nil {
 				icp.log.Info("Unable to unmarshal channel for ",
-					zap.String("channel id ", channelId), zap.Error(err))
+					zap.String("channel-id ", channelId), zap.Error(err))
 				continue
 			}
 
