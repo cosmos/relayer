@@ -71,8 +71,8 @@ func (c *Chain) CreateOpenChannels(
 
 	return processor.NewEventProcessor().
 		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
+			c.chainProcessor(c.log, nil, nil),
+			dst.chainProcessor(c.log, nil, nil),
 		).
 		WithPathProcessors(pp).
 		WithInitialBlockHistory(0).
@@ -121,8 +121,8 @@ func (c *Chain) CloseChannel(
 
 	flushProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
+			c.chainProcessor(c.log, nil, nil),
+			dst.chainProcessor(c.log, nil, nil),
 		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,
@@ -159,8 +159,8 @@ func (c *Chain) CloseChannel(
 
 	return processor.NewEventProcessor().
 		WithChainProcessors(
-			c.chainProcessor(c.log, nil),
-			dst.chainProcessor(c.log, nil),
+			c.chainProcessor(c.log, nil, nil),
+			dst.chainProcessor(c.log, nil, nil),
 		).
 		WithPathProcessors(processor.NewPathProcessor(
 			c.log,

@@ -105,7 +105,7 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	if block != nil {
 		return block.Height, nil
 	}
-	return 0, fmt.Errorf("failed to query Block")
+	return 0, fmt.Errorf("failed to query latest block")
 }
 
 // legacy

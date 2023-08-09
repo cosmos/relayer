@@ -33,6 +33,27 @@ const (
 	TwoMB                               = 2 * 1024 * 1024
 )
 
+func timerChannel(ctx context.Context, log *zap.Logger, timerChan map[string]chan struct{}, chains map[string]*Chain) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+	NamedLoop:
+		select {
+		case <-ticker.C:
+			for _, c := range chains {
+				_, err := c.ChainProvider.QueryLatestHeight(ctx)
+				if err != nil {
+					log.Warn("Failed getting status of chain", zap.String("chain_id", c.ChainID()), zap.Error(err))
+					break NamedLoop
+				}
+			}
+			for _, c := range timerChan {
+				c <- struct{}{}
+			}
+		}
+	}
+}
+
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(
 	ctx context.Context,
@@ -49,13 +70,20 @@ func StartRelayer(
 	metrics *processor.PrometheusMetrics,
 ) chan error {
 	errorChan := make(chan error, 1)
+	chans := make(map[string]chan struct{})
+
+	for k := range chains {
+		chans[k] = make(chan struct{})
+	}
+
+	go timerChannel(ctx, log, chans, chains)
 
 	switch processorType {
 	case ProcessorEvents:
 		chainProcessors := make([]processor.ChainProcessor, 0, len(chains))
 
-		for _, chain := range chains {
-			chainProcessors = append(chainProcessors, chain.chainProcessor(log, metrics))
+		for name, chain := range chains {
+			chainProcessors = append(chainProcessors, chain.chainProcessor(log, metrics, chans[name]))
 		}
 
 		ePaths := make([]path, len(paths))
@@ -116,7 +144,7 @@ type path struct {
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
-func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
+func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics, timerChan chan struct{}) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.ChainProvider.(type) {
 	case *penumbraprocessor.PenumbraProvider:
@@ -124,9 +152,9 @@ func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.Prometheu
 	case *cosmos.CosmosProvider:
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	case *icon.IconProvider:
-		return icon.NewIconChainProcessor(log, p, metrics)
+		return icon.NewIconChainProcessor(log, p, metrics, timerChan)
 	case *wasm.WasmProvider:
-		return wasm.NewWasmChainProcessor(log, p, metrics)
+		return wasm.NewWasmChainProcessor(log, p, metrics, timerChan)
 	default:
 		panic(fmt.Errorf("unsupported chain provider type: %T", chain.ChainProvider))
 	}

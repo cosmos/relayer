@@ -66,6 +66,8 @@ type IconChainProcessor struct {
 	metrics *processor.PrometheusMetrics
 
 	verifier *Verifier
+
+	heightSnapshotChan chan struct{}
 }
 
 type Verifier struct {
@@ -74,7 +76,7 @@ type Verifier struct {
 	prevNetworkSectionHash []byte
 }
 
-func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
+func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics, heightSnapshot chan struct{}) *IconChainProcessor {
 	return &IconChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -84,6 +86,7 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
+		heightSnapshotChan:   heightSnapshot,
 	}
 }
 
@@ -306,6 +309,9 @@ loop:
 		case err := <-errCh:
 			return err
 
+		case <-icp.heightSnapshotChan:
+			icp.SnapshotHeight(icp.getHeightToSave(int64(icp.latestBlock.Height)))
+
 		case <-reconnectCh:
 			cancelMonitorBlock()
 			ctxMonitorBlock, cancelMonitorBlock = context.WithCancel(ctx)
@@ -373,10 +379,6 @@ loop:
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
-				}
-				ht, takeSnapshot := icp.shouldSnapshot(int(icp.latestBlock.Height))
-				if takeSnapshot {
-					icp.SnapshotHeight(ht)
 				}
 			}
 			// remove unprocessed blockResponses
@@ -466,18 +468,6 @@ loop:
 			}
 		}
 	}
-}
-
-func (icp *IconChainProcessor) shouldSnapshot(height int) (int, bool) {
-	blockInterval := icp.Provider().ProviderConfig().GetBlockInterval()
-	snapshotThreshold := rlycommon.ONE_HOUR / int(blockInterval)
-
-	snapshotHeight := icp.getHeightToSave(int64(height))
-
-	if snapshotHeight%snapshotThreshold == 0 {
-		return snapshotHeight, true
-	}
-	return 0, false
 }
 
 func (icp *IconChainProcessor) getHeightToSave(height int64) int {

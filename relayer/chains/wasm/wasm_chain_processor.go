@@ -58,13 +58,15 @@ type WasmChainProcessor struct {
 	parsedGasPrices *sdk.DecCoins
 
 	verifier *Verifier
+
+	heightSnapshotChan chan struct{}
 }
 
 type Verifier struct {
 	Header *types.LightBlock
 }
 
-func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *processor.PrometheusMetrics) *WasmChainProcessor {
+func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *processor.PrometheusMetrics, heightSnapshot chan struct{}) *WasmChainProcessor {
 	return &WasmChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -74,6 +76,7 @@ func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *pro
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
+		heightSnapshotChan:   heightSnapshot,
 	}
 }
 
@@ -290,6 +293,8 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-ccp.heightSnapshotChan:
+			ccp.SnapshotHeight(ccp.getHeightToSave(persistence.latestHeight))
 		case <-ticker.C:
 			ticker.Reset(persistence.minQueryLoopDuration)
 		}
@@ -364,7 +369,8 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			zap.Error(err),
 		)
 
-		ccp.SnapshotHeight(ccp.getHeightToSave(status.SyncInfo.LatestBlockHeight))
+		// TODO: Save height when node status is false?
+		// ccp.SnapshotHeight(ccp.getHeightToSave(status.SyncInfo.LatestBlockHeight))
 		return nil
 	}
 
@@ -403,11 +409,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 	chainID := ccp.chainProvider.ChainId()
 	var latestHeader provider.IBCHeader
-
-	ht, takeSnapshot := ccp.shouldSnapshot(int(persistence.latestHeight))
-	if takeSnapshot {
-		ccp.SnapshotHeight(ht)
-	}
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
@@ -507,18 +508,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	persistence.latestQueriedBlock = newLatestQueriedBlock
 
 	return nil
-}
-
-func (ccp *WasmChainProcessor) shouldSnapshot(height int) (int, bool) {
-	blockInterval := ccp.Provider().ProviderConfig().GetBlockInterval()
-	snapshotThreshold := common.ONE_HOUR / int(blockInterval)
-
-	snapshotHeight := ccp.getHeightToSave(int64(height))
-
-	if snapshotHeight%snapshotThreshold == 0 {
-		return snapshotHeight, true
-	}
-	return 0, false
 }
 
 func (ccp *WasmChainProcessor) getHeightToSave(height int64) int {
