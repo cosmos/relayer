@@ -13,6 +13,14 @@
 [![codecov](https://codecov.io/gh/icon-project/ibc-relay/branch/main/graph/badge.svg?token=3OSG4KPSPZ)](https://codecov.io/gh/icon-project/ibc-relay)
 </div>
 
+---
+
+This repo is a fork of cosmos [relayer](https://github.com/cosmos/relayer). The goal of this project is to relay packets between ICON and Wasm chains by following the IBC Specs. 
+1. [What is ICON-IBC Integration](https://github.com/icon-project/IBC-Integration)
+2. [Deviations from Cosmos Relayer](./docs/deviations_from_ibc.md)
+---
+
+
 In IBC, blockchains do not directly pass messages to each other over the network. This is where `relayer` comes in. 
 A relayer process monitors for updates on opens paths between sets of [IBC](https://ibcprotocol.org/) enabled chains.
 The relayer submits these updates in the form of specific message types to the counterparty chain. Clients are then used to 
