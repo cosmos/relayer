@@ -1,5 +1,10 @@
 package common
 
+import (
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+)
+
 var (
 	EventTimeoutRequest   = "TimeoutRequest(bytes)"
 	IconModule            = "icon"
@@ -10,5 +15,22 @@ var (
 	ConnectionKey         = "connection"
 	ChannelKey            = "channel"
 	ONE_HOUR              = 60 * 60 * 1000
-	NanosecondRatio 	  = 1000_000
+	NanosecondRatio       = 1000_000
+)
+
+var (
+	EventRequiresClientUpdate = map[string]bool{
+		chantypes.EventTypeRecvPacket:        true,
+		chantypes.EventTypeAcknowledgePacket: true,
+		chantypes.EventTypeTimeoutPacket:     true,
+
+		conntypes.EventTypeConnectionOpenTry:     true,
+		conntypes.EventTypeConnectionOpenAck:     true,
+		conntypes.EventTypeConnectionOpenConfirm: true,
+
+		chantypes.EventTypeChannelOpenTry:      true,
+		chantypes.EventTypeChannelOpenAck:      true,
+		chantypes.EventTypeChannelOpenConfirm:  true,
+		chantypes.EventTypeChannelCloseConfirm: true,
+	}
 )

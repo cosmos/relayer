@@ -58,7 +58,6 @@ func readExistingData(filename string, opPointer interface{}) error {
 func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 	type DataFormat struct {
 		Step    string         `json:"step"`
-		Update  types.HexBytes `json:"update"`
 		Message types.HexBytes `json:"message"`
 	}
 
@@ -73,20 +72,14 @@ func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 		return
 	}
 
-	var update types.HexBytes
 	// update on msg n will be added to n+1 message
 	for _, m := range msgs {
 		if m == nil {
 			continue
 		}
 		b, _ := m.MsgBytes()
-		if m.Type() == "update_client" {
-			update = types.NewHexBytes(b)
-			continue
-		}
-		d = append(d, DataFormat{Step: m.Type(), Update: update, Message: types.NewHexBytes(b)})
+		d = append(d, DataFormat{Step: m.Type(), Message: types.NewHexBytes(b)})
 		// resetting update
-		update = ""
 	}
 	jsonDumpDataFile(filename, d)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-func ClientIsIcon(cs provider.ClientState) bool {
+func IsBTPLightClient(cs provider.ClientState) bool {
 	if strings.Contains(cs.ClientID, common.IconLightClient) {
 		return true
 	}

@@ -726,6 +726,9 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		return err
 	}
 
+	// uncomment for saving msg
+	// SaveMsgToFile(WasmDebugMessagePath, msgs)
+
 	for _, msg := range msgs {
 		if msg == nil {
 			ap.log.Debug("One of the message of is nil ")
@@ -743,13 +746,17 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		}
 
 		if msg.Type() == MethodUpdateClient {
-			if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
-				if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-					ap.handleAccountSequenceMismatchError(err)
+			if err := retry.Do(func() error {
+				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+						ap.handleAccountSequenceMismatchError(err)
+					}
 				}
-				return fmt.Errorf("Wasm: failed during updateClient %v", err)
+				return err
+			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
+				ap.log.Error("Failed to update client", zap.Any("Message", msg))
+				return err
 			}
-			ap.updateNextAccountSequence(sequence + 1)
 			continue
 		}
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
@@ -759,9 +766,6 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		}
 		ap.updateNextAccountSequence(sequence + 1)
 	}
-
-	//uncomment for saving msg
-	// SaveMsgToFile(WasmDebugMessagePath, msgs)
 
 	return nil
 

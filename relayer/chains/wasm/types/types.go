@@ -71,20 +71,20 @@ func NewClientState(clientId string) *GetClientState {
 	}
 }
 
-type GetConsensusState struct {
-	ConsensusState struct {
+type GetConsensusStateByHeight struct {
+	ConsensusStateByHeight struct {
 		ClientId string "json:\"client_id\""
 		Height   uint64 "json:\"height\""
-	} `json:"get_consensus_state"`
+	} `json:"get_consensus_state_by_height"`
 }
 
-func (x *GetConsensusState) Bytes() ([]byte, error) {
+func (x *GetConsensusStateByHeight) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewConsensusState(clientId string, height uint64) *GetConsensusState {
-	return &GetConsensusState{
-		ConsensusState: struct {
+func NewConsensusStateByHeight(clientId string, height uint64) *GetConsensusStateByHeight {
+	return &GetConsensusStateByHeight{
+		ConsensusStateByHeight: struct {
 			ClientId string "json:\"client_id\""
 			Height   uint64 "json:\"height\""
 		}{

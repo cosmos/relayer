@@ -313,22 +313,23 @@ func (ap *WasmProvider) QueryChannelContract(ctx context.Context, portId, channe
 }
 
 func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	consensusStateParam, err := types.NewConsensusState(clientid, uint64(chainHeight)).Bytes()
+
+	consensusStateParam, err := types.NewConsensusStateByHeight(clientid, uint64(clientHeight.GetRevisionHeight())).Bytes()
 	consensusState, err := ap.QueryIBCHandlerContractProcessed(ctx, consensusStateParam)
 	if err != nil {
 		return nil, err
 	}
 
-	var consensusS icon.ConsensusState
-	if err := ap.Cdc.Marshaler.Unmarshal(consensusState, &consensusS); err != nil {
-		return nil, err
-	}
-
-	anyConsensusState, err := clienttypes.PackConsensusState(&consensusS)
+	cdc := codec.NewProtoCodec(ap.Cdc.InterfaceRegistry)
+	csState, err := clienttypes.UnmarshalConsensusState(cdc, consensusState)
 	if err != nil {
 		return nil, err
 	}
 
+	anyConsensusState, err := clienttypes.PackConsensusState(csState)
+	if err != nil {
+		return nil, err
+	}
 	return clienttypes.NewQueryConsensusStateResponse(anyConsensusState, nil, clienttypes.NewHeight(0, uint64(chainHeight))), nil
 }
 
