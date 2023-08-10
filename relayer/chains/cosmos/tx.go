@@ -671,21 +671,6 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *Wall
 	sequenceGuard.NextAccountSequence = nextSeq
 }
 
-// handleAccountSequenceMismatchError will parse the error string, e.g.:
-// "account sequence mismatch, expected 10, got 9: incorrect account sequence"
-// and update the next account sequence with the expected value.
-// func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
-// 	sequences := numRegex.FindAllString(err.Error(), -1)
-// 	if len(sequences) != 2 {
-// 		return
-// 	}
-// 	nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
-// 	if err != nil {
-// 		return
-// 	}
-// 	cc.nextAccountSeq = nextSeq
-// }
-
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cc *CosmosProvider) MsgCreateClient(
 	clientState ibcexported.ClientState,
