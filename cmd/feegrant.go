@@ -26,6 +26,7 @@ func feegrantConfigureBaseCmd(a *appState) *cobra.Command {
 func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 	var numGrantees int
 	var update bool
+	var delete bool
 	var updateGrantees bool
 	var grantees []string
 
@@ -59,6 +60,19 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			granterKey, err := prov.KeyFromKeyOrAddress(granterKeyOrAddr)
 			if err != nil {
 				return fmt.Errorf("could not get granter key from '%s'", granterKeyOrAddr)
+			}
+
+			if delete {
+				fmt.Printf("Deleting %s feegrant configuration\n", chain)
+
+				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
+					chain := a.config.Chains[chain]
+					oldProv := chain.ChainProvider.(*cosmos.CosmosProvider)
+					oldProv.PCfg.FeeGrants = nil
+					return nil
+				})
+				cobra.CheckErr(cfgErr)
+				return nil
 			}
 
 			if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && !update {
@@ -126,11 +140,13 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&delete, "delete", false, "delete the feegrant configuration")
 	cmd.Flags().BoolVar(&update, "overwrite-granter", false, "allow overwriting the existing granter")
 	cmd.Flags().BoolVar(&updateGrantees, "overwrite-grantees", false, "allow overwriting existing grantees")
 	cmd.Flags().IntVar(&numGrantees, "num-grantees", 10, "number of grantees that will be feegranted with basic allowances")
 	cmd.Flags().StringSliceVar(&grantees, "grantees", nil, "comma separated list of grantee key names (keys are created if they do not exist)")
-	cmd.MarkFlagsMutuallyExclusive("num-grantees", "grantees")
+	cmd.MarkFlagsMutuallyExclusive("num-grantees", "grantees", "delete")
 
 	memoFlag(a.viper, cmd)
 	return cmd
