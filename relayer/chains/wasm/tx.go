@@ -214,7 +214,6 @@ func (ap *WasmProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest p
 	revisionNumber := 0
 	latestClientTypesHeight := clienttypes.NewHeight(uint64(revisionNumber), latest.Height)
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
-		fmt.Println("packet timeout failed finally ", msgTransfer.TimeoutHeight)
 
 		return provider.NewTimeoutHeightError(latest.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
