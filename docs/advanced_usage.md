@@ -55,8 +55,9 @@ Use cases for configuring the `--time-threshold` flag:
 
 Feegrant configurations can be applied to each chain in the relayer. Note that Osmosis does not support Feegrants.
 
- - When feegrants are enabled, TXs will be signed in round robin by the grantees. 
- - Feegrants reduce sequencing error rates by using many signing addresses instead of a single signer, especially in non-batch mode.
+ - When feegrants are enabled, TXs will be signed in round robin by the grantees.
+ - Feegrants reduce sequencing error rates by using many signing addresses instead of a single signer, especially when broadcast-mode is set to single.
+ - Feegrants are especially useful when relaying on multiple paths with the same wallet.
  - Funds are held on a single address, the "granter".
 
 For example, configure feegrants for Kujira:
