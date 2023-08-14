@@ -5,7 +5,7 @@
     "chain-id": "ibc-icon",
     "rpc-addr": "http://localhost:9082/api/v3/",
     "timeout": "30s",
-    "keystore": "godWallet",
+    "keystore": "relayerWallet",
     "password": "gochain",
     "icon-network-id": 3,
     "btp-network-id": 2,

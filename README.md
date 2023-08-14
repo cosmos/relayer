@@ -32,8 +32,13 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
 ---
 
+## Demo
+- The easiest way would be to follow the guide in [this repo](https://github.com/izyak/icon-ibc/tree/master) to setup relay for icon ibc integration. It has all the relevant scripts setup, and you can start the relay using a single command.
+- There is E2E tests demo for icon ibc integration [here](https://github.com/icon-project/IBC-Integration/blob/main/docs/e2e_test_setup.md)
+---
+
 ## Table Of Contents
-- [Basic Usage - Relaying Across Chains](#Basic-Usage---Relaying-Packets-Across-Chains)
+- [Basic Usage - Relaying Across Chains](#basic-usage---relaying-packets-across-chains)
 - [Create Path Across Chains](./docs/create-path-across-chain.md)
 - [Advanced Usage](./docs/advanced_usage.md)
 - [Troubleshooting](./docs/troubleshooting.md)
@@ -56,7 +61,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
     ```shell
     $ git clone https://github.com/cosmos/relayer.git
-    $ cd relayer && git checkout v2.3.0
+    $ cd relayer
     $ make install
     ```
 
@@ -82,57 +87,63 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    To omit the memo entirely, including the default value of `rly(VERSION)`, use `-` for the memo.
 
 3. **Configure the chains you want to relay between.**
-   
-   In our example, we will configure the relayer to operate on the canonical path between the Cosmos Hub and Osmosis.  
    <br>
-   The `rly chains add` command fetches chain meta-data from the [chain-registry](https://github.com/cosmos/chain-registry) and adds it to your config file.
+   In out example, we will configure the relayer to operate between ICON and Archway.
+   <br>
    
+   To add the chain config files manually, example config files have been included [here](./examples/demo/configs/chains/) Modify the config file as per your requirements and run the following command:
    ```shell
-   $ rly chains add cosmoshub osmosis
-   ```
-       
-   Adding chains from the chain-registry randomly selects an RPC address from the registry entry.  
-   If you are running your own node, manually go into the config and adjust the `rpc-addr` setting.  
-
-   > NOTE: `rly chains add` will check the liveliness of the available RPC endpoints for that chain in the chain-registry.   
-   > It is possible that the command will fail if none of these RPC endpoints are available. In this case, you will want to manually add the chain config.
-
-   To add the chain config files manually, example config files have been included [here](https://github.com/cosmos/relayer/tree/main/docs/example-configs/)
-   ```shell
-   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/cosmoshub-4.json cosmoshub
-   $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/osmosis-1.json osmosis
+   $ rly chains add icon --file _path_to_/examples/demo/configs/chains/ibc-icon.json
+   $ rly chains add archway --file _path_to_/examples/demo/configs/chains/ibc-archway.json
    ```
    
 4. **Import OR create new keys for the relayer to use when signing and relaying transactions.**
+   
+   - For Cosmos chains:
 
-   >`key-name` is an identifier of your choosing.    
+      >`key-name` is an identifier of your choosing.    
 
-   If you need to generate a new private key you can use the `add` subcommand.
+      If you need to generate a new private key you can use the `add` subcommand.
 
-    ```shell
-    $ rly keys add cosmoshub [key-name]  
-    $ rly keys add osmosis [key-name]  
-    ```
-  
-   If you already have a private key and want to restore it from your mnemonic you can use the `restore` subcommand.
+      ```shell
+      $ rly keys add archway [key-name]  
+      ```
+   
+      If you already have a private key and want to restore it from your mnemonic you can use the `restore` subcommand.
 
-   ```shell
-   $ rly keys restore cosmoshub [key-name] "mnemonic words here"
-   $ rly keys restore osmosis [key-name] "mnemonic words here"
-   ```
+      ```shell
+      $ rly keys restore archway [key-name] "mnemonic words here"
+      ```
+   - For Icon chain
+      To generate a new wallet for icon, you can use `add` subcommmand with password flag. If you do not supply `--password` flag, the default password is `x`
+      ```shell
+      $ rly keys add icon [key-name] --password "password"
+      ```
+
 
 5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
-
-   >This step is necessary if you chose a `key-name` other than "default"
+   - *For Archway*
+      >This step is necessary if you chose a `key-name` other than "default"
    
-   Example:
+      Example:
+
       ```yaml
-      - type: cosmos
-         value:
-         key: YOUR-KEY-NAME-HERE
-         chain-id: cosmoshub-4
-         rpc-addr: http://localhost:26657
+         - type: wasm
+            value:
+               key: YOUR-KEY-NAME-HERE
+               chain-id: localnet
+               rpc-addr: http://localhost:26657
       ```
+   - *For Icon*
+
+      ```yaml
+         - type: icon
+            value:
+               keystore: YOUR-KEY-NAME-HERE
+               password: YOUR-KEY-PASSWORD-HERE
+               chain-id: ibc-icon
+      ```
+
 
 6. **Ensure the keys associated with the configured chains are funded.**
 
@@ -142,8 +153,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    You can query the balance of each configured key by running:  
 
    ```shell
-   $ rly q balance cosmoshub
-   $ rly q balance osmosis
+   $ rly q balance icon [key-name]
+   $ rly q balance archway [key-name]
    ```
 
 7. **Configure path meta-data in config file.**
@@ -151,17 +162,36 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    We have the chain meta-data configured, now we need path meta-data. For more info on `path` terminology visit [here](docs/troubleshooting.md).  
    >NOTE: Thinking of chains in the config as "source" and "destination" can be confusing. Be aware that most path are bi-directional.
 
+   To add the chain config files manually, example config files have been included [here](./examples/demo/configs/paths/icon-archway.json) . Modify this file as per your requirements and run the following command.
    <br>
 
-   `rly paths fetch` will check for IBC path meta data from the [chain-registry](https://github.com/cosmos/chain-registry/tree/master/_IBC) and add these paths to your config file.
+   ```shell
+     $ rly paths add [chain-id-1] [chain-id-2] [path-name] --file _path_to/ibc-relay/examples/demo/configs/paths/icon-archway.json 
+   ```
+8. **Client Creation and Handshaking [Optional]**
+   <br/>
+   If you want to create your own client, channels and connection to relay between chains, run the following command:
+   <br>
 
-     ```shell
-     $ rly paths fetch
-     ```
-   > **NOTE:** Don't see the path metadata for paths you want to relay on?   
-   > Please open a PR to add this metadata to the GitHub repo!
+   To create clients between chains
+   > Ensure that [btp-height] is a valid bto block height. This height will be used to create client for icon's counterparty chain .
+   ```shell
+   rly tx clients [path-name] --client-tp "10000000m" --btp-block-height [btp-height]
+   ```
 
-8. #### **Configure the channel filter.**
+   To create connection
+   ```shell
+   rly tx conn [path-name]
+   ```
+
+   To create channels
+   ```sh
+   rly tx chan [path-name] --src-port=[src-port] --dst-port=[dst-port]
+   ```
+
+   This step can entirely be skipped if connection and channel exists between 2 chains you want to relay. Ensure that client-id and connection-id are provided in the paths for this. 
+
+9. #### **Configure the channel filter [Optional]**
    
    By default, the relayer will relay packets over all channels on a given connection.  
    <br>
@@ -177,18 +207,18 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    <br>
    Example:
    ```yaml
-   hubosmo:
+   icon-archway:
       src:
-          chain-id: cosmoshub-4
-          client-id: 07-tendermint-259
-          connection-id: connection-257
+         chain-id: ibc-icon
+         client-id: 07-tendermint-0
+         connection-id: connection-0
       dst:
-          chain-id: osmosis-1
-          client-id: 07-tendermint-1
-          connection-id: connection-1
+         chain-id: localnet
+         client-id: iconclient-0
+         connection-id: connection-0
       src-channel-filter:
-              rule: allowlist
-              channel-list: [channel-141]  
+            rule: allowlist
+            channel-list: []  
    ```
    
    >Because two channels between chains are tightly coupled, there is no need to specify the dst channels.
@@ -211,10 +241,16 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
     [[TROUBLESHOOTING](docs/troubleshooting.md)]
 ---
 
+## Build Docker Image of Relayer
+To build the docker image of the relayer, use the following command:
+```sh
+docker build -t .
+```
+
 ## Security Notice
 
 If you would like to report a security critical bug related to the relayer repo,
-please reach out @jackzampolin or @Ethereal0ne on telegram.
+please reach out @applexxx or @astra#2705 on discord.
 
 ## Code of Conduct
 
