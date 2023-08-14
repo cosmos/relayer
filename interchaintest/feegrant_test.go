@@ -109,10 +109,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 		t.Run(testname, func(t *testing.T) {
 
 			// Chain Factory
-			cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-				{Name: "gaia", ChainName: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
-				{Name: "osmosis", ChainName: "osmosis", Version: "v14.0.1", NumValidators: &nv, NumFullNodes: &nf},
-			})
+			cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), tt)
 
 			chains, err := cf.Chains(t.Name())
 			require.NoError(t, err)
