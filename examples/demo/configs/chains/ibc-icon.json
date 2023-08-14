@@ -1,16 +1,18 @@
 {
-    "type": "icon",
-    "value": {
-      "chain-id": "ibc-icon",
-      "rpc-addr": "http://localhost:9082/api/v3/",
-      "timeout": "30s",
-      "keystore":"/Users/viveksharmapoudel/keystore/godWallet.json",
-      "password":"gochain",
-      "btp-network-id":2,
-      "icon-network-id":3,
-      "start-height":0,
-      "ibc-handler-address":"cxfffe383e4780084e48e477935099b03193d952fe",
-      "block-interval":2000,
-      "first-retry-block-after":8
-    }
+  "type": "icon",
+  "value": {
+    "key-directory": "/home/user/.relayer/keys",
+    "chain-id": "ibc-icon",
+    "rpc-addr": "http://localhost:9082/api/v3/",
+    "timeout": "30s",
+    "keystore": "godWallet",
+    "password": "gochain",
+    "icon-network-id": 3,
+    "btp-network-id": 2,
+    "btp-network-type-id": 1,
+    "start-height": 0,
+    "ibc-handler-address": "cxbeb5929616e0dbd2fec1e6e950ab09e45e6fb25a",
+    "first-retry-block-after": 0,
+    "block-interval": 2000
+  }
 }

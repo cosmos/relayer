@@ -61,7 +61,7 @@ func (cc *CosmosProvider) KeystoreCreated(path string) bool {
 
 // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
+func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm string, password string) (output *provider.KeyOutput, err error) {
 	ko, err := cc.KeyAddOrRestore(name, coinType, signingAlgorithm)
 	if err != nil {
 		return nil, err

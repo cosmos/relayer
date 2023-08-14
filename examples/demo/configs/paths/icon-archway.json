@@ -3,7 +3,7 @@
     "chain-id": "ibc-icon"
   },
   "dst": {
-    "chain-id": "constantine-2"
+    "chain-id": "localnet"
   },
   "src-channel-filter": {
     "rule": null,

@@ -708,9 +708,13 @@ func (icp *IconProvider) SendIconTransaction(
 	asyncCtx context.Context,
 	asyncCallback func(*provider.RelayerTxResponse, error)) error {
 	m := msg.(*IconMessage)
+	wallet, err := icp.Wallet()
+	if err != nil {
+		return err
+	}
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-		FromAddress: types.Address(icp.wallet.Address().String()),
+		FromAddress: types.Address(wallet.Address().String()),
 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
 		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
 		StepLimit:   types.NewHexInt(int64(defaultStepLimit)),
@@ -721,10 +725,10 @@ func (icp *IconProvider) SendIconTransaction(
 		},
 	}
 
-	if err := icp.client.SignTransaction(icp.wallet, txParam); err != nil {
+	if err := icp.client.SignTransaction(wallet, txParam); err != nil {
 		return err
 	}
-	_, err := icp.client.SendTransaction(txParam)
+	_, err = icp.client.SendTransaction(txParam)
 	if err != nil {
 		return err
 	}

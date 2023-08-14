@@ -58,7 +58,7 @@ func (cc *PenumbraProvider) KeystoreCreated(path string) bool {
 
 // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
-func (cc *PenumbraProvider) AddKey(name string, coinType uint32, signingAlgorithm string) (output *provider.KeyOutput, err error) {
+func (cc *PenumbraProvider) AddKey(name string, coinType uint32, signingAlgorithm string, password string) (output *provider.KeyOutput, err error) {
 	ko, err := cc.KeyAddOrRestore(name, coinType)
 	if err != nil {
 		return nil, err

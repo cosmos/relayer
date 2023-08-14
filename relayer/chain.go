@@ -149,7 +149,7 @@ func (c *Chain) CreateTestKey() error {
 	if c.ChainProvider.KeyExists(c.ChainProvider.Key()) {
 		return fmt.Errorf("key {%s} exists for chain {%s}", c.ChainProvider.Key(), c.ChainID())
 	}
-	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key(), defaultCoinType, defaultAlgo)
+	_, err := c.ChainProvider.AddKey(c.ChainProvider.Key(), defaultCoinType, defaultAlgo, "")
 	return err
 }
 

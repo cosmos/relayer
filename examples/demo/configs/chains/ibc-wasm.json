@@ -1,25 +1,26 @@
 {
   "type": "wasm",
   "value": {
-    "key": "default",
-    "chain-id": "test-1",
-    "rpc-addr": "https://rpc.constantine-2.archway.tech:443",
-    "key-directory":"/Users/viveksharmapoudel/.relayer/keys/test-1",
-    "grpc-addr": "",
-    "account-prefix": "neutron",
+    "key-directory": "/home/user/.relayer/keys",
+    "key": "relayWallet",
+    "chain-id": "localnet",
+    "rpc-addr": "http://localhost:26657",
+    "account-prefix": "archway",
     "keyring-backend": "test",
     "gas-adjustment": 1.5,
-    "gas-prices": "0.02uconst",
+    "gas-prices": "0.025stake",
+    "min-gas-amount": 1000000,
     "debug": true,
     "timeout": "20s",
+    "block-timeout": "",
     "output-format": "json",
     "sign-mode": "direct",
-    "ibc-handler-address":"neutron1fde8lfydxgwg6p7xe9ugx5a6ysj37zfvn9m9z5rxt4mqvdcneczsczq2a4",
+    "extra-codecs": [],
+    "coin-type": 0,
     "broadcast-mode": "batch",
-    "block-timeout": "",
-    "start-height":0,
-    "block-interval": 6000
+    "ibc-handler-address": "archway1pvrwmjuusn9wh34j7y520g8gumuy9xtl3gvprlljfdpwju3x7ucszwhc7n",
+    "first-retry-block-after": 0,
+    "start-height": 0,
+    "block-interval": 3000
   }
 }
-
-

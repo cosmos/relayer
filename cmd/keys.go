@@ -32,6 +32,7 @@ import (
 const (
 	flagCoinType           = "coin-type"
 	flagAlgo               = "signing-algorithm"
+	flagPassword           = "password"
 	defaultCoinType uint32 = sdk.CoinType
 )
 
@@ -97,6 +98,11 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 				return err
 			}
 
+			password, err := cmdFlags.GetString(flagPassword)
+			if err != nil {
+				return err
+			}
+
 			if algo == "" {
 				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
 					algo = ccp.PCfg.SigningAlgorithm
@@ -105,7 +111,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 				}
 			}
 
-			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType), algo)
+			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType), algo, password)
 			if err != nil {
 				return fmt.Errorf("failed to add key: %w", err)
 			}
@@ -121,6 +127,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
+	cmd.Flags().String(flagPassword, "x", "icon keystore password")
 
 	return cmd
 }
