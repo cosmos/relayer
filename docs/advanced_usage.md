@@ -51,7 +51,33 @@ Use cases for configuring the `--time-threshold` flag:
 
 \* It is not mandatory for relayers to include the `MsgUpdateClient` when relaying packets, however most, if not all relayers currently do.
 
----
+## Feegrants
 
+Feegrant configurations can be applied to each chain in the relayer. Note that Osmosis does not support Feegrants.
+
+ - When feegrants are enabled, TXs will be signed in round robin by the grantees.
+ - Feegrants reduce sequencing error rates by using many signing addresses instead of a single signer, especially when broadcast-mode is set to single.
+ - Feegrants are especially useful when relaying on multiple paths with the same wallet.
+ - Funds are held on a single address, the "granter".
+
+For example, configure feegrants for Kujira:
+- `rly chains configure feegrant basicallowance kujira default --num-grantees 10`
+- Note: above, `default` is the key that will need to contain funds (the granter)
+- 10 grantees will be configured, so those 10 address will sign TXs in round robin order.
+
+
+You may also choose to specify the exact names of your grantees:
+- `rly chains configure feegrant basicallowance kujira default --grantees "kuji1,kuji2,kuji3"`
+
+Rerunning the feegrant command will simply confirm your configuration is correct, e.g. "Valid grant found for granter `addr` and grantee `addr2`" but will not create additional TXs on chain. Rerunning the feegrant command can therefore be a good way to check what addresses exist.
+
+
+To remove the feegrant configuration:
+- `rly chains configure feegrant basicallowance kujira --delete`
+
+
+
+
+---
 
 [<-- Create Path Across Chains](create-path-across-chain.md) - [Troubleshooting -->](./troubleshooting.md)
