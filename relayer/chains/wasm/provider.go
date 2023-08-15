@@ -346,8 +346,6 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	}
 	ap.LightProvider = lightprovider
 
-	ap.SetSDKContext()
-
 	clientCtx := client.Context{}.
 		WithClient(rpcClient).
 		WithFromName(ap.PCfg.Key).
