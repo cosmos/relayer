@@ -1,5 +1,4 @@
-project_name: Cosmos Relayer
-
+project_name: ibc-relay
 builds:
   - id: darwin-amd64
     main: ./main.go
@@ -14,7 +13,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
   - id: darwin-arm64
     main: ./main.go
     binary: rly
@@ -28,7 +27,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
   - id: linux-amd64
     main: ./main.go
     binary: rly
@@ -42,7 +41,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
   - id: linux-arm64
     main: ./main.go
     binary: rly
