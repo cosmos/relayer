@@ -16,6 +16,10 @@ func TestCreateKeystore(t *testing.T) {
 	kwName := "testWallet.json"
 	p := &IconProvider{
 		client: NewClient(ENDPOINT, &zap.Logger{}),
+		PCfg: &IconProviderConfig{
+			KeyDirectory: "../../../env",
+			ChainID:      "ibc-icon",
+		},
 	}
 	err := p.CreateKeystore(kwName)
 	require.NoError(t, err)

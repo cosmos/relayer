@@ -63,6 +63,6 @@ USER relayer
 
 WORKDIR /home/relayer
 
-COPY ./env/godWallet.json ./keys/godwallet.json
+COPY ./env/ibc-icon/godWallet.json ./keys/godwallet.json
 
 CMD ["/bin/rly"]

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -26,11 +25,10 @@ func NewTestClient() *Client {
 
 func GetLisbonIconProvider(network_id int, contractAddress string) *IconProvider {
 
-	absPath, _ := filepath.Abs("../../../env/godWallet.json")
-
 	pcfg := IconProviderConfig{
-		Keystore:          absPath,
-		ChainID:           "icon",
+		Keystore:          "godWallet",
+		KeyDirectory:      "../../../env",
+		ChainID:           "ibc-icon",
 		Password:          "gochain",
 		ICONNetworkID:     2,
 		BTPNetworkID:      int64(network_id),
@@ -49,7 +47,7 @@ func GetLisbonIconProvider(network_id int, contractAddress string) *IconProvider
 
 func getTestWallet() (module.Wallet, error) {
 
-	keyStore_file := "../../../env/godWallet.json"
+	keyStore_file := "../../../env/ibc-icon/godWallet.json"
 	kpass := "gochain"
 
 	keystore_bytes, err := ioutil.ReadFile(keyStore_file)
