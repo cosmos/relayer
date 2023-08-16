@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
-	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +13,7 @@ import (
 // This will cause the AccAddress.String() to print out unexpected prefixes.
 // If this function fails you are on an unsafe SDK version that should NOT be used with the relayer.
 func TestAccCacheBugfix(t *testing.T) {
-	types.SetAddrCacheEnabled(false)
+	sdk.SetAddrCacheEnabled(false)
 
 	// Use a random key
 	priv := ed25519.GenPrivKey()
