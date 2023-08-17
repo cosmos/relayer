@@ -20,12 +20,12 @@ type PrometheusMetrics struct {
 	ClientTrustingPeriod  *prometheus.GaugeVec
 }
 
-func (m *PrometheusMetrics) AddPacketsObserved(path, chain, channel, port, eventType string, count int) {
-	m.PacketObservedCounter.WithLabelValues(path, chain, channel, port, eventType).Add(float64(count))
+func (m *PrometheusMetrics) AddPacketsObserved(pathName, chain, channel, port, eventType string, count int) {
+	m.PacketObservedCounter.WithLabelValues(pathName, chain, channel, port, eventType).Add(float64(count))
 }
 
-func (m *PrometheusMetrics) IncPacketsRelayed(path, chain, channel, port, eventType string) {
-	m.PacketRelayedCounter.WithLabelValues(path, chain, channel, port, eventType).Inc()
+func (m *PrometheusMetrics) IncPacketsRelayed(pathName, chain, channel, port, eventType string) {
+	m.PacketRelayedCounter.WithLabelValues(pathName, chain, channel, port, eventType).Inc()
 }
 
 func (m *PrometheusMetrics) SetLatestHeight(chain string, height int64) {
@@ -52,14 +52,14 @@ func (m *PrometheusMetrics) IncBlockQueryFailure(chain, err string) {
 	m.BlockQueryFailure.WithLabelValues(chain, err).Inc()
 }
 
-func (m *PrometheusMetrics) IncTxFailure(path, chain, errDesc string) {
-	m.TxFailureError.WithLabelValues(path, chain, errDesc).Inc()
+func (m *PrometheusMetrics) IncTxFailure(pathName, chain, errDesc string) {
+	m.TxFailureError.WithLabelValues(pathName, chain, errDesc).Inc()
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
-	packetLabels := []string{"path", "chain", "channel", "port", "type"}
+	packetLabels := []string{"path_name", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
-	txFailureLabels := []string{"path", "chain", "cause"}
+	txFailureLabels := []string{"path_name", "chain", "cause"}
 	blockQueryFailureLabels := []string{"chain", "type"}
 	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
