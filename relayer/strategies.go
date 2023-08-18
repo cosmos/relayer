@@ -103,7 +103,7 @@ func StartRelayer(
 		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]
 		src.PathEnd = p.Src
 		dst.PathEnd = p.Dst
-		go relayerStartLegacy(ctx, log, src, dst, p.Filter, TwoMB, maxMsgLength, memo, errorChan)
+		go relayerStartLegacy(ctx, log, src, dst, p.Filter, TwoMB, maxMsgLength, memo, errorChan, metrics)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -175,7 +175,7 @@ func relayerStartEventProcessor(
 }
 
 // relayerStartLegacy is the main loop of the relayer.
-func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
+func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error, metrics *processor.PrometheusMetrics) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.
@@ -219,7 +219,7 @@ func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, f
 			if !channel.active {
 				channel.active = true
 				wg.Add(1)
-				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, memo, channel, channels)
+				go relayUnrelayedPacketsAndAcks(ctx, log, &wg, src, dst, maxTxSize, maxMsgLength, memo, channel, channels, metrics)
 			}
 		}
 
@@ -346,7 +346,7 @@ func applyChannelFilterRule(filter ChannelFilter, channels []*types.IdentifiedCh
 }
 
 // relayUnrelayedPacketsAndAcks will relay all the pending packets and acknowledgements on both the src and dst chains.
-func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *ActiveChannel, channels chan<- *ActiveChannel) {
+func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync.WaitGroup, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *ActiveChannel, channels chan<- *ActiveChannel, metrics *processor.PrometheusMetrics) {
 	// make goroutine signal its death, whether it's a panic or a return
 	defer func() {
 		wg.Done()
@@ -354,7 +354,7 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync
 	}()
 
 	for {
-		if ok := relayUnrelayedPackets(ctx, log, src, dst, maxTxSize, maxMsgLength, memo, srcChannel.channel); !ok {
+		if ok := relayUnrelayedPackets(ctx, log, src, dst, maxTxSize, maxMsgLength, memo, srcChannel.channel, metrics); !ok {
 			return
 		}
 		if ok := relayUnrelayedAcks(ctx, log, src, dst, maxTxSize, maxMsgLength, memo, srcChannel.channel); !ok {
@@ -374,7 +374,7 @@ func relayUnrelayedPacketsAndAcks(ctx context.Context, log *zap.Logger, wg *sync
 // relayUnrelayedPackets fetches unrelayed packet sequence numbers and attempts to relay the associated packets.
 // relayUnrelayedPackets returns true if packets were empty or were successfully relayed.
 // Otherwise, it logs the errors and returns false.
-func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *types.IdentifiedChannel) bool {
+func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, maxTxSize, maxMsgLength uint64, memo string, srcChannel *types.IdentifiedChannel, metrics *processor.PrometheusMetrics) bool {
 	// Fetch any unrelayed sequences depending on the channel order
 	sp := UnrelayedSequences(ctx, src, dst, srcChannel)
 
@@ -393,6 +393,8 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 	}
 
 	if len(sp.Src) > 0 {
+		count := len(sp.Src) + len(sp.Dst)
+		metrics.SetUnrelayedPackets("mainnet-kujira-noble", src.ChainID(), dst.ChainID(), sp.Src, sp.Dst, float64(count))
 		src.log.Info(
 			"Unrelayed source packets",
 			zap.String("src_chain_id", src.ChainID()),

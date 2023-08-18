@@ -983,25 +983,29 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 
 			src, dst := path.Src.ChainID, path.Dst.ChainID
 
-			c, err := a.config.Chains.Gets(src, dst)
+			chains, err := a.config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
 
-			if err = c[src].SetPath(path.Src); err != nil {
-				return err
+			if chain, ok := chains[src]; ok {
+				if err = chain.SetPath(path.Src); err != nil {
+					return err
+				}
 			}
-			if err = c[dst].SetPath(path.Dst); err != nil {
-				return err
+			if chain, ok := chains[dst]; ok {
+				if err = chain.SetPath(path.Dst); err != nil {
+					return err
+				}
 			}
 
 			channelID := args[1]
-			channel, err := relayer.QueryChannel(cmd.Context(), c[src], channelID)
+			channel, err := relayer.QueryChannel(cmd.Context(), chains[src], channelID)
 			if err != nil {
 				return err
 			}
 
-			sp := relayer.UnrelayedSequences(cmd.Context(), c[src], c[dst], channel)
+			sp := relayer.UnrelayedSequences(cmd.Context(), chains[src], chains[dst], channel)
 
 			out, err := json.Marshal(sp)
 			if err != nil {
