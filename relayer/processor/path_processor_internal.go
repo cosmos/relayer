@@ -1457,6 +1457,10 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		return fmt.Errorf("failed to query packet commitments: %w", err)
 	}
 
+	// Debug: Print the commitments maps
+	fmt.Println("Commitments1:", commitments1)
+	fmt.Println("Commitments2:", commitments2)
+
 	// From remaining packet commitments, determine if:
 	// 1. Packet commitment is on source, but MsgRecvPacket has not yet been relayed to destination
 	// 2. Packet commitment is on source, and MsgRecvPacket has been relayed to destination, but MsgAcknowledgement has not been written to source to clear the packet commitment.
@@ -1501,6 +1505,9 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	if err := eg.Wait(); err != nil {
 		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
 	}
+
+	// Debug: Print the skipped map
+	fmt.Println("Skipped:", skipped)
 
 	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync)
 	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync)
@@ -1548,7 +1555,29 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	}
 
 	// hard code test if metric is exposed.
-	pp.metrics.SetUnrelayedPackets("mainnet-kujira-kava", "kujira", "noble", []uint64{1, 2, 3}, []uint64{0}, totalUnrelayed)
+	// pp.metrics.SetUnrelayedPackets("mainnet-kujira-kava", "kujira", "noble", []uint64{1, 2, 3}, []uint64{0}, totalUnrelayed)
+
+	// Real test
+	// Construct pathName from the two chain IDs
+	pathName := fmt.Sprintf("%s-%s", pp.pathEnd1.info.ChainID, pp.pathEnd2.info.ChainID)
+
+	// Extract sequences from skipped packets
+	var srcSequences, dstSequences []uint64
+	for chainID, chainSkipped := range skipped {
+		for channelKey, _ := range chainSkipped {
+			if chainID == pp.pathEnd1.info.ChainID {
+				srcSequences = append(srcSequences, commitments1[channelKey]...)
+			} else {
+				dstSequences = append(dstSequences, commitments2[channelKey]...)
+			}
+		}
+	}
+
+	// Debug: Print the extracted sequences
+	fmt.Println("SrcSequences:", srcSequences)
+	fmt.Println("DstSequences:", dstSequences)
+
+	pp.metrics.SetUnrelayedPackets(pathName, pp.pathEnd1.info.ChainID, pp.pathEnd2.info.ChainID, srcSequences, dstSequences, totalUnrelayed)
 
 	return nil
 }
