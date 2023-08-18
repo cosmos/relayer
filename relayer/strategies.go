@@ -404,6 +404,8 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 	}
 
 	if len(sp.Dst) > 0 {
+		count := len(sp.Src) + len(sp.Dst)
+		metrics.SetUnrelayedPackets("mainnet-kujira-noble", src.ChainID(), dst.ChainID(), sp.Src, sp.Dst, float64(count))
 		src.log.Info(
 			"Unrelayed destination packets",
 			zap.String("dst_chain_id", dst.ChainID()),
