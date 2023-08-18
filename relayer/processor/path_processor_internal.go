@@ -1510,21 +1510,21 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 					chainID, channelKey.ChannelID, channelKey.PortID, skipped.Recv, skipped.Ack,
 				)
 				totalUnrelayed += float64(skipped.Recv) // Update the total unrelayed count
-
-				// Assuming chainID or channelKey contains the path details
-				// pathName := chainID // or some derivation using chainID and channelKey
-				// srcChain := ... // derive or access the source chain
-				// dstChain := ... // derive or access the destination chain
-				// srcSequence := ... // derive or access the source sequence
-				// dstSequence := ... // derive or access the destination sequence
-
-				// Call the SetUnrelayedPackets function here for each path
-				// metrics.SetUnrelayedPackets(pathName, srcChain, dstChain, srcSequence, dstSequence, float64(skipped.Recv))
-
-				// hard code test if metric is exposed.
-				pp.metrics.SetUnrelayedPackets("mainnet-kujira-noble", "kujira", "noble", []uint64{1, 2, 3}, []uint64{0}, totalUnrelayed)
 			}
 		}
+
+		// Assuming chainID or channelKey contains the path details
+		// pathName := chainID // or some derivation using chainID and channelKey
+		// srcChain := ... // derive or access the source chain
+		// dstChain := ... // derive or access the destination chain
+		// srcSequence := ... // derive or access the source sequence
+		// dstSequence := ... // derive or access the destination sequence
+
+		// Call the SetUnrelayedPackets function here for each path
+		// metrics.SetUnrelayedPackets(pathName, srcChain, dstChain, srcSequence, dstSequence, float64(skipped.Recv))
+
+		// hard code test if metric is exposed.
+		pp.metrics.SetUnrelayedPackets("mainnet-kujira-noble", "kujira", "noble", []uint64{1, 2, 3}, []uint64{0}, totalUnrelayed)
 
 		return fmt.Errorf(
 			"flush was successful, but packets are still pending. %s",
