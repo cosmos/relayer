@@ -18,7 +18,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/feegrant"
@@ -189,7 +188,7 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 
 // QueryFeegrantsByGrantee returns all requested grants for the given grantee.
 // Default behavior will return all grants.
-func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *query.PageRequest) ([]*feegrant.Grant, error) {
+func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *querytypes.PageRequest) ([]*feegrant.Grant, error) {
 	grants := []*feegrant.Grant{}
 	allPages := paginator == nil
 
@@ -228,7 +227,7 @@ func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *que
 
 // Feegrant_GrantsByGranterRPC returns all requested grants for the given Granter.
 // Default behavior will return all grants.
-func (cc *CosmosProvider) QueryFeegrantsByGranter(address string, paginator *query.PageRequest) ([]*feegrant.Grant, error) {
+func (cc *CosmosProvider) QueryFeegrantsByGranter(address string, paginator *querytypes.PageRequest) ([]*feegrant.Grant, error) {
 	grants := []*feegrant.Grant{}
 	allPages := paginator == nil
 
@@ -316,17 +315,17 @@ func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (tim
 
 	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
 
-	resICS, err := queryClient.Params(ctx, &params)
+	res, err := queryClient.Params(ctx, &params)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
 	}
 
-	if resICS.Param.Value == "" {
+	if res.Param.Value == "" {
 		return 0, fmt.Errorf("ccvconsumer unbonding period is empty")
 	}
 
-	unbondingPeriod, err := strconv.ParseUint(strings.ReplaceAll(resICS.Param.Value, `"`, ""), 10, 64)
+	unbondingPeriod, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse unbonding period from ccvconsumer param: %w", err)
 	}
@@ -334,24 +333,45 @@ func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (tim
 	return time.Duration(unbondingPeriod), nil
 }
 
-// QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	req := stakingtypes.QueryParamsRequest{}
-	queryClient := stakingtypes.NewQueryClient(cc)
+func (cc *CosmosProvider) queryStakingUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+	queryClient := proposal.NewQueryClient(cc)
 
-	res, err := queryClient.Params(ctx, &req)
+	params := proposal.QueryParamsRequest{Subspace: "staking", Key: "UnbondingTime"}
+
+	res, err := queryClient.Params(ctx, &params)
+
 	if err != nil {
-		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-		if consumerErr != nil {
-			return 0,
-				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
-		}
-
-		return consumerUnbondingPeriod, nil
+		return 0, fmt.Errorf("failed to make staking params request: %w", err)
 	}
 
-	return res.Params.UnbondingTime, nil
+	if res.Param.Value == "" {
+		return 0, fmt.Errorf("staking unbonding period is empty")
+	}
+
+	unbondingTime, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse unbonding period from staking param: %w", err)
+	}
+
+	return time.Duration(unbondingTime), nil
+}
+
+// QueryUnbondingPeriod returns the unbonding period of the chain
+func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+	//Attempt Staking query.
+	unbondingPeriod, err := cc.queryStakingUnbondingPeriod(ctx)
+	if err == nil {
+		return unbondingPeriod, nil
+	}
+
+	// Attempt ICS query
+	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
+	if consumerErr != nil {
+		return 0,
+			fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+	}
+
+	return consumerUnbondingPeriod, nil
 }
 
 // QueryTendermintProof performs an ABCI query with the given key and returns
