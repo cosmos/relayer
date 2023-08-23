@@ -309,7 +309,12 @@ func (msg clientICQMessage) assemble(
 	ctx, cancel := context.WithTimeout(ctx, interchainQueryTimeout)
 	defer cancel()
 
-	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, src.latestBlock.Height-1)
+	height := src.latestBlock.Height - 1
+	if msg.info.Height > 0 {
+		height = msg.info.Height
+	}
+
+	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, height)
 	if err != nil {
 		return nil, fmt.Errorf("error during interchain query: %w", err)
 	}
