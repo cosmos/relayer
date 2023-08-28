@@ -141,37 +141,37 @@ ConfigRelayer()
 {
     Logger "Starting function ConfigRelayer"
     local PATHNAME=pc
-    rly chains add $PROVIDER_CHAIN --file /root/provider-rly.json --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+    rly chains add $PROVIDER_CHAIN --file /root/provider-rly.json --home .relayer 1>> $LOGFILE 2>> $ERRFILE
     RETCODE=$?
     CheckRetcode $RETCODE 1 "Could not add chain $PROVIDER_CHAINID to relayer config. Return code was $RETCODE. Exiting"
-    rly chains add $CONSUMER_CHAIN --file /root/consumer-rly.json --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+    rly chains add $CONSUMER_CHAIN --file /root/consumer-rly.json --home .relayer 1>> $LOGFILE 2>> $ERRFILE
     RETCODE=$?
     CheckRetcode $RETCODE 1 "Could not add chain $CONSUMER_CHAINID to relayer config. Return code was $RETCODE. Exiting"
     Logger "Added both provider and consumer chains"
     Logger "Restoring keys from provided mnemonics"
     if [[ "$KEYRING" == "file" ]];
     then
-        (echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $PROVIDER_CHAIN relayer "${PROVIDER_RLY_MNEMONIC}" --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+        (echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $PROVIDER_CHAIN relayer "${PROVIDER_RLY_MNEMONIC}" --home .relayer 1>> $LOGFILE 2>> $ERRFILE
         RETCODE=$?
         CheckRetcode $RETCODE 1 "Could not restore keys from mnemonic for chain $PROVIDER_CHAINID. Return code was $RETCODE. Exiting"
-        (echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $CONSUMER_CHAIN relayer "${CONSUMER_RLY_MNEMONIC}" --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+        (echo $KEYPASSWD; echo $KEYPASSWD) | rly keys restore $CONSUMER_CHAIN relayer "${CONSUMER_RLY_MNEMONIC}" --home .relayer 1>> $LOGFILE 2>> $ERRFILE
         RETCODE=$?
         CheckRetcode $RETCODE 1 "Could not restore keys from mnemonic for chain $CONSUMER_CHAINID. Return code was $RETCODE. Exiting"
     else
-        rly keys restore $PROVIDER_CHAIN relayer "${PROVIDER_RLY_MNEMONIC}" --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+        rly keys restore $PROVIDER_CHAIN relayer "${PROVIDER_RLY_MNEMONIC}" --home .relayer 1>> $LOGFILE 2>> $ERRFILE
         RETCODE=$?
         CheckRetcode $RETCODE 1 "Could not restore keys from mnemonic for chain $PROVIDER_CHAINID. Return code was $RETCODE. Exiting"
-        rly keys restore $CONSUMER_CHAIN relayer "${CONSUMER_RLY_MNEMONIC}" --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+        rly keys restore $CONSUMER_CHAIN relayer "${CONSUMER_RLY_MNEMONIC}" --home .relayer 1>> $LOGFILE 2>> $ERRFILE
         RETCODE=$?
         CheckRetcode $RETCODE 1 "Could not restore keys from mnemonic for chain $CONSUMER_CHAINID. Return code was $RETCODE. Exiting"        
     fi
     Logger "Created keys"
     Logger "Creating relayer paths..."
-    rly paths new $CONSUMER_CHAINID $PROVIDER_CHAINID $PATHNAME --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+    rly paths new $CONSUMER_CHAINID $PROVIDER_CHAINID $PATHNAME --home .relayer 1>> $LOGFILE 2>> $ERRFILE
     RETCODE=$?
     CheckRetcode $RETCODE 1 "Could not create a new path for chains $PROVIDER_CHAINID and $CONSUMER_CHAINID. Return code was $RETCODE. Exiting"
     Logger "New path $PATHNAME successfully created for chains $PROVIDER_CHAINID and $CONSUMER_CHAINID"
-    rly paths update $PATHNAME --src-client-id $CONSUMER_RLY_CLIENTID --dst-client-id $PROVIDER_RLY_CLIENTID --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+    rly paths update $PATHNAME --src-client-id $CONSUMER_RLY_CLIENTID --dst-client-id $PROVIDER_RLY_CLIENTID --home .relayer 1>> $LOGFILE 2>> $ERRFILE
     RETCODE=$?
     CheckRetcode $RETCODE 1 "Could not update the path with source/destination client-id for chains $PROVIDER_CHAINID and $CONSUMER_CHAINID. Return code was $RETCODE. Exiting"
     Logger "Path $PATHNAME successfully updated for chains $PROVIDER_CHAINID and $CONSUMER_CHAINID"
@@ -184,7 +184,7 @@ LinkRelayer()
     # Logger "Debug sleep"
     # sleep 600
     Logger "Now connecting $PROVIDER_CHAIN and $CONSUMER_CHAIN"
-    (echo $KEYPASSWD; sleep 1; echo $KEYPASSWD) | rly transact link pc --home .relayer --src-port $RLY_SRC_PORT --dst-port $RLY_DST_PORT --order $RLY_ORDERING --version $RLY_CHANNEL_VERSION #1>> $LOGFILE 2>> $ERRFILE
+    (echo $KEYPASSWD; sleep 1; echo $KEYPASSWD) | rly transact link pc --home .relayer --src-port $RLY_SRC_PORT --dst-port $RLY_DST_PORT --order $RLY_ORDERING --version $RLY_CHANNEL_VERSION 1>> $LOGFILE 2>> $ERRFILE
     RETCODE=$?
     CheckRetcode $RETCODE 1 "Could not create a connection between chains $PROVIDER_CHAINID and $CONSUMER_CHAINID. Return code was $RETCODE. Exiting"
     Logger "Chains $PROVIDER_CHAINID and $CONSUMER_CHAINID successfully connected"
@@ -197,9 +197,9 @@ CheckLaunchReadiness()
     # we want to make sure that chainlet is up and running
     while true
     do
-        rly q node-state $PROVIDER_CHAIN --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+        rly q node-state $PROVIDER_CHAIN --home .relayer 1>> $LOGFILE 2>> $ERRFILE
         RETCODEP=$?
-        rly q node-state $CONSUMER_CHAIN --home .relayer #1>> $LOGFILE 2>> $ERRFILE
+        rly q node-state $CONSUMER_CHAIN --home .relayer 1>> $LOGFILE 2>> $ERRFILE
         RETCODEC=$?
         if [[ ${RETCODEP} -eq 0 && ${RETCODEC} -eq 0 ]]; then
             break
