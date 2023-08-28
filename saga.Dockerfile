@@ -23,6 +23,8 @@ COPY --from=build-env /root/rly/start-rly.sh /root/start-rly.sh
 RUN mkdir -p /root/tmp
 COPY --from=build-env /root/rly/sevm_111-1.json.example /root/tmp/
 COPY --from=build-env /root/rly/sevm_111-2.json.example /root/tmp/
+COPY --from=build-env /root/rly/sample-rly.json /root/provider-rly.json
+COPY --from=build-env /root/rly/sample-rly.json /root/consumer-rly.json
 
 RUN chmod -R 755 /root/start-rly.sh
 

@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  rly:
+    container_name: rly
+    image: "rly:latest"
+    build: 
+      context: .
+      dockerfile: saga.Dockerfile
+    environment:
+      - KEYNAME=relayer
+      - PROVIDER_CHAINID=
+      - CONSUMER_CHAINID=
+      - PROVIDER_RLY_MNEMONIC=
+      - CONSUMER_RLY_MNEMONIC=
+      - KEYRING=test # remember to change to other types of keyring like 'file' in-case exposing to outside world, otherwise your balance will be wiped quickly. The keyring test does not require private key to steal tokens from you
+      - KEYALGO=secp256k1
+      - KEYPASSWD="passw0rdK3y"
+      - PROVIDER_RPC_ADDRESS=
+      - CONSUMER_RPC_ADDRESS=
+      - RLY_SRC_PORT=consumer # Do not change unless you know what you are doing. This impacts the IBC connection ports
+      - RLY_DST_PORT=provider # Do not change unless you know what you are doing
+      - RLY_ORDERING=ordered # Do not change unless you know what you are doing
+      - RLY_DEBUG=true # set it to false as needed
+    networks:
+      - localnet
+    ports:
+      - 5183:5183
+    volumes:
+      - ./rly/start-rly.sh:/root/start-rly.sh
+
+volumes:
+  relayer:
+
+networks:
+  localnet:
+  

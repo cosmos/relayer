@@ -21,3 +21,4 @@ dist/
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor
+docker-compose.yml

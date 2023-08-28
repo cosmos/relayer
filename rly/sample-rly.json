@@ -1,0 +1,26 @@
+{
+  "type": "cosmos",
+  "value": {
+    "key": "",
+    "chain-id": "",
+    "rpc-addr": "",
+    "account-prefix": "saga",
+    "keyring-backend": "test",
+    "gas-adjustment": 1.2,
+    "gas-prices": "0stake",
+    "min-gas-amount": 0,
+    "max-gas-amount": 0,
+    "debug": true,
+    "timeout": "20s",
+    "block-timeout": "",
+    "output-format": "json",
+    "sign-mode": "direct",
+    "extra-codecs": [],
+    "coin-type": null,
+    "signing-algorithm": "",
+    "broadcast-mode": "batch",
+    "min-loop-duration": 0,
+    "extension-options": [],
+    "feegrants": null
+  }
+}
