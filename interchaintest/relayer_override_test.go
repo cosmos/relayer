@@ -23,13 +23,14 @@ import (
 // is a client-id present in the relative path config. If the override flag is present, the relayer should always
 // attempt to create a new light client and then overwrite the config file if successful.
 func TestClientOverrideFlag(t *testing.T) {
-	relayerinterchaintest.BuildRelayerImage(t)
+	uuid := relayerinterchaintest.UniqueRelayerImageName()
+	relayerinterchaintest.BuildRelayerImage(t, uuid)
 
 	client, network := interchaintest.DockerSetup(t)
 	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(uuid, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 
@@ -95,6 +96,7 @@ func TestClientOverrideFlag(t *testing.T) {
 			if err != nil {
 				t.Logf("an error occured while stopping the relayer: %s", err)
 			}
+			relayerinterchaintest.DestroyRelayerImage(t, uuid)
 		},
 	)
 
