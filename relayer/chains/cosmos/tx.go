@@ -507,15 +507,34 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 		return events
 	}
 
-	for _, event := range resp.Events {
-		attributes := make(map[string]string)
-		for _, attribute := range event.Attributes {
-			attributes[attribute.Key] = attribute.Value
+	// After SDK v0.50, indexed events are no longer provided in the logs on
+	// transaction execution, the response events can be directly used
+	if len(resp.Events) != 0 {
+		for _, event := range resp.Events {
+			attributes := make(map[string]string)
+			for _, attribute := range event.Attributes {
+				attributes[attribute.Key] = attribute.Value
+			}
+			events = append(events, provider.RelayerEvent{
+				EventType:  event.Type,
+				Attributes: attributes,
+			})
 		}
-		events = append(events, provider.RelayerEvent{
-			EventType:  event.Type,
-			Attributes: attributes,
-		})
+		return events
+	}
+
+	// fallback on legacy behaviour
+	for _, logs := range resp.Logs {
+		for _, event := range logs.Events {
+			attributes := make(map[string]string)
+			for _, attribute := range event.Attributes {
+				attributes[attribute.Key] = attribute.Value
+			}
+			events = append(events, provider.RelayerEvent{
+				EventType:  event.Type,
+				Attributes: attributes,
+			})
+		}
 	}
 	return events
 }
