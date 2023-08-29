@@ -507,17 +507,15 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 		return events
 	}
 
-	for _, logs := range resp.Logs {
-		for _, event := range logs.Events {
-			attributes := make(map[string]string)
-			for _, attribute := range event.Attributes {
-				attributes[attribute.Key] = attribute.Value
-			}
-			events = append(events, provider.RelayerEvent{
-				EventType:  event.Type,
-				Attributes: attributes,
-			})
+	for _, event := range resp.Events {
+		attributes := make(map[string]string)
+		for _, attribute := range event.Attributes {
+			attributes[attribute.Key] = attribute.Value
 		}
+		events = append(events, provider.RelayerEvent{
+			EventType:  event.Type,
+			Attributes: attributes,
+		})
 	}
 	return events
 }
