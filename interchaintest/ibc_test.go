@@ -21,7 +21,7 @@ import (
 // so it uses only one pair of chains.
 //
 // The canonical set of test chains are defined in the interchaintest repository.
-func interchaintestConformance(t *testing.T, rf interchaintest.RelayerFactory, uuid string) {
+func interchaintestConformance(t *testing.T, rf interchaintest.RelayerFactory) {
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{Name: "gaia", Version: "v7.0.1", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
 		{Name: "osmosis", Version: "v7.2.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
@@ -33,16 +33,13 @@ func interchaintestConformance(t *testing.T, rf interchaintest.RelayerFactory, u
 		[]interchaintest.RelayerFactory{rf},
 		testreporter.NewNopReporter(),
 	)
-	if uuid != "" {
-		relayerinterchaintest.DestroyRelayerImage(t, uuid)
-	}
 }
 
 // TestRelayerInProcess runs the interchaintest conformance tests against
 // the current state of this relayer implementation running in process.
 func TestRelayerInProcess(t *testing.T) {
 	t.Parallel()
-	interchaintestConformance(t, relayerinterchaintest.RelayerFactory{}, "")
+	interchaintestConformance(t, relayerinterchaintest.RelayerFactory{})
 }
 
 // TestRelayerDockerEventProcessor runs the interchaintest conformance tests against
@@ -51,17 +48,16 @@ func TestRelayerInProcess(t *testing.T) {
 func TestRelayerDockerEventProcessor(t *testing.T) {
 	t.Parallel()
 
-	uuid := relayerinterchaintest.UniqueRelayerImageName()
-	relayerinterchaintest.BuildRelayerImage(t, uuid)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(uuid, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
 
-	interchaintestConformance(t, rf, uuid)
+	interchaintestConformance(t, rf)
 }
 
 // TestRelayerDockerLegacyProcessor runs the interchaintest conformance tests against
@@ -69,18 +65,17 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 // Relayer runs using the legacy processor.
 func TestRelayerDockerLegacyProcessor(t *testing.T) {
 	t.Parallel()
-	uuid := relayerinterchaintest.UniqueRelayerImageName()
-	relayerinterchaintest.BuildRelayerImage(t, uuid)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(uuid, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--processor", "legacy"),
 	)
 
-	interchaintestConformance(t, rf, uuid)
+	interchaintestConformance(t, rf)
 }
 
 // TestRelayerEventProcessor runs the interchaintest conformance tests against
@@ -92,7 +87,7 @@ func TestRelayerEventProcessor(t *testing.T) {
 	interchaintestConformance(t, relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 0,
-	}), "")
+	}))
 }
 
 // TestRelayerLegacyProcessor runs the interchaintest conformance tests against
@@ -103,5 +98,5 @@ func TestRelayerLegacyProcessor(t *testing.T) {
 
 	interchaintestConformance(t, relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		Processor: relayer.ProcessorLegacy,
-	}), "")
+	}))
 }

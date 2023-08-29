@@ -30,15 +30,15 @@ type dockerErrorDetail struct {
 	Message string `json:"message"`
 }
 
-func UniqueRelayerImageName() string {
+func uniqueRelayerImageName() (string, error) {
 	uuid, err := uuid.NewRandom()
 	if err != nil {
 		fmt.Printf("Failed to generate UUID: %v\n", err)
+		return "", err
 	}
-	return RelayerImagePrefix + uuid.String()[:6]
+	return RelayerImagePrefix + uuid.String()[:6], nil
 }
-
-func BuildRelayerImage(t *testing.T, uniquestr string) {
+func BuildRelayerImage(t *testing.T) string {
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Join(filepath.Dir(b), "..")
 
@@ -48,23 +48,30 @@ func BuildRelayerImage(t *testing.T, uniquestr string) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	require.NoError(t, err, "error building docker client")
 
+	image, err := uniqueRelayerImageName()
+	require.NoError(t, err, "error generating unique tag for docker image")
+
 	res, err := cli.ImageBuild(context.Background(), tar, dockertypes.ImageBuildOptions{
 		Dockerfile: "local.Dockerfile",
-		Tags:       []string{uniquestr},
+		Tags:       []string{image},
 	})
 	require.NoError(t, err, "error building docker image")
 
 	defer res.Body.Close()
+	t.Cleanup(func() {
+		destroyRelayerImage(t, image)
+	})
 	handleDockerBuildOutput(t, res.Body)
+	return image
 }
 
-func DestroyRelayerImage(t *testing.T, uniquestr string) {
+func destroyRelayerImage(t *testing.T, image string) {
 	// Create a Docker client
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	require.NoError(t, err, "error building docker client")
 
 	// Remove the Docker image using the provided tag (uniquestr)
-	_, err = cli.ImageRemove(context.Background(), uniquestr, dockertypes.ImageRemoveOptions{
+	_, err = cli.ImageRemove(context.Background(), image, dockertypes.ImageRemoveOptions{
 		Force:         true, // Force remove the image
 		PruneChildren: true, // Remove all child images
 	})
