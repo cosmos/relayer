@@ -146,26 +146,6 @@ func parseIBCMessageFromEvent(
 	return nil
 }
 
-func (msg *ibcMessage) parseIBCPacketReceiveMessageFromEvent(
-	log *zap.Logger,
-	event sdk.StringEvent,
-	chainID string,
-	height uint64,
-) *ibcMessage {
-	var pi *packetInfo
-	if msg.info == nil {
-		pi = &packetInfo{Height: height}
-		msg.info = pi
-	} else {
-		pi = msg.info.(*packetInfo)
-	}
-	pi.parseAttrs(log, event.Attributes)
-	if event.Type != chantypes.EventTypeWriteAck {
-		msg.eventType = event.Type
-	}
-	return msg
-}
-
 // clientInfo contains the consensus height of the counterparty chain for a client.
 type clientInfo struct {
 	clientID        string
@@ -182,28 +162,28 @@ func (c clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientSta
 	}
 }
 
-func (res *clientInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("client_id", res.clientID)
-	enc.AddUint64("consensus_height", res.consensusHeight.RevisionHeight)
-	enc.AddUint64("consensus_height_revision", res.consensusHeight.RevisionNumber)
+func (c *clientInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("client_id", c.clientID)
+	enc.AddUint64("consensus_height", c.consensusHeight.RevisionHeight)
+	enc.AddUint64("consensus_height_revision", c.consensusHeight.RevisionNumber)
 	return nil
 }
 
-func (res *clientInfo) parseAttrs(log *zap.Logger, attributes []sdk.Attribute) {
+func (c *clientInfo) parseAttrs(log *zap.Logger, attributes []sdk.Attribute) {
 	for _, attr := range attributes {
-		res.parseClientAttribute(log, attr)
+		c.parseClientAttribute(log, attr)
 	}
 }
 
-func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) {
+func (c *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute) {
 	switch attr.Key {
 	case clienttypes.AttributeKeyClientID:
-		res.clientID = attr.Value
+		c.clientID = attr.Value
 	case clienttypes.AttributeKeyConsensusHeight:
 		revisionSplit := strings.Split(attr.Value, "-")
 		if len(revisionSplit) != 2 {
 			log.Error("Error parsing client consensus height",
-				zap.String("client_id", res.clientID),
+				zap.String("client_id", c.clientID),
 				zap.String("value", attr.Value),
 			)
 			return
@@ -224,7 +204,7 @@ func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute)
 			)
 			return
 		}
-		res.consensusHeight = clienttypes.Height{
+		c.consensusHeight = clienttypes.Height{
 			RevisionNumber: revisionNumber,
 			RevisionHeight: revisionHeight,
 		}
@@ -237,7 +217,7 @@ func (res *clientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute)
 			)
 			return
 		}
-		res.header = data
+		c.header = data
 	}
 }
 

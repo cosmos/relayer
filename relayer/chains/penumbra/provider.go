@@ -24,7 +24,6 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	tmtypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
@@ -265,7 +264,7 @@ func (cc *PenumbraProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
+	cc.setCometVersion(status.NodeInfo.Version)
 
 	return nil
 }
@@ -319,11 +318,11 @@ func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {
 	}
 }
 
-func (cc *PenumbraProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+func (cc *PenumbraProvider) setCometVersion(version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(version)
 }
 
-func (*PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+func (*PenumbraProvider) legacyEncodedEvents(version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 
@@ -334,7 +333,7 @@ func keysDir(home, chainID string) string {
 
 // newRPCClient initializes a new tendermint RPC client connected to the specified address.
 func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
-	httpClient, err := libclient.DefaultHTTPClient(addr)
+	httpClient, err := jsonrpcclient.DefaultHTTPClient(addr)
 	if err != nil {
 		return nil, err
 	}

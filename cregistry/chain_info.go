@@ -161,7 +161,7 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 		eg.Go(func() error {
 			err := IsHealthyRPC(ctx, endpoint)
 			if err != nil {
-				unhealthy += 1
+				unhealthy++
 				c.log.Debug(
 					"Ignoring endpoint due to error",
 					zap.String("endpoint", endpoint),
@@ -169,7 +169,7 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 				)
 				return nil
 			}
-			healthy += 1
+			healthy++
 			c.log.Debug("Verified healthy endpoint", zap.String("endpoint", endpoint))
 			endpoints = append(endpoints, endpoint)
 			return nil

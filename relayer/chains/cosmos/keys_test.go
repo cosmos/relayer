@@ -12,6 +12,7 @@ import (
 )
 
 func testProviderWithKeystore(t *testing.T, accountPrefix string, extraCodecs []string) provider.ChainProvider {
+	t.Helper()
 	homePath := t.TempDir()
 	cfg := cosmos.CosmosProviderConfig{
 		ChainID:        "test",

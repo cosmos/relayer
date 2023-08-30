@@ -17,11 +17,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-type mockAccountSequenceMismatchError struct {
-	Expected uint64
-	Actual   uint64
-}
-
 // func TestHandleAccountSequenceMismatchError(t *testing.T) {
 // 	p := &CosmosProvider{}
 // 	ws := &WalletState{}
@@ -87,10 +82,6 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 			}
 		})
 	}
-}
-
-func (err mockAccountSequenceMismatchError) Error() string {
-	return fmt.Sprintf("account sequence mismatch, expected %d, got %d: incorrect account sequence", err.Expected, err.Actual)
 }
 
 type mockTxConfig struct {

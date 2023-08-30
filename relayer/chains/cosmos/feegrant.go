@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/x/feegrant"
@@ -115,7 +115,7 @@ func isValidGrant(a *feegrant.BasicAllowance) bool {
 	valid := true
 	if a.SpendLimit != nil {
 		for _, coin := range a.SpendLimit {
-			if coin.Amount.LTE(types.ZeroInt()) {
+			if coin.Amount.LTE(sdkmath.ZeroInt()) {
 				valid = false
 			}
 		}
@@ -309,16 +309,6 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 	}
 
 	return nil, nil
-}
-
-func getGasTokenDenom(gasPrices string) (string, error) {
-	r := regexp.MustCompile(`(?P<digits>[0-9.]*)(?P<denom>.*)`)
-	submatches := r.FindStringSubmatch(gasPrices)
-	if len(submatches) != 3 {
-		return "", errors.New("could not find fee denom")
-	}
-
-	return submatches[2], nil
 }
 
 // GrantBasicAllowance Send a feegrant with the basic allowance type.

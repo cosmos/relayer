@@ -25,6 +25,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	errorsmod "cosmossdk.io/errors"
+
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -57,7 +59,6 @@ var (
 
 // Default IBC settings
 var (
-	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
 )
 
@@ -937,15 +938,6 @@ func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour 
 	return NewPenumbraMessage(msg), nil
 }
 
-// mustGetHeight takes the height inteface and returns the actual height
-func mustGetHeight(h ibcexported.Height) clienttypes.Height {
-	height, ok := h.(clienttypes.Height)
-	if !ok {
-		panic("height is not an instance of height!")
-	}
-	return height
-}
-
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
 // The counterparty represents the receiving chain where the acknowledgement would be stored.
 func (cc *PenumbraProvider) MsgRelayAcknowledgement(ctx context.Context, dst provider.ChainProvider, dstChanId, dstPortId, srcChanId, srcPortId string, dsth int64, packet provider.RelayPacket) (provider.RelayerMessage, error) {
@@ -1760,13 +1752,6 @@ func (cc *PenumbraProvider) AcknowledgementFromSequence(ctx context.Context, dst
 	return out, nil
 }
 
-func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{
-		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
-	}
-}
-
 func ackPacketQuery(channelID string, seq int) []string {
 	return []string{
 		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
@@ -1969,34 +1954,6 @@ func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibce
 	return h, nil
 }
 
-// queryTMClientState retrieves the latest consensus state for a client in state at a given height
-// and unpacks/cast it to tendermint clientstate
-func (cc *PenumbraProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
-	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
-	if err != nil {
-		return &tmclient.ClientState{}, err
-	}
-
-	return castClientStateToTMType(clientStateRes.ClientState)
-}
-
-// castClientStateToTMType casts client state to tendermint type
-func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
-	clientStateExported, err := clienttypes.UnpackClientState(cs)
-	if err != nil {
-		return &tmclient.ClientState{}, err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*tmclient.ClientState)
-	if !ok {
-		return &tmclient.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to tendermint type")
-	}
-
-	return clientState, nil
-}
-
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
@@ -2152,7 +2109,7 @@ func isQueryStoreWithProof(path string) bool {
 func (*PenumbraProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	err := errors.Unwrap(errorsmod.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
@@ -2166,7 +2123,6 @@ func (cc *PenumbraProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted
 	msgs []provider.RelayerMessage, // used for logging only
-	fees sdk.Coins, // used for metrics
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion

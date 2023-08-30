@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/cosmos/gogoproto/proto"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -31,18 +30,6 @@ func PenumbraMsg(rm provider.RelayerMessage) sdk.Msg {
 	} else {
 		return val.Msg
 	}
-}
-
-// typedPenumbraMsg does not accept nil. IBC Message must be of the requested type.
-func typedPenumbraMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage) T {
-	if msg == nil {
-		panic("msg is nil")
-	}
-	cosmosMsg := PenumbraMsg(msg)
-	if cosmosMsg == nil {
-		panic("cosmosMsg is nil")
-	}
-	return cosmosMsg.(T)
 }
 
 func PenumbraMsgs(rm ...provider.RelayerMessage) []sdk.Msg {

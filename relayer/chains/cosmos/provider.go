@@ -302,7 +302,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
+	cc.setCometVersion(status.NodeInfo.Version)
 
 	return nil
 }
@@ -353,11 +353,11 @@ func (*CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq
 	}
 }
 
-func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+func (cc *CosmosProvider) setCometVersion(version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(version)
 }
 
-func (*CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+func (*CosmosProvider) legacyEncodedEvents(version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 

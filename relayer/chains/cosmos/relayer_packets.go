@@ -78,16 +78,6 @@ type relayMsgRecvPacket struct {
 	dstComRes    *chantypes.QueryPacketCommitmentResponse
 }
 
-func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
-	return &relayMsgTimeout{
-		packetData:   rp.packetData,
-		seq:          rp.seq,
-		timeout:      rp.timeout,
-		timeoutStamp: rp.timeoutStamp,
-		dstRecvRes:   nil,
-	}
-}
-
 func (rp relayMsgRecvPacket) Data() []byte {
 	return rp.packetData
 }
@@ -141,8 +131,6 @@ type relayMsgPacketAck struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
-
-	pass bool
 }
 
 func (rp relayMsgPacketAck) Data() []byte {

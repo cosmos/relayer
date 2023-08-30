@@ -126,25 +126,6 @@ func (ccp *CosmosChainProcessor) SetPathProcessors(pathProcessors processor.Path
 	ccp.pathProcessors = pathProcessors
 }
 
-// latestHeightWithRetry will query for the latest height, retrying in case of failure.
-// It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (latestHeight int64, err error) {
-	return latestHeight, retry.Do(func() error {
-		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
-		defer cancelLatestHeightQueryCtx()
-		var err error
-		latestHeight, err = ccp.chainProvider.QueryLatestHeight(latestHeightQueryCtx)
-		return err
-	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ccp.log.Error(
-			"Failed to query latest height",
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", latestHeightQueryRetries),
-			zap.Error(err),
-		)
-	}))
-}
-
 // nodeStatusWithRetry will query for the latest node status, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
 func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *ctypes.ResultStatus, err error) {
@@ -238,7 +219,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			continue
 		}
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
+		ccp.chainProvider.setCometVersion(status.NodeInfo.Version)
 		break
 	}
 
@@ -342,7 +323,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
+	ccp.chainProvider.setCometVersion(status.NodeInfo.Version)
 
 	// This debug log is very noisy, but is helpful when debugging new chains.
 	// ccp.log.Debug("Queried latest height",

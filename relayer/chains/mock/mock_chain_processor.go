@@ -97,7 +97,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	// QueryLoop:
 	for {
-		mcp.queryCycle(ctx, &persistence)
+		mcp.queryCycle(&persistence)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -108,7 +108,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	}
 }
 
-func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) {
+func (mcp *MockChainProcessor) queryCycle(persistence *queryCyclePersistence) {
 	// would be query of latest height
 	persistence.latestHeight++
 

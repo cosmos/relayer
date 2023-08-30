@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	errorsmod "cosmossdk.io/errors"
+
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -45,11 +47,11 @@ func (cc *PenumbraProvider) Invoke(ctx context.Context, method string, req, repl
 	// Case 1. Broadcasting a Tx.
 	if reqProto, ok := req.(*tx.BroadcastTxRequest); ok {
 		if !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxRequest)(nil), req)
+			return errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxRequest)(nil), req)
 		}
 		resProto, ok := reply.(*tx.BroadcastTxResponse)
 		if !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxResponse)(nil), req)
+			return errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxResponse)(nil), req)
 		}
 
 		broadcastRes, err := cc.TxServiceBroadcast(ctx, reqProto)
@@ -109,7 +111,7 @@ func (cc *PenumbraProvider) RunGRPCQuery(ctx context.Context, method string, req
 			return abci.ResponseQuery{}, nil, err
 		}
 		if height < 0 {
-			return abci.ResponseQuery{}, nil, sdkerrors.Wrapf(
+			return abci.ResponseQuery{}, nil, errorsmod.Wrapf(
 				sdkerrors.ErrInvalidRequest,
 				"client.Context.Invoke: height (%d) from %q must be >= 0", height, grpctypes.GRPCBlockHeightHeader)
 		}
@@ -179,7 +181,7 @@ func (cc *PenumbraProvider) TxServiceBroadcast(ctx context.Context, req *tx.Broa
 
 	wg.Add(1)
 
-	if err := cc.broadcastTx(ctx, req.TxBytes, nil, nil, ctx, blockTimeout, callback); err != nil {
+	if err := cc.broadcastTx(ctx, req.TxBytes, nil, ctx, blockTimeout, callback); err != nil {
 		return nil, err
 	}
 

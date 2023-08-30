@@ -72,14 +72,6 @@ const (
 	inSyncNumBlocksThreshold    = 2
 )
 
-type msgHandlerParams struct {
-	// incoming IBC message
-	messageInfo any
-
-	// reference to the caches that will be assembled by the handlers in this file
-	ibcMessagesCache processor.IBCMessagesCache
-}
-
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
