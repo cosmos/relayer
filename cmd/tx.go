@@ -424,7 +424,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pathName := args[0]
 
 			c, src, dst, err := a.config.ChainsFromPath(pathName)
@@ -1052,7 +1051,6 @@ $ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hj
 $ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd`,
 			appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])

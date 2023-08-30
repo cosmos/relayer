@@ -531,7 +531,6 @@ func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, heig
 func (cc *PenumbraProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 	res, err := cc.queryChannelABCI(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
-
 		return &chantypes.QueryChannelResponse{
 			Channel: &chantypes.Channel{
 				State:    chantypes.UNINITIALIZED,
@@ -1003,6 +1002,6 @@ func (cc *PenumbraProvider) QueryStatus(ctx context.Context) (*coretypes.ResultS
 }
 
 func (cc *PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
-	//TODO implement me
+
 	panic("implement me")
 }

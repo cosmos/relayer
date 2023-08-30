@@ -9,7 +9,6 @@ import (
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -126,7 +125,7 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 		zap.String("tx_hash", res.TxHash),
 	)
 
-	// Log the succesful transaction with fields
+	// Log the successful transaction with fields
 	cc.log.Info(
 		"Successful transaction",
 		fields...,

@@ -317,7 +317,6 @@ func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (tim
 	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
 
 	resICS, err := queryClient.Params(ctx, &params)
-
 	if err != nil {
 		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
 	}

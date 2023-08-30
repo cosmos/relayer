@@ -5,8 +5,9 @@ import (
 	"sort"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // MessageLifecycle is used to send an initial IBC message to a chain
@@ -14,9 +15,7 @@ import (
 // It also allows setting a stop condition for the PathProcessor.
 // PathProcessor will stop if it observes a message that matches
 // the MessageLifecycle's Termination message.
-type MessageLifecycle interface {
-	messageLifecycler() //noop
-}
+type MessageLifecycle interface{}
 
 // Flush lifecycle informs the PathProcessor to terminate once
 // all pending messages have been flushed.

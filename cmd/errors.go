@@ -17,6 +17,4 @@ func errChainNotFound(chainName string) error {
 	return fmt.Errorf("chain with name \"%s\" not found in config. consider running `rly chains add %s`", chainName, chainName)
 }
 
-var (
-	errMultipleAddFlags = errors.New("expected either --file/-f OR --url/u, found multiple")
-)
+var errMultipleAddFlags = errors.New("expected either --file/-f OR --url/u, found multiple")

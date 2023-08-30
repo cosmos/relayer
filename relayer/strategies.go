@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/avast/retry-go/v4"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
@@ -48,7 +47,7 @@ func StartRelayer(
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
 ) chan error {
-	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+
 	sdk.SetAddrCacheEnabled(false)
 	errorChan := make(chan error, 1)
 

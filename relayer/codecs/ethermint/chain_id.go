@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	errorsmod "cosmossdk.io/errors"
+
 	"github.com/cosmos/cosmos-sdk/types/errors"
 )
 

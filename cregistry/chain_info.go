@@ -231,7 +231,6 @@ func (c ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, er
 		return AssetList{}, err
 	}
 	return assetList, nil
-
 }
 
 // GetChainConfig returns a CosmosProviderConfig composed from the details found in the cosmos chain registry for

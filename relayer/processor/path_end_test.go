@@ -3,8 +3,9 @@ package processor_test
 import (
 	"testing"
 
-	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/relayer/v2/relayer/processor"
 )
 
 const (

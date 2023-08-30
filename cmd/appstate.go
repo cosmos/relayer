@@ -212,7 +212,7 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 	cfgPath := a.configPath()
 
 	// Overwrite the config file.
-	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+	if err := os.WriteFile(cfgPath, out, 0o600); err != nil {
 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
 	}
 

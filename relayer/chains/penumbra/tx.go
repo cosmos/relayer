@@ -302,11 +302,9 @@ func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.Relayer
 		})
 	}
 	return events
-
 }
 
 func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
-
 	// TODO: fee estimation, fee payments
 	// NOTE: we do not actually need to sign this tx currently, since there
 	// are no fees required on the testnet. future versions of penumbra
@@ -913,9 +911,11 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 		return nil, err
 	}
 
-	msgUpgradeClient := &clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	msgUpgradeClient := &clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}
 
 	return cosmos.NewCosmosMessage(msgUpgradeClient, func(signer string) {
 		msgUpgradeClient.Signer = signer
@@ -1760,13 +1760,17 @@ func (cc *PenumbraProvider) AcknowledgementFromSequence(ctx context.Context, dst
 }
 
 func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
+	return []string{
+		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
+	}
 }
 
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+	return []string{
+		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
+	}
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
@@ -1783,7 +1787,6 @@ EventLoop:
 		}
 
 		for attributeKey, attributeValue := range event.Attributes {
-
 			switch attributeKey {
 			case srcChanTag:
 				if attributeValue != srcChanId {
@@ -2292,7 +2295,7 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 }
 
 func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	//TODO implement me
+
 	panic("implement me")
 }
 
@@ -2304,6 +2307,6 @@ func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []pr
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
 func (cc *PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
-	//TODO implement me
+
 	panic("implement me")
 }

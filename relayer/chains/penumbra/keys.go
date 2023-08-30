@@ -172,7 +172,6 @@ func (cc *PenumbraProvider) KeyExists(name string) bool {
 	}
 
 	return k.Name == name
-
 }
 
 // ExportPrivKeyArmor returns a private key in ASCII armored format.

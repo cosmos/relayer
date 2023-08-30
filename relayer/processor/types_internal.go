@@ -9,14 +9,17 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-var _ zapcore.ObjectMarshaler = packetIBCMessage{}
-var _ zapcore.ObjectMarshaler = channelIBCMessage{}
-var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
-var _ zapcore.ObjectMarshaler = clientICQMessage{}
+var (
+	_ zapcore.ObjectMarshaler = packetIBCMessage{}
+	_ zapcore.ObjectMarshaler = channelIBCMessage{}
+	_ zapcore.ObjectMarshaler = connectionIBCMessage{}
+	_ zapcore.ObjectMarshaler = clientICQMessage{}
+)
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -346,9 +349,11 @@ type processingMessage struct {
 	retryCount          uint64
 }
 
-type packetProcessingCache map[ChannelKey]packetChannelMessageCache
-type packetChannelMessageCache map[string]packetMessageSendCache
-type packetMessageSendCache map[uint64]processingMessage
+type (
+	packetProcessingCache     map[ChannelKey]packetChannelMessageCache
+	packetChannelMessageCache map[string]packetMessageSendCache
+	packetMessageSendCache    map[uint64]processingMessage
+)
 
 func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint64) {
 	for _, toDeleteMap := range toDelete {
@@ -360,8 +365,10 @@ func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint6
 	}
 }
 
-type channelProcessingCache map[string]channelKeySendCache
-type channelKeySendCache map[ChannelKey]processingMessage
+type (
+	channelProcessingCache map[string]channelKeySendCache
+	channelKeySendCache    map[ChannelKey]processingMessage
+)
 
 func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelKey) {
 	for _, toDeleteMap := range toDelete {
@@ -373,8 +380,10 @@ func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelK
 	}
 }
 
-type connectionProcessingCache map[string]connectionKeySendCache
-type connectionKeySendCache map[ConnectionKey]processingMessage
+type (
+	connectionProcessingCache map[string]connectionKeySendCache
+	connectionKeySendCache    map[ConnectionKey]processingMessage
+)
 
 func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]ConnectionKey) {
 	for _, toDeleteMap := range toDelete {

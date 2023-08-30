@@ -428,7 +428,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			// pagereq, err := client.ReadPageRequest(cmd.Flags())
 			//if err != nil {
 			//	return err
 			//}
@@ -474,7 +474,7 @@ $ %s q conns ibc-1`,
 			}
 
 			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			// pagereq, err := client.ReadPageRequest(cmd.Flags())
 			//if err != nil {
 			//	return err
 			//}
@@ -512,7 +512,7 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			//TODO - Add pagination
+
 
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
@@ -620,7 +620,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			}
 
 			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
+			// pagereq, err := client.ReadPageRequest(cmd.Flags())
 			//if err != nil {
 			//	return err
 			//}
@@ -713,7 +713,8 @@ func printChannelWithExtendedInfo(
 	cmd *cobra.Command,
 	chain *relayer.Chain,
 	channel *chantypes.IdentifiedChannel,
-	extendedInfo *chanExtendedInfo) {
+	extendedInfo *chanExtendedInfo,
+) {
 	s, err := chain.ChainProvider.Sprint(channel)
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)

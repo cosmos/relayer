@@ -185,7 +185,6 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 
 func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo) {
 	fields := []zap.Field{
-
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("port_id", ci.PortID),

@@ -5,11 +5,10 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"go.uber.org/zap"
 )
 

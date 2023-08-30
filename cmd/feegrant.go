@@ -88,7 +88,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			if prov.PCfg.FeeGrants == nil || updateGrantees || len(grantees) > 0 {
 				var feegrantErr error
 
-				//No list of grantees was provided, so we will use the default naming convention "grantee1, ... granteeN"
+
 				if grantees == nil {
 					feegrantErr = prov.ConfigureFeegrants(numGrantees, granterKey)
 				} else {
@@ -119,7 +119,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("error writing grants on chain: '%s'", err.Error())
 			}
 
-			//Get latest height from the chain, mark feegrant configuration as verified up to that height.
+
 			//This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
 			if prov.PCfg.FeeGrants != nil {
 				fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
@@ -175,7 +175,7 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 			// 	return err
 			// }
 
-			//TODO fix height
+
 			// height, err := lensCmd.ReadHeight(cmd.Flags())
 			// if err != nil {
 			// 	return err

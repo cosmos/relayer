@@ -1,8 +1,9 @@
 package sr25519
 
 import (
-	tmsr25519 "github.com/cometbft/cometbft/crypto/sr25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+
+	tmsr25519 "github.com/cometbft/cometbft/crypto/sr25519"
 )
 
 const (

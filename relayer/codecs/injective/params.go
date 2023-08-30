@@ -3,11 +3,11 @@ package injective
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/core/vm"
 	"gopkg.in/yaml.v2"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 var _ paramtypes.ParamSet = &Params{}

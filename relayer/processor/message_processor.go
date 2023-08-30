@@ -8,12 +8,14 @@ import (
 	"sync"
 	"time"
 
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // messageProcessor is used for concurrent IBC message assembly and sending
@@ -34,7 +36,7 @@ type messageProcessor struct {
 	isLocalhost bool
 }
 
-// catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
+// categories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
 var promErrorCatagories = []error{chantypes.ErrRedundantTx, sdkerrors.ErrInsufficientFunds, sdkerrors.ErrInvalidCoins, sdkerrors.ErrOutOfGas, sdkerrors.ErrWrongSequence}
 
 // trackMessage stores the message tracker in the correct slice and index based on the type.
@@ -453,7 +455,6 @@ func (mp *messageProcessor) sendBatchMessages(
 	}
 	callbacks := []func(rtr *provider.RelayerTxResponse, err error){callback}
 
-	//During testing, this adds a callback so our test case can inspect the TX results
 	if PathProcMessageCollector != nil {
 		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
 			msgResult := &PathProcessorMessageResp{
@@ -540,7 +541,6 @@ func (mp *messageProcessor) sendSingleMessage(
 		callbacks = append(callbacks, callback)
 	}
 
-	//During testing, this adds a callback so our test case can inspect the TX results
 	if PathProcMessageCollector != nil {
 		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
 			msgResult := &PathProcessorMessageResp{

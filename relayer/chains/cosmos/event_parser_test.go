@@ -218,7 +218,6 @@ func TestParseEventLogs(t *testing.T) {
 		testPacketDstPort          = "port-1"
 	)
 	events := []abci.Event{
-
 		{
 			Type: clienttypes.EventTypeUpdateClient,
 			Attributes: []abci.EventAttribute{

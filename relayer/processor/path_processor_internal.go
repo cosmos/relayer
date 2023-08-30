@@ -10,9 +10,10 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // preInitKey is used to declare intent to initialize a connection or channel handshake
@@ -1216,7 +1217,6 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	srcMu sync.Locker,
 	dstMu sync.Locker,
 ) (*skippedPackets, error) {
-
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
 		return nil, nil

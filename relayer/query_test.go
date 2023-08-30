@@ -4,10 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/stretchr/testify/require"
 )
 
