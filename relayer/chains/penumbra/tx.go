@@ -289,11 +289,11 @@ func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.Relayer
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
 			// The key and value are base64-encoded strings, so we first have to decode them:
-			key, err := base64.StdEncoding.DecodeString(string(attribute.Key))
+			key, err := base64.StdEncoding.DecodeString(attribute.Key)
 			if err != nil {
 				continue
 			}
-			value, err := base64.StdEncoding.DecodeString(string(attribute.Value))
+			value, err := base64.StdEncoding.DecodeString(attribute.Value)
 			if err != nil {
 				continue
 			}

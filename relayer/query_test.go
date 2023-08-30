@@ -14,7 +14,7 @@ import (
 func TestSPrintClientExpiration_PrintChainId(t *testing.T) {
 	previousTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("expected-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -26,7 +26,7 @@ func TestSPrintClientExpiration_PrintChainId(t *testing.T) {
 func TestSPrintClientExpiration_PrintClientId(t *testing.T) {
 	previousTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("test-chain-id", "expected-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -38,7 +38,7 @@ func TestSPrintClientExpiration_PrintClientId(t *testing.T) {
 func TestSPrintClientExpiration_PrintExpired_WhenTimeIsInPast(t *testing.T) {
 	previousTime := time.Now().Add(-10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("test-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -50,7 +50,7 @@ func TestSPrintClientExpiration_PrintExpired_WhenTimeIsInPast(t *testing.T) {
 func TestSPrintClientExpiration_PrintRFC822FormattedTime_WhenTimeIsInPast(t *testing.T) {
 	pastTime := time.Now().Add(-10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("expected-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -62,7 +62,7 @@ func TestSPrintClientExpiration_PrintRFC822FormattedTime_WhenTimeIsInPast(t *tes
 func TestSPrintClientExpiration_PrintGood_WhenTimeIsInFuture(t *testing.T) {
 	previousTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("test-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -74,7 +74,7 @@ func TestSPrintClientExpiration_PrintGood_WhenTimeIsInFuture(t *testing.T) {
 func TestSPrintClientExpiration_PrintRFC822FormattedTime_WhenTimeIsInFuture(t *testing.T) {
 	futureTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("test-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -86,7 +86,7 @@ func TestSPrintClientExpiration_PrintRFC822FormattedTime_WhenTimeIsInFuture(t *t
 func TestSPrintClientExpiration_PrintRemainingTime_WhenTimeIsInFuture(t *testing.T) {
 	futureTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("test-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -98,7 +98,7 @@ func TestSPrintClientExpiration_PrintRemainingTime_WhenTimeIsInFuture(t *testing
 func TestSPrintClientExpiration_TrustingPeriod(t *testing.T) {
 	previousTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("expected-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -110,7 +110,7 @@ func TestSPrintClientExpiration_TrustingPeriod(t *testing.T) {
 func TestSPrintClientExpiration_LastUpdateHeight(t *testing.T) {
 	previousTime := time.Now().Add(10 * time.Hour)
 	mockHeight := clienttypes.NewHeight(1, 100)
-	trustingPeriod := time.Duration(1 * time.Hour)
+	trustingPeriod := 1 * time.Hour
 
 	chain := mockChain("expected-chain-id", "test-client-id")
 	clientStateInfo := mockClientStateInfo("test-chain-id", trustingPeriod, mockHeight)
@@ -138,7 +138,7 @@ func mockClientStateInfo(chainID string, trustingPeriod time.Duration, latestHei
 	mockHeight := clienttypes.NewHeight(1, 100)
 	return &ClientStateInfo{
 		ChainID:        chainID,
-		TrustingPeriod: time.Duration(1 * time.Hour),
+		TrustingPeriod: 1 * time.Hour,
 		LatestHeight:   mockHeight,
 	}
 }
