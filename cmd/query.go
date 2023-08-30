@@ -480,7 +480,7 @@ $ %s q conns ibc-1`,
 			// pagereq, err := client.ReadPageRequest(cmd.Flags())
 			// if err != nil {
 			//	return err
-			//}
+			// }
 
 			res, err := chain.ChainProvider.QueryConnections(cmd.Context())
 			if err != nil {
@@ -624,7 +624,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			// pagereq, err := client.ReadPageRequest(cmd.Flags())
 			// if err != nil {
 			//	return err
-			//}
+			// }
 
 			chans, err := chain.ChainProvider.QueryConnectionChannels(cmd.Context(), 0, args[1])
 			if err != nil {

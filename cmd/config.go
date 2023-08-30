@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -180,7 +179,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 // An error is only returned if the directory cannot be read at all.
 func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -232,7 +231,7 @@ func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, 
 // which means a's paths may include a subset of the path files in dir.
 func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}

@@ -198,7 +198,8 @@ func (e RelayerEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // MarshalLogArray satisfies the zapcore.ArrayMarshaler interface.
 func (es loggableEvents) MarshalLogArray(enc zapcore.ArrayEncoder) error {
 	for _, e := range es {
-		enc.AppendObject(e)
+		err := enc.AppendObject(e)
+		return err
 	}
 	return nil
 }
@@ -210,8 +211,8 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("codespace", r.Codespace)
 	enc.AddUint32("code", r.Code)
 	enc.AddString("data", r.Data)
-	enc.AddArray("events", loggableEvents(r.Events))
-	return nil
+	err := enc.AddArray("events", loggableEvents(r.Events))
+	return err
 }
 
 type KeyProvider interface {

@@ -39,6 +39,9 @@ issues:
     - text: 'Use of weak random number generator'
       linters:
         - gosec
+    - text: 'ST1003'
+      linters:
+        - stylecheck
 
   max-issues-per-linter: 10000
   max-same-issues: 10000
