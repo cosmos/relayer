@@ -251,7 +251,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	sdkConf.SetBech32PrefixForConsensusNode(cc.PCfg.AccountPrefix+"valcons", cc.PCfg.AccountPrefix+"valconspub")
 	defer sdkConfigMutex.Unlock()
 
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
 	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
 
 	txf, err := cc.PrepareFactory(cc.TxFactory(), signingKey)
