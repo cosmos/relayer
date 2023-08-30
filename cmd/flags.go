@@ -57,10 +57,6 @@ const (
 )
 
 const (
-	// 7597 is "RLYR" on a telephone keypad.
-	// It also happens to be unassigned in the IANA port list.
-	defaultDebugAddr = "localhost:7597"
-
 	blankValue = "blank"
 )
 

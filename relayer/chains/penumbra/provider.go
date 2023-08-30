@@ -163,7 +163,7 @@ func (cc *PenumbraProvider) ChainName() string {
 	return cc.PCfg.ChainName
 }
 
-func (cc *PenumbraProvider) Type() string {
+func (*PenumbraProvider) Type() string {
 	return "penumbra"
 }
 
@@ -175,7 +175,7 @@ func (cc *PenumbraProvider) Timeout() string {
 	return cc.PCfg.Timeout
 }
 
-func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (*PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
 }
 
@@ -199,7 +199,7 @@ func (cc *PenumbraProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+func (*PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	// TODO
 	return time.Hour * 2, nil
 	/*
@@ -323,7 +323,7 @@ func (cc *PenumbraProvider) setCometVersion(log *zap.Logger, version string) {
 	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
 }
 
-func (cc *PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+func (*PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 

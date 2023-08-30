@@ -82,7 +82,7 @@ func (privKey PrivKey) Equals(other cryptotypes.LedgerPrivKey) bool {
 }
 
 // Type returns eth_secp256k1
-func (privKey PrivKey) Type() string {
+func (PrivKey) Type() string {
 	return KeyType
 }
 
@@ -168,7 +168,7 @@ func (pubKey PubKey) String() string {
 }
 
 // Type returns eth_secp256k1
-func (pubKey PubKey) Type() string {
+func (PubKey) Type() string {
 	return KeyType
 }
 

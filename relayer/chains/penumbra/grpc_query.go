@@ -88,7 +88,7 @@ func (cc *PenumbraProvider) Invoke(ctx context.Context, method string, req, repl
 }
 
 // NewStream implements the grpc ClientConn.NewStream method
-func (cc *PenumbraProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
+func (*PenumbraProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return nil, fmt.Errorf("streaming rpc not supported")
 }
 

@@ -26,7 +26,7 @@ func NewCosmosGithubRegistry(log *zap.Logger) CosmosGithubRegistry {
 
 // ListChains attempts to connect to GitHub and get the tree object for the cosmos chain registry.
 // It then builds a slice of chain names using the entries in the tree.
-func (c CosmosGithubRegistry) ListChains(ctx context.Context) ([]string, error) {
+func (CosmosGithubRegistry) ListChains(ctx context.Context) ([]string, error) {
 	client := github.NewClient(http.DefaultClient)
 	var chains []string
 
@@ -80,6 +80,6 @@ func (c CosmosGithubRegistry) GetChain(ctx context.Context, name string) (ChainI
 }
 
 // SourceLink returns the string representation of the cosmos chain registry URL.
-func (c CosmosGithubRegistry) SourceLink() string {
+func (CosmosGithubRegistry) SourceLink() string {
 	return "https://github.com/cosmos/chain-registry"
 }

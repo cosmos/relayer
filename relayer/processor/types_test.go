@@ -11,9 +11,9 @@ import (
 
 type mockIBCHeader struct{}
 
-func (h mockIBCHeader) Height() uint64                             { return 0 }
-func (h mockIBCHeader) ConsensusState() ibcexported.ConsensusState { return nil }
-func (h mockIBCHeader) NextValidatorsHash() []byte                 { return nil }
+func (mockIBCHeader) Height() uint64                             { return 0 }
+func (mockIBCHeader) ConsensusState() ibcexported.ConsensusState { return nil }
+func (mockIBCHeader) NextValidatorsHash() []byte                 { return nil }
 
 func TestIBCHeaderCachePrune(t *testing.T) {
 	cache := make(processor.IBCHeaderCache)

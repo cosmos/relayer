@@ -21,10 +21,10 @@ const (
 var _ sdk.Msg = &MsgSubmitQueryResponse{}
 
 // Route Implements Msg.
-func (msg MsgSubmitQueryResponse) Route() string { return RouterKey }
+func (MsgSubmitQueryResponse) Route() string { return RouterKey }
 
 // Type Implements Msg.
-func (msg MsgSubmitQueryResponse) Type() string { return TypeMsgSubmitQueryResponse }
+func (MsgSubmitQueryResponse) Type() string { return TypeMsgSubmitQueryResponse }
 
 // ValidateBasic Implements Msg.
 func (msg MsgSubmitQueryResponse) ValidateBasic() error {

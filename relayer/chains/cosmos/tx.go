@@ -337,7 +337,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 }
 
 // sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
-func (cc *CosmosProvider) sdkError(codespace string, code uint32) error {
+func (*CosmosProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
 	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
@@ -643,7 +643,7 @@ func (cc *CosmosProvider) buildMessages(
 // handleAccountSequenceMismatchError will parse the error string, e.g.:
 // "account sequence mismatch, expected 10, got 9: incorrect account sequence"
 // and update the next account sequence with the expected value.
-func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *WalletState, err error) {
+func (*CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *WalletState, err error) {
 	if sequenceGuard == nil {
 		panic("sequence guard not configured")
 	}
@@ -1237,7 +1237,7 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	}), nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (*CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
@@ -1529,7 +1529,7 @@ func (cc *CosmosProvider) queryLocalhostClientState(ctx context.Context, srch in
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
-func (cc *CosmosProvider) NewClientState(
+func (*CosmosProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
@@ -1576,7 +1576,7 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.C
 }
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
-func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
+func (*CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
 	msg := feetypes.NewMsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee)
 	return NewCosmosMessage(msg, nil), nil
 }

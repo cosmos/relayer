@@ -146,26 +146,6 @@ func parseIBCMessageFromEvent(
 	return nil
 }
 
-func (msg *ibcMessage) parseIBCPacketReceiveMessageFromEvent(
-	log *zap.Logger,
-	event sdk.StringEvent,
-	chainID string,
-	height uint64,
-) *ibcMessage {
-	var pi *packetInfo
-	if msg.info == nil {
-		pi = &packetInfo{Height: height}
-		msg.info = pi
-	} else {
-		pi = msg.info.(*packetInfo)
-	}
-	pi.parseAttrs(log, event.Attributes)
-	if event.Type != chantypes.EventTypeWriteAck {
-		msg.eventType = event.Type
-	}
-	return msg
-}
-
 // clientInfo contains the consensus height of the counterparty chain for a client.
 type clientInfo struct {
 	clientID        string

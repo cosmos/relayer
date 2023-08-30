@@ -35,7 +35,7 @@ const (
 	RuleDenyList  = "denylist"
 )
 
-func (pe PathEnd) checkChannelMatch(listChainID, listChannelID, listPortID string, channelKey ChainChannelKey) bool {
+func (PathEnd) checkChannelMatch(listChainID, listChannelID, listPortID string, channelKey ChainChannelKey) bool {
 	if listChannelID == "" {
 		return false
 	}

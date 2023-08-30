@@ -649,7 +649,7 @@ func (c *Config) ValidatePathEnd(ctx context.Context, stderr io.Writer, pe *rela
 }
 
 // ValidateClient validates client id in provided pathend
-func (c *Config) ValidateClient(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+func (*Config) ValidateClient(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vclient(); err != nil {
 		return err
 	}
@@ -663,7 +663,7 @@ func (c *Config) ValidateClient(ctx context.Context, chain *relayer.Chain, heigh
 }
 
 // ValidateConnection validates connection id in provided pathend
-func (c *Config) ValidateConnection(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+func (*Config) ValidateConnection(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vconn(); err != nil {
 		return err
 	}

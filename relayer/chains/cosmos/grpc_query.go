@@ -88,7 +88,7 @@ func (cc *CosmosProvider) Invoke(ctx context.Context, method string, req, reply 
 }
 
 // NewStream implements the grpc ClientConn.NewStream method
-func (cc *CosmosProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
+func (*CosmosProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
 	return nil, fmt.Errorf("streaming rpc not supported")
 }
 

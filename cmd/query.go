@@ -433,7 +433,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			// pagereq, err := client.ReadPageRequest(cmd.Flags())
 			// if err != nil {
 			//	return err
-			//}
+			// }
 
 			res, err := chain.ChainProvider.QueryClients(cmd.Context())
 			if err != nil {
@@ -441,6 +441,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, client := range res {
+				client := client
 				s, err := chain.ChainProvider.Sprint(&client)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)

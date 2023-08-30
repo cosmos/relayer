@@ -30,7 +30,7 @@ func (m PubKey) String() string {
 	return m.Key.String()
 }
 
-func (m PubKey) Type() string {
+func (PubKey) Type() string {
 	return "sr25519"
 }
 

@@ -166,7 +166,7 @@ func (cc *CosmosProvider) ChainName() string {
 	return cc.PCfg.ChainName
 }
 
-func (cc *CosmosProvider) Type() string {
+func (*CosmosProvider) Type() string {
 	return "cosmos"
 }
 
@@ -179,7 +179,7 @@ func (cc *CosmosProvider) Timeout() string {
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
-func (cc *CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (*CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	return defaultChainPrefix
 }
 
@@ -347,7 +347,7 @@ func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
 	cc.metrics = m
 }
 
-func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq uint64) {
+func (*CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq uint64) {
 	if seq > sequenceGuard.NextAccountSequence {
 		sequenceGuard.NextAccountSequence = seq
 	}
@@ -357,7 +357,7 @@ func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
 	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
 }
 
-func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+func (*CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 

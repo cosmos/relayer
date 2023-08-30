@@ -21,8 +21,6 @@ type MessageLifecycle interface{}
 // all pending messages have been flushed.
 type FlushLifecycle struct{}
 
-func (t *FlushLifecycle) messageLifecycler() {}
-
 type PacketMessage struct {
 	ChainID   string
 	EventType string
@@ -37,7 +35,7 @@ type PacketMessageLifecycle struct {
 	Termination *PacketMessage
 }
 
-func (t *PacketMessageLifecycle) messageLifecycler() {}
+func (*PacketMessageLifecycle) messageLifecycler() {}
 
 type ConnectionMessage struct {
 	ChainID   string
@@ -53,7 +51,7 @@ type ConnectionMessageLifecycle struct {
 	Termination *ConnectionMessage
 }
 
-func (t *ConnectionMessageLifecycle) messageLifecycler() {}
+func (*ConnectionMessageLifecycle) messageLifecycler() {}
 
 type ChannelMessage struct {
 	ChainID   string
@@ -69,7 +67,7 @@ type ChannelMessageLifecycle struct {
 	Termination *ChannelMessage
 }
 
-func (t *ChannelMessageLifecycle) messageLifecycler() {}
+func (*ChannelMessageLifecycle) messageLifecycler() {}
 
 // ChannelCloseLifecycle is used as a stop condition for the PathProcessor.
 // It will attempt to finish closing the channel and terminate once the channel is closed.
@@ -81,7 +79,7 @@ type ChannelCloseLifecycle struct {
 	DstConnID    string
 }
 
-func (t *ChannelCloseLifecycle) messageLifecycler() {}
+func (*ChannelCloseLifecycle) messageLifecycler() {}
 
 // IBCMessagesCache holds cached messages for packet flows, connection handshakes,
 // and channel handshakes. The PathProcessors use this for message correlation to determine

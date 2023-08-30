@@ -228,7 +228,6 @@ func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, f
 		var channel *ActiveChannel
 		select {
 		case channel = <-channels:
-			break
 		case <-ctx.Done():
 			wg.Wait() // Wait here for the running goroutines to finish
 			errCh <- ctx.Err()

@@ -13,12 +13,12 @@ var Sr25519 = sr25519Algo{}
 
 type sr25519Algo struct{}
 
-func (s sr25519Algo) Name() hd.PubKeyType {
+func (sr25519Algo) Name() hd.PubKeyType {
 	return hd.Sr25519Type
 }
 
 // Derive derives and returns the sr25519 private key for the given seed and HD path.
-func (s sr25519Algo) Derive() hd.DeriveFn {
+func (sr25519Algo) Derive() hd.DeriveFn {
 	return func(mnemonic string, bip39Passphrase, hdPath string) ([]byte, error) {
 		seed, err := bip39.NewSeedWithErrorChecking(mnemonic, bip39Passphrase)
 		if err != nil {
@@ -36,7 +36,7 @@ func (s sr25519Algo) Derive() hd.DeriveFn {
 }
 
 // Generate generates a sr25519 private key from the given bytes.
-func (s sr25519Algo) Generate() hd.GenerateFn {
+func (sr25519Algo) Generate() hd.GenerateFn {
 	return func(bz []byte) types.PrivKey {
 		bzArr := make([]byte, 32)
 		copy(bzArr, bz)

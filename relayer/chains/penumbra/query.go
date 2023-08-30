@@ -139,7 +139,7 @@ func (cc *PenumbraProvider) QueryBalanceWithAddress(ctx context.Context, address
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *PenumbraProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+func (*PenumbraProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	// TODO:
 	return time.Hour * 4, nil
 	/*
@@ -1005,6 +1005,6 @@ func (cc *PenumbraProvider) QueryStatus(ctx context.Context) (*coretypes.ResultS
 	return status, nil
 }
 
-func (cc *PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
+func (*PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
 	panic("implement me")
 }

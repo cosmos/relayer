@@ -207,7 +207,7 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context) (string, error) {
 }
 
 // GetAssetList returns the asset metadata from the cosmos chain registry for this particular chain.
-func (c ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, error) {
+func (ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, error) {
 	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", name)
 
 	res, err := http.Get(chainRegURL)
