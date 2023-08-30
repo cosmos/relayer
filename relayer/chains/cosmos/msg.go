@@ -3,16 +3,18 @@ package cosmos
 import (
 	"fmt"
 
+	"github.com/cosmos/gogoproto/proto"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/gogoproto/proto"
+
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap/zapcore"
 )
 
 type CosmosMessage struct {
 	Msg       sdk.Msg
-	SetSigner func(string) //callback to update the Msg Signer field
+
 
 	FeegrantDisabled bool // marks whether this message type should ALWAYS disable feegranting (use the default signer)
 }

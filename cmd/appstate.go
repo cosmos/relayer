@@ -9,11 +9,12 @@ import (
 	"os"
 	"path"
 
-	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/gofrs/flock"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+
+	"github.com/cosmos/relayer/v2/relayer"
 )
 
 // appState is the modifiable state of the application.

@@ -22,11 +22,13 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 )
 
 const (

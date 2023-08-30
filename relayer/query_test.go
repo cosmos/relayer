@@ -6,8 +6,9 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 )
 
 func TestSPrintClientExpiration_PrintChainId(t *testing.T) {

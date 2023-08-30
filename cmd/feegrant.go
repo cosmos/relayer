@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 )
 
 // feegrantConfigureCmd returns the fee grant configuration commands for this module
@@ -88,7 +89,6 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			if prov.PCfg.FeeGrants == nil || updateGrantees || len(grantees) > 0 {
 				var feegrantErr error
 
-
 				if grantees == nil {
 					feegrantErr = prov.ConfigureFeegrants(numGrantees, granterKey)
 				} else {
@@ -119,8 +119,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("error writing grants on chain: '%s'", err.Error())
 			}
 
-
-			//This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
+			// This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
 			if prov.PCfg.FeeGrants != nil {
 				fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
 				h, err := prov.QueryLatestHeight(ctx)
@@ -174,7 +173,6 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 			// if err != nil {
 			// 	return err
 			// }
-
 
 			// height, err := lensCmd.ReadHeight(cmd.Flags())
 			// if err != nil {

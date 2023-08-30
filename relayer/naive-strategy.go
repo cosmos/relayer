@@ -7,9 +7,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains

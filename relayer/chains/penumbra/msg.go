@@ -3,13 +3,15 @@ package penumbra
 import (
 	"fmt"
 
-	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap/zapcore"
 )
 
 type PenumbraMessage struct {

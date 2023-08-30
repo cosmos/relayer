@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
 
 const flushTimeout = 10 * time.Minute

@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // QueryLatestHeights queries the heights of multiple chains at once

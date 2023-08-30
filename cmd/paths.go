@@ -8,11 +8,12 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/google/go-github/v43/github"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 )
 
 func pathsCmd(a *appState) *cobra.Command {

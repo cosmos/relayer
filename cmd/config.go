@@ -30,13 +30,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
 func configCmd(a *appState) *cobra.Command {

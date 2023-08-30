@@ -14,12 +14,20 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/bytes"
-	"github.com/cometbft/cometbft/light"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	tmtypes "github.com/cometbft/cometbft/types"
+	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -31,22 +39,17 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
+	"github.com/cometbft/cometbft/light"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
+
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Variables used for retries
@@ -271,9 +274,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		adjusted = uint64(float64(adjusted) * cc.PCfg.GasAdjustment)
 	}
 
-
 	if signingKey != feegranterKey && feegranterKey != "" {
-
 		txf = txf.WithFeeGranter(feegrantKeyAcc)
 	}
 
@@ -298,7 +299,6 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	}
 
 	err = func() error {
-
 		// ensure that we allways call done, even in case of an error or panic
 		// defer done()
 
@@ -415,7 +415,6 @@ func (cc *CosmosProvider) waitForTx(
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-
 				cb(nil, err)
 			}
 		}
@@ -443,7 +442,6 @@ func (cc *CosmosProvider) waitForTx(
 		}
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-
 				cb(nil, err)
 			}
 		}
@@ -453,7 +451,6 @@ func (cc *CosmosProvider) waitForTx(
 
 	if len(callbacks) > 0 {
 		for _, cb := range callbacks {
-
 			cb(rlyResp, nil)
 		}
 	}
@@ -527,11 +524,8 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	feegranterKey string,
 	err error,
 ) {
-
 	cc.feegrantMu.Lock()
 	defer cc.feegrantMu.Unlock()
-
-
 	isFeegrantEligible := cc.PCfg.FeeGrants != nil
 
 	for _, curr := range msgs {
@@ -541,8 +535,6 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 			}
 		}
 	}
-
-
 	txSignerKey = cc.PCfg.Key
 
 	if isFeegrantEligible {
@@ -558,8 +550,6 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 			err = encodeErr
 			return
 		}
-
-
 		for _, curr := range msgs {
 			if cMsg, ok := curr.(CosmosMessage); ok {
 				if cMsg.SetSigner != nil {
@@ -616,8 +606,6 @@ func (cc *CosmosProvider) buildMessages(
 			return nil, 0, sdk.Coins{}, err
 		}
 	}
-
-
 	if txSignerKey != feegranterKey && feegranterKey != "" {
 		granterAddr, err := cc.GetKeyAddressForKey(feegranterKey)
 		if err != nil {

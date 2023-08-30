@@ -7,10 +7,11 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/stretchr/testify/require"
 )
 
 func TestChainsList_Empty(t *testing.T) {

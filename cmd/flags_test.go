@@ -3,8 +3,9 @@ package cmd
 import (
 	"testing"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/cosmos-sdk/client/flags"
 )
 
 // TestFlagEqualityAgainstSDK makes assertions against our local flags and the corresponding flags from

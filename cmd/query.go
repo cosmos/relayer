@@ -7,12 +7,14 @@ import (
 	"strings"
 	"sync"
 
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/spf13/cobra"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/spf13/cobra"
 )
 
 // queryCmd represents the chain command
@@ -429,7 +431,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 
 			// TODO fix pagination
 			// pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
+			// if err != nil {
 			//	return err
 			//}
 
@@ -475,7 +477,7 @@ $ %s q conns ibc-1`,
 
 			// TODO fix pagination
 			// pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
+			// if err != nil {
 			//	return err
 			//}
 
@@ -512,8 +514,6 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
@@ -621,7 +621,7 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 
 			// TODO fix pagination
 			// pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
+			// if err != nil {
 			//	return err
 			//}
 

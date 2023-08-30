@@ -9,21 +9,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	"go.uber.org/zap"
+	"golang.org/x/mod/semver"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
+
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
-	"github.com/cosmos/gogoproto/proto"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 var (
@@ -58,7 +61,6 @@ type CosmosProviderConfig struct {
 	Broadcast        provider.BroadcastMode     `json:"broadcast-mode" yaml:"broadcast-mode"`
 	MinLoopDuration  time.Duration              `json:"min-loop-duration" yaml:"min-loop-duration"`
 	ExtensionOptions []provider.ExtensionOption `json:"extension-options" yaml:"extension-options"`
-
 
 	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
 }
@@ -130,8 +132,6 @@ type CosmosProvider struct {
 	Output         io.Writer
 	Cdc            Codec
 	// TODO: GRPC Client type?
-
-
 	feegrantMu sync.Mutex
 
 	// the map key is the TX signer, which can either be 'default' (provider key) or a feegrantee

@@ -108,15 +108,11 @@ func (cc *CosmosProvider) GetGranteeValidBasicGrants(granteeKey string) ([]*feeg
 // True if the grant has not expired and all coins have positive balances, false otherwise
 // Note: technically, any single coin with a positive balance makes the grant usable
 func isValidGrant(a *feegrant.BasicAllowance) bool {
-
 	if a.Expiration != nil && time.Now().After(*a.Expiration) {
 		return false
 	}
 
-
 	valid := true
-
-
 	if a.SpendLimit != nil {
 		for _, coin := range a.SpendLimit {
 			if coin.Amount.LTE(types.ZeroInt()) {
@@ -167,7 +163,6 @@ func (fg *FeeGrantConfiguration) AddGranteeKeys(cc *CosmosProvider) error {
 		newGranteeIdx := strconv.Itoa(len(fg.ManagedGrantees) + 1)
 		newGrantee := "grantee" + newGranteeIdx
 
-
 		_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type))
 		if err != nil {
 			return err
@@ -182,7 +177,6 @@ func (fg *FeeGrantConfiguration) AddGranteeKeys(cc *CosmosProvider) error {
 // Get the feegrant params to use for the next TX. If feegrants are not configured for the chain client, the default key will be used for TX signing.
 // Otherwise, a configured feegrantee will be chosen for TX signing in round-robin fashion.
 func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey string) {
-
 	txSignerKey = cc.PCfg.Key
 
 	if cc.PCfg.FeeGrants == nil {
@@ -201,13 +195,11 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 		return
 	}
 
-
 	lastGranteeIdx := cc.PCfg.FeeGrants.GranteeLastSignerIndex
 
 	if lastGranteeIdx >= 0 && lastGranteeIdx <= len(cc.PCfg.FeeGrants.ManagedGrantees)-1 {
 		txSignerKey = cc.PCfg.FeeGrants.ManagedGrantees[lastGranteeIdx]
 		cc.PCfg.FeeGrants.GranteeLastSignerIndex = cc.PCfg.FeeGrants.GranteeLastSignerIndex + 1
-
 
 		if cc.PCfg.FeeGrants.GranteeLastSignerIndex == len(cc.PCfg.FeeGrants.ManagedGrantees) {
 			cc.PCfg.FeeGrants.GranteeLastSignerIndex = 0
@@ -251,8 +243,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 
 	for _, grantee := range cc.PCfg.FeeGrants.ManagedGrantees {
 
-
-		//Reason this lookup sometimes fails is because the 'Search by granter' request is in SDK v0.46+
+		// Reason this lookup sometimes fails is because the 'Search by granter' request is in SDK v0.46+
 		if failedLookupGrantsByGranter {
 			validGrants, err = cc.GetGranteeValidBasicGrants(grantee)
 			if err != nil {
@@ -298,8 +289,6 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 			WithFromAddress(granterAcc)
 
 		granterExists := cc.EnsureExists(cliCtx, granterAcc) == nil
-
-
 		if granterExists {
 			txResp, err := cc.SubmitTxAwaitResponse(ctx, msgs, memo, 0, granterKey)
 			if err != nil {
@@ -410,7 +399,6 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowanceWithExpiration(ctx conte
 }
 
 func (cc *CosmosProvider) getMsgGrantBasicAllowanceWithExpiration(granter sdk.AccAddress, grantee sdk.AccAddress, expiration time.Time) (sdk.Msg, error) {
-
 	feeGrantBasic := &feegrant.BasicAllowance{
 		Expiration: &expiration,
 	}
@@ -421,23 +409,19 @@ func (cc *CosmosProvider) getMsgGrantBasicAllowanceWithExpiration(granter sdk.Ac
 	}
 
 	// Due to the way Lens configures the SDK, addresses will have the 'cosmos' prefix which
-	//doesn't necessarily match the chain prefix of the ChainClient config. So calling the internal
+	// doesn't necessarily match the chain prefix of the ChainClient config. So calling the internal
 	//'NewMsgGrantAllowance' function will return the *incorrect* 'cosmos' prefixed bech32 address.
-
-
 	granterAddr, granterAddrErr := cc.EncodeBech32AccAddr(granter)
 	if granterAddrErr != nil {
 		fmt.Printf("EncodeBech32AccAddr: %s", granterAddrErr.Error())
 		return nil, granterAddrErr
 	}
 
-
 	granteeAddr, granteeAddrErr := cc.EncodeBech32AccAddr(grantee)
 	if granteeAddrErr != nil {
 		fmt.Printf("EncodeBech32AccAddr: %s", granteeAddrErr.Error())
 		return nil, granteeAddrErr
 	}
-
 
 	msgGrantAllowance.Grantee = granteeAddr
 	msgGrantAllowance.Granter = granterAddr
@@ -446,7 +430,6 @@ func (cc *CosmosProvider) getMsgGrantBasicAllowanceWithExpiration(granter sdk.Ac
 }
 
 func (cc *CosmosProvider) getMsgGrantBasicAllowance(granter sdk.AccAddress, grantee sdk.AccAddress) (sdk.Msg, error) {
-
 	feeGrantBasic := &feegrant.BasicAllowance{
 		// Expiration: &thirtyMin,
 	}
@@ -457,23 +440,19 @@ func (cc *CosmosProvider) getMsgGrantBasicAllowance(granter sdk.AccAddress, gran
 	}
 
 	// Due to the way Lens configures the SDK, addresses will have the 'cosmos' prefix which
-	//doesn't necessarily match the chain prefix of the ChainClient config. So calling the internal
+	// doesn't necessarily match the chain prefix of the ChainClient config. So calling the internal
 	//'NewMsgGrantAllowance' function will return the *incorrect* 'cosmos' prefixed bech32 address.
-
-
 	granterAddr, granterAddrErr := cc.EncodeBech32AccAddr(granter)
 	if granterAddrErr != nil {
 		fmt.Printf("EncodeBech32AccAddr: %s", granterAddrErr.Error())
 		return nil, granterAddrErr
 	}
 
-
 	granteeAddr, granteeAddrErr := cc.EncodeBech32AccAddr(grantee)
 	if granteeAddrErr != nil {
 		fmt.Printf("EncodeBech32AccAddr: %s", granteeAddrErr.Error())
 		return nil, granteeAddrErr
 	}
-
 
 	msgGrantAllowance.Grantee = granteeAddr
 	msgGrantAllowance.Granter = granterAddr
