@@ -64,6 +64,8 @@ linters-settings:
     # Do NOT whine about the following, full explanation found in:
     # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#description-of-available-rules
     rules:
+      - name: import-shadowing
+        disabled: true
       - name: exported
         disabled: true
       - name: use-any

@@ -761,15 +761,15 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 		return err
 	}
 
-	for _, client := range clients {
-		clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
+	for _, IBCclient := range clients {
+		clientInfo, err := relayer.ClientInfoFromClientState(IBCclient.ClientState)
 		if err != nil {
 			continue
 		}
 		if clientInfo.ChainID != dstChain.ChainProvider.ChainId() {
 			continue
 		}
-		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, client.ClientId)
+		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, IBCclient.ClientId)
 		if err != nil {
 			continue
 		}
@@ -786,7 +786,7 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 				}
 				for _, channel := range channels {
 					printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
-						clientID:             client.ClientId,
+						clientID:             IBCclient.ClientId,
 						counterpartyChainID:  clientInfo.ChainID,
 						counterpartyClientID: conn.Counterparty.ClientId,
 						counterpartyConnID:   conn.Counterparty.ConnectionId,
