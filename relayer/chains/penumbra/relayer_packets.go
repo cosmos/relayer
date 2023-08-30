@@ -22,8 +22,6 @@ type relayMsgTimeout struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstRecvRes   *chantypes.QueryPacketReceiptResponse
-
-	pass bool
 }
 
 func (rp relayMsgTimeout) Data() []byte {
@@ -99,7 +97,6 @@ func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
 		timeout:      rp.timeout,
 		timeoutStamp: rp.timeoutStamp,
 		dstRecvRes:   nil,
-		pass:         false,
 	}
 }
 
