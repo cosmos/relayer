@@ -100,6 +100,8 @@ linters-settings:
         disabled: true
       - name: confusing-naming
         disabled: true
+      - name: var-naming
+        disabled: true
       - name: defer
         disabled: true
       # Disabled in favour of unparam.

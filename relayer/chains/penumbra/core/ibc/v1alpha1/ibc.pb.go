@@ -27,28 +27,28 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type IbcAction struct {
 	//
-	// oneof action {
-	// .ibc.core.connection.v1.MsgConnectionOpenInit connection_open_init = 1;
-	// .ibc.core.connection.v1.MsgConnectionOpenTry connection_open_try = 2;
-	// .ibc.core.connection.v1.MsgConnectionOpenAck connection_open_ack = 3;
-	// .ibc.core.connection.v1.MsgConnectionOpenConfirm connection_open_confirm = 4;
+	//oneof action {
+	//.ibc.core.connection.v1.MsgConnectionOpenInit connection_open_init = 1;
+	//.ibc.core.connection.v1.MsgConnectionOpenTry connection_open_try = 2;
+	//.ibc.core.connection.v1.MsgConnectionOpenAck connection_open_ack = 3;
+	//.ibc.core.connection.v1.MsgConnectionOpenConfirm connection_open_confirm = 4;
 	//
-	// .ibc.core.channel.v1.MsgChannelOpenInit channel_open_init = 5;
-	// .ibc.core.channel.v1.MsgChannelOpenTry channel_open_try = 6;
-	// .ibc.core.channel.v1.MsgChannelOpenAck channel_open_ack = 7;
-	// .ibc.core.channel.v1.MsgChannelOpenConfirm channel_open_confirm = 8;
-	// .ibc.core.channel.v1.MsgChannelCloseInit channel_close_init = 9;
-	// .ibc.core.channel.v1.MsgChannelCloseConfirm channel_close_confirm = 10;
+	//.ibc.core.channel.v1.MsgChannelOpenInit channel_open_init = 5;
+	//.ibc.core.channel.v1.MsgChannelOpenTry channel_open_try = 6;
+	//.ibc.core.channel.v1.MsgChannelOpenAck channel_open_ack = 7;
+	//.ibc.core.channel.v1.MsgChannelOpenConfirm channel_open_confirm = 8;
+	//.ibc.core.channel.v1.MsgChannelCloseInit channel_close_init = 9;
+	//.ibc.core.channel.v1.MsgChannelCloseConfirm channel_close_confirm = 10;
 	//
-	// .ibc.core.channel.v1.MsgRecvPacket recv_packet = 11;
-	// .ibc.core.channel.v1.MsgTimeout timeout = 12;
-	// .ibc.core.channel.v1.MsgAcknowledgement acknowledgement = 13;
+	//.ibc.core.channel.v1.MsgRecvPacket recv_packet = 11;
+	//.ibc.core.channel.v1.MsgTimeout timeout = 12;
+	//.ibc.core.channel.v1.MsgAcknowledgement acknowledgement = 13;
 	//
-	// .ibc.core.client.v1.MsgCreateClient create_client = 14;
-	// .ibc.core.client.v1.MsgUpdateClient update_client = 15;
-	// .ibc.core.client.v1.MsgUpgradeClient upgrade_client = 16;
-	// .ibc.core.client.v1.MsgSubmitMisbehaviour submit_misbehaviour = 17;
-	// }
+	//.ibc.core.client.v1.MsgCreateClient create_client = 14;
+	//.ibc.core.client.v1.MsgUpdateClient update_client = 15;
+	//.ibc.core.client.v1.MsgUpgradeClient upgrade_client = 16;
+	//.ibc.core.client.v1.MsgSubmitMisbehaviour submit_misbehaviour = 17;
+	//}
 	RawAction *types.Any `protobuf:"bytes,1,opt,name=raw_action,json=rawAction,proto3" json:"raw_action,omitempty"`
 }
 

@@ -4,7 +4,7 @@ DIRTY := $(shell git status --porcelain | wc -l | xargs)
 GAIA_VERSION := v7.0.1
 AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
-WASMD_VERSION := v0.25.0
+WASMD_VERSION := v0.41.0
 DOCKER := $(shell which docker)
 
 GOPATH := $(shell go env GOPATH)
@@ -165,7 +165,7 @@ release:
 		goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --rm-dist
 
-protoVer=0.11.2
+protoVer=0.14.0
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
 
