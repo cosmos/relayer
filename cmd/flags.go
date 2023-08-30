@@ -240,19 +240,19 @@ func strategyFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 	file, err = cmd.Flags().GetString(flagFile)
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	url, err = cmd.Flags().GetString(flagURL)
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	if file != "" && url != "" {
 		return "", "", errMultipleAddFlags
 	}
 
-	return
+	return file, url, nil
 }
 
 func retryFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {

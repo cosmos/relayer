@@ -31,7 +31,7 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 		return err
 	})
 	err = eg.Wait()
-	return
+	return srch, dsth, err
 }
 
 // QueryClientStates queries the client state of multiple chains at once
@@ -210,7 +210,7 @@ func QueryIBCUpdateHeaders(
 		return err
 	})
 	err = eg.Wait()
-	return
+	return srcHeader, dstHeader, srcTrustedHeader, dstTrustedHeader, err
 }
 
 func QueryIBCHeaders(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader provider.IBCHeader, err error) {
@@ -226,7 +226,7 @@ func QueryIBCHeaders(ctx context.Context, src, dst *Chain, srch, dsth int64) (sr
 		return err
 	})
 	err = eg.Wait()
-	return
+	return srcUpdateHeader, dstUpdateHeader, err
 }
 
 // QueryBalance is a helper function for query balance

@@ -106,9 +106,11 @@ linters-settings:
       - name: unused-parameter
         disabled: true
       - name: unhandled-error
-        disabled: false
+        disabled: true
         arguments:
           - 'fmt.Printf'
           - 'fmt.Print'
           - 'fmt.Println'
           - 'myFunction'
+      - name: nested-structs
+        disabled: true

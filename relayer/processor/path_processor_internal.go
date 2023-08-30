@@ -32,7 +32,7 @@ func (pp *PathProcessor) getMessagesToSend(
 	src, dst *pathEndRuntime,
 ) (srcMsgs []packetIBCMessage, dstMsgs []packetIBCMessage) {
 	if len(msgs) == 0 {
-		return
+		return srcMsgs, dstMsgs
 	}
 
 	ordered := false
@@ -63,7 +63,7 @@ func (pp *PathProcessor) getMessagesToSend(
 						zap.String("port_id", dstPort),
 						zap.Error(err),
 					)
-					return
+					return srcMsgs, dstMsgs
 				}
 				lowestSeq[chantypes.EventTypeRecvPacket] = res.NextSequenceReceive
 			case chantypes.EventTypeAcknowledgePacket:
@@ -75,7 +75,7 @@ func (pp *PathProcessor) getMessagesToSend(
 						zap.String("port_id", srcPort),
 						zap.Error(err),
 					)
-					return
+					return srcMsgs, dstMsgs
 				}
 				lowestSeq[chantypes.EventTypeAcknowledgePacket] = res.NextSequenceReceive
 			}

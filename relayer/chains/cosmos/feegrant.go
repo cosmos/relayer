@@ -181,7 +181,7 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 
 	if cc.PCfg.FeeGrants == nil {
 		fmt.Printf("cc.Config.FeeGrants == nil\n")
-		return
+		return txSignerKey, feeGranterKey
 	}
 
 	// Use the ChainClient's configured Feegranter key for the next TX.
@@ -192,7 +192,7 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 	if feeGranterKey == "" || cc.PCfg.FeeGrants.BlockHeightVerified <= 0 {
 		fmt.Printf("cc.Config.FeeGrants.BlockHeightVerified <= 0\n")
 		feeGranterKey = ""
-		return
+		return txSignerKey, feeGranterKey
 	}
 
 	lastGranteeIdx := cc.PCfg.FeeGrants.GranteeLastSignerIndex
@@ -206,7 +206,7 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 		}
 	}
 
-	return
+	return txSignerKey, feeGranterKey
 }
 
 // Ensure all Basic Allowance grants are in place for the given ChainClient.
@@ -410,7 +410,7 @@ func (cc *CosmosProvider) getMsgGrantBasicAllowanceWithExpiration(granter sdk.Ac
 
 	// Due to the way Lens configures the SDK, addresses will have the 'cosmos' prefix which
 	// doesn't necessarily match the chain prefix of the ChainClient config. So calling the internal
-	//'NewMsgGrantAllowance' function will return the *incorrect* 'cosmos' prefixed bech32 address.
+	// 'NewMsgGrantAllowance' function will return the *incorrect* 'cosmos' prefixed bech32 address.
 	granterAddr, granterAddrErr := cc.EncodeBech32AccAddr(granter)
 	if granterAddrErr != nil {
 		fmt.Printf("EncodeBech32AccAddr: %s", granterAddrErr.Error())
@@ -441,7 +441,7 @@ func (cc *CosmosProvider) getMsgGrantBasicAllowance(granter sdk.AccAddress, gran
 
 	// Due to the way Lens configures the SDK, addresses will have the 'cosmos' prefix which
 	// doesn't necessarily match the chain prefix of the ChainClient config. So calling the internal
-	//'NewMsgGrantAllowance' function will return the *incorrect* 'cosmos' prefixed bech32 address.
+	// 'NewMsgGrantAllowance' function will return the *incorrect* 'cosmos' prefixed bech32 address.
 	granterAddr, granterAddrErr := cc.EncodeBech32AccAddr(granter)
 	if granterAddrErr != nil {
 		fmt.Printf("EncodeBech32AccAddr: %s", granterAddrErr.Error())

@@ -542,13 +542,13 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 		signerAcc, addrErr := cc.GetKeyAddressForKey(txSignerKey)
 		if addrErr != nil {
 			err = addrErr
-			return
+			return "", "", err
 		}
 
 		signerAccAddr, encodeErr := cc.EncodeBech32AccAddr(signerAcc)
 		if encodeErr != nil {
 			err = encodeErr
-			return
+			return "", "", err
 		}
 		for _, curr := range msgs {
 			if cMsg, ok := curr.(CosmosMessage); ok {
@@ -559,7 +559,7 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 		}
 	}
 
-	return
+	return txSignerKey, feegranterKey, nil
 }
 
 func (cc *CosmosProvider) buildMessages(

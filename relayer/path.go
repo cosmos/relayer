@@ -36,7 +36,7 @@ func (p Paths) Get(name string) (path *Path, err error) {
 	} else {
 		err = fmt.Errorf("path with name %s does not exist", name)
 	}
-	return
+	return path, err
 }
 
 // MustGet panics if path is not found

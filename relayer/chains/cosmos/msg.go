@@ -14,7 +14,7 @@ import (
 
 type CosmosMessage struct {
 	Msg              sdk.Msg
-	SetSigner        func(string) //callback to update the Msg Signer field
+	SetSigner        func(string) // callback to update the Msg Signer field
 	FeegrantDisabled bool         // marks whether this message type should ALWAYS disable feegranting (use the default signer)
 }
 

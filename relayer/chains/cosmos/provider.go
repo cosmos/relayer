@@ -222,7 +222,7 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 	default:
 		out, err = sdk.GetFromBech32(keyOrAddress, cc.PCfg.AccountPrefix)
 	}
-	return
+	return out, err
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {

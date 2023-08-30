@@ -122,7 +122,7 @@ func (c ChainInfo) GetAllRPCEndpoints() (out []string, err error) {
 		out = append(out, fmt.Sprintf("%s://%s:%s%s", u.Scheme, u.Hostname(), port, u.Path))
 	}
 
-	return
+	return out, nil
 }
 
 // IsHealthyRPC returns an error if the specified endpoint is not caught up with the current chain tip.
