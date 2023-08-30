@@ -263,7 +263,7 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 			return
 		}
 	// NOTE: deprecated per IBC spec
-	case chantypes.AttributeKeyData:
+	case chantypes.AttributeKeyData: //nolint:staticcheck
 		res.Data = []byte(attr.Value)
 	case chantypes.AttributeKeyDataHex:
 		data, err := hex.DecodeString(attr.Value)
@@ -276,7 +276,7 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 		}
 		res.Data = data
 	// NOTE: deprecated per IBC spec
-	case chantypes.AttributeKeyAck:
+	case chantypes.AttributeKeyAck: //nolint:staticcheck
 		res.Ack = []byte(attr.Value)
 	case chantypes.AttributeKeyAckHex:
 		data, err := hex.DecodeString(attr.Value)

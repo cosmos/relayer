@@ -462,7 +462,7 @@ func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState,
 	return NewPenumbraMessage(msg), nil
 }
 
-func (*PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
+func (*PenumbraProvider) SubmitMisbehavior( /* TBD */ ) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
@@ -1693,13 +1693,13 @@ func (cc *PenumbraProvider) RelayPacketFromSequence(
 					return nil, nil, err
 				}
 				return nil, timeout, nil
-			} else {
-				timeout, err := src.MsgTimeout(msgTransfer, pp)
-				if err != nil {
-					return nil, nil, err
-				}
-				return nil, timeout, nil
 			}
+			timeout, err := src.MsgTimeout(msgTransfer, pp)
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, timeout, nil
+
 		default:
 			return nil, nil, err
 		}
@@ -2246,8 +2246,8 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
-	any := p.AsAny()
-	return sdk.NewResponseResultTx(resTx, any, ""), nil
+	anyValue := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, anyValue, ""), nil
 }
 
 func (*PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {

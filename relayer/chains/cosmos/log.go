@@ -64,7 +64,7 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 		}
 
 		// Make a copy since we may continue to the warning
-		errorFields := append(fields, zap.Error(err))
+		errorFields := append(fields, zap.Error(err)) //nolint:gocritic // errorFields is a copy of fields
 		cc.log.Error(
 			"Failed sending cosmos transaction",
 			errorFields...,

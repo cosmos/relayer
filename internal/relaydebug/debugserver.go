@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -40,14 +41,15 @@ func StartDebugServer(ctx context.Context, log *zap.Logger, ln net.Listener, reg
 	mux.Handle("/relayer/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
 	srv := &http.Server{
-		Handler:  mux,
-		ErrorLog: zap.NewStdLog(log),
+		ReadHeaderTimeout: 5 * time.Second,
+		Handler:           mux,
+		ErrorLog:          zap.NewStdLog(log),
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
 	}
 
-	go srv.Serve(ln)
+	go srv.Serve(ln) //nolint:errcheck // we don't care about the error here
 
 	go func() {
 		<-ctx.Done()

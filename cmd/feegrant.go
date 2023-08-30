@@ -50,11 +50,12 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 
 			granterKeyOrAddr := ""
 
-			if len(args) > 1 {
+			switch {
+			case len(args) > 1:
 				granterKeyOrAddr = args[1]
-			} else if prov.PCfg.FeeGrants != nil {
+			case prov.PCfg.FeeGrants != nil:
 				granterKeyOrAddr = prov.PCfg.FeeGrants.GranterKey
-			} else {
+			default:
 				granterKeyOrAddr = prov.PCfg.Key
 			}
 

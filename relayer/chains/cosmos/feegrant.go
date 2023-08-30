@@ -301,12 +301,11 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 
 			fmt.Printf("TX succeeded, %d new grants configured, %d grants already in place. TX hash: %s\n", grantsNeeded, numGrantees-grantsNeeded, txResp.TxResponse.TxHash)
 			return txResp.TxResponse, err
-		} else {
-			return nil, fmt.Errorf("granter %s does not exist on chain", granterKey)
 		}
-	} else {
-		fmt.Printf("All grantees (%d total) already had valid feegrants. Feegrant configuration verified.\n", numGrantees)
+		return nil, fmt.Errorf("granter %s does not exist on chain", granterKey)
+
 	}
+	fmt.Printf("All grantees (%d total) already had valid feegrants. Feegrant configuration verified.\n", numGrantees)
 
 	return nil, nil
 }

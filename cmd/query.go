@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	connectiontypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/spf13/cobra"
 
@@ -761,15 +763,16 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 		return err
 	}
 
-	for _, IBCclient := range clients {
-		clientInfo, err := relayer.ClientInfoFromClientState(IBCclient.ClientState)
+	for _, client := range clients {
+		client := client // Create a new variable to hold the current client
+		clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
 		if err != nil {
 			continue
 		}
 		if clientInfo.ChainID != dstChain.ChainProvider.ChainId() {
 			continue
 		}
-		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, IBCclient.ClientId)
+		connections, err := chain.ChainProvider.QueryConnectionsUsingClient(ctx, 0, client.ClientId)
 		if err != nil {
 			continue
 		}
@@ -777,22 +780,24 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 		var wg sync.WaitGroup
 		i := 0
 		for _, conn := range connections.Connections {
+			conn := conn // Create a new variable to hold the current connection
 			wg.Add(1)
-			go func() {
+			go func(client clienttypes.IdentifiedClientState, conn connectiontypes.IdentifiedConnection) {
 				defer wg.Done()
 				channels, err := chain.ChainProvider.QueryConnectionChannels(ctx, 0, conn.Id)
 				if err != nil {
 					return
 				}
 				for _, channel := range channels {
+					channel := channel
 					printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
-						clientID:             IBCclient.ClientId,
+						clientID:             client.ClientId,
 						counterpartyChainID:  clientInfo.ChainID,
 						counterpartyClientID: conn.Counterparty.ClientId,
 						counterpartyConnID:   conn.Counterparty.ConnectionId,
 					})
 				}
-			}()
+			}(client, *conn) // Pass the new variables to the goroutine
 			i++
 			if i%concurrentQueries == 0 {
 				wg.Wait()

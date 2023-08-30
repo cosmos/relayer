@@ -48,7 +48,6 @@ func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.
 	case dstRecvRes.Proof == nil:
 		return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
 	default:
-		rp.dstRecvRes = dstRecvRes
 		return nil
 	}
 }
@@ -116,7 +115,6 @@ func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provid
 	case dstCommitRes.Commitment == nil:
 		return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
 	default:
-		rp.dstComRes = dstCommitRes
 		return nil
 	}
 }
@@ -214,7 +212,6 @@ func (rp relayMsgPacketAck) FetchCommitResponse(ctx context.Context, dst provide
 	case dstCommitRes.Acknowledgement == nil:
 		return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
 	default:
-		rp.dstComRes = dstCommitRes
 		return nil
 	}
 }

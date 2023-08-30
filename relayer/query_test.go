@@ -134,7 +134,7 @@ func mockChain(chainId string, clientId string) *Chain {
 	}
 }
 
-func mockClientStateInfo(chainID string, trustingPeriod time.Duration, latestHeight ibcexported.Height) *ClientStateInfo {
+func mockClientStateInfo(chainID string, trustingPeriod time.Duration, latestHeight ibcexported.Height) *ClientStateInfo { //nolint:unparam // chainID always receives the same value
 	mockHeight := clienttypes.NewHeight(1, 100)
 	return &ClientStateInfo{
 		ChainID:        chainID,

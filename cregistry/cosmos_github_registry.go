@@ -55,7 +55,7 @@ func (CosmosGithubRegistry) ListChains(ctx context.Context) ([]string, error) {
 func (c CosmosGithubRegistry) GetChain(ctx context.Context, name string) (ChainInfo, error) {
 	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/chain.json", name)
 
-	res, err := http.Get(chainRegURL)
+	res, err := http.Get(chainRegURL) // nolint: gosec
 	if err != nil {
 		return ChainInfo{}, err
 	}

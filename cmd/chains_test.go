@@ -74,7 +74,7 @@ func TestChainsAdd_URL(t *testing.T) {
 		}
 
 		enc := json.NewEncoder(w)
-		enc.Encode(pcw)
+		enc.Encode(pcw) // nolint:errcheck // we don't care about the error here
 	})
 	srv := httptest.NewServer(h)
 	defer srv.Close()

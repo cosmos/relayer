@@ -27,7 +27,7 @@ func PenumbraMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(PenumbraMessage); !ok {
 		fmt.Printf("got data of type %T but wanted PenumbraMessage \n", val)
 		return nil
-	} else {
+	} else { //nolint:revive // we need to use a val and that does not work when we fix this lint
 		return val.Msg
 	}
 }

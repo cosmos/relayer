@@ -56,7 +56,7 @@ func (cc *PenumbraProvider) LogFailedTx(res *provider.RelayerTxResponse, err err
 
 	if err != nil {
 		// Make a copy since we may continue to the warning
-		errorFields := append(fields, zap.Error(err))
+		errorFields := append(fields, zap.Error(err)) //nolint:gocritic // errorFields is a copy of fields
 		cc.log.Error(
 			"Failed sending cosmos transaction",
 			errorFields...,

@@ -3,6 +3,8 @@ run:
   allow-parallel-runners: true
   #   # timeout for analysis, e.g. 30s, 5m, default is 1m
   timeout: 5m
+  skip-files:
+    - relayer/codecs/injective/tx.pb.go
 
 linters:
   disable-all: true
@@ -123,4 +125,6 @@ linters-settings:
           - 'fmt.Println'
           - 'myFunction'
       - name: nested-structs
+        disabled: true
+      - name: context-as-argument
         disabled: true

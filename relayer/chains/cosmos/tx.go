@@ -355,7 +355,6 @@ func (cc *CosmosProvider) broadcastTx(
 	tx []byte, // raw tx to be broadcasted
 	msgs []provider.RelayerMessage, // used for logging only
 	fees sdk.Coins, // used for metrics
-
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallbacks []func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
@@ -1366,13 +1365,13 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 					return nil, nil, err
 				}
 				return nil, timeout, nil
-			} else {
-				timeout, err := src.MsgTimeout(msgTransfer, pp)
-				if err != nil {
-					return nil, nil, err
-				}
-				return nil, timeout, nil
 			}
+			timeout, err := src.MsgTimeout(msgTransfer, pp)
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, timeout, nil
+
 		default:
 			return nil, nil, err
 		}
