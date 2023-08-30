@@ -495,8 +495,8 @@ func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
-	any := p.AsAny()
-	return sdk.NewResponseResultTx(resTx, any, ""), nil
+	anyResult := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, anyResult, ""), nil
 }
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {

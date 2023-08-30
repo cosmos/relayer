@@ -64,6 +64,8 @@ linters-settings:
     # Do NOT whine about the following, full explanation found in:
     # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#description-of-available-rules
     rules:
+      - name: exported
+        disabled: true
       - name: use-any
         disabled: true
       - name: if-return

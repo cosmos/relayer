@@ -33,13 +33,13 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-func (ccp *PenumbraChainProcessor) ibcMessagesFromBlockEvents(
+func (pcp *PenumbraChainProcessor) ibcMessagesFromBlockEvents(
 	beginBlockEvents, endBlockEvents []abci.Event,
 	height uint64, base64Encoded bool,
 ) (res []ibcMessage) {
-	chainID := ccp.chainProvider.ChainId()
-	res = append(res, ibcMessagesFromEvents(ccp.log, beginBlockEvents, chainID, height, base64Encoded)...)
-	res = append(res, ibcMessagesFromEvents(ccp.log, endBlockEvents, chainID, height, base64Encoded)...)
+	chainID := pcp.chainProvider.ChainId()
+	res = append(res, ibcMessagesFromEvents(pcp.log, beginBlockEvents, chainID, height, base64Encoded)...)
+	res = append(res, ibcMessagesFromEvents(pcp.log, endBlockEvents, chainID, height, base64Encoded)...)
 	return res
 }
 

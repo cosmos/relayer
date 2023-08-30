@@ -27,7 +27,7 @@ func feegrantConfigureBaseCmd(a *appState) *cobra.Command {
 func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 	var numGrantees int
 	var update bool
-	var delete bool
+	var deleteChain bool
 	var updateGrantees bool
 	var grantees []string
 
@@ -63,7 +63,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("could not get granter key from '%s'", granterKeyOrAddr)
 			}
 
-			if delete {
+			if deleteChain {
 				fmt.Printf("Deleting %s feegrant configuration\n", chain)
 
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
@@ -140,7 +140,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&delete, "delete", false, "delete the feegrant configuration")
+	cmd.Flags().BoolVar(&deleteChain, "delete", false, "delete the feegrant configuration")
 	cmd.Flags().BoolVar(&update, "overwrite-granter", false, "allow overwriting the existing granter")
 	cmd.Flags().BoolVar(&updateGrantees, "overwrite-grantees", false, "allow overwriting existing grantees")
 	cmd.Flags().IntVar(&numGrantees, "num-grantees", 10, "number of grantees that will be feegranted with basic allowances")

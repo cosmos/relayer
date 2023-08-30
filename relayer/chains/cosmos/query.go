@@ -27,7 +27,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -420,7 +419,7 @@ func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height i
 
 	// check if client exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrClientNotFound, srcClientId)
+		return nil, errorsmod.Wrap(clienttypes.ErrClientNotFound, srcClientId)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -469,7 +468,7 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 
 	// check if consensus state exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
+		return nil, errorsmod.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -666,7 +665,7 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 
 	// check if connection exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(conntypes.ErrConnectionNotFound, connectionID)
+		return nil, errorsmod.Wrap(conntypes.ErrConnectionNotFound, connectionID)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -1264,7 +1263,7 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 
 	// check if consensus state exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
+		return nil, errorsmod.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
 	}
 
 	// TODO do we really want to create a new codec? ChainClient exposes proto.Marshaler

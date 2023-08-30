@@ -41,7 +41,7 @@ func (cc *PenumbraProvider) Invoke(ctx context.Context, method string, req, repl
 
 	// In both cases, we don't allow empty request req (it will panic unexpectedly).
 	if reflect.ValueOf(req).IsNil() {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
+		return errorsmod.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
 	}
 
 	// Case 1. Broadcasting a Tx.

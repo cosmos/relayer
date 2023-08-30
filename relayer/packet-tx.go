@@ -115,15 +115,14 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 			)
 		}
 		return err
-	} else {
-		if result.SuccessfullySent() {
-			c.log.Info(
-				"Successfully sent a transfer",
-				zap.String("src_chain_id", c.ChainID()),
-				zap.String("dst_chain_id", dst.ChainID()),
-				zap.Object("send_result", result),
-			)
-		}
+	} else if result.SuccessfullySent() {
+		c.log.Info(
+			"Successfully sent a transfer",
+			zap.String("src_chain_id", c.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Object("send_result", result),
+		)
 	}
+
 	return nil
 }

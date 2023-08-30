@@ -236,11 +236,11 @@ func (connectionKey ConnectionKey) PreInitKey() ConnectionKey {
 	}
 }
 
-func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("connection_id", k.ConnectionID)
-	enc.AddString("client_id", k.ClientID)
-	enc.AddString("counterparty_connection_id", k.CounterpartyConnID)
-	enc.AddString("counterparty_client_id", k.CounterpartyClientID)
+func (connectionKey ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", connectionKey.ConnectionID)
+	enc.AddString("client_id", connectionKey.ClientID)
+	enc.AddString("counterparty_connection_id", connectionKey.CounterpartyConnID)
+	enc.AddString("counterparty_client_id", connectionKey.CounterpartyClientID)
 	return nil
 }
 

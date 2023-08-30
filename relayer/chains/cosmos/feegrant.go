@@ -199,7 +199,7 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 
 	if lastGranteeIdx >= 0 && lastGranteeIdx <= len(cc.PCfg.FeeGrants.ManagedGrantees)-1 {
 		txSignerKey = cc.PCfg.FeeGrants.ManagedGrantees[lastGranteeIdx]
-		cc.PCfg.FeeGrants.GranteeLastSignerIndex = cc.PCfg.FeeGrants.GranteeLastSignerIndex + 1
+		cc.PCfg.FeeGrants.GranteeLastSignerIndex++
 
 		if cc.PCfg.FeeGrants.GranteeLastSignerIndex == len(cc.PCfg.FeeGrants.ManagedGrantees) {
 			cc.PCfg.FeeGrants.GranteeLastSignerIndex = 0
@@ -271,7 +271,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 		}
 
 		if !hasGrant {
-			grantsNeeded += 1
+			grantsNeeded++
 			fmt.Printf("Grant will be created on chain for granter %s and grantee %s\n", granterAddr, granteeAddr)
 			grantMsg, err := cc.getMsgGrantBasicAllowance(granterAcc, granteeAcc)
 			if err != nil {

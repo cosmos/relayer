@@ -153,12 +153,12 @@ type clientInfo struct {
 	header          []byte
 }
 
-func (c clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientState {
+func (res clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientState {
 	return provider.ClientState{
-		ClientID:        c.clientID,
-		ConsensusHeight: c.consensusHeight,
+		ClientID:        res.clientID,
+		ConsensusHeight: res.consensusHeight,
 		TrustingPeriod:  trustingPeriod,
-		Header:          c.header,
+		Header:          res.header,
 	}
 }
 

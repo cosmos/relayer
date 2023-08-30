@@ -35,11 +35,11 @@ func PenumbraMsg(rm provider.RelayerMessage) sdk.Msg {
 func PenumbraMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	sdkMsgs := make([]sdk.Msg, 0)
 	for _, rMsg := range rm {
-		switch rMsg.(type) {
+		switch msg := rMsg.(type) {
 		case PenumbraMessage:
-			sdkMsgs = append(sdkMsgs, rMsg.(PenumbraMessage).Msg)
+			sdkMsgs = append(sdkMsgs, msg.Msg)
 		case cosmos.CosmosMessage:
-			sdkMsgs = append(sdkMsgs, rMsg.(cosmos.CosmosMessage).Msg)
+			sdkMsgs = append(sdkMsgs, msg.Msg)
 		default:
 			fmt.Printf("got data of type %T but wanted PenumbraMessage \n", rMsg)
 			return nil

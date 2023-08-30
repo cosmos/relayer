@@ -118,15 +118,15 @@ type path struct {
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
-func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
+func (c *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
-	switch p := chain.ChainProvider.(type) {
+	switch p := c.ChainProvider.(type) {
 	case *penumbraprocessor.PenumbraProvider:
 		return penumbraprocessor.NewPenumbraChainProcessor(log, p)
 	case *cosmos.CosmosProvider:
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	default:
-		panic(fmt.Errorf("unsupported chain provider type: %T", chain.ChainProvider))
+		panic(fmt.Errorf("unsupported chain provider type: %T", c.ChainProvider))
 	}
 }
 
