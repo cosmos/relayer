@@ -14,6 +14,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.10
+	github.com/cosmos/ibc-go/modules/capability v1.0.0-rc1
 	github.com/cosmos/ibc-go/v7 v7.2.0
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/ethereum/go-ethereum v1.10.26
