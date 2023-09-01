@@ -30,6 +30,7 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 
+	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store/rootmulti"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -623,7 +624,7 @@ func (cc *CosmosProvider) buildMessages(
 		return nil, 0, sdk.Coins{}, err
 	}
 
-	if err = tx.Sign(txf, txSignerKey, txb, false); err != nil {
+	if err = tx.Sign(ctx, txf, txSignerKey, txb, false); err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
 
@@ -1677,7 +1678,7 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, error) {
 	extOpts := make([]*types.Any, 0, len(cc.PCfg.ExtensionOptions))
 	for _, opt := range cc.PCfg.ExtensionOptions {
-		max, ok := sdk.NewIntFromString(opt.Value)
+		max, ok := sdkmath.NewIntFromString(opt.Value)
 		if !ok {
 			return txf, fmt.Errorf("invalid opt value")
 		}
