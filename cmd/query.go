@@ -257,7 +257,19 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "address {%s} balance {%s} \n", addr, coins)
+			// Create a map to hold the data
+			data := map[string]string{
+				"address": addr,
+				"balance": coins.String(),
+			}
+
+			// Convert the map to a JSON string
+			jsonOutput, err := json.Marshal(data)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprint(cmd.OutOrStdout(), string(jsonOutput))
 			return nil
 		},
 	}
