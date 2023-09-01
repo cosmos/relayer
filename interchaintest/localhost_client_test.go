@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
@@ -161,7 +162,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	)
 
 	// compose and send a localhost IBC transfer which should be successful
-	const transferAmount = int64(1_000)
+	var transferAmount = sdkmath.NewInt(1_000)
 	transfer := ibc.WalletAmount{
 		Address: userB.FormattedAddress(),
 		Denom:   chainA.Config().Denom,
@@ -194,7 +195,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	// assert that the updated balances are correct
 	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, userABal-transferAmount, newBalA)
+	require.Equal(t, userABal.Sub(transferAmount), newBalA)
 
 	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
@@ -228,12 +229,12 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	tmpBalA := newBalA
 	newBalA, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, tmpBalA-transferAmount, newBalA)
+	require.Equal(t, tmpBalA.Sub(transferAmount), newBalA)
 
 	tmpBalB := newBalB
 	newBalB, err = chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
-	require.Equal(t, tmpBalB+transferAmount, newBalB)
+	require.Equal(t, tmpBalB.Add(transferAmount), newBalB)
 }
 
 func TestLocalhost_InterchainAccounts(t *testing.T) {
@@ -401,7 +402,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), icaBal)
 
-	const transferAmount = 1000
+	var transferAmount = sdkmath.NewInt(1000)
 	transfer := ibc.WalletAmount{
 		Address: icaAddr,
 		Denom:   chainA.Config().Denom,
@@ -415,11 +416,11 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 
 	newBalICA, err := chainA.GetBalance(ctx, icaAddr, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, int64(transferAmount), newBalICA)
+	require.Equal(t, transferAmount, newBalICA)
 
 	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, userABal-transferAmount, newBalA)
+	require.Equal(t, userABal.Sub(transferAmount), newBalA)
 
 	// compose msg to send to ICA
 	rawMsg, err := json.Marshal(map[string]any{
@@ -429,7 +430,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		"amount": []map[string]any{
 			{
 				"denom":  chainA.Config().Denom,
-				"amount": strconv.Itoa(transferAmount),
+				"amount": strconv.Itoa(1000),
 			},
 		},
 	})
@@ -464,9 +465,9 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	// assert updated balances are correct
 	finalBalICA, err := chainA.GetBalance(ctx, icaAddr, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, newBalICA-transferAmount, finalBalICA)
+	require.Equal(t, newBalICA.Sub(transferAmount), finalBalICA)
 
 	finalBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, newBalA+int64(transferAmount), finalBalA)
+	require.Equal(t, newBalA.Add(transferAmount), finalBalA)
 }

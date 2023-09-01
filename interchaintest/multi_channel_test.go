@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
@@ -126,7 +127,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	transfer := ibc.WalletAmount{
 		Address: osmosisUser.FormattedAddress(),
 		Denom:   gaia.Config().Denom,
-		Amount:  transferAmount,
+		Amount:  sdkmath.NewInt(transferAmount),
 	}
 
 	for _, channel := range channels {
@@ -162,7 +163,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 		transfer := ibc.WalletAmount{
 			Address: gaiaUser.FormattedAddress(),
 			Denom:   ibcDenoms[i].IBCDenom(),
-			Amount:  transferAmount,
+			Amount:  sdkmath.NewInt(transferAmount),
 		}
 
 		_, err = osmosis.SendIBCTransfer(ctx, channel.Counterparty.ChannelID, osmosisUser.KeyName(), transfer, ibc.TransferOptions{})

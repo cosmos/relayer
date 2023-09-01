@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
+
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
@@ -145,7 +147,7 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 
 	// send tx
 	const txAmount = 1000
-	transfer := ibc.WalletAmount{Address: userAddressB, Denom: chainA.Config().Denom, Amount: txAmount}
+	transfer := ibc.WalletAmount{Address: userAddressB, Denom: chainA.Config().Denom, Amount: sdkmath.NewInt(txAmount)}
 	_, err = chainA.SendIBCTransfer(ctx, channelA.ChannelID, userAddressA, transfer, ibc.TransferOptions{})
 	require.NoError(t, err)
 
@@ -190,7 +192,7 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 	// Get balances after the fees
 	chainABal, err := chainA.GetBalance(ctx, userAddressA, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, userAOrigBal-(txAmount+1000), chainABal)
+	require.Equal(t, userAOrigBal.Sub(sdkmath.NewInt(txAmount+1000)), chainABal)
 
 	chainBBal, err := chainB.GetBalance(ctx, userAddressB, chainADenomTrace.IBCDenom())
 	require.NoError(t, err)
@@ -198,5 +200,7 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 
 	rlyABal, err := chainA.GetBalance(ctx, rlyAddressA, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, rlyAOrigBal+1000, rlyABal)
+	thousand := sdkmath.NewInt(1000)
+	newbal := rlyAOrigBal.Add(thousand)
+	require.Equal(t, newbal, rlyABal)
 }

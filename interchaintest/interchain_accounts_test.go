@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
@@ -193,18 +194,18 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	transfer := ibc.WalletAmount{
 		Address: icaAddr,
 		Denom:   chain2.Config().Denom,
-		Amount:  transferAmount,
+		Amount:  sdkmath.NewInt(transferAmount),
 	}
 	err = chain2.SendFunds(ctx, chain2User.KeyName(), transfer)
 	require.NoError(t, err)
 
 	chain2Bal, err := chain2.GetBalance(ctx, chain2Addr, chain2.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, chain2OrigBal-transferAmount, chain2Bal)
+	require.Equal(t, chain2OrigBal.Sub(sdkmath.NewInt(transferAmount)), chain2Bal)
 
 	icaBal, err := chain2.GetBalance(ctx, icaAddr, chain2.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, icaOrigBal+transferAmount, icaBal)
+	require.Equal(t, icaOrigBal.Add(sdkmath.NewInt(transferAmount)), icaBal)
 
 	// Build bank transfer msg
 	rawMsg, err := json.Marshal(map[string]any{

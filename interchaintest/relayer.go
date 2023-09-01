@@ -55,6 +55,14 @@ func NewRelayer(
 	return r
 }
 
+func (r *Relayer) ResumeRelayer(ctx context.Context) error {
+	panic("implement me")
+}
+
+func (r *Relayer) PauseRelayer(ctx context.Context) error {
+	panic("implement me")
+}
+
 func (r *Relayer) sys() *relayertest.System {
 	return &relayertest.System{HomeDir: r.home}
 }

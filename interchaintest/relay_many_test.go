@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/strangelove-ventures/interchaintest/v7"
@@ -150,7 +151,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		}
 		// Fund gaia user with ibc denom osmo
 		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChans[0].ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
-			Amount:  transferAmount,
+			Amount:  sdkmath.NewInt(transferAmount),
 			Denom:   osmosisCfg.Denom,
 			Address: gaiaAddress,
 		}, ibc.TransferOptions{})
@@ -168,7 +169,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		}
 		// Fund gaia user with ibc denom juno
 		tx, err := juno.SendIBCTransfer(ctx, junoChans[0].ChannelID, junoUser.KeyName(), ibc.WalletAmount{
-			Amount:  transferAmount,
+			Amount:  sdkmath.NewInt(transferAmount),
 			Denom:   junoCfg.Denom,
 			Address: gaiaAddress,
 		}, ibc.TransferOptions{})

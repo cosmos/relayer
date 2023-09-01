@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -300,7 +301,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 				gaiaTx, err = gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 					Address: gaiaDstAddress,
 					Denom:   gaia.Config().Denom,
-					Amount:  amountToSend,
+					Amount:  sdkmath.NewInt(amountToSend),
 				},
 					ibc.TransferOptions{},
 				)
@@ -319,7 +320,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 				tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 					Address: osmosisDstAddress,
 					Denom:   osmosis.Config().Denom,
-					Amount:  amountToSend,
+					Amount:  sdkmath.NewInt(amountToSend),
 				},
 					ibc.TransferOptions{},
 				)
@@ -337,7 +338,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 				tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 					Address: osmosisDstAddress,
 					Denom:   osmosis.Config().Denom,
-					Amount:  amountToSend,
+					Amount:  sdkmath.NewInt(amountToSend),
 				},
 					ibc.TransferOptions{},
 				)
@@ -355,7 +356,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 				tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 					Address: osmosisDstAddress,
 					Denom:   osmosis.Config().Denom,
-					Amount:  amountToSend,
+					Amount:  sdkmath.NewInt(amountToSend),
 				},
 					ibc.TransferOptions{},
 				)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -115,7 +116,7 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 		tx, err := gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 			Address: gaiaDstAddress,
 			Denom:   gaia.Config().Denom,
-			Amount:  amountToSend,
+			Amount:  sdkmath.NewInt(amountToSend),
 		},
 			ibc.TransferOptions{},
 		)
@@ -133,7 +134,7 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Address: osmosisDstAddress,
 			Denom:   osmosis.Config().Denom,
-			Amount:  amountToSend,
+			Amount:  sdkmath.NewInt(amountToSend),
 		},
 			ibc.TransferOptions{},
 		)
@@ -261,7 +262,7 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 		tx, err := gaia.SendIBCTransfer(ctx, gaiaChannel.ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
 			Address: gaiaDstAddress,
 			Denom:   gaia.Config().Denom,
-			Amount:  amountToSend,
+			Amount:  sdkmath.NewInt(amountToSend),
 		},
 			ibc.TransferOptions{},
 		)
@@ -285,7 +286,7 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 		tx, err := osmosis.SendIBCTransfer(ctx, osmosisChannel.ChannelID, osmosisUser.KeyName(), ibc.WalletAmount{
 			Address: osmosisDstAddress,
 			Denom:   osmosis.Config().Denom,
-			Amount:  amountToSend,
+			Amount:  sdkmath.NewInt(amountToSend),
 		},
 			ibc.TransferOptions{},
 		)
