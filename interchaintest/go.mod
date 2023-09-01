@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/simapp v0.0.0-20230224204036-a6adb0821462
 	github.com/avast/retry-go/v4 v4.3.4
 	github.com/cometbft/cometbft v0.37.2
-	github.com/cosmos/cosmos-sdk v0.47.5
+	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.11
 	github.com/cosmos/ibc-go/v7 v7.3.0
