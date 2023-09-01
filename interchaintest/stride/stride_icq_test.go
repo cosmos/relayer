@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -82,7 +83,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	stride, gaia := chains[0].(*cosmos.CosmosChain), chains[1].(*cosmos.CosmosChain)
 	strideCfg, gaiaCfg := stride.Config(), gaia.Config()
 
-	r := relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})
+	r := relayerinterchaintest.NewRelayer(relayerinterchaintest.RelayerConfig{})
 
 	// Build the network; spin up the chains and configure the relayer
 	const pathStrideGaia = "stride-gaia"
@@ -157,7 +158,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	err = stride.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: strideAdminAddr,
-		Amount:  userFunds,
+		Amount:  sdkmath.NewInt(userFunds),
 		Denom:   strideCfg.Denom,
 	})
 	require.NoError(t, err, "failed to fund stride admin account")
@@ -200,7 +201,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	// Fund stride user with ibc denom atom
 	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
-		Amount:  1_000_000_000_000,
+		Amount:  sdkmath.NewInt(1_000_000_000_000),
 		Denom:   gaiaCfg.Denom,
 		Address: strideAddr,
 	}, ibc.TransferOptions{})

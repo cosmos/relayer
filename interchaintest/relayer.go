@@ -35,9 +35,9 @@ type Relayer struct {
 
 // Build returns a relayer interface
 func NewRelayer(
-	t *testing.T,
 	config RelayerConfig,
 ) ibc.Relayer {
+	var t *testing.T
 	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	types.SetAddrCacheEnabled(false)
 

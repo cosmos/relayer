@@ -22,7 +22,7 @@ import (
 // CosmosChainProcessor (gaia) will feed data to two PathProcessors (gaia-osmosis and gaia-juno).
 func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	var (
-		r    = relayerinterchaintest.NewRelayer(t, relayerinterchaintest.RelayerConfig{})
+		r    = relayerinterchaintest.NewRelayer(relayerinterchaintest.RelayerConfig{})
 		rep  = testreporter.NewNopReporter()
 		eRep = rep.RelayerExecReporter(t)
 		ctx  = context.Background()

@@ -22,6 +22,7 @@ import (
 
 // TestScenarioPathFilterAllow tests the channel allowlist
 func TestScenarioPathFilterAllow(t *testing.T) {
+
 	ctx := context.Background()
 
 	nv := 1
