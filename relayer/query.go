@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -256,7 +257,7 @@ func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms 
 
 	var out sdk.Coins
 	for _, c := range coins {
-		if c.Amount.Equal(sdk.NewInt(0)) {
+		if c.Amount.Equal(sdkmath.NewInt(0)) {
 			continue
 		}
 

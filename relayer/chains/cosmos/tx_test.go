@@ -7,10 +7,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
@@ -128,7 +128,7 @@ func TestSetWithExtensionOptions(t *testing.T) {
 	// Check that each extension option was added with the correct type URL and value
 	for i, opt := range cc.PCfg.ExtensionOptions {
 		expectedTypeURL := "/ethermint.types.v1.ExtensionOptionDynamicFeeTx"
-		max, ok := sdk.NewIntFromString(opt.Value)
+		max, ok := sdkmath.NewIntFromString(opt.Value)
 		require.True(t, ok)
 		expectedValue, err := (&ethermint.ExtensionOptionDynamicFeeTx{
 			MaxPriorityPrice: max,

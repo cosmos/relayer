@@ -27,8 +27,8 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 
+	"cosmossdk.io/store/rootmulti"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 

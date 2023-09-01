@@ -9,11 +9,11 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	"cosmossdk.io/x/feegrant"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/cosmos-sdk/x/feegrant"
 )
 
 // Searches for valid, existing BasicAllowance grants for the ChainClient's configured Feegranter.
