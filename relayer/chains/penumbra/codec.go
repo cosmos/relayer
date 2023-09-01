@@ -1,6 +1,7 @@
 package penumbra
 
 import (
+	"github.com/cosmos/ibc-go/modules/capability"
 	"github.com/cosmos/ibc-go/v7/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authz "github.com/cosmos/cosmos-sdk/x/authz/module"
 	"github.com/cosmos/cosmos-sdk/x/bank"
-	"github.com/cosmos/cosmos-sdk/x/capability"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	"github.com/cosmos/cosmos-sdk/x/distribution"
 	feegrant "github.com/cosmos/cosmos-sdk/x/feegrant/module"
