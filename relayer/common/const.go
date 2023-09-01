@@ -15,7 +15,7 @@ var (
 	ConnectionKey         = "connection"
 	ChannelKey            = "channel"
 	ONE_HOUR              = 60 * 60 * 1000
-	NanosecondRatio       = 1000_000
+	NanoToMilliRatio      = 1000_000
 )
 
 var (
