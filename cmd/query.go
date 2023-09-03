@@ -321,7 +321,7 @@ $ %s query header ibc-0 1400`,
 				return err
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), s)
+			fmt.Fprintln(cmd.OutOrStdout(), string(s))
 			return nil
 		},
 	}
