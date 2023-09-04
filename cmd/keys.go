@@ -45,6 +45,7 @@ func keysCmd(a *appState) *cobra.Command {
 
 	cmd.AddCommand(
 		keysAddCmd(a),
+		keysUseCmd(a),
 		keysRestoreCmd(a),
 		keysDeleteCmd(a),
 		keysListCmd(a),
@@ -52,6 +53,38 @@ func keysCmd(a *appState) *cobra.Command {
 		keysShowCmd(a),
 	)
 
+	return cmd
+}
+
+func keysUseCmd(a *appState) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:     "use chain_name key_name",
+		Aliases: []string{"a"},
+		Short:   "Use a key from the keychain associated with a particular chain. Look at ~/.relayer/keys/ibc-0/keyring-test ",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s keys use ibc-0 key_name`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+
+			chainName := args[0]
+			if chain.ChainProvider.KeyExists(chainName) {
+				return errKeyExists(chainName)
+			}
+
+			key := args[1]
+			chain, exists := a.config.Chains[chainName]
+			if !exists {
+				return fmt.Errorf("chain %s not found in config", chainName)
+			}
+
+			return chain.ChainProvider.UseKey(key, a.configPath())
+		},
+	}
 	return cmd
 }
 

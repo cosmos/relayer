@@ -66,6 +66,12 @@ func (cc *PenumbraProvider) AddKey(name string, coinType uint32, signingAlgorith
 	return ko, nil
 }
 
+// UseKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
+// It fails if there is an existing key with the same address.
+func (cc *PenumbraProvider) UseKey(name, configPath string) error {
+	return nil
+}
+
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
 func (cc *PenumbraProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {

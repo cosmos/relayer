@@ -2,7 +2,11 @@ package cosmos
 
 import (
 	"errors"
+	"fmt"
 	"os"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/cosmos/relayer/v2/utils"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -12,7 +16,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 const ethereumCoinType = uint32(60)
@@ -67,6 +70,22 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm 
 		return nil, err
 	}
 	return ko, nil
+}
+
+func (cc *CosmosProvider) UseKey(key, configPath string) error {
+	info, err := cc.ListAddresses()
+	if err != nil {
+		return err
+	}
+	value, exists := info[key]
+
+	if exists {
+		fmt.Printf("Using %s -> %s  for %s", key, value, cc.ChainName())
+	} else {
+		return fmt.Errorf("key %s does not exist for chain %s", key, cc.ChainName())
+	}
+
+	return utils.UpdateConfig(configPath, []string{utils.Chains, cc.ChainName(), utils.Value, utils.Key}, key)
 }
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
