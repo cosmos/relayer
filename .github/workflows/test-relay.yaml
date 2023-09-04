@@ -33,16 +33,16 @@ jobs:
         shell: bash
 
       # Install rust toolchain
-      - name: Install rust stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.69.0
-          target: wasm32-unknown-unknown
-          override: true
-          profile: minimal
+      # - name: Install rust stable toolchain
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: 1.69.0
+      #     target: wasm32-unknown-unknown
+      #     override: true
+      #     profile: minimal
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+      # - name: Cache Rust dependencies
+      #   uses: Swatinem/rust-cache@v2
 
       # Build relay 
       - name: Build relayer
@@ -61,18 +61,85 @@ jobs:
           make install
 
       # Build comsmwasm
-      - name: Compile WASM
-        working-directory: .github/scripts/IBC-Integration
-        run: |
-          rustup component add rustfmt --toolchain 1.69.0-x86_64-unknown-linux-gnu
-          rustup component add clippy --toolchain 1.69.0-x86_64-unknown-linux-gnu
-          bash ./optimize_build.sh
+      # - name: Compile WASM
+      #   working-directory: .github/scripts/IBC-Integration
+      #   run: |
+      #     rustup component add rustfmt --toolchain 1.69.0-x86_64-unknown-linux-gnu
+      #     rustup component add clippy --toolchain 1.69.0-x86_64-unknown-linux-gnu
+      #     bash ./optimize_build.sh
 
-      - name: Build javascore
-        working-directory: .github/scripts/IBC-Integration/contracts/javascore
+      # - name: Build javascore
+      #   working-directory: .github/scripts/IBC-Integration/contracts/javascore
+      #   run: |
+      #     ./gradlew clean build 
+      #     ./gradlew optimizedJar
+
+      - name: Fetch Latest IBC-Integration Tag
+        id: fetch_ibc_tag
         run: |
-          ./gradlew clean build 
-          ./gradlew optimizedJar
+          TAG_IBC=$(curl -s "https://api.github.com/repos/icon-project/IBC-Integration/tags" | jq -r '.[0].name')
+          echo "TAG_IBC=$TAG_IBC" >> $GITHUB_ENV
+
+      - name: Fetch Latest XCALL Tag
+        id: fetch_xcall_tag
+        run: |
+          TAG_XCALL=$(curl -s "https://api.github.com/repos/icon-project/xCall/tags" | jq -r '.[0].name')
+          echo "TAG_XCALL=$TAG_XCALL" >> $GITHUB_ENV
+      
+      - name: Get Latest tag - IBC-Integration
+        id: ibc_tag
+        run: echo "tag=$(curl -s "https://api.github.com/repos/icon-project/IBC-Integration/tags" | jq -r '.[0].name')" >> $GITHUB_OUTPUT
+
+      - name: Get Latest tag - xCall
+        id: xcall_tag
+        run: echo "tag=$(curl -s "https://api.github.com/repos/icon-project/xCall/tags" | jq -r '.[0].name')" >> $GITHUB_OUTPUT
+
+
+      - name: Download IBC Core Javascore Contracts
+        uses: robinraju/release-downloader@v1.8
+        with:
+          repository: "icon-project/IBC-Integration"
+          tag: "${{ steps.ibc_tag.outputs.tag }}"
+          # latest: true
+          fileName: "*.jar"
+          out-file-path: "./.github/scripts/IBC-Integration/artifacts/icon"
+
+
+      - name: Download IBC Core Cosmwasm Contracts
+        uses: robinraju/release-downloader@v1.8
+        with:
+          repository: "icon-project/IBC-Integration"
+          tag: "${{ steps.ibc_tag.outputs.tag }}"
+          # latest: true
+          fileName: "*.wasm"
+          out-file-path: "./.github/scripts/IBC-Integration/artifacts/archway"
+
+      - name: Download xCall Javascore Contracts
+        uses: robinraju/release-downloader@v1.8
+        with:
+          repository: "icon-project/xCall"
+          tag: "${{ steps.xcall_tag.outputs.tag }}"
+          # latest: true
+          fileName: "*.jar"
+          out-file-path: "./.github/scripts/IBC-Integration/artifacts/icon"
+
+      - name: Download xCall Cosmwasm Contracts
+        uses: robinraju/release-downloader@v1.8
+        with:
+          repository: "icon-project/xCall"
+          tag: "${{ steps.xcall_tag.outputs.tag }}"
+          # latest: true
+          fileName: "*.wasm"
+          out-file-path: "./.github/scripts/IBC-Integration/artifacts/archway"
+
+      - name: List Download Files
+        run: |
+          ls -l ${GITHUB_WORKSPACE}/.github/scripts/IBC-Integration/artifacts/icon
+          ls -l ${GITHUB_WORKSPACE}/.github/scripts/IBC-Integration/artifacts/archway
+          echo $HOME
+          echo $PWD
+          echo $GITHUB_WORKSPACE
+          echo "${GITHUB_REF##*/}"
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v5

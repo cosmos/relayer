@@ -15,6 +15,6 @@
 [submodule ".github/scripts/gochain-btp"]
 	path = .github/scripts/gochain-btp
 	url = https://github.com/izyak/gochain-btp.git
-[submodule ".github/scripts/icon-ibc-setup"]
-	path = .github/scripts/icon-ibc-setup
-	url = https://github.com/izyak/icon-ibc-setup.git
+[submodule ".github/scripts/icon-ibc"]
+	path = .github/scripts/icon-ibc
+	url = https://github.com/izyak/icon-ibc.git
