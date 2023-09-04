@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 
@@ -938,6 +939,10 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
 
+	//for btp updateClient steps
+	pp.UpdateBTPHeight(ctx, pp.pathEnd1, pp.pathEnd2)
+	pp.UpdateBTPHeight(ctx, pp.pathEnd2, pp.pathEnd1)
+
 	channelPairs := pp.channelPairs()
 
 	pp.queuePreInitMessages(cancel)
@@ -1541,4 +1546,46 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 	}
 	pp.log.Info("Found termination condition for flush, all caches cleared")
 	return true
+}
+
+func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntime, dst *pathEndRuntime) {
+	srcIsIcon := src.chainProvider.Type() == common.IconModule
+	dstIsBtpClient := IsBTPLightClient(dst.clientState)
+
+	if !srcIsIcon && !dstIsBtpClient {
+		return
+	}
+
+	if srcIsIcon && !dstIsBtpClient || !srcIsIcon && dstIsBtpClient {
+		pp.log.Error("Src Icon module mismatch with dst btp client",
+			zap.String("Src Chain Type ", src.chainProvider.Type()),
+			zap.String("Dst client Id", dst.clientState.ClientID),
+		)
+		return
+	}
+
+	if src.BTPHeightQueue.Size() == 0 {
+		return
+	}
+	size := src.BTPHeightQueue.Size()
+	for i := 0; i < size; i++ {
+		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+		if err != nil {
+			continue
+		}
+		if dst.clientState.ConsensusHeight.RevisionHeight < uint64(btpHeightInfo.Height) {
+			break
+		}
+		if dst.clientState.ConsensusHeight.RevisionHeight == uint64(btpHeightInfo.Height) {
+			src.BTPHeightQueue.Dequeue()
+			continue
+		}
+		if dst.clientState.ConsensusHeight.RevisionHeight > uint64(btpHeightInfo.Height) {
+			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, uint64(btpHeightInfo.Height)))
+			if err == nil && cs != nil {
+				// removing latest height element
+				src.BTPHeightQueue.Dequeue()
+			}
+		}
+	}
 }

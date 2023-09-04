@@ -29,6 +29,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
@@ -353,7 +354,6 @@ func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmt
 			zap.Error(err),
 		)
 	}))
-
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
@@ -858,4 +858,24 @@ func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint
 		p.Key = next
 	}
 	return transfers, nil
+}
+
+func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
+	param, err := types.NewPrevConsensusStateHeight(clientId, uint64(clientHeight)).Bytes()
+	res, err := ap.QueryIBCHandlerContract(ctx, param)
+	if err != nil {
+		return nil, err
+	}
+
+	var heights []int64
+	err = json.Unmarshal(res.Data.Bytes(), &heights)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(heights) == 0 {
+		return nil, fmt.Errorf("consensus state of client %s before %d", clientId, clientHeight)
+	}
+	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
 }

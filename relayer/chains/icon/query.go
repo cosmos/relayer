@@ -12,6 +12,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -835,6 +836,10 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		return icp.codec.Marshaler.Marshal(&merkleProofs)
 	}
 	return nil, nil
+}
+
+func (ip *IconProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
+	panic("QueryClientPrevConsensusStateHeight not implemented")
 }
 
 func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Message) ([]byte, error) {

@@ -53,3 +53,7 @@ func nextIconIBCHeader(heightMap IBCHeaderCache, height uint64) (provider.IBCHea
 	header, ok := heightMap[nextHeight]
 	return header, ok
 }
+
+func FindConsensusHeightFromEventLog([]provider.RelayerEvent) int64 {
+	return 0
+}

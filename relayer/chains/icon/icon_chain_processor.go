@@ -657,7 +657,6 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 	}
 	request.response.Header = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
 	request.response.IsProcessed = processed
-
 }
 
 func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,

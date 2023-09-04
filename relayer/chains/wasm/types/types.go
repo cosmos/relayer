@@ -71,11 +71,13 @@ func NewClientState(clientId string) *GetClientState {
 	}
 }
 
+type ConsensusStateByHeight struct {
+	ClientId string "json:\"client_id\""
+	Height   uint64 "json:\"height\""
+}
+
 type GetConsensusStateByHeight struct {
-	ConsensusStateByHeight struct {
-		ClientId string "json:\"client_id\""
-		Height   uint64 "json:\"height\""
-	} `json:"get_consensus_state_by_height"`
+	ConsensusStateByHeight ConsensusStateByHeight `json:"get_consensus_state_by_height"`
 }
 
 func (x *GetConsensusStateByHeight) Bytes() ([]byte, error) {
@@ -84,10 +86,7 @@ func (x *GetConsensusStateByHeight) Bytes() ([]byte, error) {
 
 func NewConsensusStateByHeight(clientId string, height uint64) *GetConsensusStateByHeight {
 	return &GetConsensusStateByHeight{
-		ConsensusStateByHeight: struct {
-			ClientId string "json:\"client_id\""
-			Height   uint64 "json:\"height\""
-		}{
+		ConsensusStateByHeight: ConsensusStateByHeight{
 			ClientId: clientId,
 			Height:   height,
 		},
@@ -351,5 +350,22 @@ func (x *GetCommitmentPrefix) Bytes() ([]byte, error) {
 func NewCommitmentPrefix() *GetCommitmentPrefix {
 	return &GetCommitmentPrefix{
 		GetCommitment: struct{}{},
+	}
+}
+
+type GetPrevConsensusStateHeight struct {
+	ConsensusStateByHeight ConsensusStateByHeight `json:"get_previous_consensus_state_height"`
+}
+
+func (x *GetPrevConsensusStateHeight) Bytes() ([]byte, error) {
+	return json.Marshal(x)
+}
+
+func NewPrevConsensusStateHeight(clientId string, height uint64) *GetPrevConsensusStateHeight {
+	return &GetPrevConsensusStateHeight{
+		ConsensusStateByHeight: ConsensusStateByHeight{
+			ClientId: clientId,
+			Height:   height,
+		},
 	}
 }

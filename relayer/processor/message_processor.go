@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -104,26 +105,20 @@ func (mp *messageProcessor) processMessages(
 // Otherwise, it will be attempted if either 2/3 of the trusting period
 // or the configured client update threshold duration has passed.
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
-	var err error
 	// handle if dst is IconLightClient
 	if IsBTPLightClient(dst.clientState) {
-
-		// if the latestblock is less than clientState height
-		if dst.clientState.ConsensusHeight.RevisionHeight >= src.latestBlock.Height {
+		if src.BTPHeightQueue.Size() == 0 {
+			return false, nil
+		}
+		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+		if err != nil {
 			return false, nil
 		}
 
-		header, found := src.ibcHeaderCache[src.latestBlock.Height]
-		if !found {
-			header, err = src.chainProvider.QueryIBCHeader(ctx, int64(src.latestBlock.Height))
-			if err != nil {
-				return false, err
-			}
+		if btpHeightInfo.IsProcessing {
+			return false, nil
 		}
-		if header.IsCompleteBlock() {
-			return true, nil
-		}
-		return false, nil
+		return true, nil
 	}
 
 	// for lightClient other than ICON this will be helpful
@@ -235,7 +230,7 @@ func (mp *messageProcessor) assembleMessage(
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
 	if IsBTPLightClient(dst.clientState) {
-		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst, shouldUpdate)
+		err := mp.handleMsgUpdateClientForBTPClient(ctx, src, dst, shouldUpdate)
 		return err
 	}
 
@@ -308,32 +303,53 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	return nil
 }
 
-func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
+func (mp *messageProcessor) handleMsgUpdateClientForBTPClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
 	clientID := dst.info.ClientID
 	latestConsensusHeight := dst.clientState.ConsensusHeight
+
+	if src.BTPHeightQueue.Size() == 0 {
+		return nil
+	}
+	btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+	if err != nil {
+		return nil
+	}
 
 	if !shouldUpdate {
 		return nil
 	}
 
-	if !src.latestHeader.IsCompleteBlock() {
+	header, err := src.chainProvider.QueryIBCHeader(ctx, btpHeightInfo.Height)
+	if err != nil {
+		return fmt.Errorf("Failed to query header for height %d", btpHeightInfo.Height)
+	}
+
+	if !header.IsCompleteBlock() {
 		return fmt.Errorf("Should Update is true  but the Header is incomplete")
 	}
 
-	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
+	if header.Height() <= latestConsensusHeight.RevisionHeight {
 		mp.log.Debug("Src latest header is less then latest client State",
 			zap.String("chain-id", src.info.ChainID),
 			zap.Int64("latest-header-height", int64(src.latestHeader.Height())),
+			zap.Int64("message processing btp-height", int64(src.latestHeader.Height())),
 			zap.Int64("client-state-height", int64(latestConsensusHeight.RevisionHeight)))
 
-		return nil
+		height, err := dst.chainProvider.QueryClientPrevConsensusStateHeight(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, int64(header.Height()))
+		if err != nil {
+			return fmt.Errorf("Failed to query prevClientConsensusState")
+		}
+		latestConsensusHeight = types.Height{
+			RevisionNumber: height.GetRevisionNumber(),
+			RevisionHeight: height.GetRevisionHeight(),
+		}
 	}
 
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
-		src.latestHeader,
+		header,
 		latestConsensusHeight,
-		dst.clientTrustedState.IBCHeader,
+		nil,
 	)
 	if err != nil {
 		return fmt.Errorf("error assembling new client header: %w", err)
@@ -346,18 +362,6 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 
 	mp.msgUpdateClient = msgUpdateClient
 	return nil
-}
-
-func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
-	clientConsensusHeight := dst.clientState.ConsensusHeight
-	if IsBTPLightClient(dst.clientState) {
-		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
-		if !found {
-			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)
-		}
-		return header, nil
-	}
-	return src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 }
 
 // trackAndSendMessages will increment attempt counters for each message and send each message.
@@ -411,13 +415,69 @@ func (mp *messageProcessor) sendClientUpdate(
 
 	dst.log.Debug("Will relay client update")
 
-	dst.lastClientUpdateHeightMu.Lock()
-	dst.lastClientUpdateHeight = dst.latestBlock.Height
-	dst.lastClientUpdateHeightMu.Unlock()
+	if IsBTPLightClient(dst.clientState) {
+		blockInfoHeight, err := src.BTPHeightQueue.GetQueue()
+		if err != nil {
+			mp.log.Debug("No  message in the queue", zap.Error(err))
+			return
+		}
+		dst.lastClientUpdateHeightMu.Lock()
+		dst.lastClientUpdateHeight = uint64(blockInfoHeight.Height)
+		dst.lastClientUpdateHeightMu.Unlock()
+		src.BTPHeightQueue.ReplaceQueue(zeroIndex, BlockInfoHeight{
+			Height:       int64(blockInfoHeight.Height),
+			IsProcessing: true,
+			RetryCount:   blockInfoHeight.RetryCount + 1,
+		})
+
+	} else {
+		dst.lastClientUpdateHeightMu.Lock()
+		dst.lastClientUpdateHeight = dst.latestBlock.Height
+		dst.lastClientUpdateHeightMu.Unlock()
+	}
 
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
 
-	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+
+		mp.log.Debug("Executing callback of sendClientUpdate ",
+			zap.Any("Transaction Status", rtr.Code),
+			zap.Any("Response", rtr),
+			zap.Any("LastClientUpdateHeight", dst.lastClientUpdateHeight))
+
+		if IsBTPLightClient(dst.clientState) {
+			if src.BTPHeightQueue.Size() == 0 {
+				return
+			}
+			blockHeightInfo, err := src.BTPHeightQueue.GetQueue()
+			if err != nil {
+				return
+			}
+			if rtr.Code == 0 {
+				if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
+					src.BTPHeightQueue.Dequeue()
+				}
+				return
+			}
+			// this would represent a failure case in that case isProcessing should be false
+			if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
+				if blockHeightInfo.RetryCount >= 5 {
+					// removing btpBLock update
+					src.BTPHeightQueue.Dequeue()
+					return
+				}
+
+				src.BTPHeightQueue.ReplaceQueue(zeroIndex, BlockInfoHeight{
+					Height:       int64(dst.lastClientUpdateHeight),
+					IsProcessing: false,
+					RetryCount:   blockHeightInfo.RetryCount + 1,
+				})
+
+			}
+		}
+	}
+
+	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callback); err != nil {
 		mp.log.Error("Error sending client update message",
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),

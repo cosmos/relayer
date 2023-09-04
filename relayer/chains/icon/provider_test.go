@@ -475,5 +475,5 @@ func TestHash(t *testing.T) {
 // 	isValid, err := VerifyBtpProof(decision, signedHeader.Signatures, proofContext)
 // 	assert.NoError(t, err)
 
-// 	assert.True(t, isValid)
-// }
+//		assert.True(t, isValid)
+//	}

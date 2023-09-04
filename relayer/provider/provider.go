@@ -445,7 +445,7 @@ type QueryProvider interface {
 	QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error)
 	QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error)
 	QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error)
-
+	QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clinetId string, clientHeight int64) (ibcexported.Height, error)
 	// ics 03 - connection
 	QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error)
 	QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error)

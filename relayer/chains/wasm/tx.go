@@ -744,20 +744,20 @@ func (ap *WasmProvider) SendMessagesToMempool(
 			return err
 		}
 
-		if msg.Type() == MethodUpdateClient {
-			if err := retry.Do(func() error {
-				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
-					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-						ap.handleAccountSequenceMismatchError(err)
-					}
-				}
-				return err
-			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
-				ap.log.Error("Failed to update client", zap.Any("Message", msg))
-				return err
-			}
-			continue
-		}
+		// if msg.Type() == MethodUpdateClient {
+		// 	if err := retry.Do(func() error {
+		// 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+		// 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+		// 				ap.handleAccountSequenceMismatchError(err)
+		// 			}
+		// 		}
+		// 		return err
+		// 	}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
+		// 		ap.log.Error("Failed to update client", zap.Any("Message", msg))
+		// 		return err
+		// 	}
+		// 	continue
+		// }
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 				ap.handleAccountSequenceMismatchError(err)
@@ -1262,8 +1262,6 @@ func (cc *WasmProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (a
 func (cc *WasmProvider) handleAccountSequenceMismatchError(err error) {
 
 	clientCtx := cc.ClientContext()
-	fmt.Println("client context is ", clientCtx.GetFromAddress())
-
 	_, seq, err := cc.ClientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, clientCtx.GetFromAddress())
 
 	// sequences := numRegex.FindAllString(err.Error(), -1)
