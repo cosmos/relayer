@@ -66,17 +66,9 @@ func keysUseCmd(a *appState) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys use ibc-0 key_name`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, ok := a.config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-
 			chainName := args[0]
-			if chain.ChainProvider.KeyExists(chainName) {
-				return errKeyExists(chainName)
-			}
-
 			key := args[1]
+
 			chain, exists := a.config.Chains[chainName]
 			if !exists {
 				return fmt.Errorf("chain %s not found in config", chainName)

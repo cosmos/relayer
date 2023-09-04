@@ -79,13 +79,25 @@ func (cc *CosmosProvider) UseKey(key, configPath string) error {
 	}
 	value, exists := info[key]
 
+	mappath := []string{utils.Chains, cc.ChainName(), utils.Value, utils.Key}
+
+	currentValue, success := utils.GetValueFromPath(configPath, mappath)
+
+	if !success {
+		return fmt.Errorf("unable to get value from path %s", mappath)
+	}
+
+	if currentValue == key {
+		return fmt.Errorf("config is already using %s -> %s for %s", key, value, cc.ChainName())
+	}
+
 	if exists {
-		fmt.Printf("Using %s -> %s  for %s", key, value, cc.ChainName())
+		fmt.Printf("Config will now use  %s -> %s  for %s", key, value, cc.ChainName())
 	} else {
 		return fmt.Errorf("key %s does not exist for chain %s", key, cc.ChainName())
 	}
 
-	return utils.UpdateConfig(configPath, []string{utils.Chains, cc.ChainName(), utils.Value, utils.Key}, key)
+	return utils.UpdateConfig(configPath, mappath, key)
 }
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.

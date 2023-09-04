@@ -31,20 +31,53 @@ func convertMap(input map[interface{}]interface{}) map[string]interface{} {
 	return result
 }
 
-func UpdateConfig(configPath string, pathKeys []string, newValue interface{}) error {
+func ReadConfig(configPath string) (map[string]interface{}, error) {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var rawData map[interface{}]interface{}
 	err = yaml.Unmarshal(content, &rawData)
 	if err != nil {
+		return nil, err
+	}
+	return convertMap(rawData), nil
+}
+
+func GetValueFromPath(configPath string, path []string) (interface{}, bool) {
+	data, err := ReadConfig(configPath)
+	if err != nil {
+		return nil, false
+	}
+
+	current := interface{}(data)
+	for _, key := range path {
+		// Ensure the current value is a map
+		asMap, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+
+		// Get the next value from the map
+		current, ok = asMap[key]
+		if !ok {
+			return nil, false
+		}
+	}
+
+	return current, true
+}
+
+func UpdateConfig(configPath string, pathKeys []string, newValue interface{}) error {
+
+	data, err := ReadConfig(configPath)
+	if err != nil {
 		return err
 	}
-	data := convertMap(rawData)
 
 	currentMap := data
+
 	for i, key := range pathKeys {
 		value, exists := currentMap[key]
 		if !exists {
