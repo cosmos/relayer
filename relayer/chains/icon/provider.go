@@ -298,8 +298,9 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 		return fmt.Errorf("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
-	revision := clienttypes.ParseChainID(icp.PCfg.ChainID)
+	revision := uint64(0)
 	latestClientTypesHeight := clienttypes.NewHeight(revision, latestBlock.Height)
+
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
 		return provider.NewTimeoutHeightError(latestBlock.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
