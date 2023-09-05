@@ -20,13 +20,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
-	"github.com/pkg/errors"
-
+	"github.com/icon-project/goloop/client"
 	"github.com/icon-project/goloop/common"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/crypto"
 	"github.com/icon-project/goloop/module"
-	"github.com/icon-project/icon-bridge/common/jsonrpc"
+	"github.com/icon-project/goloop/server/jsonrpc"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -67,10 +67,11 @@ type IClient interface {
 }
 
 type Client struct {
-	*jsonrpc.Client
-	conns map[string]*websocket.Conn
-	log   *zap.Logger
-	mtx   sync.Mutex
+	*client.JsonRpcClient
+	DebugEndPoint string
+	conns         map[string]*websocket.Conn
+	log           *zap.Logger
+	mtx           sync.Mutex
 }
 
 var txSerializeExcludes = map[string]bool{"signature": true}
@@ -607,13 +608,30 @@ func (c *Client) MonitorBTP(ctx context.Context, p *types.BTPRequest, cb func(co
 	})
 }
 
+func (c *Client) EstimateStep(param *types.TransactionParamForEstimate) (*types.HexInt, error) {
+	if len(c.DebugEndPoint) == 0 {
+		return nil, errors.New("UnavailableDebugEndPoint")
+	}
+	currTime := time.Now().UnixNano() / time.Hour.Microseconds()
+	param.Timestamp = types.NewHexInt(currTime)
+	var result types.HexInt
+	if _, err := c.DoURL(c.DebugEndPoint,
+		"debug_estimateStep", param, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func NewClient(uri string, l *zap.Logger) *Client {
 	//TODO options {MaxRetrySendTx, MaxRetryGetResult, MaxIdleConnsPerHost, Debug, Dump}
 	tr := &http.Transport{MaxIdleConnsPerHost: 1000}
+	cl := &http.Client{Transport: tr}
+	apiClient := client.NewJsonRpcClient(cl, uri)
 	c := &Client{
-		Client: jsonrpc.NewJsonRpcClient(&http.Client{Transport: tr}, uri),
-		conns:  make(map[string]*websocket.Conn),
-		log:    l,
+		JsonRpcClient: apiClient,
+		DebugEndPoint: guessDebugEndpoint(uri),
+		conns:         make(map[string]*websocket.Conn),
+		log:           l,
 	}
 	opts := IconOptions{}
 	opts.SetBool(IconOptionsDebug, true)

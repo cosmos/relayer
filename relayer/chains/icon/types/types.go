@@ -30,8 +30,7 @@ import (
 	"github.com/icon-project/goloop/common/codec"
 
 	relayer_common "github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/icon-project/icon-bridge/common/intconv"
-	"github.com/icon-project/icon-bridge/common/jsonrpc"
+	"github.com/icon-project/goloop/server/jsonrpc"
 )
 
 const (
@@ -113,6 +112,17 @@ type TransactionResult struct {
 	TxHash       HexBytes `json:"txHash" validate:"required,t_int"`
 }
 
+type TransactionParamForEstimate struct {
+	Version     HexInt   `json:"version" validate:"required,t_int"`
+	FromAddress Address  `json:"from" validate:"required,t_addr_eoa"`
+	ToAddress   Address  `json:"to" validate:"required,t_addr"`
+	Value       HexInt   `json:"value,omitempty" validate:"optional,t_int"`
+	Timestamp   HexInt   `json:"timestamp" validate:"required,t_int"`
+	NetworkID   HexInt   `json:"nid" validate:"required,t_int"`
+	Nonce       HexInt   `json:"nonce,omitempty" validate:"optional,t_int"`
+	DataType    string   `json:"dataType,omitempty" validate:"optional,call|deploy|message|deposit"`
+	Data        CallData `json:"data,omitempty"`
+}
 type TransactionParam struct {
 	Version     HexInt   `json:"version" validate:"required,t_int"`
 	FromAddress Address  `json:"from" validate:"required,t_addr_eoa"`
@@ -406,11 +416,40 @@ func (i HexInt) Int() (int, error) {
 
 func (i HexInt) BigInt() (*big.Int, error) {
 	bi := new(big.Int)
-	if err := intconv.ParseBigInt(bi, string(i)); err != nil {
+
+	if err := ParseBigInt(bi, string(i)); err != nil {
 		return nil, err
 	} else {
 		return bi, nil
 	}
+}
+
+func decodeHexNumber(s string) (bool, []byte, error) {
+	negative := false
+	if len(s) > 0 && s[0] == '-' {
+		negative = true
+		s = s[1:]
+	}
+	if len(s) > 2 && s[0:2] == "0x" {
+		s = s[2:]
+	}
+	if (len(s) % 2) == 1 {
+		s = "0" + s
+	}
+	bs, err := hex.DecodeString(s)
+	return negative, bs, err
+}
+
+func ParseBigInt(i *big.Int, s string) error {
+	neg, bs, err := decodeHexNumber(s)
+	if err != nil {
+		return err
+	}
+	i.SetBytes(bs)
+	if neg {
+		i.Neg(i)
+	}
+	return nil
 }
 
 func NewHexInt(v int64) HexInt {

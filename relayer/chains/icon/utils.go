@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/cryptoutils"
@@ -94,11 +95,7 @@ func isHexString(s string) bool {
 }
 
 func btpBlockNotPresent(err error) bool {
-	if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header") {
-		return true
-	}
-	return false
-
+	return strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header")
 }
 
 func getCommitmentHash(key, msg []byte) []byte {
@@ -199,6 +196,25 @@ func newEthAddressFromPubKey(pubKey []byte) ([]byte, error) {
 	return digest[len(digest)-ethAddressLen:], nil
 }
 
+func guessDebugEndpoint(endpoint string) string {
+	uo, err := url.Parse(endpoint)
+	if err != nil {
+		return ""
+	}
+	ps := strings.Split(uo.Path, "/")
+	for i, v := range ps {
+		if v == "api" {
+			if len(ps) > i+1 && ps[i+1] == "v3" {
+				ps[i+1] = "v3d"
+				uo.Path = strings.Join(ps, "/")
+				return uo.String()
+			}
+			break
+		}
+	}
+	return ""
+}
+
 func isValidIconContractAddress(addr string) bool {
 	if !strings.HasPrefix(addr, "cx") {
 		return false
@@ -207,8 +223,6 @@ func isValidIconContractAddress(addr string) bool {
 		return false
 	}
 	_, err := hex.DecodeString(addr[2:])
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
+
 }
