@@ -7,14 +7,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Constants used in the config utility.Add more as required.
 const (
-	//Add more consts when configUtil is used for other updates
 	Chains = "chains"
 	Value  = "value"
 	Key    = "key"
 )
 
-// convertMap recursively converts map[interface{}]interface{} to map[string]interface{}
+// convertMap recursively converts map[interface{}]interface{} to map[string]interface{}.
 func convertMap(input map[interface{}]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range input {
@@ -31,20 +31,22 @@ func convertMap(input map[interface{}]interface{}) map[string]interface{} {
 	return result
 }
 
+// ReadConfig reads and parses a YAML configuration file.
 func ReadConfig(configPath string) (map[string]interface{}, error) {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	var rawData map[interface{}]interface{}
 	err = yaml.Unmarshal(content, &rawData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
 	}
 	return convertMap(rawData), nil
 }
 
+// GetValueFromPath retrieves a value from the configuration using a given path.
 func GetValueFromPath(configPath string, path []string) (interface{}, bool) {
 	data, err := ReadConfig(configPath)
 	if err != nil {
@@ -53,13 +55,11 @@ func GetValueFromPath(configPath string, path []string) (interface{}, bool) {
 
 	current := interface{}(data)
 	for _, key := range path {
-		// Ensure the current value is a map
 		asMap, ok := current.(map[string]interface{})
 		if !ok {
 			return nil, false
 		}
 
-		// Get the next value from the map
 		current, ok = asMap[key]
 		if !ok {
 			return nil, false
@@ -69,15 +69,14 @@ func GetValueFromPath(configPath string, path []string) (interface{}, bool) {
 	return current, true
 }
 
+// UpdateConfig updates a value in the configuration using a given path.
 func UpdateConfig(configPath string, pathKeys []string, newValue interface{}) error {
-
 	data, err := ReadConfig(configPath)
 	if err != nil {
 		return err
 	}
 
 	currentMap := data
-
 	for i, key := range pathKeys {
 		value, exists := currentMap[key]
 		if !exists {
@@ -97,12 +96,12 @@ func UpdateConfig(configPath string, pathKeys []string, newValue interface{}) er
 
 	updatedContent, err := yaml.Marshal(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal updated data: %w", err)
 	}
 
 	err = os.WriteFile(configPath, updatedContent, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write updated config: %w", err)
 	}
 
 	return nil
