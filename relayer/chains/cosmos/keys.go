@@ -2,7 +2,6 @@ package cosmos
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -72,32 +71,11 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm 
 	return ko, nil
 }
 
-func (cc *CosmosProvider) UseKey(key, configPath string) error {
-	info, err := cc.ListAddresses()
-	if err != nil {
-		return err
-	}
-	value, exists := info[key]
-
-	mappath := []string{utils.Chains, cc.ChainName(), utils.Value, utils.Key}
-
-	currentValue, success := utils.GetValueFromPath(configPath, mappath)
-
-	if !success {
-		return fmt.Errorf("unable to get value from path %s", mappath)
-	}
-
-	if currentValue == key {
-		return fmt.Errorf("config is already using %s -> %s for %s", key, value, cc.ChainName())
-	}
-
-	if exists {
-		fmt.Printf("Config will now use  %s -> %s  for %s", key, value, cc.ChainName())
-	} else {
-		return fmt.Errorf("key %s does not exist for chain %s", key, cc.ChainName())
-	}
-
-	return utils.UpdateConfig(configPath, mappath, key)
+// Updates config.yaml chain with the specified key.
+// It fails if config.yaml is already using the same key or if the key does not exist
+// Note , this is not a runtime update cmd.
+func (cc *CosmosProvider) UseKey(configPath string, kvpath []string, key string) error {
+	return utils.UpdateConfig(configPath, kvpath, key)
 }
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.

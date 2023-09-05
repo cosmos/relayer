@@ -25,6 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -74,7 +75,33 @@ $ %s keys use ibc-0 key_name`, appName)),
 				return fmt.Errorf("chain %s not found in config", chainName)
 			}
 
-			return chain.ChainProvider.UseKey(key, a.configPath())
+			cc := chain.ChainProvider
+
+			info, err := cc.ListAddresses()
+			if err != nil {
+				return err
+			}
+			value, exists := info[key]
+
+			kvpath := []string{utils.Chains, cc.ChainName(), utils.Value, utils.Key}
+
+			currentValue, success := utils.GetValueFromPath(a.configPath(), kvpath)
+
+			if !success {
+				return fmt.Errorf("unable to get value from path %s", kvpath)
+			}
+
+			if currentValue == key {
+				return fmt.Errorf("config is already using %s -> %s for %s", key, value, cc.ChainName())
+			}
+
+			if exists {
+				fmt.Printf("Config will now use  %s -> %s  for %s\n", key, value, cc.ChainName())
+			} else {
+				return fmt.Errorf("key %s does not exist for chain %s", key, cc.ChainName())
+			}
+
+			return chain.ChainProvider.UseKey(a.configPath(), kvpath, key)
 		},
 	}
 	return cmd
