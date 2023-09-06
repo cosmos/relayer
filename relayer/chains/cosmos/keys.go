@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/cosmos/relayer/v2/utils"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -74,8 +73,9 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm 
 // Updates config.yaml chain with the specified key.
 // It fails if config.yaml is already using the same key or if the key does not exist
 // Note , this is not a runtime update cmd.
-func (cc *CosmosProvider) UseKey(configPath string, kvpath []string, key string) error {
-	return utils.UpdateConfig(configPath, kvpath, key)
+func (cc *CosmosProvider) UseKey(key string) error {
+	cc.PCfg.Key = key
+	return nil
 }
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
