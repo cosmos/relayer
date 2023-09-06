@@ -764,14 +764,14 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 }
 
 func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
+	callParam := icp.prepareCallParams(MethodGetPacketReceipt, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
 		"sequence":  types.NewHexInt(int64(seq)),
 	})
 	var packetReceiptHexByte types.HexInt
 	if err := icp.client.Call(callParam, &packetReceiptHexByte); err != nil {
-		return nil, err
+		packetReceiptHexByte = types.NewHexInt(0)
 	}
 	packetReceipt, err := packetReceiptHexByte.Value()
 	if err != nil {

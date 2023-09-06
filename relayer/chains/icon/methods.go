@@ -23,7 +23,6 @@ const (
 
 	MethodGetPacketCommitment                = "getPacketCommitment"
 	MethodGetPacketAcknowledgementCommitment = "getPacketAcknowledgementCommitment"
-	MethodHasPacketReceipt                   = "hasPacketReceipt"
 	MethodGetPacketReceipt                   = "getPacketReceipt"
 	MethodGetNextSequenceReceive             = "getNextSequenceReceive"
 	MethodGetNextSequenceSend                = "getNextSequenceSend"

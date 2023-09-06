@@ -694,7 +694,8 @@ func (icp *IconProvider) SendMessagesToMempool(
 		if msg != nil {
 			err := icp.SendIconTransaction(ctx, msg, asyncCtx, asyncCallback)
 			if err != nil {
-				return err
+				icp.log.Warn("Send Icon Transaction Error", zap.String("method", msg.Type()), zap.Error(err))
+				continue
 			}
 		}
 	}
