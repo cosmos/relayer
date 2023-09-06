@@ -223,7 +223,7 @@ func (ccp *WasmChainProcessor) StartFromHeight(ctx context.Context) int64 {
 func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration:      time.Duration(ccp.chainProvider.PCfg.BlockInterval * uint64(common.NanoToMilliRatio)),
+		minQueryLoopDuration:      defaultMinQueryLoopDuration,
 		lastBalanceUpdate:         time.Unix(0, 0),
 		balanceUpdateWaitDuration: defaultBalanceUpdateWaitDuration,
 	}

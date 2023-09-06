@@ -231,7 +231,7 @@ func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provid
 	)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetCommitmentResponse.Proof,
@@ -242,7 +242,7 @@ func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provid
 func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetAckResponse.Proof,
@@ -255,7 +255,7 @@ func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.
 	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetReceiptResponse.Proof,
@@ -266,7 +266,7 @@ func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.
 func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	nextSeqRecvResponse, err := ap.QueryNextSeqRecv(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort)
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       nextSeqRecvResponse.Proof,

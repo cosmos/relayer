@@ -329,7 +329,7 @@ func (icp *IconProvider) PacketCommitment(ctx context.Context, msgTransfer provi
 func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetAckResponse, err := icp.QueryPacketAcknowledgement(ctx, int64(msgRecvPacket.Height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetAckResponse.Proof,
@@ -342,7 +342,7 @@ func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider
 	packetReceiptResponse, err := icp.QueryPacketReceipt(ctx, int64(msgTransfer.Height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetReceiptResponse.Proof,
@@ -354,7 +354,7 @@ func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider
 func (icp *IconProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	nextSeqRecvResponse, err := icp.QueryNextSeqRecv(ctx, int64(msgTransfer.Height), msgTransfer.DestChannel, msgTransfer.DestPort)
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       nextSeqRecvResponse.Proof,
