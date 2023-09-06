@@ -203,16 +203,16 @@ type queryCyclePersistence struct {
 	balanceUpdateWaitDuration time.Duration
 }
 
-func (ccp *WasmChainProcessor) StartFromHeight(ctx context.Context) int {
+func (ccp *WasmChainProcessor) StartFromHeight(ctx context.Context) int64 {
 	cfg := ccp.Provider().ProviderConfig().(*WasmProviderConfig)
 	if cfg.StartHeight != 0 {
-		return int(cfg.StartHeight)
+		return int64(cfg.StartHeight)
 	}
 	snapshotHeight, err := common.LoadSnapshotHeight(ccp.Provider().ChainId())
 	if err != nil {
 		ccp.log.Warn("Failed to load height from snapshot", zap.Error(err))
 	} else {
-		ccp.log.Info("Obtained start height from config", zap.Int("height", snapshotHeight))
+		ccp.log.Info("Obtained start height from config", zap.Int64("height", snapshotHeight))
 	}
 	return snapshotHeight
 }
@@ -248,16 +248,13 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
 	latestQueriedBlock := ccp.StartFromHeight(ctx)
-	if latestQueriedBlock < 0 {
-		latestQueriedBlock = int(persistence.latestHeight - int64(initialBlockHistory))
-		if latestQueriedBlock < 0 {
-			latestQueriedBlock = 0
-		}
+	if latestQueriedBlock <= 0 || latestQueriedBlock > persistence.latestHeight {
+		latestQueriedBlock = persistence.latestHeight
 	}
 
 	persistence.latestQueriedBlock = int64(latestQueriedBlock)
 
-	ccp.log.Info("Start to query from height ", zap.Int("height", latestQueriedBlock))
+	ccp.log.Info("Start to query from height ", zap.Int64("height", latestQueriedBlock))
 
 	_, lightBlock, err := ccp.chainProvider.QueryLightBlock(ctx, persistence.latestQueriedBlock)
 	if err != nil {
@@ -519,20 +516,20 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	return nil
 }
 
-func (ccp *WasmChainProcessor) getHeightToSave(height int64) int {
+func (ccp *WasmChainProcessor) getHeightToSave(height int64) int64 {
 	retryAfter := ccp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
-	ht := int(height - int64(retryAfter))
+	ht := height - int64(retryAfter)
 	if ht < 0 {
 		return 0
 	}
 	return ht
 }
 
-func (ccp *WasmChainProcessor) SnapshotHeight(height int) {
-	ccp.log.Info("Save height for snapshot", zap.Int("height", height))
+func (ccp *WasmChainProcessor) SnapshotHeight(height int64) {
+	ccp.log.Info("Save height for snapshot", zap.Int64("height", height))
 	err := common.SnapshotHeight(ccp.Provider().ChainId(), height)
 	if err != nil {
-		ccp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
+		ccp.log.Warn("Failed saving height snapshot for height", zap.Int64("height", height))
 	}
 }
 

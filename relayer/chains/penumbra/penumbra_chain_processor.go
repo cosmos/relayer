@@ -267,11 +267,11 @@ func (pcp *PenumbraChainProcessor) initializeChannelState(ctx context.Context) e
 	return nil
 }
 
-func (ccp *PenumbraChainProcessor) SnapshotHeight(height int) {
+func (ccp *PenumbraChainProcessor) SnapshotHeight(height int64) {
 	panic("Not implemented for Penumbra")
 }
 
-func (ccp *PenumbraChainProcessor) StartFromHeight(ctx context.Context) int {
+func (ccp *PenumbraChainProcessor) StartFromHeight(ctx context.Context) int64 {
 	panic("Not implemented for Penumbra")
 }
 

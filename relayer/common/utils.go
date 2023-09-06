@@ -29,7 +29,7 @@ func getSnapshotPath(chain_name string) (string, error) {
 	return snapshot, nil
 }
 
-func SnapshotHeight(chain_id string, height int) error {
+func SnapshotHeight(chain_id string, height int64) error {
 	snapshot, err := getSnapshotPath(chain_id)
 	if err != nil {
 		return fmt.Errorf("Failed to find snapshot path, %w", err)
@@ -46,7 +46,7 @@ func SnapshotHeight(chain_id string, height int) error {
 	return nil
 }
 
-func LoadSnapshotHeight(chain_id string) (int, error) {
+func LoadSnapshotHeight(chain_id string) (int64, error) {
 	snapshot, err := getSnapshotPath(chain_id)
 	if err != nil {
 		return -1, fmt.Errorf("Failed to find snapshot path, %w", err)
@@ -56,5 +56,5 @@ func LoadSnapshotHeight(chain_id string) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("Failed reading file, %w", err)
 	}
-	return strconv.Atoi(strings.TrimSuffix(string(content), "\n"))
+	return strconv.ParseInt(strings.TrimSuffix(string(content), "\n"), 10, 64)
 }

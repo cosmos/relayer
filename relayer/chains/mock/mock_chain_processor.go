@@ -59,11 +59,11 @@ func NewMockChainProcessor(ctx context.Context, log *zap.Logger, chainID string,
 	}
 }
 
-func (mcp *MockChainProcessor) SnapshotHeight(height int) {
+func (mcp *MockChainProcessor) SnapshotHeight(height int64) {
 	panic("")
 }
 
-func (mcp *MockChainProcessor) StartFromHeight(ctx context.Context) int {
+func (mcp *MockChainProcessor) StartFromHeight(ctx context.Context) int64 {
 	return 0
 }
 

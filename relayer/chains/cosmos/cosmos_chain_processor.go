@@ -262,11 +262,11 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	}
 }
 
-func (ccp *CosmosChainProcessor) SnapshotHeight(height int) {
+func (ccp *CosmosChainProcessor) SnapshotHeight(height int64) {
 	panic("Not implemented for Cosmos")
 }
 
-func (ccp *CosmosChainProcessor) StartFromHeight(ctx context.Context) int {
+func (ccp *CosmosChainProcessor) StartFromHeight(ctx context.Context) int64 {
 	panic("Not implemented for Cosmos")
 }
 

@@ -23,11 +23,11 @@ type ChainProcessor interface {
 
 	// Take snapshot of height every N blocks or when the chain processor fails, so that the relayer
 	// can restart from that height
-	SnapshotHeight(height int)
+	SnapshotHeight(height int64)
 
 	// If the relay goes down, start chain processor from height returned by this function
 	// CAN return max(snapshotHeight, latestHeightFromClient)
-	StartFromHeight(ctx context.Context) int
+	StartFromHeight(ctx context.Context) int64
 }
 
 // ChainProcessors is a slice of ChainProcessor instances.
