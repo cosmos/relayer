@@ -71,8 +71,7 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm 
 }
 
 // Updates config.yaml chain with the specified key.
-// It fails if config.yaml is already using the same key or if the key does not exist
-// Note , this is not a runtime update cmd.
+// It fails config is  already using the same key or if the key does not exist
 func (cc *CosmosProvider) UseKey(key string) error {
 	cc.PCfg.Key = key
 	return nil
