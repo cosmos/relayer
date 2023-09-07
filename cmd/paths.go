@@ -368,7 +368,8 @@ func pathsFetchCmd(a *appState) *cobra.Command {
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths fetch --home %s
-$ %s pth fch`, appName, defaultHome, appName)),
+$ %s paths fetch --testnet
+$ %s pth fch`, appName, defaultHome, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
 			testnet, _ := cmd.Flags().GetBool(flagTestnet)

@@ -291,8 +291,8 @@ func chainsAddCmd(a *appState) *cobra.Command {
 			"                the chain-registry or passing a file (-f) or url (-u)",
 		Args: withUsage(cobra.MinimumNArgs(0)),
 		Example: fmt.Sprintf(` $ %s chains add cosmoshub
- $ %s chains add testnets/cosmoshubtestnet
  $ %s chains add cosmoshub osmosis
+ $ %s chains add cosmoshubtestnet --testnet
  $ %s chains add --file chains/ibc0.json ibc0
  $ %s chains add --url https://relayer.com/ibc0.json ibc0`, appName, appName, appName, appName, appName),
 		RunE: func(cmd *cobra.Command, args []string) error {
