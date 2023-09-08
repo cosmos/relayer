@@ -60,7 +60,7 @@ func keysUseCmd(a *appState) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "use chain_name key_name",
-		Aliases: []string{"a"},
+		Aliases: []string{"u"},
 		Short:   "Use a key from the keychain associated with a particular chain. Run 'rly keys list ibc-0' to view available keys",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
