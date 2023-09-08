@@ -181,9 +181,8 @@ func (icp *IconChainProcessor) getLastSavedHeight() int64 {
 }
 
 func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) error {
-	// TODO: review
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	// defer cancel()
 
 	connections, err := icp.chainProvider.QueryConnections(ctx)
 	if err != nil {
@@ -208,9 +207,8 @@ func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) er
 }
 
 func (icp *IconChainProcessor) initializeChannelState(ctx context.Context) error {
-	// TODO:
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	// defer cancel()
 	channels, err := icp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)

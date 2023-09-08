@@ -302,8 +302,8 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 // initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
 func (ccp *WasmChainProcessor) initializeConnectionState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	// defer cancel()
 	connections, err := ccp.chainProvider.QueryConnections(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying connections: %w", err)
@@ -327,8 +327,8 @@ func (ccp *WasmChainProcessor) initializeConnectionState(ctx context.Context) er
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	// defer cancel()
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)
