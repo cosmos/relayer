@@ -68,6 +68,13 @@ func (cc *PenumbraProvider) AddKey(name string, coinType uint32, signingAlgorith
 	return ko, nil
 }
 
+// Updates config.yaml chain with the specified key.
+// It fails config is  already using the same key or if the key does not exist
+func (cc *PenumbraProvider) UseKey(key string) error {
+	cc.PCfg.Key = key
+	return nil
+}
+
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
 // It fails if there is an existing key with the same address.
 func (cc *PenumbraProvider) RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error) {
