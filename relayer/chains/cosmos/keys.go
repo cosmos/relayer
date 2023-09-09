@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 
+	"github.com/cosmos/relayer/v2/relayer/provider"
+
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -12,7 +14,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 const ethereumCoinType = uint32(60)
@@ -67,6 +68,13 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm 
 		return nil, err
 	}
 	return ko, nil
+}
+
+// Updates config.yaml chain with the specified key.
+// It fails config is  already using the same key or if the key does not exist
+func (cc *CosmosProvider) UseKey(key string) error {
+	cc.PCfg.Key = key
+	return nil
 }
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.

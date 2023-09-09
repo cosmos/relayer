@@ -10,7 +10,7 @@ jobs:
   events:
     runs-on: self-hosted
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -31,7 +31,7 @@ jobs:
   legacy:
     runs-on: self-hosted
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -52,7 +52,7 @@ jobs:
   multiple-paths:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -73,7 +73,7 @@ jobs:
   misbehaviour:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -94,7 +94,7 @@ jobs:
   fee-middleware:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -115,7 +115,7 @@ jobs:
   fee-grant:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -136,7 +136,7 @@ jobs:
   scenarios:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
@@ -153,3 +153,7 @@ jobs:
 
       - name: interchaintest
         run: make interchaintest-scenario
+
+      - name: Prune Docker images
+        if: always() #ensure dangling images are pruned after interchain-test scenario  passes or fails
+        run: docker image prune -f
