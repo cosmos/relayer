@@ -63,7 +63,7 @@ func feegrantQueryCmd(a *appState) *cobra.Command {
 	cmd.AddCommand(
 		feegrantBasicGrantsCmd(a),
 	)
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -99,7 +99,7 @@ $ %s q ibc-denoms ibc-0`,
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -127,7 +127,7 @@ $ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D9
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -161,7 +161,7 @@ $ %s q tx ibc-0 A5DF8D272F1C451CFF92BA6C41942C4D29B5CF180279439ED6AB038282F956BE
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -213,7 +213,9 @@ $ %s q txs ibc-0 "message.action=transfer"`,
 		},
 	}
 
-	return paginationFlags(a.viper, cmd, "txs")
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = paginationFlags(a.viper, cmd, "txs")
+	return cmd
 }
 
 func queryBalanceCmd(a *appState) *cobra.Command {
@@ -269,12 +271,22 @@ $ %s query balance ibc-0 testkey`,
 				return err
 			}
 
-			fmt.Fprint(cmd.OutOrStdout(), string(jsonOutput))
+			output, _ := cmd.Flags().GetString(flagOutput)
+			switch output {
+			case "json":
+				fmt.Fprint(cmd.OutOrStdout(), string(jsonOutput))
+			case "legacy":
+				fallthrough
+			default:
+				fmt.Fprintf(cmd.OutOrStdout(), "address {%s} balance {%s} \n", addr, coins)
+			}
 			return nil
 		},
 	}
 
-	return ibcDenomFlags(a.viper, cmd)
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = ibcDenomFlags(a.viper, cmd)
+	return cmd
 }
 
 func queryHeaderCmd(a *appState) *cobra.Command {
@@ -321,11 +333,21 @@ $ %s query header ibc-0 1400`,
 				return err
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), string(s))
+			output, _ := cmd.Flags().GetString(flagOutput)
+			switch output {
+			case "json":
+				fmt.Fprintln(cmd.OutOrStdout(), string(s))
+			case "legacy":
+				fallthrough
+			default:
+				fmt.Fprintln(cmd.OutOrStdout(), s)
+			}
+
 			return nil
 		},
 	}
 
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -367,7 +389,7 @@ $ %s q node-state ibc-1`,
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -418,8 +440,9 @@ $ %s query client ibc-0 ibczeroclient --height 1205`,
 			return nil
 		},
 	}
-
-	return heightFlag(a.viper, cmd)
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = heightFlag(a.viper, cmd)
+	return cmd
 }
 
 func queryClientsCmd(a *appState) *cobra.Command {
@@ -463,8 +486,9 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			return nil
 		},
 	}
-
-	return paginationFlags(a.viper, cmd, "client states")
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = paginationFlags(a.viper, cmd, "client states")
+	return cmd
 }
 
 func queryConnections(a *appState) *cobra.Command {
@@ -510,7 +534,9 @@ $ %s q conns ibc-1`,
 		},
 	}
 
-	return paginationFlags(a.viper, cmd, "connections on a network")
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = paginationFlags(a.viper, cmd, "connections on a network")
+	return cmd
 }
 
 func queryConnectionsUsingClient(a *appState) *cobra.Command {
@@ -563,7 +589,9 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 		},
 	}
 
-	return heightFlag(a.viper, cmd)
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = heightFlag(a.viper, cmd)
+	return cmd
 }
 
 func queryConnection(a *appState) *cobra.Command {
@@ -607,7 +635,7 @@ $ %s q conn ibc-1 ibconeconn`,
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -656,7 +684,9 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 		},
 	}
 
-	return paginationFlags(a.viper, cmd, "channels associated with a connection")
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = paginationFlags(a.viper, cmd, "channels associated with a connection")
+	return cmd
 }
 
 func queryChannel(a *appState) *cobra.Command {
@@ -709,7 +739,9 @@ $ %s query channel ibc-2 ibctwochannel transfer --height 1205`,
 		},
 	}
 
-	return heightFlag(a.viper, cmd)
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = heightFlag(a.viper, cmd)
+	return cmd
 }
 
 // chanExtendedInfo is an intermediate type for holding additional useful
@@ -929,7 +961,9 @@ $ %s query channels ibc-0 ibc-2`,
 		},
 	}
 
-	return paginationFlags(a.viper, cmd, "channels on a network")
+	cmd = addOutputFlag(a.viper, cmd)
+	cmd = paginationFlags(a.viper, cmd, "channels on a network")
+	return cmd
 }
 
 func queryPacketCommitment(a *appState) *cobra.Command {
@@ -971,7 +1005,7 @@ $ %s q packet-commit ibc-1 ibconechannel transfer 31`,
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -1024,7 +1058,7 @@ $ %s query unrelayed-pkts demo-path channel-0`,
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -1076,7 +1110,7 @@ $ %s query unrelayed-acks demo-path channel-0`,
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -1117,24 +1151,27 @@ $ %s query clients-expiration demo-path`,
 				return errDst
 			}
 
-			// if only the src light client is found, just print info for source light client
-			if errSrc == nil && errDst != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
-				return nil
+			output, _ := cmd.Flags().GetString(flagOutput)
+
+			srcClientExpiration := relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo)
+			dstClientExpiration := relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo)
+
+			if output == "json" {
+				srcClientExpiration = relayer.SPrintClientExpirationJson(c[src], srcExpiration, srcClientInfo)
+				dstClientExpiration = relayer.SPrintClientExpirationJson(c[dst], dstExpiration, dstClientInfo)
 			}
 
-			// if only the dst light client is found, just print info for destination light client
-			if errDst == nil && errSrc != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
-				return nil
+			if errSrc == nil && errDst == nil {
+				fmt.Fprintln(cmd.OutOrStdout(), srcClientExpiration)
+				fmt.Fprintln(cmd.OutOrStdout(), dstClientExpiration)
+			} else if errSrc == nil && errDst != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), dstClientExpiration)
+			} else if errDst == nil && errSrc != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), srcClientExpiration)
 			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo))
-			fmt.Fprintln(cmd.OutOrStdout(), relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo))
-
 			return nil
 		},
 	}
-
+	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }
