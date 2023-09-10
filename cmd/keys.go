@@ -59,7 +59,6 @@ func keysCmd(a *appState) *cobra.Command {
 }
 
 func keysUseCmd(a *appState) *cobra.Command {
-
 	cmd := &cobra.Command{
 		Use:     "use chain_name key_name",
 		Aliases: []string{"u"},

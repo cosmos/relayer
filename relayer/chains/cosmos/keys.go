@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/cosmos/go-bip39"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -15,6 +14,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 const ethereumCoinType = uint32(60)

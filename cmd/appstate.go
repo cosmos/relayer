@@ -254,7 +254,6 @@ func (a *appState) updatePathConfig(
 }
 
 func (a *appState) useKey(chainName, key string) error {
-
 	chain, exists := a.config.Chains[chainName]
 	if !exists {
 		return fmt.Errorf("chain %s not found in config", chainName)
