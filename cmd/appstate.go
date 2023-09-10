@@ -278,7 +278,6 @@ func (a *appState) useKey(chainName, key string) error {
 		return fmt.Errorf("key %s does not exist for chain %s", key, cc.ChainName())
 	}
 	return a.performConfigLockingOperation(context.Background(), func() error {
-		a.config.Chains[chainName].ChainProvider.UseKey(key)
-		return nil
+		return a.config.Chains[chainName].ChainProvider.UseKey(key)
 	})
 }
