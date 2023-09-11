@@ -310,7 +310,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTimer.C:
 		// Periodic flush to clear out any old packets
-		pp.handleFlush(ctx)
+		// pp.handleFlush(ctx)
 	}
 	return false
 }
