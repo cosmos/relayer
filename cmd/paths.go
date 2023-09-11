@@ -401,6 +401,11 @@ $ %s pth fch cosmoshub`, appName, defaultHome, appName, appName)),
 						if chainB < chainA {
 							pair = chainB + "-" + chainA
 						}
+
+						if chainReq != "" && !strings.Contains(pair, chainReq) {
+							continue
+						}
+
 						chainCombinations[pair] = true
 					}
 				}
@@ -410,10 +415,6 @@ $ %s pth fch cosmoshub`, appName, defaultHome, appName, appName)),
 					_, exist := a.config.Paths[pthName]
 					if exist && !overwrite {
 						fmt.Fprintf(cmd.ErrOrStderr(), "skipping:  %s already exists in config, use -o to overwrite (clears filters)\n", pthName)
-						continue
-					}
-
-					if chainReq != "" && !strings.Contains(pthName, chainReq) {
 						continue
 					}
 
