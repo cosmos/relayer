@@ -3,9 +3,9 @@ package wasm
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
@@ -30,9 +30,11 @@ func byteToInt(b []byte) (int, error) {
 }
 
 func ProcessContractResponse(p *wasmtypes.QuerySmartContractStateResponse) ([]byte, error) {
-	data := string(p.Data.Bytes())
-	trimmedData := strings.ReplaceAll(data, `"`, "")
-	return hex.DecodeString(trimmedData)
+	var output string
+	if err := json.Unmarshal(p.Data.Bytes(), &output); err != nil {
+		return nil, err
+	}
+	return hex.DecodeString(output)
 }
 
 func getStorageKeyFromPath(path []byte) []byte {

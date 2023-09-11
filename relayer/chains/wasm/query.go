@@ -272,7 +272,7 @@ func (ap *WasmProvider) QueryClientStateContract(ctx context.Context, clientId s
 
 	iconClientState, ok := clientS.(*icon.ClientState)
 	if !ok {
-		return nil, fmt.Errorf("Error casting to icon.ClientState")
+		return nil, fmt.Errorf("error casting to icon.ClientState")
 	}
 
 	return iconClientState, nil
@@ -297,13 +297,13 @@ func (ap *WasmProvider) QueryConnectionContract(ctx context.Context, connId stri
 	return &connS, nil
 }
 
-func (ap *WasmProvider) QueryChannelContract(ctx context.Context, portId, channelId string) (*chantypes.Channel, error) {
+func (ap *WasmProvider) QueryChannelContractNoRetry(ctx context.Context, portId, channelId string) (*chantypes.Channel, error) {
 	channelStateParam, err := types.NewChannel(portId, channelId).Bytes()
 	if err != nil {
 		return nil, err
 	}
 
-	channelState, err := ap.QueryIBCHandlerContractProcessed(ctx, channelStateParam)
+	channelState, err := ap.QueryIBCHandlerContractNoRetry(ctx, channelStateParam)
 	if err != nil {
 		return nil, err
 	}
@@ -318,6 +318,9 @@ func (ap *WasmProvider) QueryChannelContract(ctx context.Context, portId, channe
 func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 
 	consensusStateParam, err := types.NewConsensusStateByHeight(clientid, uint64(clientHeight.GetRevisionHeight())).Bytes()
+	if err != nil {
+		return nil, err
+	}
 	consensusState, err := ap.QueryIBCHandlerContractProcessed(ctx, consensusStateParam)
 	if err != nil {
 		return nil, err
@@ -354,6 +357,24 @@ func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmt
 			zap.Error(err),
 		)
 	}))
+}
+
+func (ap *WasmProvider) QueryIBCHandlerContractNoRetry(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
+	done := ap.SetSDKContext()
+	defer done()
+	resp, err := ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+		Address:   ap.PCfg.IbcHandlerAddress,
+		QueryData: param,
+	})
+	if err != nil {
+		ap.log.Error(
+			"Failed to query",
+			zap.Any("Param", param),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	return ProcessContractResponse(resp)
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
@@ -501,6 +522,9 @@ func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, conne
 
 	storageKey := getStorageKeyFromPath(common.GetConnectionCommitmentKey(connectionid))
 	connProof, err := ap.QueryWasmProof(ctx, storageKey, height)
+	if err != nil {
+		return nil, err
+	}
 
 	return conntypes.NewQueryConnectionResponse(conn, connProof, clienttypes.NewHeight(0, uint64(height))), nil
 }
@@ -522,7 +546,7 @@ func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, h
 	}
 
 	req := abci.RequestQuery{
-		Path:   fmt.Sprintf("store/wasm/key"),
+		Path:   "store/wasm/key",
 		Data:   key,
 		Prove:  true,
 		Height: height,
@@ -643,6 +667,9 @@ func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channeli
 
 	storageKey := getStorageKeyFromPath(common.GetChannelCommitmentKey(portid, channelid))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
+	if err != nil {
+		return nil, err
+	}
 
 	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
 }
@@ -683,7 +710,7 @@ func (ap *WasmProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identif
 	for i := 0; i <= int(nextSeq)-1; i++ {
 		for _, portId := range allPorts {
 			channelId := common.GetIdentifier(common.ChannelKey, i)
-			channel, err := ap.QueryChannelContract(ctx, portId, channelId)
+			channel, err := ap.QueryChannelContractNoRetry(ctx, portId, channelId)
 			if err != nil {
 				continue
 			}
