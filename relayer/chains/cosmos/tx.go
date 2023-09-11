@@ -35,7 +35,6 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"github.com/cosmos/gogoproto/proto"
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
@@ -700,13 +699,6 @@ func convertCoins(prices string) (sdk.Coins, error) {
 	return coins, nil
 }
 
-func (cc *CosmosProvider) encodeSignedTx(
-	ctx context.Context,
-	tx authsigning.Tx,
-) ([]byte, error) {
-	return cc.Cdc.TxConfig.TxEncoder()(tx)
-}
-
 func (cc *CosmosProvider) buildMessages(
 	ctx context.Context,
 	txf *tx.Factory,
@@ -717,7 +709,7 @@ func (cc *CosmosProvider) buildMessages(
 		return nil, 0, sdk.Coins{}, err
 	}
 	tx := txb.GetTx()
-	txBytes, err := cc.encodeSignedTx(ctx, tx)
+	txBytes, err := cc.Cdc.TxConfig.TxEncoder()(tx)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
@@ -907,7 +899,7 @@ func (cc *CosmosProvider) buildEvmMessages(
 	builder.SetMsgs(txs...)
 	builder.SetFeeAmount(fees)
 	builder.SetGasLimit(txGasLimit)
-	txBytes, err := cc.encodeSignedTx(ctx, builder.GetTx())
+	txBytes, err := cc.Cdc.TxConfig.TxEncoder()(builder.GetTx())
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
