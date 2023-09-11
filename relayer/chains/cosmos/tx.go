@@ -2,17 +2,21 @@ package cosmos
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	errorsmod "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
@@ -31,6 +35,8 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
+	"github.com/cosmos/gogoproto/proto"
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -42,8 +48,13 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	"github.com/cosmos/relayer/v2/relayer/ethermint"
+	ethermintcodecs "github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
+	etherminttypes "github.com/evmos/ethermint/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -170,7 +181,20 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	sequenceGuard.Mu.Lock()
 	defer sequenceGuard.Mu.Unlock()
 
-	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey, sequenceGuard)
+	txf, txb, err := cc.getTxFactoryAndBuilder(ctx, msgs, memo, 0, txSignerKey, feegranterKey, sequenceGuard)
+	if err != nil {
+		return err
+	}
+	done := cc.SetSDKContext()
+	var txBytes []byte
+	var sequence uint64
+	var fees sdk.Coins
+	if len(cc.PCfg.PrecompiledContractAddress) > 0 {
+		txBytes, sequence, fees, err = cc.buildEvmMessages(ctx, txf, txb)
+	} else {
+		txBytes, sequence, fees, err = cc.buildMessages(ctx, txf, txb, txSignerKey)
+	}
+	done()
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
 		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
@@ -187,7 +211,6 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 
 		return err
 	}
-
 	// we had a successful tx broadcast with this sequence, so update it to the next
 	cc.updateNextAccountSequence(sequenceGuard, sequence+1)
 	return nil
@@ -588,7 +611,7 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	return
 }
 
-func (cc *CosmosProvider) buildMessages(
+func (cc *CosmosProvider) getTxFactoryAndBuilder(
 	ctx context.Context,
 	msgs []provider.RelayerMessage,
 	memo string,
@@ -596,27 +619,23 @@ func (cc *CosmosProvider) buildMessages(
 	txSignerKey string,
 	feegranterKey string,
 	sequenceGuard *WalletState,
-) (
-	txBytes []byte,
-	sequence uint64,
-	fees sdk.Coins,
-	err error,
-) {
+) (*tx.Factory, client.TxBuilder, error) {
 	done := cc.SetSDKContext()
 	defer done()
 
 	cMsgs := CosmosMsgs(msgs...)
 
 	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey)
-	if err != nil {
-		return nil, 0, sdk.Coins{}, err
-	}
 
-	if memo != "" {
+	if err != nil {
+		return nil, nil, err
+	}
+	cc.log.Info("memo", zap.String("origin", memo))
+	if len(cc.PCfg.PrecompiledContractAddress) == 0 && memo != "" {
 		txf = txf.WithMemo(memo)
 	}
 
-	sequence = txf.Sequence()
+	sequence := txf.Sequence()
 	cc.updateNextAccountSequence(sequenceGuard, sequence)
 	if sequence < sequenceGuard.NextAccountSequence {
 		sequence = sequenceGuard.NextAccountSequence
@@ -629,7 +648,7 @@ func (cc *CosmosProvider) buildMessages(
 		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
 
 		if err != nil {
-			return nil, 0, sdk.Coins{}, err
+			return nil, nil, err
 		}
 	}
 
@@ -637,7 +656,7 @@ func (cc *CosmosProvider) buildMessages(
 	if txSignerKey != feegranterKey && feegranterKey != "" {
 		granterAddr, err := cc.GetKeyAddressForKey(feegranterKey)
 		if err != nil {
-			return nil, 0, sdk.Coins{}, err
+			return nil, nil, err
 		}
 
 		txf = txf.WithFeeGranter(granterAddr)
@@ -649,22 +668,241 @@ func (cc *CosmosProvider) buildMessages(
 	// Build the transaction builder
 	txb, err := txf.BuildUnsignedTx(cMsgs...)
 	if err != nil {
+		return nil, nil, err
+	}
+	return &txf, txb, nil
+}
+
+func convertAddress(addrString string) (*common.Address, error) {
+	cfg := sdk.GetConfig()
+	var addr []byte
+	// try hex, then bech32
+	switch {
+	case common.IsHexAddress(addrString):
+		addr = common.HexToAddress(addrString).Bytes()
+	case strings.HasPrefix(addrString, cfg.GetBech32ValidatorAddrPrefix()):
+		addr, _ = sdk.ValAddressFromBech32(addrString)
+	case strings.HasPrefix(addrString, cfg.GetBech32AccountAddrPrefix()):
+		addr, _ = sdk.AccAddressFromBech32(addrString)
+	default:
+		return nil, fmt.Errorf("expected a valid hex or bech32 address (acc prefix %s), got '%s'", cfg.GetBech32AccountAddrPrefix(), addrString)
+	}
+	to := common.BytesToAddress(addr)
+	return &to, nil
+}
+
+func convertCoins(prices string) (sdk.Coins, error) {
+	coins, err := sdk.ParseCoinsNormalized(prices)
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "failed to parse coins")
+	}
+	return coins, nil
+}
+
+func (cc *CosmosProvider) buildMessages(
+	ctx context.Context,
+	txf *tx.Factory,
+	txb client.TxBuilder,
+	txSignerKey string,
+) ([]byte, uint64, sdk.Coins, error) {
+	if err := tx.Sign(*txf, txSignerKey, txb, false); err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
-
-	if err = tx.Sign(txf, txSignerKey, txb, false); err != nil {
-		return nil, 0, sdk.Coins{}, err
-	}
-
 	tx := txb.GetTx()
-	fees = tx.GetFee()
-
-	// Generate the transaction bytes
-	txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
+	txBytes, err := cc.Cdc.TxConfig.TxEncoder()(tx)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
 
+	return txBytes, txf.Sequence(), tx.GetFee(), nil
+}
+
+func getChainConfig(chainID *big.Int) *params.ChainConfig {
+	homesteadBlock := new(big.Int)
+	daoForkBlock := new(big.Int)
+	eip150Block := new(big.Int)
+	eip155Block := new(big.Int)
+	eip158Block := new(big.Int)
+	byzantiumBlock := new(big.Int)
+	constantinopleBlock := new(big.Int)
+	petersburgBlock := new(big.Int)
+	istanbulBlock := new(big.Int)
+	muirGlacierBlock := new(big.Int)
+	berlinBlock := new(big.Int)
+	londonBlock := new(big.Int)
+	arrowGlacierBlock := new(big.Int)
+	grayGlacierBlock := new(big.Int)
+	mergeNetsplitBlock := new(big.Int)
+	shanghaiBlock := new(big.Int)
+	cancunBlock := new(big.Int)
+
+	return &params.ChainConfig{
+		ChainID:             chainID,
+		HomesteadBlock:      homesteadBlock,
+		DAOForkBlock:        daoForkBlock,
+		DAOForkSupport:      true,
+		EIP150Block:         eip150Block,
+		EIP155Block:         eip155Block,
+		EIP158Block:         eip158Block,
+		ByzantiumBlock:      byzantiumBlock,
+		ConstantinopleBlock: constantinopleBlock,
+		PetersburgBlock:     petersburgBlock,
+		IstanbulBlock:       istanbulBlock,
+		MuirGlacierBlock:    muirGlacierBlock,
+		BerlinBlock:         berlinBlock,
+		LondonBlock:         londonBlock,
+		ArrowGlacierBlock:   arrowGlacierBlock,
+		GrayGlacierBlock:    grayGlacierBlock,
+		MergeNetsplitBlock:  mergeNetsplitBlock,
+		ShanghaiBlock:       shanghaiBlock,
+		CancunBlock:         cancunBlock,
+	}
+}
+
+// prefix bytes for the relayer msg type
+const (
+	prefixSize4Bytes = 4
+	// Client
+	prefixCreateClient = iota + 1
+	prefixUpdateClient
+	prefixUpgradeClient
+	prefixSubmitMisbehaviour
+	// Connection
+	prefixConnectionOpenInit
+	prefixConnectionOpenTry
+	prefixConnectionOpenAck
+	prefixConnectionOpenConfirm
+	// Channel
+	prefixChannelOpenInit
+	prefixChannelOpenTry
+	prefixChannelOpenAck
+	prefixChannelOpenConfirm
+	prefixChannelCloseInit
+	prefixChannelCloseConfirm
+	prefixRecvPacket
+	prefixAcknowledgement
+	prefixTimeout
+	prefixTimeoutOnClose
+)
+
+var messageMap = map[reflect.Type]int{
+	reflect.TypeOf((*clienttypes.MsgCreateClient)(nil)):        prefixCreateClient,
+	reflect.TypeOf((*clienttypes.MsgUpdateClient)(nil)):        prefixUpdateClient,
+	reflect.TypeOf((*clienttypes.MsgUpgradeClient)(nil)):       prefixUpgradeClient,
+	reflect.TypeOf((*clienttypes.MsgSubmitMisbehaviour)(nil)):  prefixSubmitMisbehaviour,
+	reflect.TypeOf((*conntypes.MsgConnectionOpenInit)(nil)):    prefixConnectionOpenInit,
+	reflect.TypeOf((*conntypes.MsgConnectionOpenTry)(nil)):     prefixConnectionOpenTry,
+	reflect.TypeOf((*conntypes.MsgConnectionOpenAck)(nil)):     prefixConnectionOpenAck,
+	reflect.TypeOf((*conntypes.MsgConnectionOpenConfirm)(nil)): prefixConnectionOpenConfirm,
+	reflect.TypeOf((*chantypes.MsgChannelOpenInit)(nil)):       prefixChannelOpenInit,
+	reflect.TypeOf((*chantypes.MsgChannelOpenTry)(nil)):        prefixChannelOpenTry,
+	reflect.TypeOf((*chantypes.MsgChannelOpenAck)(nil)):        prefixChannelOpenAck,
+	reflect.TypeOf((*chantypes.MsgChannelOpenConfirm)(nil)):    prefixChannelOpenConfirm,
+	reflect.TypeOf((*chantypes.MsgChannelCloseInit)(nil)):      prefixChannelCloseInit,
+	reflect.TypeOf((*chantypes.MsgChannelCloseConfirm)(nil)):   prefixChannelCloseConfirm,
+	reflect.TypeOf((*chantypes.MsgRecvPacket)(nil)):            prefixRecvPacket,
+	reflect.TypeOf((*chantypes.MsgAcknowledgement)(nil)):       prefixAcknowledgement,
+	reflect.TypeOf((*chantypes.MsgTimeout)(nil)):               prefixTimeout,
+	reflect.TypeOf((*chantypes.MsgTimeoutOnClose)(nil)):        prefixTimeoutOnClose,
+}
+
+func addLengthPrefix(prefix int, input []byte) []byte {
+	prefixBytes := make([]byte, prefixSize4Bytes)
+	binary.LittleEndian.PutUint32(prefixBytes, uint32(prefix))
+	return append(prefixBytes, input...)
+}
+
+func (cc *CosmosProvider) buildEvmMessages(
+	ctx context.Context,
+	txf *tx.Factory,
+	txb client.TxBuilder,
+) ([]byte, uint64, sdk.Coins, error) {
+	chainID, err := ethermintcodecs.ParseChainID(cc.PCfg.ChainID)
+	if err != nil {
+		return nil, 0, sdk.Coins{}, err
+	}
+	gasLimit := txf.Gas()
+	gasPrices, err := convertCoins(cc.PCfg.GasPrices)
+	if err != nil {
+		return nil, 0, sdk.Coins{}, err
+	}
+	gasPriceCoin := gasPrices[0]
+	gasPrice := gasPriceCoin.Amount.BigInt()
+	gasFeeCap := gasPrice
+	var gasTipCap *big.Int
+	if len(cc.PCfg.ExtensionOptions) > 0 {
+		var ok bool
+		gasTipCap, ok = new(big.Int).SetString(cc.PCfg.ExtensionOptions[0].Value, 10)
+		if !ok {
+			return nil, 0, sdk.Coins{}, errors.New("unsupported extOption")
+		}
+	}
+	txs := make([]sdk.Msg, 0, len(txb.GetTx().GetMsgs()))
+	fees := make(sdk.Coins, 0)
+	var txGasLimit uint64 = 0
+	contractAddress := common.HexToAddress(cc.PCfg.PrecompiledContractAddress)
+	blockNumber := new(big.Int)
+	for i, m := range txb.GetTx().GetMsgs() {
+		prefix, ok := messageMap[reflect.TypeOf(m)]
+		if !ok {
+			return nil, 0, sdk.Coins{}, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "invalid message type %T", m)
+		}
+		signers := m.GetSigners()
+		if len(signers) != 1 {
+			return nil, 0, sdk.Coins{}, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "invalid signers length %d", len(signers))
+		}
+		from, err := convertAddress(signers[0].String())
+		if err != nil {
+			return nil, 0, sdk.Coins{}, err
+		}
+		input, err := proto.Marshal(m)
+		if err != nil {
+			return nil, 0, sdk.Coins{}, err
+		}
+		nonce := txf.Sequence() + uint64(i)
+		amount := big.NewInt(0)
+		input = addLengthPrefix(prefix, input)
+		tx := evmtypes.NewTx(chainID, nonce, &contractAddress, amount, gasLimit, gasFeeCap, gasPrice, gasTipCap, input, &ethtypes.AccessList{})
+		tx.From = from.String()
+		if err := tx.ValidateBasic(); err != nil {
+			cc.log.Info("tx failed basic validation", zap.Error(err))
+			return nil, 0, sdk.Coins{}, err
+		}
+		if err := retry.Do(func() error {
+			signer := ethtypes.MakeSigner(getChainConfig(chainID), blockNumber)
+			if err := tx.Sign(signer, cc.Keybase); err != nil {
+				return err
+			}
+			return nil
+		}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+			return nil, 0, sdk.Coins{}, err
+		}
+		if feeAmt := sdkmath.NewIntFromBigInt(tx.GetFee()); feeAmt.Sign() > 0 {
+			fees = fees.Add(sdk.NewCoin(gasPriceCoin.Denom, feeAmt))
+		}
+		txGasLimit += tx.GetGas()
+		tx.From = ""
+		cc.log.Info("append", zap.String("hash", tx.Hash))
+		txs = append(txs, tx)
+	}
+
+	builder, ok := txb.(authtx.ExtensionOptionsTxBuilder)
+	if !ok {
+		return nil, 0, sdk.Coins{}, errors.New("unsupported builder")
+	}
+
+	option, err := types.NewAnyWithValue(new(evmtypes.ExtensionOptionsEthereumTx))
+	if err != nil {
+		return nil, 0, sdk.Coins{}, err
+	}
+	builder.SetExtensionOptions(option)
+	builder.SetMsgs(txs...)
+	builder.SetFeeAmount(fees)
+	builder.SetGasLimit(txGasLimit)
+	txBytes, err := cc.Cdc.TxConfig.TxEncoder()(builder.GetTx())
+	if err != nil {
+		return nil, 0, sdk.Coins{}, err
+	}
 	return txBytes, txf.Sequence(), fees, nil
 }
 
@@ -1708,7 +1946,7 @@ func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, e
 		if !ok {
 			return txf, fmt.Errorf("invalid opt value")
 		}
-		extensionOption := ethermint.ExtensionOptionDynamicFeeTx{
+		extensionOption := etherminttypes.ExtensionOptionDynamicFeeTx{
 			MaxPriorityPrice: max,
 		}
 		extBytes, err := extensionOption.Marshal()

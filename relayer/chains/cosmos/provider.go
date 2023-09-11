@@ -61,6 +61,8 @@ type CosmosProviderConfig struct {
 
 	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
 	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
+
+	PrecompiledContractAddress string `json:"precompiled-contract-address" yaml:"precompiled-contract-address"`
 }
 
 // By default, TXs will be signed by the feegrantees 'ManagedGrantees' keys in a round robin fashion.

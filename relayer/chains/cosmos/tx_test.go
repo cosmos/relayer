@@ -10,8 +10,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
-	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	etherminttypes "github.com/evmos/ethermint/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -137,7 +137,7 @@ func TestSetWithExtensionOptions(t *testing.T) {
 		expectedTypeURL := "/ethermint.types.v1.ExtensionOptionDynamicFeeTx"
 		max, ok := sdk.NewIntFromString(opt.Value)
 		require.True(t, ok)
-		expectedValue, err := (&ethermint.ExtensionOptionDynamicFeeTx{
+		expectedValue, err := (&etherminttypes.ExtensionOptionDynamicFeeTx{
 			MaxPriorityPrice: max,
 		}).Marshal()
 		require.NoError(t, err)
