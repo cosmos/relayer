@@ -732,6 +732,10 @@ func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, chan
 	if err != nil {
 		return nil, err
 	}
+	var seq uint64
+	if err := json.Unmarshal(nextSeqRecv.Data, &seq); err != nil {
+		return nil, err
+	}
 
 	proof, err := ap.QueryWasmProof(ctx, common.MustHexStrToBytes(STORAGEKEY__NextSequenceReceive), height)
 	if err != nil {
@@ -739,7 +743,7 @@ func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, chan
 	}
 
 	return &chantypes.QueryNextSequenceReceiveResponse{
-		NextSequenceReceive: sdk.BigEndianToUint64(nextSeqRecv.Data.Bytes()),
+		NextSequenceReceive: seq,
 		Proof:               proof,
 		ProofHeight:         clienttypes.NewHeight(0, uint64(height)),
 	}, nil
