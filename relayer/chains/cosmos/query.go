@@ -358,20 +358,21 @@ func (cc *CosmosProvider) queryStakingUnbondingPeriod(ctx context.Context) (time
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	//Attempt Staking query.
-	unbondingPeriod, err := cc.queryStakingUnbondingPeriod(ctx)
-	if err == nil {
-		return unbondingPeriod, nil
-	}
 
 	// Attempt ICS query
 	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-	if consumerErr != nil {
-		return 0,
-			fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+	if consumerErr == nil {
+		return consumerUnbondingPeriod, nil
 	}
 
-	return consumerUnbondingPeriod, nil
+	//Attempt Staking query.
+	unbondingPeriod, err := cc.queryStakingUnbondingPeriod(ctx)
+	if err != nil {
+		return 0,
+			fmt.Errorf("failed to query unbonding period as both consumer and standard chain: %w: %s", consumerErr, err.Error())
+	}
+
+	return unbondingPeriod, nil
 }
 
 // QueryTendermintProof performs an ABCI query with the given key and returns
