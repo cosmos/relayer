@@ -42,7 +42,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	g0, g1 := chains[0], chains[1]
 
 	client, network := interchaintest.DockerSetup(t)
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 
 	// Relayer is set with "--time-threshold 5m"
 	// The client being created below also has a trusting period of 5m.
@@ -50,7 +50,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--time-threshold", "20s"),
 	).Build(t, client, network)
@@ -164,7 +164,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	g0, g1 := chains[0], chains[1]
 
 	client, network := interchaintest.DockerSetup(t)
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 	logger := zaptest.NewLogger(t)
 
 	// Relayer is set with "--time-threshold 0"
@@ -172,7 +172,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		logger,
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 

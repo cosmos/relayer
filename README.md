@@ -112,18 +112,14 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    $ rly keys restore osmosis [key-name] "mnemonic words here"
    ```
 
-5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
+5. **Use the `key-name` created above.**
 
    >This step is necessary if you chose a `key-name` other than "default"
    
-   Example:
-      ```yaml
-      - type: cosmos
-         value:
-         key: YOUR-KEY-NAME-HERE
-         chain-id: cosmoshub-4
-         rpc-addr: http://localhost:26657
-      ```
+    ```shell
+    $ rly keys use cosmoshub [key-name]  
+    $ rly keys use osmosis [key-name]  
+    ```
 
 6. **Ensure the keys associated with the configured chains are funded.**
 

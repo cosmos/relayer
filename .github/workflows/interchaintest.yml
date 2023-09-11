@@ -153,3 +153,7 @@ jobs:
 
       - name: interchaintest
         run: make interchaintest-scenario
+  
+      - name: Prune Docker images
+        if: always() #ensure dangling images are pruned after interchain-test scenario  passes or fails
+        run: docker image prune -f
