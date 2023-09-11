@@ -700,23 +700,11 @@ func convertCoins(prices string) (sdk.Coins, error) {
 	return coins, nil
 }
 
-func (cc *CosmosProvider) signTxBytes(
+func (cc *CosmosProvider) encodeSignedTx(
 	ctx context.Context,
 	tx authsigning.Tx,
 ) ([]byte, error) {
-	var txBytes []byte
-	// Generate the transaction bytes
-	if err := retry.Do(func() error {
-		var err error
-		txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
-		return nil, err
-	}
-	return txBytes, nil
+	return cc.Cdc.TxConfig.TxEncoder()(tx)
 }
 
 func (cc *CosmosProvider) buildMessages(
@@ -729,7 +717,7 @@ func (cc *CosmosProvider) buildMessages(
 		return nil, 0, sdk.Coins{}, err
 	}
 	tx := txb.GetTx()
-	txBytes, err := cc.signTxBytes(ctx, tx)
+	txBytes, err := cc.encodeSignedTx(ctx, tx)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
@@ -919,7 +907,7 @@ func (cc *CosmosProvider) buildEvmMessages(
 	builder.SetMsgs(txs...)
 	builder.SetFeeAmount(fees)
 	builder.SetGasLimit(txGasLimit)
-	txBytes, err := cc.signTxBytes(ctx, builder.GetTx())
+	txBytes, err := cc.encodeSignedTx(ctx, builder.GetTx())
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
