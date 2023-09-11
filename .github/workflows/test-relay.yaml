@@ -1,5 +1,4 @@
-name: Deploy Relayer Locally
-
+name: Test Relayer Locally - Icon/Archway
 on:
   push:
     branches:
@@ -32,18 +31,6 @@ jobs:
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
         shell: bash
 
-      # Install rust toolchain
-      # - name: Install rust stable toolchain
-      #   uses: actions-rs/toolchain@v1
-      #   with:
-      #     toolchain: 1.69.0
-      #     target: wasm32-unknown-unknown
-      #     override: true
-      #     profile: minimal
-
-      # - name: Cache Rust dependencies
-      #   uses: Swatinem/rust-cache@v2
-
       # Build relay 
       - name: Build relayer
         run: make install
@@ -56,23 +43,10 @@ jobs:
       - name: Build archwayd
         working-directory: .github/scripts/archway
         run: |
-          echo $PWD
           echo $GITHUB_WORKSPACE
+          git clean -fdx
+          git checkout v4.0.0
           make install
-
-      # Build comsmwasm
-      # - name: Compile WASM
-      #   working-directory: .github/scripts/IBC-Integration
-      #   run: |
-      #     rustup component add rustfmt --toolchain 1.69.0-x86_64-unknown-linux-gnu
-      #     rustup component add clippy --toolchain 1.69.0-x86_64-unknown-linux-gnu
-      #     bash ./optimize_build.sh
-
-      # - name: Build javascore
-      #   working-directory: .github/scripts/IBC-Integration/contracts/javascore
-      #   run: |
-      #     ./gradlew clean build 
-      #     ./gradlew optimizedJar
 
       - name: Fetch Latest IBC-Integration Tag
         id: fetch_ibc_tag
@@ -80,19 +54,19 @@ jobs:
           TAG_IBC=$(curl -s "https://api.github.com/repos/icon-project/IBC-Integration/tags" | jq -r '.[0].name')
           echo "TAG_IBC=$TAG_IBC" >> $GITHUB_ENV
 
-      - name: Fetch Latest XCALL Tag
+      - name: Fetch Latest xcall-multi Tag
         id: fetch_xcall_tag
         run: |
-          TAG_XCALL=$(curl -s "https://api.github.com/repos/icon-project/xCall/tags" | jq -r '.[0].name')
+          TAG_XCALL=$(curl -s "https://api.github.com/repos/icon-project/xcall-multi/tags" | jq -r '.[0].name')
           echo "TAG_XCALL=$TAG_XCALL" >> $GITHUB_ENV
       
       - name: Get Latest tag - IBC-Integration
         id: ibc_tag
         run: echo "tag=$(curl -s "https://api.github.com/repos/icon-project/IBC-Integration/tags" | jq -r '.[0].name')" >> $GITHUB_OUTPUT
 
-      - name: Get Latest tag - xCall
+      - name: Get Latest tag - xcall-multi
         id: xcall_tag
-        run: echo "tag=$(curl -s "https://api.github.com/repos/icon-project/xCall/tags" | jq -r '.[0].name')" >> $GITHUB_OUTPUT
+        run: echo "tag=$(curl -s "https://api.github.com/repos/icon-project/xcall-multi/tags" | jq -r '.[0].name')" >> $GITHUB_OUTPUT
 
 
       - name: Download IBC Core Javascore Contracts
@@ -114,7 +88,7 @@ jobs:
           fileName: "*.wasm"
           out-file-path: "./.github/scripts/IBC-Integration/artifacts/archway"
 
-      - name: Download xCall Javascore Contracts
+      - name: Download xcall-multi Javascore Contracts
         uses: robinraju/release-downloader@v1.8
         with:
           repository: "icon-project/xCall"
@@ -136,8 +110,6 @@ jobs:
         run: |
           ls -l ${GITHUB_WORKSPACE}/.github/scripts/IBC-Integration/artifacts/icon
           ls -l ${GITHUB_WORKSPACE}/.github/scripts/IBC-Integration/artifacts/archway
-          echo $HOME
-          echo $PWD
           echo $GITHUB_WORKSPACE
           echo "${GITHUB_REF##*/}"
 
@@ -151,6 +123,8 @@ jobs:
 
       - name: start relay
         working-directory: .github/scripts
-        run: bash ./start_relay.sh
+        run: |
+          git status
+          bash ./start_relay.sh
 
                               
