@@ -267,6 +267,13 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
+// SetPCAddr sets the rpc-addr for the chain.
+// It will fail if the rpcAddr is invalid(not a url).
+func (cc *CosmosProvider) SetRpcAddr(rpcAddr string) error {
+	cc.PCfg.RPCAddr = rpcAddr
+	return nil
+}
+
 // Init initializes the keystore, RPC client, amd light client provider.
 // Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
 // NOTE: Init must be called after creating a new instance of CosmosProvider.

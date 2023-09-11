@@ -282,3 +282,16 @@ func (a *appState) useKey(chainName, key string) error {
 		return nil
 	})
 }
+
+func (a *appState) useRpcAddr(chainName string, rpcAddr string) error {
+
+	_, exists := a.config.Chains[chainName]
+	if !exists {
+		return fmt.Errorf("chain %s not found in config", chainName)
+	}
+
+	return a.performConfigLockingOperation(context.Background(), func() error {
+		a.config.Chains[chainName].ChainProvider.SetRpcAddr(rpcAddr)
+		return nil
+	})
+}
