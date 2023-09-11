@@ -364,13 +364,24 @@ func pathsFetchCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fetch",
 		Aliases: []string{"fch"},
-		Short:   "Fetches the json files necessary to setup the paths for the configured chains",
-		Args:    withUsage(cobra.NoArgs),
+		Short:   "Fetches the json files necessary to setup the paths for the configured chains. Passing a chain name will only fetch paths for that chain",
+		Args:    withUsage(cobra.RangeArgs(0, 1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths fetch --home %s
-$ %s pth fch`, appName, defaultHome, appName)),
+$ %s pth fch
+$ %s pth fch cosmoshub`, appName, defaultHome, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
+
+			// allow the relayer to only pull paths for a specific chain
+			chainReq := ""
+			if len(args) > 0 {
+				chainReq = args[0]
+				_, exist := a.config.Chains[chainReq]
+				if !exist {
+					return fmt.Errorf("chain %s not found in config", chainReq)
+				}
+			}
 
 			return a.performConfigLockingOperation(cmd.Context(), func() error {
 				chains := []string{}
@@ -390,6 +401,11 @@ $ %s pth fch`, appName, defaultHome, appName)),
 						if chainB < chainA {
 							pair = chainB + "-" + chainA
 						}
+
+						if chainReq != "" && !strings.Contains(pair, chainReq) {
+							continue
+						}
+
 						chainCombinations[pair] = true
 					}
 				}
