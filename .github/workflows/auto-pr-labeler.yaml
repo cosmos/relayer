@@ -1,0 +1,32 @@
+name: Pull Request Labeler
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+jobs:
+  auto-label:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find Current Pull Request
+        uses: jwalton/gh-find-current-pr@v1.3.2
+        id: findPr
+        with:
+          # Can be "open", "closed", or "all".  Defaults to "open".
+          state: open
+      - run: echo "PR Number is ${PR}"
+        if: success() && steps.findPr.outputs.number
+        env:
+          PR: ${{ steps.findPr.outputs.pr }}
+
+      - name: check pr pr-number
+        run: echo ${{ github.event.number }}
+
+      - uses: actions/labeler@v4
+        with:
+          dot: true
+          pr-number: ${{ steps.findPr.outputs.pr }}
