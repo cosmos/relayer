@@ -153,6 +153,7 @@ jobs:
     needs: prepare-scenario-matrix
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         test: ${{fromJson(needs.prepare-scenario-matrix.outputs.matrix)}}
 

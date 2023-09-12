@@ -91,8 +91,7 @@ interchaintest-fee-middleware:
 interchaintest-fee-grant:
 	cd interchaintest && go test -race -v -run TestRelayerFeeGrant .
 
-## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
-interchaintest-scenario:
+interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
 	cd interchaintest && go test -timeout 30m -race -v -run TestScenarioClient ./...
 
 
