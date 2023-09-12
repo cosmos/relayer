@@ -4,12 +4,10 @@ import (
 	"context"
 	"testing"
 
+	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/conformance"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/relayer"
-	"github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -27,7 +25,7 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
-			Version:       "v12.0.0-rc0",
+			Version:       "v7.0.3",
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
@@ -35,7 +33,7 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 			// TODO update with mainnet SDK v0.47+ chain version once available
 			Name:          "ibc-go-simd",
 			ChainName:     "ibc-go-simd",
-			Version:       "v7.2.0",
+			Version:       "andrew-47-rc1",
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
@@ -53,11 +51,9 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 		relayerName = "relayer"
 	)
 
-	rf := interchaintest.NewBuiltinRelayerFactory(
-		ibc.CosmosRly,
-		zaptest.NewLogger(t),
-		relayer.CustomDockerImage("ghcr.io/cosmos/relayer", "v2.4.1", rly.RlyDefaultUidGid),
-	)
+	rf := relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
+		InitialBlockHistory: 50,
+	})
 
 	r := rf.Build(t, client, network)
 
