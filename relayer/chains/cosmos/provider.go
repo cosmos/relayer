@@ -227,14 +227,6 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	var unbondingTime time.Duration
-
-	unbondingTime, err := cc.QueryUnbondingPeriod(ctx)
-	if err == nil {
-		return unbondingTime, nil
-	} else {
-		fmt.Println("%w", err)
-	}
-
 	res, err := cc.QueryStakingParams(ctx)
 	if err != nil {
 		// Attempt ICS query
