@@ -133,8 +133,30 @@ jobs:
       - name: interchaintest
         run: make interchaintest-fee-grant
 
-  scenarios:
+  prepare-scenario-matrix:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Generate matrix
+      id: set-matrix
+      run: |
+        # Run the command and convert its output to a JSON array
+        TESTS=$(cd interchaintest && go test -list ^TestScenario | grep -v "^ok " | jq -R -s -c 'split("\n")[:-1]')
+        echo "matrix=${TESTS}" >> $GITHUB_OUTPUT
+  
+  # Note : This job will not start until prepare-scenario-matrix completes sucessfully
+  scenarios:
+    needs: prepare-scenario-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{fromJson(needs.prepare-scenario-matrix.outputs.matrix)}}
+
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v4
@@ -152,8 +174,6 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: interchaintest
-        run: make interchaintest-scenario
-
-      - name: Prune Docker images
-        if: always() #ensure dangling images are pruned after interchain-test scenario  passes or fails
-        run: docker image prune -f
+        run: |
+          cd interchaintest
+          go test -run ${{ matrix.test }}
