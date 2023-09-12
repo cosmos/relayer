@@ -15,6 +15,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	formatJson   = "json"
+	formatLegacy = "legacy"
+)
+
 // queryCmd represents the chain command
 func queryCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
@@ -273,9 +278,9 @@ $ %s query balance ibc-0 testkey`,
 
 			output, _ := cmd.Flags().GetString(flagOutput)
 			switch output {
-			case "json":
+			case formatJson:
 				fmt.Fprint(cmd.OutOrStdout(), string(jsonOutput))
-			case "legacy":
+			case formatLegacy:
 				fallthrough
 			default:
 				fmt.Fprintf(cmd.OutOrStdout(), "address {%s} balance {%s} \n", addr, coins)
@@ -335,9 +340,9 @@ $ %s query header ibc-0 1400`,
 
 			output, _ := cmd.Flags().GetString(flagOutput)
 			switch output {
-			case "json":
+			case formatJson:
 				fmt.Fprintln(cmd.OutOrStdout(), string(s))
-			case "legacy":
+			case formatLegacy:
 				fallthrough
 			default:
 				fmt.Fprintln(cmd.OutOrStdout(), s)
@@ -1156,18 +1161,17 @@ $ %s query clients-expiration demo-path`,
 			srcClientExpiration := relayer.SPrintClientExpiration(c[src], srcExpiration, srcClientInfo)
 			dstClientExpiration := relayer.SPrintClientExpiration(c[dst], dstExpiration, dstClientInfo)
 
-			if output == "json" {
+			if output == formatJson {
 				srcClientExpiration = relayer.SPrintClientExpirationJson(c[src], srcExpiration, srcClientInfo)
 				dstClientExpiration = relayer.SPrintClientExpirationJson(c[dst], dstExpiration, dstClientInfo)
 			}
 
-			if errSrc == nil && errDst == nil {
+			if errSrc == nil {
 				fmt.Fprintln(cmd.OutOrStdout(), srcClientExpiration)
+			}
+
+			if errDst == nil {
 				fmt.Fprintln(cmd.OutOrStdout(), dstClientExpiration)
-			} else if errSrc == nil && errDst != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), dstClientExpiration)
-			} else if errDst == nil && errSrc != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), srcClientExpiration)
 			}
 			return nil
 		},
