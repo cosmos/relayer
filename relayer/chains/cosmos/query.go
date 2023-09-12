@@ -366,13 +366,22 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 	}
 
 	//Attempt Staking query.
-	unbondingPeriod, err := cc.queryStakingUnbondingPeriod(ctx)
-	if err != nil {
-		return 0,
-			fmt.Errorf("failed to query unbonding period as both consumer and standard chain: %w: %s", consumerErr, err.Error())
+	unbondingPeriod, stakingParamsErr := cc.queryStakingUnbondingPeriod(ctx)
+	if stakingParamsErr == nil {
+		return unbondingPeriod, nil
 	}
 
-	return unbondingPeriod, nil
+	// Fallback
+	req := stakingtypes.QueryParamsRequest{}
+	queryClient := stakingtypes.NewQueryClient(cc)
+	res, err := queryClient.Params(ctx, &req)
+	if err == nil {
+		return res.Params.UnbondingTime, nil
+
+	}
+
+	return 0,
+		fmt.Errorf("failed to query unbonding period from ccvconsumer, staking & fallback : %w: %s : %s", consumerErr, stakingParamsErr.Error(), err.Error())
 }
 
 // QueryTendermintProof performs an ABCI query with the given key and returns
