@@ -146,7 +146,8 @@ jobs:
       run: |
         # Run the command and convert its output to a JSON array
         TESTS=$(cd interchaintest && go test -list ^TestScenario | jq -R -s -c 'split("\n")[:-1]')
-        echo "::set-output name=matrix::${TESTS}"
+        echo "matrix=${TESTS}" >> $GITHUB_OUTPUT
+  
 
   scenarios:
     needs: prepare-scenario-matrix
