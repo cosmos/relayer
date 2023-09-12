@@ -145,7 +145,7 @@ jobs:
       id: set-matrix
       run: |
         # Run the command and convert its output to a JSON array
-        TESTS=$(go test -list ^TestScenario | jq -R -s -c 'split("\n")[:-1]')
+        TESTS=$(cd interchaintest && go test -list ^TestScenario | jq -R -s -c 'split("\n")[:-1]')
         echo "::set-output name=matrix::${TESTS}"
 
   scenarios:
