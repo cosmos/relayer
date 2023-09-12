@@ -133,7 +133,7 @@ jobs:
       - name: interchaintest
         run: make interchaintest-fee-grant
 
-  prepare-matrix:
+  prepare-scenario-matrix:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -145,15 +145,15 @@ jobs:
       id: set-matrix
       run: |
         # Run the command and convert its output to a JSON array
-        TESTS=$(go test -list ^TEST | jq -R -s -c 'split("\n")[:-1]')
+        TESTS=$(go test -list ^TestScenario | jq -R -s -c 'split("\n")[:-1]')
         echo "::set-output name=matrix::${TESTS}"
 
-  scenarios-client:
-    needs: prepare-matrix
+  scenarios:
+    needs: prepare-scenario-matrix
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test: ${{fromJson(needs.prepare-matrix.outputs.matrix)}}
+        test: ${{fromJson(needs.prepare-scenario-matrix.outputs.matrix)}}
 
     steps:
       - name: Set up Go 1.21
@@ -164,8 +164,6 @@ jobs:
       - name: checkout relayer
         uses: actions/checkout@v2
 
-      
-
       - uses: actions/cache@v1
         with:
           path: ~/go/pkg/mod
@@ -175,4 +173,5 @@ jobs:
 
       - name: interchaintest
         run: |
+          cd interchaintest
           go test -run ${{ matrix.test }}
