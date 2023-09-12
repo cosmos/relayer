@@ -133,8 +133,28 @@ jobs:
       - name: interchaintest
         run: make interchaintest-fee-grant
 
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Generate matrix
+      id: set-matrix
+      run: |
+        # Run the command and convert its output to a JSON array
+        TESTS=$(go test -list ^TEST | jq -R -s -c 'split("\n")[:-1]')
+        echo "::set-output name=matrix::${TESTS}"
+
   scenarios-client:
+    needs: prepare-matrix
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test: ${{fromJson(needs.prepare-matrix.outputs.matrix)}}
+
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v4
@@ -144,26 +164,7 @@ jobs:
       - name: checkout relayer
         uses: actions/checkout@v2
 
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: interchaintest
-        run: make interchaintest-scenario-client
       
-  scenarios-ica:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.21
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: checkout relayer
-        uses: actions/checkout@v2
 
       - uses: actions/cache@v1
         with:
@@ -173,88 +174,5 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: interchaintest
-        run: make interchaintest-scenario-ica
-      
-  scenarios-interchainaccounts:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.21
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: checkout relayer
-        uses: actions/checkout@v2
-
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: interchaintest
-        run: make interchaintest-scenario-interchainaccounts
-  
-  scenarios-pathfilter:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.21
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: checkout relayer
-        uses: actions/checkout@v2
-
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: interchaintest
-        run: make interchaintest-scenario-pathfilter
-
-  scenarios-tendermint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.21
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: checkout relayer
-        uses: actions/checkout@v2
-
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: interchaintest
-        run: make interchaintest-scenario-tendermint
-
-  scenarios-stride:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Go 1.21
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: checkout relayer
-        uses: actions/checkout@v2
-
-      - uses: actions/cache@v1
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: interchaintest
-        run: make interchaintest-scenario-stride
+        run: |
+          go test -run ${{ matrix.test }}
