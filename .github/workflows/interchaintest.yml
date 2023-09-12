@@ -133,7 +133,7 @@ jobs:
       - name: interchaintest
         run: make interchaintest-fee-grant
 
-  scenarios:
+  scenarios-client:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.21
@@ -152,8 +152,109 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: interchaintest
-        run: make interchaintest-scenario
+        run: make interchaintest-scenario-client
+      
+  scenarios-ica:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
 
-      - name: Prune Docker images
-        if: always() #ensure dangling images are pruned after interchain-test scenario  passes or fails
-        run: docker image prune -f
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: interchaintest
+        run: make interchaintest-scenario-ica
+      
+  scenarios-interchainaccounts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: interchaintest
+        run: make interchaintest-scenario-interchainaccounts
+  
+  scenarios-pathfilter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: interchaintest
+        run: make interchaintest-scenario-pathfilter
+
+  scenarios-tendermint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: interchaintest
+        run: make interchaintest-scenario-tendermint
+
+  scenarios-stride:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: checkout relayer
+        uses: actions/checkout@v2
+
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: interchaintest
+        run: make interchaintest-scenario-stride
