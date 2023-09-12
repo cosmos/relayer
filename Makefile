@@ -94,7 +94,6 @@ interchaintest-fee-grant:
 interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
 	cd interchaintest && go test -timeout 30m -race -v -run TestScenario ./...
 
-
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
