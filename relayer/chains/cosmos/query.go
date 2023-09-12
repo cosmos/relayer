@@ -310,63 +310,40 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address s
 	return coins, nil
 }
 
-func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace string, key string) (time.Duration, error) {
 	queryClient := proposal.NewQueryClient(cc)
 
-	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
+	params := proposal.QueryParamsRequest{Subspace: subspace, Key: key}
 
 	res, err := queryClient.Params(ctx, &params)
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
+		return 0, fmt.Errorf("failed to make %s params request: %w", subspace, err)
 	}
 
 	if res.Param.Value == "" {
-		return 0, fmt.Errorf("ccvconsumer unbonding period is empty")
+		return 0, fmt.Errorf("%s %s is empty", subspace, key)
 	}
 
-	unbondingPeriod, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
+	unbondingValue, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse unbonding period from ccvconsumer param: %w", err)
+		return 0, fmt.Errorf("failed to parse %s from %s param: %w", key, subspace, err)
 	}
 
-	return time.Duration(unbondingPeriod), nil
-}
-
-func (cc *CosmosProvider) queryStakingUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	queryClient := proposal.NewQueryClient(cc)
-
-	params := proposal.QueryParamsRequest{Subspace: "staking", Key: "UnbondingTime"}
-
-	res, err := queryClient.Params(ctx, &params)
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to make staking params request: %w", err)
-	}
-
-	if res.Param.Value == "" {
-		return 0, fmt.Errorf("staking unbonding period is empty")
-	}
-
-	unbondingTime, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse unbonding period from staking param: %w", err)
-	}
-
-	return time.Duration(unbondingTime), nil
+	return time.Duration(unbondingValue), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 
 	// Attempt ICS query
-	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
+	consumerUnbondingPeriod, consumerErr := cc.queryParamsSubspaceTime(ctx, "ccvconsumer", "UnbondingPeriod")
 	if consumerErr == nil {
 		return consumerUnbondingPeriod, nil
 	}
 
 	//Attempt Staking query.
-	unbondingPeriod, stakingParamsErr := cc.queryStakingUnbondingPeriod(ctx)
+	unbondingPeriod, stakingParamsErr := cc.queryParamsSubspaceTime(ctx, "staking", "UnbondingTime")
 	if stakingParamsErr == nil {
 		return unbondingPeriod, nil
 	}
