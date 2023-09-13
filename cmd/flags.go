@@ -18,7 +18,9 @@ const (
 	flagJSON                    = "json"
 	flagYAML                    = "yaml"
 	flagFile                    = "file"
+	flagForceAdd                = "force-add"
 	flagPath                    = "path"
+	flagTestnet                 = "testnet"
 	flagMaxTxSize               = "max-tx-size"
 	flagMaxMsgLength            = "max-msgs"
 	flagIBCDenoms               = "ibc-denoms"
@@ -125,6 +127,8 @@ func skipConfirm(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func chainsAddFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	fileFlag(v, cmd)
 	urlFlag(v, cmd)
+	forceAddFlag(v, cmd)
+	testnetFlag(v, cmd)
 	return cmd
 }
 
@@ -159,6 +163,22 @@ func jsonFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func fileFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagFile, "f", "", "fetch json data from specified file")
 	if err := v.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func testnetFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagTestnet, false, "fetches testnet data from the chain registry")
+	if err := v.BindPFlag(flagTestnet, cmd.Flags().Lookup(flagTestnet)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func forceAddFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagForceAdd, false, "adds chain data even if there are no working RPC's in the chain registry")
+	if err := v.BindPFlag(flagForceAdd, cmd.Flags().Lookup(flagForceAdd)); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -238,7 +258,7 @@ func strategyFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
+func getAddInputs(cmd *cobra.Command) (file string, url string, forceAdd bool, testNet bool, err error) {
 	file, err = cmd.Flags().GetString(flagFile)
 	if err != nil {
 		return
@@ -249,8 +269,22 @@ func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 		return
 	}
 
+	forceAdd, err = cmd.Flags().GetBool(flagForceAdd)
+	if err != nil {
+		return
+	}
+
+	testNet, err = cmd.Flags().GetBool(flagTestnet)
+	if err != nil {
+		return
+	}
+
 	if file != "" && url != "" {
-		return "", "", errMultipleAddFlags
+		return "", "", false, false, errMultipleAddFlags
+	}
+
+	if file != "" && testNet || url != "" && testNet {
+		return "", "", false, false, errInvalidTestnetFlag
 	}
 
 	return
