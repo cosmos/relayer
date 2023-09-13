@@ -176,7 +176,7 @@ func testnetFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func forceAddFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Bool(flagForceAdd, false, "adds chain data even if there are no working RPC's")
+	cmd.Flags().Bool(flagForceAdd, false, "adds chain data even if there are no working RPC's in the chain registry")
 	if err := v.BindPFlag(flagForceAdd, cmd.Flags().Lookup(flagForceAdd)); err != nil {
 		panic(err)
 	}
