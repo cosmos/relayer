@@ -811,6 +811,7 @@ $ %s tx flush demo-path channel-0`,
 				relayer.ProcessorEvents,
 				0,
 				nil,
+				nil,
 			)
 
 			// Block until the error channel sends a message.

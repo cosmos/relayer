@@ -21,8 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const strideStuckPacketHeight = 5391153
-
 type CosmosChainProcessor struct {
 	log *zap.Logger
 
@@ -56,9 +54,15 @@ type CosmosChainProcessor struct {
 
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
+
+	stuckPacket *processor.StuckPacket
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics *processor.PrometheusMetrics) *CosmosChainProcessor {
+func NewCosmosChainProcessor(
+	log *zap.Logger,
+	provider *CosmosProvider,
+	metrics *processor.PrometheusMetrics,
+) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -210,7 +214,7 @@ type queryCyclePersistence struct {
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
-func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64, stuckPacket *processor.StuckPacket) error {
 	minQueryLoopDuration := ccp.chainProvider.PCfg.MinLoopDuration
 	if minQueryLoopDuration == 0 {
 		minQueryLoopDuration = defaultMinQueryLoopDuration
@@ -249,8 +253,8 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		latestQueriedBlock = 0
 	}
 
-	if ccp.chainProvider.ChainId() == "stride-1" {
-		latestQueriedBlock = strideStuckPacketHeight - 1
+	if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
+		latestQueriedBlock = int64(stuckPacket.StartHeight)
 	}
 
 	persistence.latestQueriedBlock = latestQueriedBlock
@@ -272,7 +276,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	defer ticker.Stop()
 
 	for {
-		if err := ccp.queryCycle(ctx, &persistence); err != nil {
+		if err := ccp.queryCycle(ctx, &persistence, stuckPacket); err != nil {
 			return err
 		}
 		select {
@@ -333,7 +337,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 	return nil
 }
 
-func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
+func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence, stuckPacket *processor.StuckPacket) error {
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
 		// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
@@ -474,9 +478,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		newLatestQueriedBlock = i
 
-		if ccp.chainProvider.ChainId() == "stride-1" && newLatestQueriedBlock == strideStuckPacketHeight {
-			i = persistence.latestHeight - 1
-			ccp.log.Debug("we have parsed stuck packet height, skipping ahead", zap.Int64("new_height", i))
+		if stuckPacket != nil &&
+			ccp.chainProvider.ChainId() == stuckPacket.ChainID &&
+			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
+			i = persistence.latestHeight
+			ccp.log.Debug("we have parsed stuck packet height, skipping to current")
 		}
 	}
 

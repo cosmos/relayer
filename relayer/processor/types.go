@@ -605,3 +605,10 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 		CounterpartyConnID:   info.CounterpartyConnID,
 	}
 }
+
+// StuckPacket is used for narrowing block queries on packets that are stuck on a channel for a specific chain.
+type StuckPacket struct {
+	ChainID     string
+	StartHeight uint64
+	EndHeight   uint64
+}
