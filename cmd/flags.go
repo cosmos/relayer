@@ -56,6 +56,7 @@ const (
 	flagDstClientID             = "dst-client-id"
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
+	flagOutput                  = "output"
 )
 
 const (
@@ -411,6 +412,14 @@ func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagOverwriteConfig, "o", false,
 		"overwrite already configured paths - will clear channel filter(s)")
 	if err := v.BindPFlag(flagOverwriteConfig, cmd.Flags().Lookup(flagOverwriteConfig)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func addOutputFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagOutput, "o", "legacy", "Specify the console output format. Can be 'legacy' or 'json'.")
+	if err := v.BindPFlag(flagOutput, cmd.Flags().Lookup(flagOutput)); err != nil {
 		panic(err)
 	}
 	return cmd

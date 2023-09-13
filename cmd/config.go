@@ -395,8 +395,8 @@ func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Typ
 	}
 
 	typeName, ok := m["type"].(string)
-		if !ok {
-		return nil, errors.New("cannot find type");
+	if !ok {
+		return nil, errors.New("cannot find type")
 	}
 
 	var provCfg provider.ProviderConfig
