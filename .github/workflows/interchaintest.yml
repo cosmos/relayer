@@ -176,4 +176,5 @@ jobs:
       - name: interchaintest
         run: |
           cd interchaintest
-          go test -run ${{ matrix.test }}
+          go test -timeout 30m -race -v -run ${{ matrix.test }}
+
