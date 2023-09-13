@@ -54,8 +54,6 @@ type CosmosChainProcessor struct {
 
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
-
-	stuckPacket *processor.StuckPacket
 }
 
 func NewCosmosChainProcessor(
