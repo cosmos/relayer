@@ -57,6 +57,9 @@ const (
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
 	flagOutput                  = "output"
+	flagStuckPacketChainID      = "stuck-packet-chain-id"
+	flagStuckPacketHeightStart  = "stuck-packet-height-start"
+	flagStuckPacketHeightEnd    = "stuck-packet-height-end"
 )
 
 const (
@@ -420,6 +423,22 @@ func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func addOutputFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagOutput, "o", "legacy", "Specify the console output format. Can be 'legacy' or 'json'.")
 	if err := v.BindPFlag(flagOutput, cmd.Flags().Lookup(flagOutput)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func stuckPacketFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagStuckPacketChainID, "", "chain ID with the stuck packet(s)")
+	if err := v.BindPFlag(flagStuckPacketChainID, cmd.Flags().Lookup(flagStuckPacketChainID)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Uint64(flagStuckPacketHeightStart, 0, "height to start searching for the stuck packet(s)")
+	if err := v.BindPFlag(flagStuckPacketHeightStart, cmd.Flags().Lookup(flagStuckPacketHeightStart)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Uint64(flagStuckPacketHeightEnd, 0, "height to end searching for the stuck packet(s)")
+	if err := v.BindPFlag(flagStuckPacketHeightEnd, cmd.Flags().Lookup(flagStuckPacketHeightEnd)); err != nil {
 		panic(err)
 	}
 	return cmd
