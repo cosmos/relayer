@@ -18,5 +18,6 @@ func errChainNotFound(chainName string) error {
 }
 
 var (
-	errMultipleAddFlags = errors.New("expected either --file/-f OR --url/u, found multiple")
+	errMultipleAddFlags   = errors.New("expected either --file/-f OR --url/u, found multiple")
+	errInvalidTestnetFlag = errors.New("cannot use --testnet with --file/-f OR --url/u, must be used alone")
 )
