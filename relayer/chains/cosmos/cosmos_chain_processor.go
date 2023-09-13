@@ -481,6 +481,16 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
 			i = persistence.latestHeight
 			ccp.log.Debug("we have parsed stuck packet height, skipping to current")
+
+			ccp.handleClientICQMessage("query_request", provider.ClientICQInfo{
+				Source:     "",
+				Connection: "",
+				Chain:      "",
+				QueryID:    "63ab8be75fe0fadf9123be31c480d452d019e0eecffce921d2d37e01aed49bf6",
+				Type:       "",
+				Request:    []byte{},
+				Height:     0,
+			}, ibcMessagesCache)
 		}
 	}
 
