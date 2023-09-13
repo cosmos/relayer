@@ -3,13 +3,14 @@ package penumbra
 import (
 	"fmt"
 
+	"github.com/cosmos/gogoproto/proto"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/gogoproto/proto"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap/zapcore"
 )
 
 type PenumbraMessage struct {
@@ -26,31 +27,19 @@ func PenumbraMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(PenumbraMessage); !ok {
 		fmt.Printf("got data of type %T but wanted PenumbraMessage \n", val)
 		return nil
-	} else {
+	} else { //nolint:revive // we need to use a val and that does not work when we fix this lint
 		return val.Msg
 	}
-}
-
-// typedPenumbraMsg does not accept nil. IBC Message must be of the requested type.
-func typedPenumbraMsg[T *chantypes.MsgRecvPacket | *chantypes.MsgAcknowledgement](msg provider.RelayerMessage) T {
-	if msg == nil {
-		panic("msg is nil")
-	}
-	cosmosMsg := PenumbraMsg(msg)
-	if cosmosMsg == nil {
-		panic("cosmosMsg is nil")
-	}
-	return cosmosMsg.(T)
 }
 
 func PenumbraMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 	sdkMsgs := make([]sdk.Msg, 0)
 	for _, rMsg := range rm {
-		switch rMsg.(type) {
+		switch msg := rMsg.(type) {
 		case PenumbraMessage:
-			sdkMsgs = append(sdkMsgs, rMsg.(PenumbraMessage).Msg)
+			sdkMsgs = append(sdkMsgs, msg.Msg)
 		case cosmos.CosmosMessage:
-			sdkMsgs = append(sdkMsgs, rMsg.(cosmos.CosmosMessage).Msg)
+			sdkMsgs = append(sdkMsgs, msg.Msg)
 		default:
 			fmt.Printf("got data of type %T but wanted PenumbraMessage \n", rMsg)
 			return nil

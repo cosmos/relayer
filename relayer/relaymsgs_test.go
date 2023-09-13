@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+
+	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 func TestRelayMsgs_IsMaxTx(t *testing.T) {

@@ -10,9 +10,10 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // preInitKey is used to declare intent to initialize a connection or channel handshake
@@ -31,7 +32,7 @@ func (pp *PathProcessor) getMessagesToSend(
 	src, dst *pathEndRuntime,
 ) (srcMsgs []packetIBCMessage, dstMsgs []packetIBCMessage) {
 	if len(msgs) == 0 {
-		return
+		return srcMsgs, dstMsgs
 	}
 
 	ordered := false
@@ -62,7 +63,7 @@ func (pp *PathProcessor) getMessagesToSend(
 						zap.String("port_id", dstPort),
 						zap.Error(err),
 					)
-					return
+					return srcMsgs, dstMsgs
 				}
 				lowestSeq[chantypes.EventTypeRecvPacket] = res.NextSequenceReceive
 			case chantypes.EventTypeAcknowledgePacket:
@@ -74,7 +75,7 @@ func (pp *PathProcessor) getMessagesToSend(
 						zap.String("port_id", srcPort),
 						zap.Error(err),
 					)
-					return
+					return srcMsgs, dstMsgs
 				}
 				lowestSeq[chantypes.EventTypeAcknowledgePacket] = res.NextSequenceReceive
 			}
@@ -341,7 +342,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 	return res
 }
 
-func (pp *PathProcessor) unrelayedConnectionHandshakeMessages(
+func (*PathProcessor) unrelayedConnectionHandshakeMessages(
 	pathEndConnectionHandshakeMessages pathEndConnectionHandshakeMessages,
 ) pathEndConnectionHandshakeResponse {
 	var (
@@ -470,7 +471,7 @@ func (pp *PathProcessor) unrelayedConnectionHandshakeMessages(
 	return res
 }
 
-func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
+func (*PathProcessor) unrelayedChannelHandshakeMessages(
 	pathEndChannelHandshakeMessages pathEndChannelHandshakeMessages,
 ) pathEndChannelHandshakeResponse {
 	var (
@@ -599,7 +600,7 @@ func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
 	return res
 }
 
-func (pp *PathProcessor) unrelayedChannelCloseMessages(
+func (*PathProcessor) unrelayedChannelCloseMessages(
 	pathEndChannelCloseMessages pathEndChannelCloseMessages,
 ) pathEndChannelHandshakeResponse {
 	var (
@@ -669,7 +670,7 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 	return res
 }
 
-func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
+func (*PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
 ClientICQLoop:
 	for queryID, queryMsg := range queryMessages {
 		for resQueryID := range responseMessages {
@@ -1087,7 +1088,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	return eg.Wait()
 }
 
-func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
+func (*PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
 	pathEnd1ChannelOpenSrcLen := len(pathEnd1ChannelHandshakeRes.SrcMessages)
 	pathEnd1ChannelOpenDstLen := len(pathEnd1ChannelHandshakeRes.DstMessages)
 	pathEnd2ChannelOpenDstLen := len(pathEnd2ChannelHandshakeRes.DstMessages)
@@ -1116,7 +1117,7 @@ func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, path
 	return pathEnd1ChannelMessages, pathEnd2ChannelMessages
 }
 
-func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes pathEndConnectionHandshakeResponse) ([]connectionIBCMessage, []connectionIBCMessage) {
+func (*PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes pathEndConnectionHandshakeResponse) ([]connectionIBCMessage, []connectionIBCMessage) {
 	pathEnd1ConnectionSrcLen := len(pathEnd1ConnectionHandshakeRes.SrcMessages)
 	pathEnd1ConnectionDstLen := len(pathEnd1ConnectionHandshakeRes.DstMessages)
 	pathEnd2ConnectionDstLen := len(pathEnd2ConnectionHandshakeRes.DstMessages)
@@ -1135,7 +1136,7 @@ func (pp *PathProcessor) connectionMessagesToSend(pathEnd1ConnectionHandshakeRes
 	return pathEnd1ConnectionMessages, pathEnd2ConnectionMessages
 }
 
-func (pp *PathProcessor) packetMessagesToSend(
+func (*PathProcessor) packetMessagesToSend(
 	channelPairs []channelPair,
 	pathEnd1ProcessRes []pathEndPacketFlowResponse,
 	pathEnd2ProcessRes []pathEndPacketFlowResponse,
@@ -1216,7 +1217,6 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	srcMu sync.Locker,
 	dstMu sync.Locker,
 ) (*skippedPackets, error) {
-
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
 		return nil, nil

@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cometbft/cometbft/proto/tendermint/crypto"
-	"github.com/cometbft/cometbft/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -18,6 +15,11 @@ import (
 	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cometbft/cometbft/proto/tendermint/crypto"
+	"github.com/cometbft/cometbft/types"
 )
 
 type BroadcastMode string
@@ -196,7 +198,8 @@ func (e RelayerEvent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // MarshalLogArray satisfies the zapcore.ArrayMarshaler interface.
 func (es loggableEvents) MarshalLogArray(enc zapcore.ArrayEncoder) error {
 	for _, e := range es {
-		enc.AppendObject(e)
+		err := enc.AppendObject(e)
+		return err
 	}
 	return nil
 }
@@ -208,8 +211,8 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("codespace", r.Codespace)
 	enc.AddUint32("code", r.Code)
 	enc.AddString("data", r.Data)
-	enc.AddArray("events", loggableEvents(r.Events))
-	return nil
+	err := enc.AddArray("events", loggableEvents(r.Events))
+	return err
 }
 
 type KeyProvider interface {

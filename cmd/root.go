@@ -59,7 +59,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	// RootCmd represents the base command when called without any subcommands
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   appName,
 		Short: "This application makes data relay between IBC enabled chains easy!",
 		Long: strings.TrimSpace(`rly has:
@@ -135,7 +135,6 @@ func Execute() {
 	rootCmd.SilenceUsage = true
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt) // Using signal.Notify, instead of signal.NotifyContext, in order to see details of signal.
@@ -167,8 +166,12 @@ func Execute() {
 	}()
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		cancel()
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+
+	cancel()
 }
 
 func newRootLogger(format string, debug bool) (*zap.Logger, error) {

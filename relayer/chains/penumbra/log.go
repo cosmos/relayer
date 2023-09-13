@@ -3,15 +3,17 @@ package penumbra
 import (
 	"reflect"
 
-	"github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	typestx "github.com/cosmos/cosmos-sdk/types/tx"
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	typestx "github.com/cosmos/cosmos-sdk/types/tx"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // getChannelsIfPresent scans the events for channel tags
@@ -54,7 +56,7 @@ func (cc *PenumbraProvider) LogFailedTx(res *provider.RelayerTxResponse, err err
 
 	if err != nil {
 		// Make a copy since we may continue to the warning
-		errorFields := append(fields, zap.Error(err))
+		errorFields := append(fields, zap.Error(err)) //nolint:gocritic // errorFields is a copy of fields
 		cc.log.Error(
 			"Failed sending cosmos transaction",
 			errorFields...,
@@ -114,7 +116,7 @@ func (cc *PenumbraProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Re
 		zap.String("tx_hash", res.TxHash),
 	)
 
-	// Log the succesful transaction with fields
+	// Log the successful transaction with fields
 	cc.log.Info(
 		"Successful transaction",
 		fields...,

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/cosmos/relayer/v2/relayer"
 )
 
 const (
@@ -58,10 +58,6 @@ const (
 )
 
 const (
-	// 7597 is "RLYR" on a telephone keypad.
-	// It also happens to be unassigned in the IANA port list.
-	defaultDebugAddr = "localhost:7597"
-
 	blankValue = "blank"
 )
 
@@ -241,19 +237,19 @@ func strategyFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 	file, err = cmd.Flags().GetString(flagFile)
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	url, err = cmd.Flags().GetString(flagURL)
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	if file != "" && url != "" {
 		return "", "", errMultipleAddFlags
 	}
 
-	return
+	return file, url, nil
 }
 
 func retryFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {

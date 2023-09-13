@@ -6,9 +6,10 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
+
+	"github.com/cosmos/relayer/v2/relayer/processor"
 )
 
 const (
@@ -35,7 +36,7 @@ func (p Paths) Get(name string) (path *Path, err error) {
 	} else {
 		err = fmt.Errorf("path with name %s does not exist", name)
 	}
-	return
+	return path, err
 }
 
 // MustGet panics if path is not found

@@ -6,13 +6,15 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
@@ -102,7 +104,8 @@ func CreateClient(
 	allowUpdateAfterMisbehaviour bool,
 	override bool,
 	customClientTrustingPeriod time.Duration,
-	memo string) (string, error) {
+	memo string,
+) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -491,7 +494,6 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 
 	for _, existingClientState := range clientsResp {
 		clientID, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
-
 		// If there is an error parsing/type asserting the client state in ClientsMatch this is going
 		// to make the entire find matching client logic fail.
 		// We should really never be encountering an error here and if we do it is probably a sign of a

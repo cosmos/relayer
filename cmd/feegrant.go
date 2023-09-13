@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 )
 
 // feegrantConfigureCmd returns the fee grant configuration commands for this module
@@ -26,7 +27,7 @@ func feegrantConfigureBaseCmd(a *appState) *cobra.Command {
 func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 	var numGrantees int
 	var update bool
-	var delete bool
+	var deleteChain bool
 	var updateGrantees bool
 	var grantees []string
 
@@ -49,11 +50,12 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 
 			granterKeyOrAddr := ""
 
-			if len(args) > 1 {
+			switch {
+			case len(args) > 1:
 				granterKeyOrAddr = args[1]
-			} else if prov.PCfg.FeeGrants != nil {
+			case prov.PCfg.FeeGrants != nil:
 				granterKeyOrAddr = prov.PCfg.FeeGrants.GranterKey
-			} else {
+			default:
 				granterKeyOrAddr = prov.PCfg.Key
 			}
 
@@ -62,7 +64,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("could not get granter key from '%s'", granterKeyOrAddr)
 			}
 
-			if delete {
+			if deleteChain {
 				fmt.Printf("Deleting %s feegrant configuration\n", chain)
 
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
@@ -88,7 +90,6 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			if prov.PCfg.FeeGrants == nil || updateGrantees || len(grantees) > 0 {
 				var feegrantErr error
 
-				//No list of grantees was provided, so we will use the default naming convention "grantee1, ... granteeN"
 				if grantees == nil {
 					feegrantErr = prov.ConfigureFeegrants(numGrantees, granterKey)
 				} else {
@@ -119,8 +120,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("error writing grants on chain: '%s'", err.Error())
 			}
 
-			//Get latest height from the chain, mark feegrant configuration as verified up to that height.
-			//This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
+			// This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
 			if prov.PCfg.FeeGrants != nil {
 				fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
 				h, err := prov.QueryLatestHeight(ctx)
@@ -141,7 +141,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&delete, "delete", false, "delete the feegrant configuration")
+	cmd.Flags().BoolVar(&deleteChain, "delete", false, "delete the feegrant configuration")
 	cmd.Flags().BoolVar(&update, "overwrite-granter", false, "allow overwriting the existing granter")
 	cmd.Flags().BoolVar(&updateGrantees, "overwrite-grantees", false, "allow overwriting existing grantees")
 	cmd.Flags().IntVar(&numGrantees, "num-grantees", 10, "number of grantees that will be feegranted with basic allowances")
@@ -175,7 +175,6 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 			// 	return err
 			// }
 
-			//TODO fix height
 			// height, err := lensCmd.ReadHeight(cmd.Flags())
 			// if err != nil {
 			// 	return err

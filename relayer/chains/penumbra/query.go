@@ -9,16 +9,6 @@ import (
 	"strings"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	tmtypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	querytypes "github.com/cosmos/cosmos-sdk/types/query"
-	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -27,9 +17,23 @@ import (
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	errorsmod "cosmossdk.io/errors"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
+	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 var _ provider.QueryProvider = &PenumbraProvider{}
@@ -100,7 +104,7 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 	for _, event := range resp.Events {
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
-			attributes[string(attribute.Key)] = string(attribute.Value)
+			attributes[attribute.Key] = attribute.Value
 		}
 		events = append(events, provider.RelayerEvent{
 			EventType:  event.Type,
@@ -135,7 +139,7 @@ func (cc *PenumbraProvider) QueryBalanceWithAddress(ctx context.Context, address
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
-func (cc *PenumbraProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+func (*PenumbraProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
 	// TODO:
 	return time.Hour * 4, nil
 	/*
@@ -213,7 +217,7 @@ func (cc *PenumbraProvider) QueryClientStateResponse(ctx context.Context, height
 
 	// check if client exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrClientNotFound, srcClientId)
+		return nil, errorsmod.Wrap(clienttypes.ErrClientNotFound, srcClientId)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
@@ -263,7 +267,7 @@ func (cc *PenumbraProvider) QueryClientConsensusState(ctx context.Context, chain
 
 	// check if consensus state exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
+		return nil, errorsmod.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
@@ -447,7 +451,7 @@ func (cc *PenumbraProvider) queryConnectionABCI(ctx context.Context, height int6
 
 	// check if connection exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(conntypes.ErrConnectionNotFound, connectionID)
+		return nil, errorsmod.Wrap(conntypes.ErrConnectionNotFound, connectionID)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
@@ -531,7 +535,6 @@ func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, heig
 func (cc *PenumbraProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
 	res, err := cc.queryChannelABCI(ctx, height, portid, channelid)
 	if err != nil && strings.Contains(err.Error(), "not found") {
-
 		return &chantypes.QueryChannelResponse{
 			Channel: &chantypes.Channel{
 				State:    chantypes.UNINITIALIZED,
@@ -565,7 +568,7 @@ func (cc *PenumbraProvider) queryChannelABCI(ctx context.Context, height int64, 
 
 	// check if channel exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portID, channelID)
+		return nil, errorsmod.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portID, channelID)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Codec.InterfaceRegistry)
@@ -690,7 +693,7 @@ func (cc *PenumbraProvider) QueryNextSeqRecv(ctx context.Context, height int64, 
 
 	// check if next sequence receive exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
+		return nil, errorsmod.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
 	}
 
 	sequence := binary.BigEndian.Uint64(value)
@@ -713,7 +716,7 @@ func (cc *PenumbraProvider) QueryNextSeqAck(ctx context.Context, height int64, c
 
 	// check if next sequence receive exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
+		return nil, errorsmod.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
 	}
 
 	sequence := binary.BigEndian.Uint64(value)
@@ -736,7 +739,7 @@ func (cc *PenumbraProvider) QueryPacketCommitment(ctx context.Context, height in
 
 	// check if packet commitment exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrPacketCommitmentNotFound, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
+		return nil, errorsmod.Wrapf(chantypes.ErrPacketCommitmentNotFound, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
 	}
 
 	return &chantypes.QueryPacketCommitmentResponse{
@@ -756,7 +759,7 @@ func (cc *PenumbraProvider) QueryPacketAcknowledgement(ctx context.Context, heig
 	}
 
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrInvalidAcknowledgement, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
+		return nil, errorsmod.Wrapf(chantypes.ErrInvalidAcknowledgement, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
 	}
 
 	return &chantypes.QueryPacketAcknowledgementResponse{
@@ -877,7 +880,7 @@ func (cc *PenumbraProvider) QueryConsensusStateABCI(ctx context.Context, clientI
 
 	// check if consensus state exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
+		return nil, errorsmod.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
 	}
 
 	// TODO do we really want to create a new codec? ChainClient exposes proto.Marshaler
@@ -1002,7 +1005,6 @@ func (cc *PenumbraProvider) QueryStatus(ctx context.Context) (*coretypes.ResultS
 	return status, nil
 }
 
-func (cc *PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
-	//TODO implement me
+func (*PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
 	panic("implement me")
 }

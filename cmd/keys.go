@@ -22,11 +22,13 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 )
 
 const (
@@ -57,7 +59,6 @@ func keysCmd(a *appState) *cobra.Command {
 }
 
 func keysUseCmd(a *appState) *cobra.Command {
-
 	cmd := &cobra.Command{
 		Use:     "use chain_name key_name",
 		Aliases: []string{"u"},

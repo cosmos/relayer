@@ -11,11 +11,12 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // AssetList describes the various chain asset metadata found in the cosmos chain registry.
@@ -121,7 +122,7 @@ func (c ChainInfo) GetAllRPCEndpoints() (out []string, err error) {
 		out = append(out, fmt.Sprintf("%s://%s:%s%s", u.Scheme, u.Hostname(), port, u.Path))
 	}
 
-	return
+	return out, nil
 }
 
 // IsHealthyRPC returns an error if the specified endpoint is not caught up with the current chain tip.
@@ -160,7 +161,7 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 		eg.Go(func() error {
 			err := IsHealthyRPC(ctx, endpoint)
 			if err != nil {
-				unhealthy += 1
+				unhealthy++
 				c.log.Debug(
 					"Ignoring endpoint due to error",
 					zap.String("endpoint", endpoint),
@@ -168,7 +169,7 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 				)
 				return nil
 			}
-			healthy += 1
+			healthy++
 			c.log.Debug("Verified healthy endpoint", zap.String("endpoint", endpoint))
 			endpoints = append(endpoints, endpoint)
 			return nil
@@ -206,10 +207,10 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context) (string, error) {
 }
 
 // GetAssetList returns the asset metadata from the cosmos chain registry for this particular chain.
-func (c ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, error) {
-	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", name)
+func (ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, error) {
+	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", name) // nolint: gosec
 
-	res, err := http.Get(chainRegURL)
+	res, err := http.Get(chainRegURL) // nolint: gosec
 	if err != nil {
 		return AssetList{}, err
 	}
@@ -231,7 +232,6 @@ func (c ChainInfo) GetAssetList(ctx context.Context, name string) (AssetList, er
 		return AssetList{}, err
 	}
 	return assetList, nil
-
 }
 
 // GetChainConfig returns a CosmosProviderConfig composed from the details found in the cosmos chain registry for

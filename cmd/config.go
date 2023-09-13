@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -30,13 +29,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
 func configCmd(a *appState) *cobra.Command {
@@ -179,7 +179,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 // An error is only returned if the directory cannot be read at all.
 func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, 
 // which means a's paths may include a subset of the path files in dir.
 func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
 	dir = path.Clean(dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
@@ -648,7 +648,7 @@ func (c *Config) ValidatePathEnd(ctx context.Context, stderr io.Writer, pe *rela
 }
 
 // ValidateClient validates client id in provided pathend
-func (c *Config) ValidateClient(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+func (*Config) ValidateClient(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vclient(); err != nil {
 		return err
 	}
@@ -662,7 +662,7 @@ func (c *Config) ValidateClient(ctx context.Context, chain *relayer.Chain, heigh
 }
 
 // ValidateConnection validates connection id in provided pathend
-func (c *Config) ValidateConnection(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
+func (*Config) ValidateConnection(ctx context.Context, chain *relayer.Chain, height int64, pe *relayer.PathEnd) error {
 	if err := pe.Vconn(); err != nil {
 		return err
 	}

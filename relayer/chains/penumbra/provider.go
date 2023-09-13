@@ -8,24 +8,26 @@ import (
 	"path"
 	"time"
 
-	provtypes "github.com/cometbft/cometbft/light/provider"
-	prov "github.com/cometbft/cometbft/light/provider/http"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
-	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
-	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-	tmtypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types/module"
+
+	provtypes "github.com/cometbft/cometbft/light/provider"
+	prov "github.com/cometbft/cometbft/light/provider/http"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
+	tmtypes "github.com/cometbft/cometbft/types"
+
+	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 var (
@@ -160,7 +162,7 @@ func (cc *PenumbraProvider) ChainName() string {
 	return cc.PCfg.ChainName
 }
 
-func (cc *PenumbraProvider) Type() string {
+func (*PenumbraProvider) Type() string {
 	return "penumbra"
 }
 
@@ -172,7 +174,7 @@ func (cc *PenumbraProvider) Timeout() string {
 	return cc.PCfg.Timeout
 }
 
-func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (*PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
 }
 
@@ -196,7 +198,7 @@ func (cc *PenumbraProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+func (*PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
 	// TODO
 	return time.Hour * 2, nil
 	/*
@@ -262,7 +264,7 @@ func (cc *PenumbraProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
+	cc.setCometVersion(status.NodeInfo.Version)
 
 	return nil
 }
@@ -316,11 +318,11 @@ func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {
 	}
 }
 
-func (cc *PenumbraProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+func (cc *PenumbraProvider) setCometVersion(version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(version)
 }
 
-func (cc *PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+func (*PenumbraProvider) legacyEncodedEvents(version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 
@@ -331,7 +333,7 @@ func keysDir(home, chainID string) string {
 
 // newRPCClient initializes a new tendermint RPC client connected to the specified address.
 func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
-	httpClient, err := libclient.DefaultHTTPClient(addr)
+	httpClient, err := jsonrpcclient.DefaultHTTPClient(addr)
 	if err != nil {
 		return nil, err
 	}

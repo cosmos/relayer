@@ -5,8 +5,9 @@ import (
 	"sort"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // MessageLifecycle is used to send an initial IBC message to a chain
@@ -14,15 +15,11 @@ import (
 // It also allows setting a stop condition for the PathProcessor.
 // PathProcessor will stop if it observes a message that matches
 // the MessageLifecycle's Termination message.
-type MessageLifecycle interface {
-	messageLifecycler() //noop
-}
+type MessageLifecycle interface{}
 
 // Flush lifecycle informs the PathProcessor to terminate once
 // all pending messages have been flushed.
 type FlushLifecycle struct{}
-
-func (t *FlushLifecycle) messageLifecycler() {}
 
 type PacketMessage struct {
 	ChainID   string
@@ -38,8 +35,6 @@ type PacketMessageLifecycle struct {
 	Termination *PacketMessage
 }
 
-func (t *PacketMessageLifecycle) messageLifecycler() {}
-
 type ConnectionMessage struct {
 	ChainID   string
 	EventType string
@@ -53,8 +48,6 @@ type ConnectionMessageLifecycle struct {
 	Initial     *ConnectionMessage
 	Termination *ConnectionMessage
 }
-
-func (t *ConnectionMessageLifecycle) messageLifecycler() {}
 
 type ChannelMessage struct {
 	ChainID   string
@@ -70,8 +63,6 @@ type ChannelMessageLifecycle struct {
 	Termination *ChannelMessage
 }
 
-func (t *ChannelMessageLifecycle) messageLifecycler() {}
-
 // ChannelCloseLifecycle is used as a stop condition for the PathProcessor.
 // It will attempt to finish closing the channel and terminate once the channel is closed.
 type ChannelCloseLifecycle struct {
@@ -81,8 +72,6 @@ type ChannelCloseLifecycle struct {
 	SrcConnID    string
 	DstConnID    string
 }
-
-func (t *ChannelCloseLifecycle) messageLifecycler() {}
 
 // IBCMessagesCache holds cached messages for packet flows, connection handshakes,
 // and channel handshakes. The PathProcessors use this for message correlation to determine
@@ -247,11 +236,11 @@ func (connectionKey ConnectionKey) PreInitKey() ConnectionKey {
 	}
 }
 
-func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("connection_id", k.ConnectionID)
-	enc.AddString("client_id", k.ClientID)
-	enc.AddString("counterparty_connection_id", k.CounterpartyConnID)
-	enc.AddString("counterparty_client_id", k.CounterpartyClientID)
+func (connectionKey ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("connection_id", connectionKey.ConnectionID)
+	enc.AddString("client_id", connectionKey.ClientID)
+	enc.AddString("counterparty_connection_id", connectionKey.CounterpartyConnID)
+	enc.AddString("counterparty_client_id", connectionKey.CounterpartyClientID)
 	return nil
 }
 

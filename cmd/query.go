@@ -7,12 +7,16 @@ import (
 	"strings"
 	"sync"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	connectiontypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/spf13/cobra"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -468,10 +472,10 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
+			// pagereq, err := client.ReadPageRequest(cmd.Flags())
+			// if err != nil {
 			//	return err
-			//}
+			// }
 
 			res, err := chain.ChainProvider.QueryClients(cmd.Context())
 			if err != nil {
@@ -479,6 +483,7 @@ $ %s query clients ibc-2 --offset 2 --limit 30`,
 			}
 
 			for _, client := range res {
+				client := client
 				s, err := chain.ChainProvider.Sprint(&client)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal state: %v\n", err)
@@ -515,10 +520,10 @@ $ %s q conns ibc-1`,
 			}
 
 			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
+			// pagereq, err := client.ReadPageRequest(cmd.Flags())
+			// if err != nil {
 			//	return err
-			//}
+			// }
 
 			res, err := chain.ChainProvider.QueryConnections(cmd.Context())
 			if err != nil {
@@ -555,8 +560,6 @@ $ %s query client-connections ibc-0 ibczeroclient --height 1205`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			//TODO - Add pagination
-
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
@@ -665,10 +668,10 @@ $ %s query connection-channels ibc-2 ibcconnection2 --offset 2 --limit 30`,
 			}
 
 			// TODO fix pagination
-			//pagereq, err := client.ReadPageRequest(cmd.Flags())
-			//if err != nil {
+			// pagereq, err := client.ReadPageRequest(cmd.Flags())
+			// if err != nil {
 			//	return err
-			//}
+			// }
 
 			chans, err := chain.ChainProvider.QueryConnectionChannels(cmd.Context(), 0, args[1])
 			if err != nil {
@@ -762,7 +765,8 @@ func printChannelWithExtendedInfo(
 	cmd *cobra.Command,
 	chain *relayer.Chain,
 	channel *chantypes.IdentifiedChannel,
-	extendedInfo *chanExtendedInfo) {
+	extendedInfo *chanExtendedInfo,
+) {
 	s, err := chain.ChainProvider.Sprint(channel)
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Failed to marshal channel: %v\n", err)
@@ -809,6 +813,7 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 	}
 
 	for _, client := range clients {
+		client := client // Create a new variable to hold the current client
 		clientInfo, err := relayer.ClientInfoFromClientState(client.ClientState)
 		if err != nil {
 			continue
@@ -824,14 +829,16 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 		var wg sync.WaitGroup
 		i := 0
 		for _, conn := range connections.Connections {
+			conn := conn // Create a new variable to hold the current connection
 			wg.Add(1)
-			go func() {
+			go func(client clienttypes.IdentifiedClientState, conn connectiontypes.IdentifiedConnection) {
 				defer wg.Done()
 				channels, err := chain.ChainProvider.QueryConnectionChannels(ctx, 0, conn.Id)
 				if err != nil {
 					return
 				}
 				for _, channel := range channels {
+					channel := channel
 					printChannelWithExtendedInfo(cmd, chain, channel, &chanExtendedInfo{
 						clientID:             client.ClientId,
 						counterpartyChainID:  clientInfo.ChainID,
@@ -839,7 +846,7 @@ func queryChannelsToChain(cmd *cobra.Command, chain *relayer.Chain, dstChain *re
 						counterpartyConnID:   conn.Counterparty.ConnectionId,
 					})
 				}
-			}()
+			}(client, *conn) // Pass the new variables to the goroutine
 			i++
 			if i%concurrentQueries == 0 {
 				wg.Wait()

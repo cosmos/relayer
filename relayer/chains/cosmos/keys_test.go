@@ -4,13 +4,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 func testProviderWithKeystore(t *testing.T, accountPrefix string, extraCodecs []string) provider.ChainProvider {
+	t.Helper()
 	homePath := t.TempDir()
 	cfg := cosmos.CosmosProviderConfig{
 		ChainID:        "test",

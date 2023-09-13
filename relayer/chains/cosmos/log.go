@@ -4,17 +4,18 @@ import (
 	"errors"
 	"reflect"
 
+	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
+	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
-	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // getChannelsIfPresent scans the events for channel tags
@@ -63,7 +64,7 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 		}
 
 		// Make a copy since we may continue to the warning
-		errorFields := append(fields, zap.Error(err))
+		errorFields := append(fields, zap.Error(err)) //nolint:gocritic // errorFields is a copy of fields
 		cc.log.Error(
 			"Failed sending cosmos transaction",
 			errorFields...,
@@ -126,7 +127,7 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 		zap.String("tx_hash", res.TxHash),
 	)
 
-	// Log the succesful transaction with fields
+	// Log the successful transaction with fields
 	cc.log.Info(
 		"Successful transaction",
 		fields...,

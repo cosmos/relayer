@@ -6,11 +6,12 @@ import (
 	"reflect"
 	"time"
 
-	sdkcodec "github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+
+	sdkcodec "github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/types"
 )
 
 var tendermintClientCodec = tmClientCodec()
@@ -34,9 +35,12 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 		return "", nil
 	}
 
-	switch ec := existingClientState.(type) {
-	case *tmclient.ClientState:
-		nc := newClient.(*tmclient.ClientState)
+	if ec, ok := existingClientState.(*tmclient.ClientState); ok {
+		nc, ok := newClient.(*tmclient.ClientState)
+		if !ok {
+			return "", fmt.Errorf("got type(%T) expected type(*tmclient.ClientState)", newClient)
+		}
+
 		return cometMatcher(ctx, src, dst, existingClient.ClientId, ec, nc)
 	}
 
@@ -63,15 +67,17 @@ func CheckForMisbehaviour(
 		return nil, err
 	}
 
-	switch header := clientMsg.(type) {
-	case *tmclient.Header:
-		misbehavior, err = checkTendermintMisbehaviour(ctx, clientID, header, cachedHeader, counterparty)
-		if err != nil {
-			return nil, err
-		}
-		if misbehavior == nil && err == nil {
-			return nil, nil
-		}
+	header, ok := clientMsg.(*tmclient.Header)
+	if !ok {
+		return nil, nil
+	}
+
+	misbehavior, err = checkTendermintMisbehaviour(ctx, clientID, header, cachedHeader, counterparty)
+	if err != nil {
+		return nil, err
+	}
+	if misbehavior == nil && err == nil {
+		return nil, nil
 	}
 
 	return misbehavior, nil

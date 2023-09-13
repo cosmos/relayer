@@ -6,6 +6,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -21,8 +22,6 @@ type relayMsgTimeout struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstRecvRes   *chantypes.QueryPacketReceiptResponse
-
-	pass bool
 }
 
 func (rp relayMsgTimeout) Data() []byte {
@@ -49,7 +48,6 @@ func (rp relayMsgTimeout) FetchCommitResponse(ctx context.Context, dst provider.
 	case dstRecvRes.Proof == nil:
 		return fmt.Errorf("timeout packet receipt proof seq(%d) is nil", rp.seq)
 	default:
-		rp.dstRecvRes = dstRecvRes
 		return nil
 	}
 }
@@ -91,17 +89,6 @@ type relayMsgRecvPacket struct {
 	dstComRes    *chantypes.QueryPacketCommitmentResponse
 }
 
-func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
-	return &relayMsgTimeout{
-		packetData:   rp.packetData,
-		seq:          rp.seq,
-		timeout:      rp.timeout,
-		timeoutStamp: rp.timeoutStamp,
-		dstRecvRes:   nil,
-		pass:         false,
-	}
-}
-
 func (rp relayMsgRecvPacket) Data() []byte {
 	return rp.packetData
 }
@@ -128,7 +115,6 @@ func (rp relayMsgRecvPacket) FetchCommitResponse(ctx context.Context, dst provid
 	case dstCommitRes.Commitment == nil:
 		return fmt.Errorf("recv packet commitment query seq(%d) is nil", rp.seq)
 	default:
-		rp.dstComRes = dstCommitRes
 		return nil
 	}
 }
@@ -168,16 +154,16 @@ type relayMsgPacketAck struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
-
-	pass bool
 }
 
 func (rp relayMsgPacketAck) Data() []byte {
 	return rp.packetData
 }
+
 func (rp relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
 }
+
 func (rp relayMsgPacketAck) Timeout() clienttypes.Height {
 	return rp.timeout
 }
@@ -226,7 +212,6 @@ func (rp relayMsgPacketAck) FetchCommitResponse(ctx context.Context, dst provide
 	case dstCommitRes.Acknowledgement == nil:
 		return fmt.Errorf("ack packet acknowledgement query seq(%d) is nil", rp.seq)
 	default:
-		rp.dstComRes = dstCommitRes
 		return nil
 	}
 }

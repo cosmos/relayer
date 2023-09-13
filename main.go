@@ -2,6 +2,7 @@ package main
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/relayer/v2/cmd"
 )
 
@@ -10,6 +11,5 @@ func main() {
 }
 
 func init() {
-	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	sdk.SetAddrCacheEnabled(false)
 }

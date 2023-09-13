@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
 
 const flushTimeout = 10 * time.Minute
@@ -424,7 +426,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pathName := args[0]
 
 			c, src, dst, err := a.config.ChainsFromPath(pathName)
@@ -924,11 +925,12 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			srcChannelID := args[4]
 
 			var pathConnectionID string
-			if src.ChainID() == path.Src.ChainID {
+			switch src.ChainID() {
+			case path.Src.ChainID:
 				pathConnectionID = path.Src.ConnectionID
-			} else if src.ChainID() == path.Dst.ChainID {
+			case path.Dst.ChainID:
 				pathConnectionID = path.Dst.ConnectionID
-			} else {
+			default:
 				return fmt.Errorf("no path configured using chain-id: %s", src.ChainID())
 			}
 
@@ -1052,7 +1054,6 @@ $ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hj
 $ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd`,
 			appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])

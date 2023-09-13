@@ -23,12 +23,13 @@ import (
 	"net"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
 
 // startCmd represents the start command

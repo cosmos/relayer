@@ -9,11 +9,12 @@ import (
 	"os"
 	"path"
 
-	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/gofrs/flock"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+
+	"github.com/cosmos/relayer/v2/relayer"
 )
 
 // appState is the modifiable state of the application.
@@ -212,7 +213,7 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 	cfgPath := a.configPath()
 
 	// Overwrite the config file.
-	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+	if err := os.WriteFile(cfgPath, out, 0o600); err != nil {
 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
 	}
 
@@ -253,7 +254,6 @@ func (a *appState) updatePathConfig(
 }
 
 func (a *appState) useKey(chainName, key string) error {
-
 	chain, exists := a.config.Chains[chainName]
 	if !exists {
 		return fmt.Errorf("chain %s not found in config", chainName)
@@ -278,7 +278,6 @@ func (a *appState) useKey(chainName, key string) error {
 		return fmt.Errorf("key %s does not exist for chain %s", key, cc.ChainName())
 	}
 	return a.performConfigLockingOperation(context.Background(), func() error {
-		a.config.Chains[chainName].ChainProvider.UseKey(key)
-		return nil
+		return a.config.Chains[chainName].ChainProvider.UseKey(key)
 	})
 }

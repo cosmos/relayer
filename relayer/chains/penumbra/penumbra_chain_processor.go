@@ -7,16 +7,17 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
-
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 const blockResultsQueryTimeout = 2 * time.Minute
@@ -70,14 +71,6 @@ const (
 	defaultMinQueryLoopDuration = 1 * time.Second
 	inSyncNumBlocksThreshold    = 2
 )
-
-type msgHandlerParams struct {
-	// incoming IBC message
-	messageInfo any
-
-	// reference to the caches that will be assembled by the handlers in this file
-	ibcMessagesCache processor.IBCMessagesCache
-}
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState

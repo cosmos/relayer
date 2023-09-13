@@ -1,8 +1,9 @@
 package sr25519
 
 import (
-	tmsr25519 "github.com/cometbft/cometbft/crypto/sr25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+
+	tmsr25519 "github.com/cometbft/cometbft/crypto/sr25519"
 )
 
 const (
@@ -32,7 +33,7 @@ func (m *PrivKey) Equals(other cryptotypes.LedgerPrivKey) bool {
 	return m.PrivKey.Equals(sk2.PrivKey)
 }
 
-func (m *PrivKey) ProtoMessage() {}
+func (*PrivKey) ProtoMessage() {}
 
 func (m *PrivKey) Reset() {
 	m.PrivKey = tmsr25519.PrivKey{}

@@ -6,10 +6,11 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 func (ccp *CosmosChainProcessor) handleMessage(ctx context.Context, m ibcMessage, c processor.IBCMessagesCache) {
@@ -86,7 +87,7 @@ func (ccp *CosmosChainProcessor) handleChannelMessage(eventType string, ci provi
 			ccp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 			ccp.channelStateCache.SetOpen(channelKey, true, ci.Order)
-			ccp.logChannelOpenMessage(eventType, ci)
+			ccp.logChannelOpenMessage(ci)
 		case chantypes.EventTypeChannelCloseConfirm:
 			for k := range ccp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
@@ -183,9 +184,8 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 	)
 }
 
-func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo) {
+func (ccp *CosmosChainProcessor) logChannelOpenMessage(ci provider.ChannelInfo) {
 	fields := []zap.Field{
-
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("port_id", ci.PortID),

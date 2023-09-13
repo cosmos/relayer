@@ -32,7 +32,7 @@ type SwapClaimProof struct {
 	SwapCommitmentProof *v1alpha11.StateCommitmentProof `protobuf:"bytes,4,opt,name=swap_commitment_proof,json=swapCommitmentProof,proto3" json:"swap_commitment_proof,omitempty"`
 	// The nullifier key used to derive the swap nullifier
 	Nk []byte `protobuf:"bytes,6,opt,name=nk,proto3" json:"nk,omitempty"`
-	//
+	//*
 	// @exclude
 	// Describes output amounts
 	Lambda_1I *v1alpha11.Amount `protobuf:"bytes,20,opt,name=lambda_1_i,json=lambda1I,proto3" json:"lambda_1_i,omitempty"`

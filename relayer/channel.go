@@ -7,9 +7,10 @@ import (
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	"go.uber.org/zap"
+
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
 )
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.

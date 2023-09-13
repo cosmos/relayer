@@ -6,23 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/bytes"
-	"github.com/cometbft/cometbft/light"
-	tmcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	tmtypes "github.com/cometbft/cometbft/types"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/store/rootmulti"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	cosmosproto "github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -33,14 +21,30 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	ics23 "github.com/cosmos/ics23/go"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	errorsmod "cosmossdk.io/errors"
+
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
+	"github.com/cometbft/cometbft/light"
+	tmcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
 	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/ibc/v1alpha1"
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Variables used for retries
@@ -49,14 +53,12 @@ var (
 	rtyAtt                      = retry.Attempts(rtyAttNum)
 	rtyDel                      = retry.Delay(time.Millisecond * 400)
 	rtyErr                      = retry.LastErrorOnly(true)
-	numRegex                    = regexp.MustCompile("[0-9]+")
 	defaultBroadcastWaitTimeout = 10 * time.Minute
 	errUnknown                  = "unknown"
 )
 
 // Default IBC settings
 var (
-	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
 )
 
@@ -286,11 +288,11 @@ func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.Relayer
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
 			// The key and value are base64-encoded strings, so we first have to decode them:
-			key, err := base64.StdEncoding.DecodeString(string(attribute.Key))
+			key, err := base64.StdEncoding.DecodeString(attribute.Key)
 			if err != nil {
 				continue
 			}
-			value, err := base64.StdEncoding.DecodeString(string(attribute.Value))
+			value, err := base64.StdEncoding.DecodeString(attribute.Value)
 			if err != nil {
 				continue
 			}
@@ -302,11 +304,9 @@ func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.Relayer
 		})
 	}
 	return events
-
 }
 
 func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
-
 	// TODO: fee estimation, fee payments
 	// NOTE: we do not actually need to sign this tx currently, since there
 	// are no fees required on the testnet. future versions of penumbra
@@ -462,7 +462,7 @@ func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState,
 	return NewPenumbraMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) SubmitMisbehavior( /*TBD*/ ) (provider.RelayerMessage, error) {
+func (*PenumbraProvider) SubmitMisbehavior( /* TBD */ ) (provider.RelayerMessage, error) {
 	return nil, nil
 }
 
@@ -913,9 +913,11 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 		return nil, err
 	}
 
-	msgUpgradeClient := &clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	msgUpgradeClient := &clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}
 
 	return cosmos.NewCosmosMessage(msgUpgradeClient, func(signer string) {
 		msgUpgradeClient.Signer = signer
@@ -934,15 +936,6 @@ func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour 
 	}
 
 	return NewPenumbraMessage(msg), nil
-}
-
-// mustGetHeight takes the height inteface and returns the actual height
-func mustGetHeight(h ibcexported.Height) clienttypes.Height {
-	height, ok := h.(clienttypes.Height)
-	if !ok {
-		panic("height is not an instance of height!")
-	}
-	return height
 }
 
 // MsgRelayAcknowledgement constructs the MsgAcknowledgement which is to be sent to the sending chain.
@@ -1626,7 +1619,7 @@ func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.Channel
 	}), nil
 }
 
-func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (*PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(PenumbraIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: PenumbraIBCHeader, actual: %T", trustedHeader)
@@ -1700,13 +1693,13 @@ func (cc *PenumbraProvider) RelayPacketFromSequence(
 					return nil, nil, err
 				}
 				return nil, timeout, nil
-			} else {
-				timeout, err := src.MsgTimeout(msgTransfer, pp)
-				if err != nil {
-					return nil, nil, err
-				}
-				return nil, timeout, nil
 			}
+			timeout, err := src.MsgTimeout(msgTransfer, pp)
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, timeout, nil
+
 		default:
 			return nil, nil, err
 		}
@@ -1759,14 +1752,11 @@ func (cc *PenumbraProvider) AcknowledgementFromSequence(ctx context.Context, dst
 	return out, nil
 }
 
-func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
-}
-
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
+	return []string{
+		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
+	}
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
@@ -1783,7 +1773,6 @@ EventLoop:
 		}
 
 		for attributeKey, attributeValue := range event.Attributes {
-
 			switch attributeKey {
 			case srcChanTag:
 				if attributeValue != srcChanId {
@@ -1965,34 +1954,6 @@ func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibce
 	return h, nil
 }
 
-// queryTMClientState retrieves the latest consensus state for a client in state at a given height
-// and unpacks/cast it to tendermint clientstate
-func (cc *PenumbraProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
-	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
-	if err != nil {
-		return &tmclient.ClientState{}, err
-	}
-
-	return castClientStateToTMType(clientStateRes.ClientState)
-}
-
-// castClientStateToTMType casts client state to tendermint type
-func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) {
-	clientStateExported, err := clienttypes.UnpackClientState(cs)
-	if err != nil {
-		return &tmclient.ClientState{}, err
-	}
-
-	// cast from interface to concrete type
-	clientState, ok := clientStateExported.(*tmclient.ClientState)
-	if !ok {
-		return &tmclient.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to tendermint type")
-	}
-
-	return clientState, nil
-}
-
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
@@ -2041,7 +2002,7 @@ var ApphashSpec = &ics23.ProofSpec{
 var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
-func (cc *PenumbraProvider) NewClientState(
+func (*PenumbraProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
@@ -2145,10 +2106,10 @@ func isQueryStoreWithProof(path string) bool {
 }
 
 // sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
-func (cc *PenumbraProvider) sdkError(codespace string, code uint32) error {
+func (*PenumbraProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	err := errors.Unwrap(errorsmod.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
@@ -2162,8 +2123,6 @@ func (cc *PenumbraProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted
 	msgs []provider.RelayerMessage, // used for logging only
-	fees sdk.Coins, // used for metrics
-
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
@@ -2287,12 +2246,11 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
-	any := p.AsAny()
-	return sdk.NewResponseResultTx(resTx, any, ""), nil
+	anyValue := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, anyValue, ""), nil
 }
 
-func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	//TODO implement me
+func (*PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
 	panic("implement me")
 }
 
@@ -2303,7 +2261,6 @@ func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []pr
 }
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
-func (cc *PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
-	//TODO implement me
+func (*PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
 	panic("implement me")
 }

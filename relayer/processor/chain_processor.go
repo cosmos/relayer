@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-// The ChainProcessor interface is reponsible for polling blocks and emitting IBC message events to the PathProcessors.
+// The ChainProcessor interface is responsible for polling blocks and emitting IBC message events to the PathProcessors.
 // It is also responsible for tracking open channels and not sending messages to the PathProcessors for closed channels.
 type ChainProcessor interface {
 	// Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.

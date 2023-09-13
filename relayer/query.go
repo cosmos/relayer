@@ -9,12 +9,14 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // QueryLatestHeights queries the heights of multiple chains at once
@@ -31,7 +33,7 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 		return err
 	})
 	err = eg.Wait()
-	return
+	return srch, dsth, err
 }
 
 // QueryClientStates queries the client state of multiple chains at once
@@ -210,7 +212,7 @@ func QueryIBCUpdateHeaders(
 		return err
 	})
 	err = eg.Wait()
-	return
+	return srcHeader, dstHeader, srcTrustedHeader, dstTrustedHeader, err
 }
 
 func QueryIBCHeaders(ctx context.Context, src, dst *Chain, srch, dsth int64) (srcUpdateHeader, dstUpdateHeader provider.IBCHeader, err error) {
@@ -226,7 +228,7 @@ func QueryIBCHeaders(ctx context.Context, src, dst *Chain, srch, dsth int64) (sr
 		return err
 	})
 	err = eg.Wait()
-	return
+	return srcUpdateHeader, dstUpdateHeader, err
 }
 
 // QueryBalance is a helper function for query balance

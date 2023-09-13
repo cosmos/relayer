@@ -8,15 +8,18 @@ import (
 	"strings"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+
+	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // ibcMessage is the type used for parsing all possible properties of IBC messages
@@ -143,26 +146,6 @@ func parseIBCMessageFromEvent(
 	return nil
 }
 
-func (msg *ibcMessage) parseIBCPacketReceiveMessageFromEvent(
-	log *zap.Logger,
-	event sdk.StringEvent,
-	chainID string,
-	height uint64,
-) *ibcMessage {
-	var pi *packetInfo
-	if msg.info == nil {
-		pi = &packetInfo{Height: height}
-		msg.info = pi
-	} else {
-		pi = msg.info.(*packetInfo)
-	}
-	pi.parseAttrs(log, event.Attributes)
-	if event.Type != chantypes.EventTypeWriteAck {
-		msg.eventType = event.Type
-	}
-	return msg
-}
-
 // clientInfo contains the consensus height of the counterparty chain for a client.
 type clientInfo struct {
 	clientID        string
@@ -170,12 +153,12 @@ type clientInfo struct {
 	header          []byte
 }
 
-func (c clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientState {
+func (res clientInfo) ClientState(trustingPeriod time.Duration) provider.ClientState {
 	return provider.ClientState{
-		ClientID:        c.clientID,
-		ConsensusHeight: c.consensusHeight,
+		ClientID:        res.clientID,
+		ConsensusHeight: res.consensusHeight,
 		TrustingPeriod:  trustingPeriod,
-		Header:          c.header,
+		Header:          res.header,
 	}
 }
 
@@ -280,7 +263,7 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 			return
 		}
 	// NOTE: deprecated per IBC spec
-	case chantypes.AttributeKeyData:
+	case chantypes.AttributeKeyData: //nolint:staticcheck
 		res.Data = []byte(attr.Value)
 	case chantypes.AttributeKeyDataHex:
 		data, err := hex.DecodeString(attr.Value)
@@ -293,7 +276,7 @@ func (res *packetInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 		}
 		res.Data = data
 	// NOTE: deprecated per IBC spec
-	case chantypes.AttributeKeyAck:
+	case chantypes.AttributeKeyAck: //nolint:staticcheck
 		res.Ack = []byte(attr.Value)
 	case chantypes.AttributeKeyAckHex:
 		data, err := hex.DecodeString(attr.Value)

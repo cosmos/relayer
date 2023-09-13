@@ -14,23 +14,6 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/bytes"
-	"github.com/cometbft/cometbft/light"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	tmtypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/tx"
-	"github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/store/rootmulti"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -41,12 +24,32 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
-	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	"github.com/cosmos/relayer/v2/relayer/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	errorsmod "cosmossdk.io/errors"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/store/rootmulti"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
+	"github.com/cometbft/cometbft/light"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	tmtypes "github.com/cometbft/cometbft/types"
+
+	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	"github.com/cosmos/relayer/v2/relayer/ethermint"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // Variables used for retries
@@ -248,7 +251,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	sdkConf.SetBech32PrefixForConsensusNode(cc.PCfg.AccountPrefix+"valcons", cc.PCfg.AccountPrefix+"valconspub")
 	defer sdkConfigMutex.Unlock()
 
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
 	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
 
 	txf, err := cc.PrepareFactory(cc.TxFactory(), signingKey)
@@ -271,9 +274,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		adjusted = uint64(float64(adjusted) * cc.PCfg.GasAdjustment)
 	}
 
-	//Cannot feegrant your own TX
 	if signingKey != feegranterKey && feegranterKey != "" {
-		//Must be set in Factory to affect gas calculation (sim tx) as well as real tx
 		txf = txf.WithFeeGranter(feegrantKeyAcc)
 	}
 
@@ -298,9 +299,8 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	}
 
 	err = func() error {
-		//done := cc.SetSDKContext()
 		// ensure that we allways call done, even in case of an error or panic
-		//defer done()
+		// defer done()
 
 		if err = tx.Sign(txf, signingKey, txb, false); err != nil {
 			return err
@@ -337,10 +337,10 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 }
 
 // sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
-func (cc *CosmosProvider) sdkError(codespace string, code uint32) error {
+func (*CosmosProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	err := errors.Unwrap(errorsmod.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
@@ -355,7 +355,6 @@ func (cc *CosmosProvider) broadcastTx(
 	tx []byte, // raw tx to be broadcasted
 	msgs []provider.RelayerMessage, // used for logging only
 	fees sdk.Coins, // used for metrics
-
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallbacks []func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
@@ -415,7 +414,6 @@ func (cc *CosmosProvider) waitForTx(
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-				//Call each callback in order since waitForTx is already invoked asyncronously
 				cb(nil, err)
 			}
 		}
@@ -443,7 +441,6 @@ func (cc *CosmosProvider) waitForTx(
 		}
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-				//Call each callback in order since waitForTx is already invoked asyncronously
 				cb(nil, err)
 			}
 		}
@@ -453,7 +450,6 @@ func (cc *CosmosProvider) waitForTx(
 
 	if len(callbacks) > 0 {
 		for _, cb := range callbacks {
-			//Call each callback in order since waitForTx is already invoked asyncronously
 			cb(rlyResp, nil)
 		}
 	}
@@ -496,8 +492,8 @@ func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
-	any := p.AsAny()
-	return sdk.NewResponseResultTx(resTx, any, ""), nil
+	anyResult := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, anyResult, ""), nil
 }
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
@@ -543,11 +539,8 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	feegranterKey string,
 	err error,
 ) {
-	//Guard against race conditions when choosing a signer/feegranter
 	cc.feegrantMu.Lock()
 	defer cc.feegrantMu.Unlock()
-
-	//Some messages have feegranting disabled. If any message in the TX disables feegrants, then the TX will not be feegranted.
 	isFeegrantEligible := cc.PCfg.FeeGrants != nil
 
 	for _, curr := range msgs {
@@ -557,8 +550,6 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 			}
 		}
 	}
-
-	//By default, we should sign TXs with the provider's default key
 	txSignerKey = cc.PCfg.Key
 
 	if isFeegrantEligible {
@@ -566,16 +557,14 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 		signerAcc, addrErr := cc.GetKeyAddressForKey(txSignerKey)
 		if addrErr != nil {
 			err = addrErr
-			return
+			return "", "", err
 		}
 
 		signerAccAddr, encodeErr := cc.EncodeBech32AccAddr(signerAcc)
 		if encodeErr != nil {
 			err = encodeErr
-			return
+			return "", "", err
 		}
-
-		//Overwrite the 'Signer' field in any Msgs that provide an 'optionalSetSigner' callback
 		for _, curr := range msgs {
 			if cMsg, ok := curr.(CosmosMessage); ok {
 				if cMsg.SetSigner != nil {
@@ -585,7 +574,7 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 		}
 	}
 
-	return
+	return txSignerKey, feegranterKey, nil
 }
 
 func (cc *CosmosProvider) buildMessages(
@@ -632,8 +621,6 @@ func (cc *CosmosProvider) buildMessages(
 			return nil, 0, sdk.Coins{}, err
 		}
 	}
-
-	//Cannot feegrant your own TX
 	if txSignerKey != feegranterKey && feegranterKey != "" {
 		granterAddr, err := cc.GetKeyAddressForKey(feegranterKey)
 		if err != nil {
@@ -671,7 +658,7 @@ func (cc *CosmosProvider) buildMessages(
 // handleAccountSequenceMismatchError will parse the error string, e.g.:
 // "account sequence mismatch, expected 10, got 9: incorrect account sequence"
 // and update the next account sequence with the expected value.
-func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *WalletState, err error) {
+func (*CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *WalletState, err error) {
 	if sequenceGuard == nil {
 		panic("sequence guard not configured")
 	}
@@ -747,9 +734,11 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 		return nil, err
 	}
 
-	msgUpgradeClient := &clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	msgUpgradeClient := &clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}
 
 	return NewCosmosMessage(msgUpgradeClient, func(signer string) {
 		msgUpgradeClient.Signer = signer
@@ -1263,7 +1252,7 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	}), nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (*CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
@@ -1392,13 +1381,13 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 					return nil, nil, err
 				}
 				return nil, timeout, nil
-			} else {
-				timeout, err := src.MsgTimeout(msgTransfer, pp)
-				if err != nil {
-					return nil, nil, err
-				}
-				return nil, timeout, nil
 			}
+			timeout, err := src.MsgTimeout(msgTransfer, pp)
+			if err != nil {
+				return nil, nil, err
+			}
+			return nil, timeout, nil
+
 		default:
 			return nil, nil, err
 		}
@@ -1555,7 +1544,7 @@ func (cc *CosmosProvider) queryLocalhostClientState(ctx context.Context, srch in
 var defaultUpgradePath = []string{"upgrade", "upgradedIBCState"}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
-func (cc *CosmosProvider) NewClientState(
+func (*CosmosProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
@@ -1602,7 +1591,7 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.C
 }
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
-func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
+func (*CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
 	msg := feetypes.NewMsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee)
 	return NewCosmosMessage(msg, nil), nil
 }
@@ -1856,9 +1845,7 @@ func BuildSimTx(info *keyring.Record, txf tx.Factory, msgs ...sdk.Msg) ([]byte, 
 		return nil, err
 	}
 
-	var pk cryptotypes.PubKey = &secp256k1.PubKey{} // use default public key type
-
-	pk, err = info.GetPubKey()
+	pk, err := info.GetPubKey()
 	if err != nil {
 		return nil, err
 	}

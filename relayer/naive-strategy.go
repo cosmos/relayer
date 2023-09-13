@@ -7,9 +7,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
@@ -113,9 +114,7 @@ func UnrelayedSequences(ctx context.Context, src, dst *Chain, srcChannel *chanty
 
 	wg.Wait()
 
-	var (
-		srcUnreceivedPackets, dstUnreceivedPackets []uint64
-	)
+	var srcUnreceivedPackets, dstUnreceivedPackets []uint64
 
 	if len(srcPacketSeq) > 0 {
 		wg.Add(1)
@@ -542,7 +541,6 @@ func RelayPackets(ctx context.Context, log *zap.Logger, src, dst *Chain, sp Rela
 	}
 
 	return nil
-
 }
 
 // AddMessagesForSequences constructs RecvMsgs and TimeoutMsgs from sequence numbers on a src chain

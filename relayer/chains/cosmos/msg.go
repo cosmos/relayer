@@ -3,17 +3,19 @@ package cosmos
 import (
 	"fmt"
 
+	"github.com/cosmos/gogoproto/proto"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/gogoproto/proto"
+
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap/zapcore"
 )
 
 type CosmosMessage struct {
 	Msg              sdk.Msg
-	SetSigner        func(string) //callback to update the Msg Signer field
-	FeegrantDisabled bool         //marks whether this message type should ALWAYS disable feegranting (use the default signer)
+	SetSigner        func(string) // callback to update the Msg Signer field
+	FeegrantDisabled bool         // marks whether this message type should ALWAYS disable feegranting (use the default signer)
 }
 
 func NewCosmosMessage(msg sdk.Msg, optionalSetSigner func(string)) provider.RelayerMessage {
@@ -27,7 +29,7 @@ func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(CosmosMessage); !ok {
 		fmt.Printf("got data of type %T but wanted provider.CosmosMessage \n", val)
 		return nil
-	} else {
+	} else { //nolint:revive // we need to use val and that does not work when we fix this lint
 		return val.Msg
 	}
 }
@@ -38,7 +40,7 @@ func CosmosMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 		if val, ok := rMsg.(CosmosMessage); !ok {
 			fmt.Printf("got data of type %T but wanted provider.CosmosMessage \n", rMsg)
 			return nil
-		} else {
+		} else { //nolint:revive // we need to use val and that does not work when we fix this lint
 			sdkMsgs = append(sdkMsgs, val.Msg)
 		}
 	}

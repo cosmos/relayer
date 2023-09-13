@@ -9,21 +9,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
+	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	"go.uber.org/zap"
+	"golang.org/x/mod/semver"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
+
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
-	"github.com/cosmos/gogoproto/proto"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 var (
@@ -59,7 +62,6 @@ type CosmosProviderConfig struct {
 	MinLoopDuration  time.Duration              `json:"min-loop-duration" yaml:"min-loop-duration"`
 	ExtensionOptions []provider.ExtensionOption `json:"extension-options" yaml:"extension-options"`
 
-	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
 	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
 }
 
@@ -67,13 +69,13 @@ type CosmosProviderConfig struct {
 // Clients can use other signing keys by invoking 'tx.SendMsgsWith' and specifying the signing key.
 type FeeGrantConfiguration struct {
 	GranteesWanted int `json:"num_grantees" yaml:"num_grantees"`
-	//Normally this is the default ChainClient key
+
 	GranterKey string `json:"granter" yaml:"granter"`
-	//List of keys (by name) that this FeeGranter manages
+
 	ManagedGrantees []string `json:"grantees" yaml:"grantees"`
-	//Last checked on chain (0 means grants never checked and may not exist)
+
 	BlockHeightVerified int64 `json:"block_last_verified" yaml:"block_last_verified"`
-	//Index of the last ManagedGrantee used as a TX signer
+
 	GranteeLastSignerIndex int
 }
 
@@ -130,8 +132,6 @@ type CosmosProvider struct {
 	Output         io.Writer
 	Cdc            Codec
 	// TODO: GRPC Client type?
-
-	//nextAccountSeq uint64
 	feegrantMu sync.Mutex
 
 	// the map key is the TX signer, which can either be 'default' (provider key) or a feegrantee
@@ -166,7 +166,7 @@ func (cc *CosmosProvider) ChainName() string {
 	return cc.PCfg.ChainName
 }
 
-func (cc *CosmosProvider) Type() string {
+func (*CosmosProvider) Type() string {
 	return "cosmos"
 }
 
@@ -179,7 +179,7 @@ func (cc *CosmosProvider) Timeout() string {
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
-func (cc *CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (*CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	return defaultChainPrefix
 }
 
@@ -222,7 +222,7 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 	default:
 		out, err = sdk.GetFromBech32(keyOrAddress, cc.PCfg.AccountPrefix)
 	}
-	return
+	return out, err
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
@@ -302,7 +302,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
+	cc.setCometVersion(status.NodeInfo.Version)
 
 	return nil
 }
@@ -347,17 +347,17 @@ func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
 	cc.metrics = m
 }
 
-func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq uint64) {
+func (*CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq uint64) {
 	if seq > sequenceGuard.NextAccountSequence {
 		sequenceGuard.NextAccountSequence = seq
 	}
 }
 
-func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+func (cc *CosmosProvider) setCometVersion(version string) {
+	cc.cometLegacyEncoding = cc.legacyEncodedEvents(version)
 }
 
-func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+func (*CosmosProvider) legacyEncodedEvents(version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 

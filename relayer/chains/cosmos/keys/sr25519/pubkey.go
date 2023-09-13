@@ -3,8 +3,9 @@ package sr25519
 import (
 	"bytes"
 
-	"github.com/cometbft/cometbft/crypto"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+
+	"github.com/cometbft/cometbft/crypto"
 )
 
 const PubKeyName = "tendermint/PubKeySr25519"
@@ -29,7 +30,7 @@ func (m PubKey) String() string {
 	return m.Key.String()
 }
 
-func (m PubKey) Type() string {
+func (PubKey) Type() string {
 	return "sr25519"
 }
 

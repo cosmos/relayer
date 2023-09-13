@@ -4,13 +4,14 @@ import (
 	"context"
 	"time"
 
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"go.uber.org/zap"
+
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"go.uber.org/zap"
 )
 
 const (
@@ -96,7 +97,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	// QueryLoop:
 	for {
-		mcp.queryCycle(ctx, &persistence)
+		mcp.queryCycle(&persistence)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -107,7 +108,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	}
 }
 
-func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) {
+func (mcp *MockChainProcessor) queryCycle(persistence *queryCyclePersistence) {
 	// would be query of latest height
 	persistence.latestHeight++
 

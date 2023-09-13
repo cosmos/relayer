@@ -5,20 +5,17 @@ import (
 	"math"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
+
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/stretchr/testify/require"
 )
-
-type mockAccountSequenceMismatchError struct {
-	Expected uint64
-	Actual   uint64
-}
 
 // func TestHandleAccountSequenceMismatchError(t *testing.T) {
 // 	p := &CosmosProvider{}
@@ -85,10 +82,6 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 			}
 		})
 	}
-}
-
-func (err mockAccountSequenceMismatchError) Error() string {
-	return fmt.Sprintf("account sequence mismatch, expected %d, got %d: incorrect account sequence", err.Expected, err.Actual)
 }
 
 type mockTxConfig struct {

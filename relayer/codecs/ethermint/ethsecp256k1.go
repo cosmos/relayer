@@ -6,12 +6,15 @@ import (
 	"crypto/subtle"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	errorsmod "cosmossdk.io/errors"
-	tmcrypto "github.com/cometbft/cometbft/crypto"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/ethereum/go-ethereum/crypto"
+
+	tmcrypto "github.com/cometbft/cometbft/crypto"
 )
 
 const (
@@ -79,7 +82,7 @@ func (privKey PrivKey) Equals(other cryptotypes.LedgerPrivKey) bool {
 }
 
 // Type returns eth_secp256k1
-func (privKey PrivKey) Type() string {
+func (PrivKey) Type() string {
 	return KeyType
 }
 
@@ -165,7 +168,7 @@ func (pubKey PubKey) String() string {
 }
 
 // Type returns eth_secp256k1
-func (pubKey PubKey) Type() string {
+func (PubKey) Type() string {
 	return KeyType
 }
 

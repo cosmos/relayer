@@ -9,19 +9,19 @@ import (
 	"strings"
 	"time"
 
-	sdkmath "cosmossdk.io/math"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
 	errorsmod "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
+
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 // WrapTxToTypedData is an ultimate method that wraps Amino-encoded Cosmos Tx JSON data
@@ -344,16 +344,16 @@ func jsonNameFromTag(tag reflect.StructTag) string {
 
 // Unpack the given Any value with Type/Value deconstruction
 func unpackAny(cdc codectypes.AnyUnpacker, field reflect.Value) (reflect.Type, reflect.Value, error) {
-	any, ok := field.Interface().(*codectypes.Any)
+	anyValue, ok := field.Interface().(*codectypes.Any)
 	if !ok {
 		return nil, reflect.Value{}, errorsmod.Wrapf(errortypes.ErrPackAny, "%T", field.Interface())
 	}
 
 	anyWrapper := &cosmosAnyWrapper{
-		Type: any.TypeUrl,
+		Type: anyValue.TypeUrl,
 	}
 
-	if err := cdc.UnpackAny(any, &anyWrapper.Value); err != nil {
+	if err := cdc.UnpackAny(anyValue, &anyWrapper.Value); err != nil {
 		return nil, reflect.Value{}, errorsmod.Wrap(err, "failed to unpack Any in msg struct")
 	}
 

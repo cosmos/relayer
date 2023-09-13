@@ -5,6 +5,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -20,8 +21,6 @@ type relayMsgTimeout struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstRecvRes   *chantypes.QueryPacketReceiptResponse
-
-	pass bool
 }
 
 func (rp relayMsgTimeout) Data() []byte {
@@ -79,17 +78,6 @@ type relayMsgRecvPacket struct {
 	dstComRes    *chantypes.QueryPacketCommitmentResponse
 }
 
-func (rp relayMsgRecvPacket) timeoutPacket() *relayMsgTimeout {
-	return &relayMsgTimeout{
-		packetData:   rp.packetData,
-		seq:          rp.seq,
-		timeout:      rp.timeout,
-		timeoutStamp: rp.timeoutStamp,
-		dstRecvRes:   nil,
-		pass:         false,
-	}
-}
-
 func (rp relayMsgRecvPacket) Data() []byte {
 	return rp.packetData
 }
@@ -143,16 +131,16 @@ type relayMsgPacketAck struct {
 	timeout      clienttypes.Height
 	timeoutStamp uint64
 	dstComRes    *chantypes.QueryPacketAcknowledgementResponse
-
-	pass bool
 }
 
 func (rp relayMsgPacketAck) Data() []byte {
 	return rp.packetData
 }
+
 func (rp relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
 }
+
 func (rp relayMsgPacketAck) Timeout() clienttypes.Height {
 	return rp.timeout
 }
