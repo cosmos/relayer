@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -442,4 +443,43 @@ func stuckPacketFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		panic(err)
 	}
 	return cmd
+}
+
+func parseStuckPacketFromFlags(cmd *cobra.Command) (*processor.StuckPacket, error) {
+	stuckPacketChainID, err := cmd.Flags().GetString(flagStuckPacketChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	if stuckPacketChainID == "" {
+		return nil, nil
+	}
+
+	stuckPacketHeightStart, err := cmd.Flags().GetUint64(flagStuckPacketHeightStart)
+	if err != nil {
+		return nil, err
+	}
+
+	if stuckPacketHeightStart == 0 {
+		return nil, fmt.Errorf("stuck packet chain ID %s is set but start height is not", stuckPacketChainID)
+	}
+
+	stuckPacketHeightEnd, err := cmd.Flags().GetUint64(flagStuckPacketHeightEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	if stuckPacketHeightEnd == 0 {
+		return nil, fmt.Errorf("stuck packet chain ID %s is set but end height is not", stuckPacketChainID)
+	}
+
+	if stuckPacketHeightEnd < stuckPacketHeightStart {
+		return nil, fmt.Errorf("stuck packet end height %d is less than start height %d", stuckPacketHeightEnd, stuckPacketHeightStart)
+	}
+
+	return &processor.StuckPacket{
+		ChainID:     stuckPacketChainID,
+		StartHeight: stuckPacketHeightStart,
+		EndHeight:   stuckPacketHeightEnd,
+	}, nil
 }

@@ -143,38 +143,9 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			stuckPacketChainID, err := cmd.Flags().GetString(flagStuckPacketChainID)
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
 			if err != nil {
 				return err
-			}
-
-			stuckPacketHeightStart, err := cmd.Flags().GetUint64(flagStuckPacketHeightStart)
-			if err != nil {
-				return err
-			}
-
-			stuckPacketHeightEnd, err := cmd.Flags().GetUint64(flagStuckPacketHeightEnd)
-			if err != nil {
-				return err
-			}
-
-			var stuckPacket *processor.StuckPacket
-
-			if stuckPacketChainID != "" {
-				if stuckPacketHeightEnd == 0 {
-					return fmt.Errorf("stuck packet chain ID %s is set but end height is not", stuckPacketChainID)
-				}
-				if stuckPacketHeightStart == 0 {
-					return fmt.Errorf("stuck packet chain ID %s is set but start height is not", stuckPacketChainID)
-				}
-				if stuckPacketHeightEnd < stuckPacketHeightStart {
-					return fmt.Errorf("stuck packet end height %d is less than start height %d", stuckPacketHeightEnd, stuckPacketHeightStart)
-				}
-				stuckPacket = &processor.StuckPacket{
-					ChainID:     stuckPacketChainID,
-					StartHeight: stuckPacketHeightStart,
-					EndHeight:   stuckPacketHeightEnd,
-				}
 			}
 
 			rlyErrCh := relayer.StartRelayer(

@@ -795,6 +795,11 @@ $ %s tx flush demo-path channel-0`,
 				}
 			}
 
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
+			if err != nil {
+				return err
+			}
+
 			ctx, cancel := context.WithTimeout(cmd.Context(), flushTimeout)
 			defer cancel()
 
@@ -811,7 +816,7 @@ $ %s tx flush demo-path channel-0`,
 				relayer.ProcessorEvents,
 				0,
 				nil,
-				nil,
+				stuckPacket,
 			)
 
 			// Block until the error channel sends a message.
@@ -831,6 +836,8 @@ $ %s tx flush demo-path channel-0`,
 
 	cmd = strategyFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = stuckPacketFlags(a.viper, cmd)
+
 	return cmd
 }
 
