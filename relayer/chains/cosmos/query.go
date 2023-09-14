@@ -18,7 +18,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/feegrant"
@@ -189,7 +188,7 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 
 // QueryFeegrantsByGrantee returns all requested grants for the given grantee.
 // Default behavior will return all grants.
-func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *query.PageRequest) ([]*feegrant.Grant, error) {
+func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *querytypes.PageRequest) ([]*feegrant.Grant, error) {
 	grants := []*feegrant.Grant{}
 	allPages := paginator == nil
 
@@ -228,7 +227,7 @@ func (cc *CosmosProvider) QueryFeegrantsByGrantee(address string, paginator *que
 
 // Feegrant_GrantsByGranterRPC returns all requested grants for the given Granter.
 // Default behavior will return all grants.
-func (cc *CosmosProvider) QueryFeegrantsByGranter(address string, paginator *query.PageRequest) ([]*feegrant.Grant, error) {
+func (cc *CosmosProvider) QueryFeegrantsByGranter(address string, paginator *querytypes.PageRequest) ([]*feegrant.Grant, error) {
 	grants := []*feegrant.Grant{}
 	allPages := paginator == nil
 
@@ -311,47 +310,55 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address s
 	return coins, nil
 }
 
-func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace string, key string) (time.Duration, error) {
 	queryClient := proposal.NewQueryClient(cc)
 
-	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
+	params := proposal.QueryParamsRequest{Subspace: subspace, Key: key}
 
-	resICS, err := queryClient.Params(ctx, &params)
+	res, err := queryClient.Params(ctx, &params)
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
+		return 0, fmt.Errorf("failed to make %s params request: %w", subspace, err)
 	}
 
-	if resICS.Param.Value == "" {
-		return 0, fmt.Errorf("ccvconsumer unbonding period is empty")
+	if res.Param.Value == "" {
+		return 0, fmt.Errorf("%s %s is empty", subspace, key)
 	}
 
-	unbondingPeriod, err := strconv.ParseUint(strings.ReplaceAll(resICS.Param.Value, `"`, ""), 10, 64)
+	unbondingValue, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse unbonding period from ccvconsumer param: %w", err)
+		return 0, fmt.Errorf("failed to parse %s from %s param: %w", key, subspace, err)
 	}
 
-	return time.Duration(unbondingPeriod), nil
+	return time.Duration(unbondingValue), nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-	req := stakingtypes.QueryParamsRequest{}
-	queryClient := stakingtypes.NewQueryClient(cc)
 
-	res, err := queryClient.Params(ctx, &req)
-	if err != nil {
-		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-		if consumerErr != nil {
-			return 0,
-				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
-		}
-
+	// Attempt ICS query
+	consumerUnbondingPeriod, consumerErr := cc.queryParamsSubspaceTime(ctx, "ccvconsumer", "UnbondingPeriod")
+	if consumerErr == nil {
 		return consumerUnbondingPeriod, nil
 	}
 
-	return res.Params.UnbondingTime, nil
+	//Attempt Staking query.
+	unbondingPeriod, stakingParamsErr := cc.queryParamsSubspaceTime(ctx, "staking", "UnbondingTime")
+	if stakingParamsErr == nil {
+		return unbondingPeriod, nil
+	}
+
+	// Fallback
+	req := stakingtypes.QueryParamsRequest{}
+	queryClient := stakingtypes.NewQueryClient(cc)
+	res, err := queryClient.Params(ctx, &req)
+	if err == nil {
+		return res.Params.UnbondingTime, nil
+
+	}
+
+	return 0,
+		fmt.Errorf("failed to query unbonding period from ccvconsumer, staking & fallback : %w: %s : %s", consumerErr, stakingParamsErr.Error(), err.Error())
 }
 
 // QueryTendermintProof performs an ABCI query with the given key and returns
