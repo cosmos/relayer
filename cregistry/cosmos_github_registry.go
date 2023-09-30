@@ -52,8 +52,13 @@ func (c CosmosGithubRegistry) ListChains(ctx context.Context) ([]string, error) 
 }
 
 // GetChain attempts to fetch ChainInfo for the specified chain name from the cosmos chain registry.
-func (c CosmosGithubRegistry) GetChain(ctx context.Context, name string) (ChainInfo, error) {
-	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/chain.json", name)
+func (c CosmosGithubRegistry) GetChain(ctx context.Context, testnet bool, name string) (ChainInfo, error) {
+	var chainRegURL string
+	if testnet {
+		chainRegURL = fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/%s/chain.json", name)
+	} else {
+		chainRegURL = fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/chain.json", name)
+	}
 
 	res, err := http.Get(chainRegURL)
 	if err != nil {

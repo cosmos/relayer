@@ -48,10 +48,11 @@ func TestRelayerInProcess(t *testing.T) {
 func TestRelayerDockerEventProcessor(t *testing.T) {
 	t.Parallel()
 
+	image := relayerinterchaintest.BuildRelayerImage(t)
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
@@ -64,12 +65,12 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 // Relayer runs using the legacy processor.
 func TestRelayerDockerLegacyProcessor(t *testing.T) {
 	t.Parallel()
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--processor", "legacy"),
 	)

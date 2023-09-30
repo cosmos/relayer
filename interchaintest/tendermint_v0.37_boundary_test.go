@@ -54,6 +54,7 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 	rf := relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		InitialBlockHistory: 50,
 	})
+
 	r := rf.Build(t, client, network)
 
 	t.Parallel()

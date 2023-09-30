@@ -2,7 +2,9 @@ package relayer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -308,7 +310,7 @@ func SPrintClientExpiration(chain *Chain, expiration time.Time, clientInfo Clien
 		status = "GOOD"
 	}
 
-	return fmt.Sprintf(`
+	legacyOutput := fmt.Sprintf(`
 	client: %s (%s)
 		HEALTH:              %s
 		TIME:                %s (%s)
@@ -316,4 +318,36 @@ func SPrintClientExpiration(chain *Chain, expiration time.Time, clientInfo Clien
 		TRUSTING PERIOD:     %s
 	`,
 		chain.ClientID(), chain.ChainID(), status, expirationFormatted, remainingTime.Round(time.Second), clientInfo.LatestHeight.GetRevisionHeight(), clientInfo.TrustingPeriod.String())
+
+	return legacyOutput
+
+}
+
+// Returns clientExpiration data in JSON format.
+func SPrintClientExpirationJson(chain *Chain, expiration time.Time, clientInfo ClientStateInfo) string {
+	now := time.Now()
+	remainingTime := expiration.Sub(now)
+	expirationFormatted := expiration.Format(time.RFC822)
+
+	var status string
+	if remainingTime <= 0 {
+		status = "EXPIRED"
+	} else {
+		status = "GOOD"
+	}
+
+	data := map[string]string{
+		"client":             fmt.Sprintf("%s (%s)", chain.ClientID(), chain.ChainID()),
+		"HEALTH":             status,
+		"TIME":               fmt.Sprintf("%s (%s)", expirationFormatted, remainingTime.Round(time.Second)),
+		"LAST UPDATE HEIGHT": strconv.FormatUint(clientInfo.LatestHeight.GetRevisionHeight(), 10),
+		"TRUSTING PERIOD":    clientInfo.TrustingPeriod.String(),
+	}
+
+	jsonOutput, err := json.Marshal(data)
+	if err != nil {
+		jsonOutput = []byte{}
+	}
+
+	return string(jsonOutput)
 }
