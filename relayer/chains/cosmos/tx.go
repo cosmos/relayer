@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"math/rand"
 	"regexp"
@@ -267,8 +266,6 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		if err != nil {
 			return nil, err
 		}
-
-		adjusted = uint64(float64(adjusted) * cc.PCfg.GasAdjustment)
 	}
 
 	//Cannot feegrant your own TX
@@ -1683,14 +1680,10 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 	if gasUsed == 0 {
 		return gasUsed, nil
 	}
+	if cc.PCfg.MaxGasAmount > 0 && gasUsed > cc.PCfg.MaxGasAmount {
+		return 0, fmt.Errorf("estimated gas %d is higher than max gas %d", gasUsed, cc.PCfg.MaxGasAmount)
+	}
 	gas := cc.PCfg.GasAdjustment * float64(gasUsed)
-	if math.IsInf(gas, 1) {
-		return 0, fmt.Errorf("infinite gas used")
-	}
-	// Bound the gas estimate by the max_gas option
-	if cc.PCfg.MaxGasAmount > 0 {
-		gas = math.Min(gas, float64(cc.PCfg.MaxGasAmount))
-	}
 	return uint64(gas), nil
 }
 
