@@ -1668,6 +1668,9 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 		txf = txf.WithGas(cc.PCfg.MinGasAmount)
 	}
 
+	if cc.PCfg.MaxGasAmount != 0 {
+		txf = txf.WithGas(cc.PCfg.MaxGasAmount)
+	}
 	txf, err = cc.SetWithExtensionOptions(txf)
 	if err != nil {
 		return tx.Factory{}, err
