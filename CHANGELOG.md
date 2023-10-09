@@ -22,7 +22,7 @@
 * [\#1221](https://github.com/cosmos/relayer/pull/1221) Update cometbft to v0.37.2 and ibc-go to v7.2.0.
 * [\#1226](https://github.com/cosmos/relayer/pull/1226) Avoid invalid Bech32 prefix error in parallel tests when sdk Config get overwritten by each other in single process.
 * [\#1231](https://github.com/cosmos/relayer/pull/1231) Reduce get bech32 prefix when get signer.
-* [\#](https://github.com/cosmos/relayer/pull/) Add missing max gas amount on txf to avoid estimate less gas when simualte runTx.
+* [\#1303](https://github.com/cosmos/relayer/pull/1303) Add missing max gas amount on txf to avoid estimate less gas when simualte runTx.
 
 ## v0.9.3
 
