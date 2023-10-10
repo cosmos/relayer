@@ -149,7 +149,7 @@ func (pc *WasmProviderConfig) SignMode() signing.SignMode {
 	return signMode
 }
 
-func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
+func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, clientType string) (ibcexported.ClientState, error) {
 
 	return &itm.ClientState{
 		ChainId:                      dstChainID,
@@ -596,7 +596,7 @@ func (ap *WasmProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo
 	return ap.NewWasmContractMessage(MethodChannelCloseConfirm, params)
 }
 
-func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
 	trustedWasmHeader, ok := trustedHeader.(WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)

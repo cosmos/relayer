@@ -349,10 +349,12 @@ func (mp *messageProcessor) handleMsgUpdateClientForBTPClient(ctx context.Contex
 		}
 	}
 
+	lastInd := strings.LastIndex(clientID, "-")
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		header,
 		latestConsensusHeight,
 		nil,
+		clientID[:lastInd],
 	)
 	if err != nil {
 		return fmt.Errorf("error assembling new client header: %w", err)

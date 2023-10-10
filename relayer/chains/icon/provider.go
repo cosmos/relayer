@@ -215,6 +215,7 @@ func (icp *IconProvider) NewClientState(
 	dstUbdPeriod time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
+	srcWasmCodeID string,
 ) (ibcexported.ClientState, error) {
 
 	if !dstUpdateHeader.IsCompleteBlock() {

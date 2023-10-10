@@ -488,7 +488,7 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 	return icp.NewIconMessage(channelCloseConfirmMsg, MethodChannelCloseConfirm), nil
 }
 
-func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
 
 	latestIconHeader, ok := latestHeader.(IconIBCHeader)
 	if !ok {
