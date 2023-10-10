@@ -10,7 +10,7 @@ import (
 var _ exported.ClientState = (*ClientState)(nil)
 
 func (c ClientState) ClientType() string {
-	return ""
+	return exported.Wasm
 }
 
 func (c ClientState) GetLatestHeight() exported.Height {

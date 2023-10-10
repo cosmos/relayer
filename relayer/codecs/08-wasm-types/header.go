@@ -7,7 +7,7 @@ import (
 var _ exported.ClientMessage = &Header{}
 
 func (m Header) ClientType() string {
-	return ""
+	return exported.Wasm
 }
 
 func (m Header) ValidateBasic() error {

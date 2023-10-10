@@ -7,6 +7,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
+
 	//grpc "github.com/cosmos/gogoproto/grpc"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
@@ -21,7 +23,7 @@ type AppModuleBasic struct{}
 
 // Name returns the tendermint module name.
 func (AppModuleBasic) Name() string {
-	return "08-wasm"
+	return exported.Wasm
 }
 
 // RegisterLegacyAminoCodec performs a no-op. The Wasm client does not support amino.

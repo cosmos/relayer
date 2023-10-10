@@ -9,7 +9,7 @@ var (
 )
 
 func (m Misbehaviour) ClientType() string {
-	return ""
+	return exported.Wasm
 }
 
 func (m Misbehaviour) ValidateBasic() error {
