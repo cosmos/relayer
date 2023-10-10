@@ -13,7 +13,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
 
 	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
@@ -540,6 +542,20 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		Signatures:        btp_proof,
 		TrustedHeight:     trustedHeight.RevisionHeight,
 		CurrentValidators: currentValidatorList.Validators,
+	}
+
+	// wrap with wasm client
+	if clientType == exported.Wasm {
+
+		tmClientHeaderBz, err := icp.codec.Marshaler.MarshalInterface(signedHeader)
+		if err != nil {
+			return &wasmclient.Header{}, nil
+		}
+		return &wasmclient.Header{
+			Data:   tmClientHeaderBz,
+			Height: clienttypes.NewHeight(0, latestIconHeader.Header.MainHeight),
+		}, nil
+
 	}
 
 	return signedHeader, nil
