@@ -36,6 +36,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
@@ -974,7 +975,6 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	return NewCosmosMessage(msg), nil
 }
 
-
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
@@ -1011,7 +1011,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 
 	clientHeader = &tmClientHeader
 
-	if clientType == "08-wasm" { // TODO: replace with ibcexported.Wasm at v7.2
+	if clientType == exported.Wasm { // TODO: replace with ibcexported.Wasm at v7.2
 		tmClientHeaderBz, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
 			return &wasmclient.Header{}, nil
@@ -1021,7 +1021,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
 		}
 		clientHeader = &wasmclient.Header{
-			Data: tmClientHeaderBz,
+			Data:   tmClientHeaderBz,
 			Height: height,
 		}
 	}
@@ -1076,7 +1076,7 @@ func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ib
 			Data: wasmData,
 		}
 	}
-	
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1270,7 +1270,7 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 		}
 		clientStateExported = clientState
 	}
-	
+
 	tmClientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
 		return &tmclient.ClientState{},
@@ -1327,12 +1327,11 @@ func (cc *CosmosProvider) NewClientState(
 			return &wasmclient.ClientState{}, err
 		}
 		clientState = &wasmclient.ClientState{
-			Data: tmClientStateBz,
-			CodeId: codeID,
+			Data:         tmClientStateBz,
+			CodeId:       codeID,
 			LatestHeight: tmClientState.LatestHeight,
 		}
 	}
-
 
 	return clientState, nil
 }
