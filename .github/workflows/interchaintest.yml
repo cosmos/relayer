@@ -5,7 +5,7 @@ on:
 
 jobs:
   events:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v4
@@ -28,7 +28,7 @@ jobs:
         run: make interchaintest-events
 
   legacy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v4
