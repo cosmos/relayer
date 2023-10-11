@@ -480,7 +480,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			ccp.chainProvider.ChainId() == stuckPacket.ChainID &&
 			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
 			i = persistence.latestHeight
-			ccp.log.Debug("we have parsed stuck packet height, skipping to current")
+			ccp.log.Debug("Parsed stuck packet height, skipping to current")
 		}
 	}
 
