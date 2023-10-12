@@ -12,7 +12,7 @@ type ChainProcessor interface {
 	// Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 	// The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 	// ChainProcessors should obey the context and return upon context cancellation.
-	Run(ctx context.Context, initialBlockHistory uint64) error
+	Run(ctx context.Context, initialBlockHistory uint64, stuckPacket *StuckPacket) error
 
 	// Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
 	Provider() provider.ChainProvider
