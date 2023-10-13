@@ -186,14 +186,18 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 }
 
 // GetRandomRPCEndpoint returns a string representing a random RPC endpoint from the cosmos chain registry for this chain.
-func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context) (string, error) {
+func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context, forceAdd bool) (string, error) {
 	rpcs, err := c.GetRPCEndpoints(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	if len(rpcs) == 0 {
-		return "", fmt.Errorf("no working RPCs found")
+		if !forceAdd {
+			return "", fmt.Errorf("no working RPCs found, consider using --force-add")
+		} else {
+			return "", nil
+		}
 	}
 
 	randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -206,9 +210,15 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context) (string, error) {
 }
 
 // GetAssetList returns the asset metadata from the cosmos chain registry for this particular chain.
-func (c ChainInfo) GetAssetList(ctx context.Context) (AssetList, error) {
-	chainRegURL := fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", c.ChainName)
+func (c ChainInfo) GetAssetList(ctx context.Context, testnet bool, name string) (AssetList, error) {
+	var chainRegURL string
+	if testnet {
+		chainRegURL = fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/%s/assetlist.json", name)
 
+	} else {
+		chainRegURL = fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", name)
+
+	}
 	res, err := http.Get(chainRegURL)
 	if err != nil {
 		return AssetList{}, err
@@ -236,11 +246,11 @@ func (c ChainInfo) GetAssetList(ctx context.Context) (AssetList, error) {
 
 // GetChainConfig returns a CosmosProviderConfig composed from the details found in the cosmos chain registry for
 // this particular chain.
-func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderConfig, error) {
+func (c ChainInfo) GetChainConfig(ctx context.Context, forceAdd, testnet bool, name string) (*cosmos.CosmosProviderConfig, error) {
 	debug := viper.GetBool("debug")
 	home := viper.GetString("home")
 
-	assetList, err := c.GetAssetList(ctx)
+	assetList, err := c.GetAssetList(ctx, testnet, name)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +260,7 @@ func (c ChainInfo) GetChainConfig(ctx context.Context) (*cosmos.CosmosProviderCo
 		gasPrices = fmt.Sprintf("%.2f%s", 0.01, assetList.Assets[0].Base)
 	}
 
-	rpc, err := c.GetRandomRPCEndpoint(ctx)
+	rpc, err := c.GetRandomRPCEndpoint(ctx, forceAdd)
 	if err != nil {
 		return nil, err
 	}

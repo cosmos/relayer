@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -393,7 +394,11 @@ func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Typ
 		return nil, err
 	}
 
-	typeName := m["type"].(string)
+	typeName, ok := m["type"].(string)
+	if !ok {
+		return nil, errors.New("cannot find type")
+	}
+
 	var provCfg provider.ProviderConfig
 	if ty, found := customTypes[typeName]; found {
 		provCfg = reflect.New(ty).Interface().(provider.ProviderConfig)

@@ -703,6 +703,29 @@ func (cc *PenumbraProvider) QueryNextSeqRecv(ctx context.Context, height int64, 
 	}, nil
 }
 
+// QueryNextSeqAck returns the next seqAck for a configured channel
+func (cc *PenumbraProvider) QueryNextSeqAck(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	key := host.NextSequenceAckKey(portid, channelid)
+
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if next sequence receive exists
+	if len(value) == 0 {
+		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
+	}
+
+	sequence := binary.BigEndian.Uint64(value)
+
+	return &chantypes.QueryNextSequenceReceiveResponse{
+		NextSequenceReceive: sequence,
+		Proof:               proofBz,
+		ProofHeight:         proofHeight,
+	}, nil
+}
+
 // QueryPacketCommitment returns the packet commitment proof at a given height
 func (cc *PenumbraProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	key := host.PacketCommitmentKey(portid, channelid, seq)

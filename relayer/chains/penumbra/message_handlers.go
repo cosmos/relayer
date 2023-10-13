@@ -64,18 +64,18 @@ func (pcp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci pro
 			}
 		}
 		if !found {
-			pcp.channelStateCache[channelKey] = false
+			pcp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		}
 	} else {
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
-			pcp.channelStateCache[channelKey] = false
+			pcp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-			pcp.channelStateCache[channelKey] = true
+			pcp.channelStateCache.SetOpen(channelKey, true, ci.Order)
 		case chantypes.EventTypeChannelClosed, chantypes.EventTypeChannelCloseConfirm:
 			for k := range pcp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-					pcp.channelStateCache[k] = false
+					pcp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 					break
 				}
 			}

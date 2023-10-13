@@ -18,8 +18,6 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 		t.Skip("skipping in short mode")
 	}
 
-	t.Parallel()
-
 	nv := 1
 	nf := 0
 
@@ -56,7 +54,10 @@ func TestScenarioTendermint37Boundary(t *testing.T) {
 	rf := relayerinterchaintest.NewRelayerFactory(relayerinterchaintest.RelayerConfig{
 		InitialBlockHistory: 50,
 	})
+
 	r := rf.Build(t, client, network)
+
+	t.Parallel()
 
 	ic := interchaintest.NewInterchain().
 		AddChain(chain).

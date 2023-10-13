@@ -57,7 +57,11 @@ type CosmosChainProcessor struct {
 	parsedGasPrices *sdk.DecCoins
 }
 
-func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics *processor.PrometheusMetrics) *CosmosChainProcessor {
+func NewCosmosChainProcessor(
+	log *zap.Logger,
+	provider *CosmosProvider,
+	metrics *processor.PrometheusMetrics,
+) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -72,6 +76,7 @@ func NewCosmosChainProcessor(log *zap.Logger, provider *CosmosProvider, metrics 
 
 const (
 	queryTimeout                = 5 * time.Second
+	queryStateTimeout           = 60 * time.Second
 	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
@@ -208,7 +213,7 @@ type queryCyclePersistence struct {
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
-func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory uint64, stuckPacket *processor.StuckPacket) error {
 	minQueryLoopDuration := ccp.chainProvider.PCfg.MinLoopDuration
 	if minQueryLoopDuration == 0 {
 		minQueryLoopDuration = defaultMinQueryLoopDuration
@@ -247,6 +252,10 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		latestQueriedBlock = 0
 	}
 
+	if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
+		latestQueriedBlock = int64(stuckPacket.StartHeight)
+	}
+
 	persistence.latestQueriedBlock = latestQueriedBlock
 
 	var eg errgroup.Group
@@ -266,7 +275,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	defer ticker.Stop()
 
 	for {
-		if err := ccp.queryCycle(ctx, &persistence); err != nil {
+		if err := ccp.queryCycle(ctx, &persistence, stuckPacket); err != nil {
 			return err
 		}
 		select {
@@ -280,7 +289,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 // initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
 func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, queryStateTimeout)
 	defer cancel()
 	connections, err := ccp.chainProvider.QueryConnections(ctx)
 	if err != nil {
@@ -300,7 +309,7 @@ func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) 
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, queryStateTimeout)
 	defer cancel()
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
@@ -316,17 +325,18 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			continue
 		}
 		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		ccp.channelStateCache[processor.ChannelKey{
+		k := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}
+		ccp.channelStateCache.SetOpen(k, ch.State == chantypes.OPEN, ch.Ordering)
 	}
 	return nil
 }
 
-func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
+func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence, stuckPacket *processor.StuckPacket) error {
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
 		// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
@@ -382,26 +392,32 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
-		i := i
+		sI := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
+			if err != nil && ccp.metrics != nil {
+				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
+			}
 			return err
 		})
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, sI)
+			if err != nil && ccp.metrics != nil {
+				ccp.metrics.IncBlockQueryFailure(chainID, "IBC Header")
+			}
 			return err
 		})
 
 		if err := eg.Wait(); err != nil {
-			ccp.log.Warn(
-				"Could not query block data. Consider checking if your RPC node is online, and that transaction indexing is enabled.",
+			ccp.log.Debug(
+				"Error querying block data",
 				zap.Int64("height", i),
+				zap.Error(err),
 			)
-			ccp.log.Debug("Error querying block data", zap.Error(err))
 
 			persistence.retriesAtLatestQueriedBlock++
 			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
@@ -460,6 +476,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 
 		newLatestQueriedBlock = i
+
+		if stuckPacket != nil &&
+			ccp.chainProvider.ChainId() == stuckPacket.ChainID &&
+			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
+			i = persistence.latestHeight
+			ccp.log.Debug("Parsed stuck packet height, skipping to current")
+		}
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
@@ -551,6 +574,6 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
-		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.Key(), address, gasDenom.Denom, f)
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.PCfg.GasPrices, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }

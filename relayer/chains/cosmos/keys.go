@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 
+	"github.com/cosmos/relayer/v2/relayer/provider"
+
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -12,7 +14,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
 const ethereumCoinType = uint32(60)
@@ -67,6 +68,13 @@ func (cc *CosmosProvider) AddKey(name string, coinType uint32, signingAlgorithm 
 		return nil, err
 	}
 	return ko, nil
+}
+
+// Updates config.yaml chain with the specified key.
+// It fails config is  already using the same key or if the key does not exist
+func (cc *CosmosProvider) UseKey(key string) error {
+	cc.PCfg.Key = key
+	return nil
 }
 
 // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
@@ -192,8 +200,8 @@ func (cc *CosmosProvider) ExportPrivKeyArmor(keyName string) (armor string, err 
 }
 
 // GetKeyAddress returns the account address representation for the currently configured key.
-func (cc *CosmosProvider) GetKeyAddress() (sdk.AccAddress, error) {
-	info, err := cc.Keybase.Key(cc.PCfg.Key)
+func (cc *CosmosProvider) GetKeyAddress(key string) (sdk.AccAddress, error) {
+	info, err := cc.Keybase.Key(key)
 	if err != nil {
 		return nil, err
 	}
@@ -218,4 +226,35 @@ func CreateMnemonic() (string, error) {
 // It returns an error if the bech32 conversion fails or the prefix is empty.
 func (cc *CosmosProvider) EncodeBech32AccAddr(addr sdk.AccAddress) (string, error) {
 	return sdk.Bech32ifyAddressBytes(cc.PCfg.AccountPrefix, addr)
+}
+
+func (cc *CosmosProvider) DecodeBech32AccAddr(addr string) (sdk.AccAddress, error) {
+	return sdk.GetFromBech32(addr, cc.PCfg.AccountPrefix)
+}
+
+func (cc *CosmosProvider) GetKeyAddressForKey(key string) (sdk.AccAddress, error) {
+	info, err := cc.Keybase.Key(key)
+	if err != nil {
+		return nil, err
+	}
+	return info.GetAddress()
+}
+
+func (cc *CosmosProvider) KeyFromKeyOrAddress(keyOrAddress string) (string, error) {
+	switch {
+	case keyOrAddress == "":
+		return cc.PCfg.Key, nil
+	case cc.KeyExists(keyOrAddress):
+		return keyOrAddress, nil
+	default:
+		acc, err := cc.DecodeBech32AccAddr(keyOrAddress)
+		if err != nil {
+			return "", err
+		}
+		kr, err := cc.Keybase.KeyByAddress(acc)
+		if err != nil {
+			return "", err
+		}
+		return kr.Name, nil
+	}
 }

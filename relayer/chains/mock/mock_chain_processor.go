@@ -73,7 +73,7 @@ type queryCyclePersistence struct {
 	latestQueriedBlock int64
 }
 
-func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint64, _ *processor.StuckPacket) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
 		// would be query of latest height, mocking 20
@@ -170,7 +170,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 		// mocking all channels open
 		for channelKey := range ibcMessagesCache.PacketFlow {
-			channelStateCache[channelKey] = true
+			channelStateCache.SetOpen(channelKey, true, chantypes.NONE)
 		}
 
 		// now pass foundMessages to the path processors
