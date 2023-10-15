@@ -61,6 +61,12 @@ func TestKeysRestore_Delete(t *testing.T) {
 	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
+	// Restore keys for all configured chains with a single mnemonic.
+
+	res = sys.MustRun(t, "keys", "restore", "default", relayertest.ZeroMnemonic, "--restoreall")
+	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
+	require.Empty(t, res.Stderr.String())
+
 	// Restored key must show up in list.
 	res = sys.MustRun(t, "keys", "list", "testChain")
 	require.Equal(t, res.Stdout.String(), "key(default) -> "+relayertest.ZeroCosmosAddr+"\n")
@@ -99,6 +105,10 @@ func TestKeysExport(t *testing.T) {
 
 	// Restore a key with mnemonic to the chain.
 	res := sys.MustRun(t, "keys", "restore", "testChain", "default", relayertest.ZeroMnemonic)
+	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
+	require.Empty(t, res.Stderr.String())
+
+	res = sys.MustRun(t, "keys", "restore", "default", relayertest.ZeroMnemonic, "--restoreall")
 	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
