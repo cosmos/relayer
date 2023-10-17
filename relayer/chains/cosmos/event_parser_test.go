@@ -13,6 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/cosmos/relayer/v2/relayer/chains"
 )
 
 func TestParsePacket(t *testing.T) {
@@ -62,8 +64,8 @@ func TestParsePacket(t *testing.T) {
 		},
 	}
 
-	parsed := new(packetInfo)
-	parsed.parseAttrs(zap.NewNop(), packetEventAttributes)
+	parsed := new(chains.PacketInfo)
+	parsed.ParseAttrs(zap.NewNop(), packetEventAttributes)
 
 	packetData, err := hex.DecodeString(testPacketDataHex)
 	require.NoError(t, err, "error decoding test packet data")
@@ -105,20 +107,20 @@ func TestParseClient(t *testing.T) {
 		},
 	}
 
-	parsed := new(clientInfo)
-	parsed.parseAttrs(zap.NewNop(), clientEventAttributes)
+	parsed := new(chains.ClientInfo)
+	parsed.ParseAttrs(zap.NewNop(), clientEventAttributes)
 
 	clientHeader, err := hex.DecodeString(testClientHeader)
 	require.NoError(t, err, "error parsing test client header")
 
-	require.Empty(t, cmp.Diff(*parsed, clientInfo{
-		clientID: testClientID1,
-		consensusHeight: clienttypes.Height{
+	require.Empty(t, cmp.Diff(*parsed, *chains.NewClientInfo(
+		testClientID1,
+		clienttypes.Height{
 			RevisionNumber: uint64(1),
 			RevisionHeight: uint64(1023),
 		},
-		header: clientHeader,
-	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+		clientHeader,
+	), cmp.AllowUnexported(chains.ClientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
 
 func TestParseChannel(t *testing.T) {
@@ -153,8 +155,8 @@ func TestParseChannel(t *testing.T) {
 		},
 	}
 
-	parsed := new(channelInfo)
-	parsed.parseAttrs(zap.NewNop(), channelEventAttributes)
+	parsed := new(chains.ChannelInfo)
+	parsed.ParseAttrs(zap.NewNop(), channelEventAttributes)
 
 	require.Empty(t, cmp.Diff(provider.ChannelInfo(*parsed), provider.ChannelInfo{
 		ConnID:                testConnectionID1,
@@ -192,8 +194,8 @@ func TestParseConnection(t *testing.T) {
 		},
 	}
 
-	parsed := new(connectionInfo)
-	parsed.parseAttrs(zap.NewNop(), connectionEventAttributes)
+	parsed := new(chains.ConnectionInfo)
+	parsed.ParseAttrs(zap.NewNop(), connectionEventAttributes)
 
 	require.Empty(t, cmp.Diff(provider.ConnectionInfo(*parsed), provider.ConnectionInfo{
 		ClientID:             testClientID1,
@@ -300,34 +302,35 @@ func TestParseEventLogs(t *testing.T) {
 		},
 	}
 
-	ibcMessages := ibcMessagesFromEvents(zap.NewNop(), events, "", 0, false)
+	ibcMessages := chains.IbcMessagesFromEvents(zap.NewNop(), events, "", 0, false)
 
 	require.Len(t, ibcMessages, 3)
 
 	msgUpdateClient := ibcMessages[0]
-	require.Equal(t, clienttypes.EventTypeUpdateClient, msgUpdateClient.eventType)
+	require.Equal(t, clienttypes.EventTypeUpdateClient, msgUpdateClient.EventType)
 
-	clientInfoParsed, isClientInfo := msgUpdateClient.info.(*clientInfo)
+	clientInfoParsed, isClientInfo := msgUpdateClient.Info.(*chains.ClientInfo)
 	require.True(t, isClientInfo, "messageInfo is not clientInfo")
 
-	require.Empty(t, cmp.Diff(*clientInfoParsed, clientInfo{
-		clientID: testClientID1,
-		consensusHeight: clienttypes.Height{
+	require.Empty(t, cmp.Diff(*clientInfoParsed, *chains.NewClientInfo(
+		testClientID1,
+		clienttypes.Height{
 			RevisionNumber: uint64(1),
 			RevisionHeight: uint64(1023),
 		},
-	}, cmp.AllowUnexported(clientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
+		nil,
+	), cmp.AllowUnexported(chains.ClientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
 	msgRecvPacket := ibcMessages[1]
-	require.Equal(t, chantypes.EventTypeRecvPacket, msgRecvPacket.eventType, "message event is not recv_packet")
+	require.Equal(t, chantypes.EventTypeRecvPacket, msgRecvPacket.EventType, "message event is not recv_packet")
 
-	packetInfoParsed, isPacketInfo := msgRecvPacket.info.(*packetInfo)
+	packetInfoParsed, isPacketInfo := msgRecvPacket.Info.(*chains.PacketInfo)
 	require.True(t, isPacketInfo, "recv_packet messageInfo is not packetInfo")
 
 	msgWriteAcknowledgement := ibcMessages[2]
-	require.Equal(t, chantypes.EventTypeWriteAck, msgWriteAcknowledgement.eventType, "message event is not write_acknowledgement")
+	require.Equal(t, chantypes.EventTypeWriteAck, msgWriteAcknowledgement.EventType, "message event is not write_acknowledgement")
 
-	ackPacketInfoParsed, isPacketInfo := msgWriteAcknowledgement.info.(*packetInfo)
+	ackPacketInfoParsed, isPacketInfo := msgWriteAcknowledgement.Info.(*chains.PacketInfo)
 	require.True(t, isPacketInfo, "ack messageInfo is not packetInfo")
 
 	packetAck, err := hex.DecodeString(testPacketAckHex)
