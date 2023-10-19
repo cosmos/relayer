@@ -2024,14 +2024,6 @@ var JmtSpec = &ics23.ProofSpec{
 	PrehashKeyBeforeComparison: true,
 }
 
-/*
-proof_specs:<leaf_spec:<hash:SHA256 prehash_key:SHA256 prehash_value:SHA256 prefix:\"JMT::LeafNode\" >
-inner_spec:<child_order:0 child_order:1 child_size:32 min_prefix_length:16 max_prefix_length:16 empty_child:\"SPARSE_MERKLE_PLACEHOLDER_HASH__\" hash:SHA256 >
-max_depth:64prehash_key_before_comparison:true >
-proof_specs:<leaf_spec:<hash:SHA256 >
-inner_spec:<child_order:0 child_order:1 child_size:32 hash:SHA256
-> max_depth:1 prehash_key_before_comparison:true >
-*/
 var ApphashSpec = &ics23.ProofSpec{
 	LeafSpec: &ics23.LeafOp{
 		Prefix:       nil,

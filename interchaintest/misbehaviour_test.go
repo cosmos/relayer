@@ -291,7 +291,6 @@ func createTMClientHeader(
 
 	hhash := tmHeader.Hash()
 	blockID := ibctesting.MakeBlockID(hhash, 3, tmhash.Sum([]byte("part_set")))
-	//voteSet := comettypes.NewVoteSet(chainID, blockHeight, 1, cometproto.PrecommitType, tmValSet)
 
 	commit, err := MakeCommit(blockID, blockHeight, 1, tmValSet, signers, chainID, timestamp)
 	require.NoError(t, err)
