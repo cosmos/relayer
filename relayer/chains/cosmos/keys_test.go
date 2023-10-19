@@ -92,7 +92,7 @@ func TestKeyRestoreSr25519(t *testing.T) {
 		signatureAlgorithm = "sr25519"
 		mnemonic           = "three elevator silk family street child flip also leaf inmate call frame shock little legal october vivid enable fetch siege sell burger dolphin green"
 		accountPrefix      = "sei"
-		expectedAddress    = "sei1nmlj0guznnt0qyfj4yl6q5g4xuvgly4qw0w026"
+		expectedAddress    = "sei1th80nzvgkzg7reehtyp4xm39xerqg6z77ymcnx"
 		coinType           = uint32(118)
 	)
 
