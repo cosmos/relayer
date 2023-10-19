@@ -10,9 +10,9 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -90,8 +90,7 @@ func parseIBCMessageFromEvent(
 	var msgInfo messageInfo
 	switch event.Type {
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck,
-		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-		chantypes.EventTypeTimeoutPacketOnClose:
+		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		msgInfo = &PacketInfo{Height: height}
 	case chantypes.EventTypeChannelOpenInit, chantypes.EventTypeChannelOpenTry,
 		chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm,
@@ -101,8 +100,7 @@ func parseIBCMessageFromEvent(
 		conntypes.EventTypeConnectionOpenAck, conntypes.EventTypeConnectionOpenConfirm:
 		msgInfo = &ConnectionInfo{Height: height}
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-		clienttypes.EventTypeUpdateClientProposal:
+		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour:
 		msgInfo = new(ClientInfo)
 	case string(processor.ClientICQTypeRequest), string(processor.ClientICQTypeResponse):
 		msgInfo = &ClientICQInfo{

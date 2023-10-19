@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
 )
 
 // RelayerFactory implements the interchaintest RelayerFactory interface.
@@ -28,11 +29,12 @@ func NewRelayerFactory(config RelayerConfig) RelayerFactory {
 
 // Build returns a relayer interface
 func (rf RelayerFactory) Build(
-	t *testing.T,
-	_ *client.Client,
+	t interchaintest.TestName,
+	cli *client.Client,
 	networkID string,
 ) ibc.Relayer {
-	return NewRelayer(t, rf.config)
+	tst := &testing.T{}
+	return NewRelayer(tst, rf.config)
 }
 
 func (RelayerFactory) Capabilities() map[interchaintestrelayer.Capability]bool {

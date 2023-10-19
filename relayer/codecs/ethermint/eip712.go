@@ -101,7 +101,19 @@ func decodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 	msg := msgs[0]
 
 	// By convention, the fee payer is the first address in the list of signers.
-	feePayer := msg.GetSigners()[0]
+	signers, _, err := protoCodec.GetMsgV1Signers(msg)
+	if err != nil {
+		return apitypes.TypedData{}, err
+	}
+
+	signer := signers[0]
+
+	var feePayer sdk.AccAddress
+	err = feePayer.Unmarshal(signer)
+	if err != nil {
+		return apitypes.TypedData{}, err
+	}
+
 	feeDelegation := &FeeDelegationOptions{
 		FeePayer: feePayer,
 	}
@@ -186,12 +198,22 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		Gas:    authInfo.Fee.GasLimit,
 	}
 
-	feePayer := msg.GetSigners()[0]
+	signers, _, err := protoCodec.GetMsgV1Signers(msg)
+	if err != nil {
+		return apitypes.TypedData{}, err
+	}
+
+	signer := signers[0]
+
+	var feePayer sdk.AccAddress
+	err = feePayer.Unmarshal(signer)
+	if err != nil {
+		return apitypes.TypedData{}, err
+	}
+
 	feeDelegation := &FeeDelegationOptions{
 		FeePayer: feePayer,
 	}
-
-	tip := authInfo.Tip
 
 	// WrapTxToTypedData expects the payload as an Amino Sign Doc
 	signBytes := legacytx.StdSignBytes(
@@ -202,7 +224,6 @@ func decodeProtobufSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 		*stdFee,
 		msgs,
 		body.Memo,
-		tip,
 	)
 
 	typedData, err := WrapTxToTypedData(
@@ -245,13 +266,26 @@ func validatePayloadMessages(msgs []sdk.Msg) error {
 			return err
 		}
 
-		if len(m.GetSigners()) != 1 {
+		signers, _, err := protoCodec.GetMsgV1Signers(m)
+		if err != nil {
+			return err
+		}
+
+		if len(signers) != 1 {
 			return errors.New("unable to build EIP-712 payload: expect exactly 1 signer")
+		}
+
+		signer := signers[0]
+
+		var feePayer sdk.AccAddress
+		err = feePayer.Unmarshal(signer)
+		if err != nil {
+			return err
 		}
 
 		if i == 0 {
 			msgType = t
-			msgSigner = m.GetSigners()[0]
+			msgSigner = feePayer
 			continue
 		}
 
@@ -259,7 +293,7 @@ func validatePayloadMessages(msgs []sdk.Msg) error {
 			return errors.New("unable to build EIP-712 payload: different types of messages detected")
 		}
 
-		if !msgSigner.Equals(m.GetSigners()[0]) {
+		if !msgSigner.Equals(feePayer) {
 			return errors.New("unable to build EIP-712 payload: multiple signers detected")
 		}
 	}

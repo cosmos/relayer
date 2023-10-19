@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -428,7 +428,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	pathEndForHeight := counterparty
-	if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
+	if eventType == chantypes.EventTypeTimeoutPacket {
 		pathEndForHeight = pathEnd
 	}
 
@@ -510,7 +510,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	case chantypes.EventTypeRecvPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
 		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
