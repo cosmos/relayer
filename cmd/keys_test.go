@@ -223,7 +223,7 @@ func TestKeysRestoreAll_Delete(t *testing.T) {
 	})
 
 	// Restore keys for all configured chains with a single mnemonic.
-	res := sys.MustRun(t, "keys", "restore", "default", relayertest.ZeroMnemonic, "--restoreall")
+	res := sys.MustRun(t, "keys", "restore", "default", relayertest.ZeroMnemonic, "--restore-all")
 	require.Equal(t, res.Stdout.String(), relayertest.ZeroCosmosAddr+"\n")
 	require.Empty(t, res.Stderr.String())
 
