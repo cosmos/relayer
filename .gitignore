@@ -21,3 +21,5 @@ dist/
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor
+
+go.work.sum

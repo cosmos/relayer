@@ -27,6 +27,7 @@ import (
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -702,6 +703,29 @@ func (cc *PenumbraProvider) QueryNextSeqRecv(ctx context.Context, height int64, 
 	}, nil
 }
 
+// QueryNextSeqAck returns the next seqAck for a configured channel
+func (cc *PenumbraProvider) QueryNextSeqAck(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	key := host.NextSequenceAckKey(portid, channelid)
+
+	value, proofBz, proofHeight, err := cc.QueryTendermintProof(ctx, height, key)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if next sequence receive exists
+	if len(value) == 0 {
+		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
+	}
+
+	sequence := binary.BigEndian.Uint64(value)
+
+	return &chantypes.QueryNextSequenceReceiveResponse{
+		NextSequenceReceive: sequence,
+		Proof:               proofBz,
+		ProofHeight:         proofHeight,
+	}, nil
+}
+
 // QueryPacketCommitment returns the packet commitment proof at a given height
 func (cc *PenumbraProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
 	key := host.PacketCommitmentKey(portid, channelid, seq)
@@ -878,7 +902,7 @@ func (cc *PenumbraProvider) QueryConsensusStateABCI(ctx context.Context, clientI
 }
 
 // queryIBCMessages returns an array of IBC messages given a tag
-func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
+func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]chains.IbcMessage, error) {
 	if query == "" {
 		return nil, errors.New("query string must be provided")
 	}
@@ -895,10 +919,10 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 	if err != nil {
 		return nil, err
 	}
-	var ibcMsgs []ibcMessage
+	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, true)...)
+		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, true)...)
 	}
 
 	return ibcMsgs, nil
@@ -925,10 +949,10 @@ func (cc *PenumbraProvider) QuerySendPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeSendPacket {
+		if msg.EventType != chantypes.EventTypeSendPacket {
 			continue
 		}
-		if pi, ok := msg.info.(*packetInfo); ok {
+		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
@@ -958,10 +982,10 @@ func (cc *PenumbraProvider) QueryRecvPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeWriteAck {
+		if msg.EventType != chantypes.EventTypeWriteAck {
 			continue
 		}
-		if pi, ok := msg.info.(*packetInfo); ok {
+		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}

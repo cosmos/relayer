@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -28,7 +30,12 @@ type messageProcessor struct {
 	connMsgs      []connectionMessageToTrack
 	chanMsgs      []channelMessageToTrack
 	clientICQMsgs []clientICQMessageToTrack
+
+	isLocalhost bool
 }
+
+// catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
+var promErrorCatagories = []error{chantypes.ErrRedundantTx, sdkerrors.ErrInsufficientFunds, sdkerrors.ErrInvalidCoins, sdkerrors.ErrOutOfGas, sdkerrors.ErrWrongSequence}
 
 // trackMessage stores the message tracker in the correct slice and index based on the type.
 func (mp *messageProcessor) trackMessage(tracker messageToTrack, i int) {
@@ -66,12 +73,14 @@ func newMessageProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	isLocalhost bool,
 ) *messageProcessor {
 	return &messageProcessor{
 		log:                       log,
 		metrics:                   metrics,
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		isLocalhost:               isLocalhost,
 	}
 }
 
@@ -82,13 +91,19 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	if err != nil {
-		return err
-	}
+	var needsClientUpdate bool
 
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
+	// Localhost IBC does not permit client updates
+	if src.clientState.ClientID != ibcexported.LocalhostClientID && dst.clientState.ClientID != ibcexported.LocalhostConnectionID {
+		var err error
+		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
+		if err != nil {
+			return err
+		}
+
+		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+			return err
+		}
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst)
@@ -130,8 +145,15 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 
 	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold)
 
+	if mp.metrics != nil {
+		timeToExpiration := dst.clientState.TrustingPeriod - time.Since(consensusHeightTime)
+		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.clientState.ClientID, fmt.Sprint(dst.clientState.TrustingPeriod.String()), timeToExpiration)
+		mp.metrics.SetClientTrustingPeriod(src.info.PathName, dst.info.ChainID, dst.info.ClientID, time.Duration(dst.clientState.TrustingPeriod))
+	}
+
 	if shouldUpdateClientNow {
 		mp.log.Info("Client update threshold condition met",
+			zap.String("path_name", src.info.PathName),
 			zap.String("chain_id", dst.info.ChainID),
 			zap.String("client_id", dst.info.ClientID),
 			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
@@ -147,10 +169,12 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathEndMessages, src, dst *pathEndRuntime) {
 	var wg sync.WaitGroup
 
-	mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
-	for i, msg := range messages.connectionMessages {
-		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+	if !mp.isLocalhost {
+		mp.connMsgs = make([]connectionMessageToTrack, len(messages.connectionMessages))
+		for i, msg := range messages.connectionMessages {
+			wg.Add(1)
+			go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		}
 	}
 
 	mp.chanMsgs = make([]channelMessageToTrack, len(messages.channelMessages))
@@ -159,10 +183,12 @@ func (mp *messageProcessor) assembleMessages(ctx context.Context, messages pathE
 		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
 	}
 
-	mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
-	for i, msg := range messages.clientICQMessages {
-		wg.Add(1)
-		go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+	if !mp.isLocalhost {
+		mp.clientICQMsgs = make([]clientICQMessageToTrack, len(messages.clientICQMessages))
+		for i, msg := range messages.clientICQMessages {
+			wg.Add(1)
+			go mp.assembleMessage(ctx, msg, src, dst, i, &wg)
+		}
 	}
 
 	mp.pktMsgs = make([]packetMessageToTrack, len(messages.packetMessages))
@@ -234,6 +260,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
 		mp.log.Debug("Had to query for client trusted IBC header",
+			zap.String("path_name", src.info.PathName),
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
 			zap.String("counterparty_client_id", clientID),
@@ -286,11 +313,18 @@ func (mp *messageProcessor) trackAndSendMessages(
 	var batch []messageToTrack
 
 	for _, t := range mp.trackers() {
+
 		retries := dst.trackProcessingMessage(t)
 		if t.assembledMsg() == nil {
 			continue
 		}
-		if broadcastBatch && retries == 0 {
+
+		ordered := false
+		if m, ok := t.(packetMessageToTrack); ok && m.msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			ordered = true
+		}
+
+		if broadcastBatch && (retries == 0 || ordered) {
 			batch = append(batch, t)
 			continue
 		}
@@ -339,10 +373,29 @@ func (mp *messageProcessor) sendClientUpdate(
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		)
+
+		for _, promError := range promErrorCatagories {
+			if mp.metrics != nil {
+				if errors.Is(err, promError) {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+				} else {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
+				}
+			}
+		}
 		return
 	}
 	dst.log.Debug("Client update broadcast completed")
 }
+
+type PathProcessorMessageResp struct {
+	Response         *provider.RelayerTxResponse
+	DestinationChain provider.ChainProvider
+	SuccessfulTx     bool
+	Error            error
+}
+
+var PathProcMessageCollector chan *PathProcessorMessageResp
 
 // sendBatchMessages will send a batch of messages,
 // then increment metrics counters for successful packet messages.
@@ -354,18 +407,30 @@ func (mp *messageProcessor) sendBatchMessages(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	// messages are batch with appended MsgUpdateClient
-	msgs := make([]provider.RelayerMessage, 1+len(batch))
-	msgs[0] = mp.msgUpdateClient
-	fields := []zapcore.Field{}
-	for i, t := range batch {
-		msgs[i+1] = t.assembledMsg()
-		fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
+	var (
+		msgs   []provider.RelayerMessage
+		fields []zapcore.Field
+	)
+
+	if mp.isLocalhost {
+		msgs = make([]provider.RelayerMessage, len(batch))
+		for i, t := range batch {
+			msgs[i] = t.assembledMsg()
+			fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
+		}
+	} else {
+		// messages are batch with appended MsgUpdateClient
+		msgs = make([]provider.RelayerMessage, 1+len(batch))
+		msgs[0] = mp.msgUpdateClient
+		for i, t := range batch {
+			msgs[i+1] = t.assembledMsg()
+			fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
+		}
 	}
 
 	dst.log.Debug("Will relay messages", fields...)
 
-	callback := func(rtr *provider.RelayerTxResponse, err error) {
+	callback := func(_ *provider.RelayerTxResponse, err error) {
 		// only increment metrics counts for successful packets
 		if err != nil || mp.metrics == nil {
 			return
@@ -386,8 +451,23 @@ func (mp *messageProcessor) sendBatchMessages(
 			mp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, t.msg.eventType)
 		}
 	}
+	callbacks := []func(rtr *provider.RelayerTxResponse, err error){callback}
 
-	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callback); err != nil {
+	//During testing, this adds a callback so our test case can inspect the TX results
+	if PathProcMessageCollector != nil {
+		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
+			msgResult := &PathProcessorMessageResp{
+				DestinationChain: dst.chainProvider,
+				Response:         rtr,
+				SuccessfulTx:     err == nil,
+				Error:            err,
+			}
+			PathProcMessageCollector <- msgResult
+		}
+		callbacks = append(callbacks, testCallback)
+	}
+
+	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks); err != nil {
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
@@ -396,6 +476,17 @@ func (mp *messageProcessor) sendBatchMessages(
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		}
+
+		for _, promError := range promErrorCatagories {
+			if mp.metrics != nil {
+				if errors.Is(err, promError) {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+				} else {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
+				}
+			}
+		}
+
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			mp.log.Debug("Redundant message(s)", errFields...)
 			return
@@ -412,7 +503,13 @@ func (mp *messageProcessor) sendSingleMessage(
 	src, dst *pathEndRuntime,
 	tracker messageToTrack,
 ) {
-	msgs := []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
+	var msgs []provider.RelayerMessage
+
+	if mp.isLocalhost {
+		msgs = []provider.RelayerMessage{tracker.assembledMsg()}
+	} else {
+		msgs = []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
+	}
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
@@ -422,9 +519,9 @@ func (mp *messageProcessor) sendSingleMessage(
 	dst.log.Debug(fmt.Sprintf("Will broadcast %s message", msgType), zap.Object("msg", tracker))
 
 	// Set callback for packet messages so that we increment prometheus metrics on successful relays.
-	var callback func(rtr *provider.RelayerTxResponse, err error)
+	callbacks := []func(rtr *provider.RelayerTxResponse, err error){}
 	if t, ok := tracker.(packetMessageToTrack); ok {
-		callback = func(rtr *provider.RelayerTxResponse, err error) {
+		callback := func(_ *provider.RelayerTxResponse, err error) {
 			// only increment metrics counts for successful packets
 			if err != nil || mp.metrics == nil {
 				return
@@ -439,9 +536,25 @@ func (mp *messageProcessor) sendSingleMessage(
 			}
 			mp.metrics.IncPacketsRelayed(dst.info.PathName, dst.info.ChainID, channel, port, t.msg.eventType)
 		}
+
+		callbacks = append(callbacks, callback)
 	}
 
-	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callback)
+	//During testing, this adds a callback so our test case can inspect the TX results
+	if PathProcMessageCollector != nil {
+		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
+			msgResult := &PathProcessorMessageResp{
+				DestinationChain: dst.chainProvider,
+				Response:         rtr,
+				SuccessfulTx:     err == nil,
+				Error:            err,
+			}
+			PathProcMessageCollector <- msgResult
+		}
+		callbacks = append(callbacks, testCallback)
+	}
+
+	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks)
 	if err != nil {
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),
@@ -450,6 +563,17 @@ func (mp *messageProcessor) sendSingleMessage(
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
 		}
+
+		for _, promError := range promErrorCatagories {
+			if mp.metrics != nil {
+				if errors.Is(err, promError) {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+				} else {
+					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
+				}
+			}
+		}
+
 		errFields = append(errFields, zap.Object("msg", tracker))
 		errFields = append(errFields, zap.Error(err))
 		if errors.Is(err, chantypes.ErrRedundantTx) {

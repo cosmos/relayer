@@ -39,7 +39,32 @@ func chainsCmd(a *appState) *cobra.Command {
 		chainsShowCmd(a),
 		chainsAddrCmd(a),
 		chainsAddDirCmd(a),
+		cmdChainsConfigure(a),
+		cmdChainsUseRpcAddr(a),
 	)
+
+	return cmd
+}
+
+func cmdChainsUseRpcAddr(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "set-rpc-addr chain_name  valid_rpc_url",
+		Aliases: []string{"rpc"},
+		Short:   "Sets  chain's rpc address",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains set-rpc-addr ibc-0 https://abc.xyz.com:443
+$ %s ch set-rpc-addr ibc-0 https://abc.xyz.com:443`, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainName := args[0]
+			rpc_address := args[1]
+			if !isValidURL(rpc_address) {
+				return invalidRpcAddr(rpc_address)
+			}
+
+			return a.useRpcAddr(chainName, rpc_address)
+		},
+	}
 
 	return cmd
 }
@@ -141,6 +166,19 @@ $ %s ch d ibc-0`, appName, appName)),
 			})
 		},
 	}
+	return cmd
+}
+
+func cmdChainsConfigure(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "configure",
+		Short: "manage local chain configurations",
+	}
+
+	cmd.AddCommand(
+		feegrantConfigureBaseCmd(a),
+	)
+
 	return cmd
 }
 
@@ -278,10 +316,11 @@ func chainsAddCmd(a *appState) *cobra.Command {
 		Args: withUsage(cobra.MinimumNArgs(0)),
 		Example: fmt.Sprintf(` $ %s chains add cosmoshub
  $ %s chains add cosmoshub osmosis
+ $ %s chains add cosmoshubtestnet --testnet
  $ %s chains add --file chains/ibc0.json ibc0
- $ %s chains add --url https://relayer.com/ibc0.json ibc0`, appName, appName, appName, appName),
+ $ %s chains add --url https://relayer.com/ibc0.json ibc0`, appName, appName, appName, appName, appName),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file, url, err := getAddInputs(cmd)
+			file, url, forceAdd, testnet, err := getAddInputs(cmd)
 			if err != nil {
 				return err
 			}
@@ -315,7 +354,7 @@ func chainsAddCmd(a *appState) *cobra.Command {
 						return err
 					}
 				default:
-					if err := addChainsFromRegistry(cmd.Context(), a, args); err != nil {
+					if err := addChainsFromRegistry(cmd.Context(), a, forceAdd, testnet, args); err != nil {
 						return err
 					}
 				}
@@ -420,7 +459,7 @@ func addChainFromURL(a *appState, chainName string, rawurl string) error {
 	return nil
 }
 
-func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) error {
+func addChainsFromRegistry(ctx context.Context, a *appState, forceAdd, testnet bool, chains []string) error {
 	chainRegistry := cregistry.DefaultChainRegistry(a.log)
 
 	var existed, failed, added []string
@@ -436,7 +475,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 			continue
 		}
 
-		chainInfo, err := chainRegistry.GetChain(ctx, chain)
+		chainInfo, err := chainRegistry.GetChain(ctx, testnet, chain)
 		if err != nil {
 			a.log.Warn(
 				"Error retrieving chain",
@@ -447,7 +486,7 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 			continue
 		}
 
-		chainConfig, err := chainInfo.GetChainConfig(ctx)
+		chainConfig, err := chainInfo.GetChainConfig(ctx, forceAdd, testnet, chain)
 		if err != nil {
 			a.log.Warn(
 				"Error generating chain config",
@@ -497,4 +536,9 @@ func addChainsFromRegistry(ctx context.Context, a *appState, chains []string) er
 		zap.Any("already existed", existed),
 	)
 	return nil
+}
+
+func isValidURL(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
 }

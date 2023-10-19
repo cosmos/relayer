@@ -159,6 +159,12 @@ type ChannelKey struct {
 	CounterpartyPortID    string
 }
 
+// ChannelState is used for caching channel open state and a lookup for the channel order.
+type ChannelState struct {
+	Order chantypes.Order
+	Open  bool
+}
+
 // Counterparty flips a ChannelKey for the perspective of the counterparty chain
 func (k ChannelKey) Counterparty() ChannelKey {
 	return ChannelKey{
@@ -250,7 +256,23 @@ func (k ConnectionKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 // ChannelStateCache maintains channel open state for multiple channels.
-type ChannelStateCache map[ChannelKey]bool
+type ChannelStateCache map[ChannelKey]ChannelState
+
+// SetOpen sets the open state for a channel, and also the order if it is not NONE.
+func (c ChannelStateCache) SetOpen(k ChannelKey, open bool, order chantypes.Order) {
+	if s, ok := c[k]; ok {
+		s.Open = open
+		if order != chantypes.NONE {
+			s.Order = order
+		}
+		c[k] = s
+		return
+	}
+	c[k] = ChannelState{
+		Open:  open,
+		Order: order,
+	}
+}
 
 // FilterForClient returns a filtered copy of channels on top of an underlying clientID so it can be used by other goroutines.
 func (c ChannelStateCache) FilterForClient(clientID string, channelConnections map[string]string, connectionClients map[string]string) ChannelStateCache {
@@ -320,6 +342,36 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 			}
 		}
 	}
+}
+
+// IsCached returns true if a sequence for a channel key and event type is already cached.
+func (c ChannelPacketMessagesCache) IsCached(eventType string, k ChannelKey, sequence uint64) bool {
+	if _, ok := c[k]; !ok {
+		return false
+	}
+	if _, ok := c[k][eventType]; !ok {
+		return false
+	}
+	if _, ok := c[k][eventType][sequence]; !ok {
+		return false
+	}
+	return true
+}
+
+// Cache stores packet info safely, generating intermediate maps along the way if necessary.
+func (c ChannelPacketMessagesCache) Cache(
+	eventType string,
+	k ChannelKey,
+	sequence uint64,
+	packetInfo provider.PacketInfo,
+) {
+	if _, ok := c[k]; !ok {
+		c[k] = make(PacketMessagesCache)
+	}
+	if _, ok := c[k][eventType]; !ok {
+		c[k][eventType] = make(PacketSequenceCache)
+	}
+	c[k][eventType][sequence] = packetInfo
 }
 
 // Merge merges another ChannelPacketMessagesCache into this one.
@@ -552,4 +604,11 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 		ConnectionID:         info.ConnID,
 		CounterpartyConnID:   info.CounterpartyConnID,
 	}
+}
+
+// StuckPacket is used for narrowing block queries on packets that are stuck on a channel for a specific chain.
+type StuckPacket struct {
+	ChainID     string
+	StartHeight uint64
+	EndHeight   uint64
 }

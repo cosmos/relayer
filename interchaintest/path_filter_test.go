@@ -21,7 +21,6 @@ import (
 
 // TestScenarioPathFilterAllow tests the channel allowlist
 func TestScenarioPathFilterAllow(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 
 	nv := 1
@@ -42,6 +41,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 		Processor:           relayer.ProcessorEvents,
 		InitialBlockHistory: 100,
 	}).Build(t, nil, "")
+
+	t.Parallel()
 
 	// Prep Interchain
 	const ibcPath = "gaia-osmosis"
@@ -89,6 +90,14 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
 	r.StartRelayer(ctx, eRep, ibcPath)
+	t.Cleanup(
+		func() {
+			err := r.StopRelayer(ctx, eRep)
+			if err != nil {
+				t.Logf("an error occured while stopping the relayer: %s", err)
+			}
+		},
+	)
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)
@@ -159,7 +168,6 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 // TestScenarioPathFilterDeny tests the channel denylist
 func TestScenarioPathFilterDeny(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 
 	nv := 1
@@ -208,6 +216,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 		SkipPathCreation: false,
 	}))
 
+	t.Parallel()
+
 	// Get Channel ID
 	gaiaChans, err := r.GetChannels(ctx, eRep, gaia.Config().ChainID)
 	require.NoError(t, err)
@@ -226,6 +236,14 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
 	r.StartRelayer(ctx, eRep, ibcPath)
+	t.Cleanup(
+		func() {
+			err := r.StopRelayer(ctx, eRep)
+			if err != nil {
+				t.Logf("an error occured while stopping the relayer: %s", err)
+			}
+		},
+	)
 
 	// Send Transaction
 	amountToSend := int64(1_000_000)

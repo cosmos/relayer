@@ -12,6 +12,7 @@ import (
 	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v7/testutil"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 )
@@ -24,8 +25,6 @@ const (
 // Tests that the Relayer will update light clients within a
 // user specified time threshold.
 func TestScenarioClientThresholdUpdate(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 
 	nv := 1
@@ -43,7 +42,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	g0, g1 := chains[0], chains[1]
 
 	client, network := interchaintest.DockerSetup(t)
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 
 	// Relayer is set with "--time-threshold 5m"
 	// The client being created below also has a trusting period of 5m.
@@ -51,7 +50,7 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--time-threshold", "20s"),
 	).Build(t, client, network)
@@ -85,6 +84,9 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 		Client:    client,
 		NetworkID: network,
 	}))
+
+	t.Parallel()
+
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
@@ -144,9 +146,8 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 // Tests that without the threshold flag, the clients will be updated
 // automatically due to passing 2/3 trusting period expiration.
 func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
+	t.Parallel()
 
 	nv := 1
 	nf := 0
@@ -163,14 +164,15 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	g0, g1 := chains[0], chains[1]
 
 	client, network := interchaintest.DockerSetup(t)
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
+	logger := zaptest.NewLogger(t)
 
 	// Relayer is set with "--time-threshold 0"
 	// The Relayer should NOT continuously update clients
 	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
-		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		logger,
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 
@@ -203,17 +205,23 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 
 		SkipPathCreation: false,
 	}))
+
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
 
 	// Wait 2 blocks after building interchain
 	require.NoError(t, testutil.WaitForBlocks(ctx, 2, g0, g1))
+	g0Ctx := context.Background()
+	g1Ctx := context.Background()
 
-	g0Height, err := g0.Height(ctx)
+	g0Height, err := g0.Height(g0Ctx)
 	require.NoError(t, err)
-	g1Height, err := g1.Height(ctx)
+	g1Height, err := g1.Height(g1Ctx)
 	require.NoError(t, err)
+
+	logger.Info("Chain height", zap.String("g0 chainID", g0.Config().ChainID), zap.Uint64("height", g0Height))
+	logger.Info("Chain height", zap.String("g1 chainID", g1.Config().ChainID), zap.Uint64("g1 height", g1Height))
 
 	require.NoError(t, r.StartRelayer(ctx, eRep, ibcPath))
 	t.Cleanup(func() {
@@ -222,13 +230,13 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 
 	const heightOffset = 10
 
-	g0Conns, err := r.GetConnections(ctx, eRep, g0ChainId)
+	g0Conns, err := r.GetConnections(g0Ctx, eRep, g0ChainId)
 	require.NoError(t, err)
 	require.Len(t, g0Conns, 1)
 
 	g0ClientID := g0Conns[0].ClientID
 
-	g1Conns, err := r.GetConnections(ctx, eRep, g1ChainId)
+	g1Conns, err := r.GetConnections(g1Ctx, eRep, g1ChainId)
 	require.NoError(t, err)
 	require.Len(t, g1Conns, 1)
 
@@ -236,7 +244,11 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 
 	var eg errgroup.Group
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
+		updatedG0Height, err := g0.Height(g0Ctx)
+		require.NoError(t, err)
+		logger.Info("G0 Chain height (2)", zap.String("g0 chainID", g0.Config().ChainID), zap.Uint64("g0 height", updatedG0Height))
+
+		msg, err := pollForUpdateClient(g0Ctx, g0, updatedG0Height, updatedG0Height+heightOffset)
 		if err != nil {
 			return fmt.Errorf("first chain: %w", err)
 		}
@@ -246,7 +258,11 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 		return nil
 	})
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
+		updatedG1Height, err := g1.Height(g1Ctx)
+		require.NoError(t, err)
+		logger.Info("G1 Chain height (2)", zap.String("g1 chainID", g1.Config().ChainID), zap.Uint64("g1 height", updatedG1Height))
+
+		msg, err := pollForUpdateClient(g1Ctx, g1, updatedG1Height, updatedG1Height+heightOffset)
 		if err != nil {
 			return fmt.Errorf("second chain: %w", err)
 		}

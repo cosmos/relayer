@@ -723,6 +723,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = processorFlag(a.viper, cmd)
 	cmd = updateTimeFlags(a.viper, cmd)
+	cmd = flushIntervalFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -781,7 +782,7 @@ $ %s tx flush demo-path channel-0`,
 				return err
 			}
 
-			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
+			maxMsgLength, err := cmd.Flags().GetUint64(flagMaxMsgLength)
 			if err != nil {
 				return err
 			}
@@ -794,6 +795,11 @@ $ %s tx flush demo-path channel-0`,
 				}
 			}
 
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
+			if err != nil {
+				return err
+			}
+
 			ctx, cancel := context.WithTimeout(cmd.Context(), flushTimeout)
 			defer cancel()
 
@@ -802,7 +808,7 @@ $ %s tx flush demo-path channel-0`,
 				a.log,
 				chains,
 				paths,
-				maxTxSize, maxMsgLength,
+				maxMsgLength,
 				a.config.memo(cmd),
 				0,
 				0,
@@ -810,6 +816,7 @@ $ %s tx flush demo-path channel-0`,
 				relayer.ProcessorEvents,
 				0,
 				nil,
+				stuckPacket,
 			)
 
 			// Block until the error channel sends a message.
@@ -829,6 +836,8 @@ $ %s tx flush demo-path channel-0`,
 
 	cmd = strategyFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = stuckPacketFlags(a.viper, cmd)
+
 	return cmd
 }
 

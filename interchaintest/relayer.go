@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/cmd"
 	"github.com/cosmos/relayer/v2/internal/relayertest"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -37,6 +38,9 @@ func NewRelayer(
 	t *testing.T,
 	config RelayerConfig,
 ) ibc.Relayer {
+	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+	types.SetAddrCacheEnabled(false)
+
 	r := &Relayer{
 		t:      t,
 		home:   t.TempDir(),
@@ -84,13 +88,13 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, signingAlgorithm string) (ibc.Wallet, error) {
-	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType, "--signing-algorithm", signingAlgorithm)
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType string) (ibc.Wallet, error) {
+	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
 	if res.Err != nil {
 		return nil, res.Err
 	}
 
-	var w ibc.Wallet
+	var w *interchaintestcosmos.CosmosWallet
 	if err := json.Unmarshal(res.Stdout.Bytes(), &w); err != nil {
 		return nil, err
 	}
@@ -98,8 +102,8 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 	return w, nil
 }
 
-func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, signingAlgorithm, mnemonic string) error {
-	res := r.sys().RunC(ctx, r.log(), "keys", "restore", chainID, keyName, mnemonic, "--coin-type", coinType, "--signing-algorithm", signingAlgorithm)
+func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, cfg ibc.ChainConfig, keyName, mnemonic string) error {
+	res := r.sys().RunC(ctx, r.log(), "keys", "restore", cfg.ChainID, keyName, mnemonic, "--coin-type", cfg.CoinType)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -347,4 +351,11 @@ func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 		}
 	}
 	return rly.NewWallet(keyName, address, ""), true
+}
+
+// SetClientContractHash sets the wasm client contract hash in the chain's config if the counterparty chain in a path used 08-wasm
+// to instantiate the client.
+func (r *Relayer) SetClientContractHash(ctx context.Context, rep ibc.RelayerExecReporter, cfg ibc.ChainConfig, hash string) error {
+	//TODO implement me
+	panic("implement me")
 }

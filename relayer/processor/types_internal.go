@@ -8,9 +8,15 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
+
+var _ zapcore.ObjectMarshaler = packetIBCMessage{}
+var _ zapcore.ObjectMarshaler = channelIBCMessage{}
+var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
+var _ zapcore.ObjectMarshaler = clientICQMessage{}
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -76,6 +82,9 @@ func (msg packetIBCMessage) assemble(
 		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
+	}
+	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+		packetProof = src.localhostSentinelProofPacket
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
@@ -166,6 +175,10 @@ func (msg channelIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
 	}
+	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+		chanProof = src.localhostSentinelProofChannel
+	}
+
 	var proof provider.ChannelProof
 	var err error
 	if chanProof != nil {
@@ -238,6 +251,7 @@ func (msg connectionIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected connection message eventType for message assembly: %s", msg.eventType)
 	}
+
 	var proof provider.ConnectionProof
 	var err error
 	if connProof != nil {
@@ -246,6 +260,7 @@ func (msg connectionIBCMessage) assemble(
 			return nil, fmt.Errorf("error querying connection proof: %w", err)
 		}
 	}
+
 	return assembleMessage(msg.info, proof)
 }
 

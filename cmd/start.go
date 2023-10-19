@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
@@ -88,7 +87,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			maxTxSize, maxMsgLength, err := GetStartOptions(cmd)
+			maxMsgLength, err := cmd.Flags().GetUint64(flagMaxMsgLength)
 			if err != nil {
 				return err
 			}
@@ -144,12 +143,17 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
+			if err != nil {
+				return err
+			}
+
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.log,
 				chains,
 				paths,
-				maxTxSize, maxMsgLength,
+				maxMsgLength,
 				a.config.memo(cmd),
 				clientUpdateThresholdTime,
 				flushInterval,
@@ -157,6 +161,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				processorType,
 				initialBlockHistory,
 				prometheusMetrics,
+				stuckPacket,
 			)
 
 			// Block until the error channel sends a message.
@@ -180,30 +185,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = stuckPacketFlags(a.viper, cmd)
 	return cmd
-}
-
-// GetStartOptions sets strategy specific fields.
-func GetStartOptions(cmd *cobra.Command) (uint64, uint64, error) {
-	maxTxSize, err := cmd.Flags().GetString(flagMaxTxSize)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	txSize, err := strconv.ParseUint(maxTxSize, 10, 64)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	maxMsgLength, err := cmd.Flags().GetString(flagMaxMsgLength)
-	if err != nil {
-		return txSize * MB, 0, err
-	}
-
-	msgLen, err := strconv.ParseUint(maxMsgLength, 10, 64)
-	if err != nil {
-		return txSize * MB, 0, err
-	}
-
-	return txSize * MB, msgLen, nil
 }

@@ -16,12 +16,10 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestScenarioFeeMiddleware(t *testing.T) {
+func TestRelayerFeeMiddleware(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-
-	t.Parallel()
 
 	nv := 1
 	nf := 0
@@ -73,11 +71,13 @@ func TestScenarioFeeMiddleware(t *testing.T) {
 		SkipPathCreation: false,
 	}))
 
+	t.Parallel()
+
 	t.Cleanup(func() {
 		_ = ic.Close()
 	})
 
-	err = testutil.WaitForBlocks(ctx, 10, chainA, chainB)
+	err = testutil.WaitForBlocks(ctx, 5, chainA, chainB)
 	require.NoError(t, err)
 
 	// ChainID of ChainA
@@ -180,7 +180,7 @@ func TestScenarioFeeMiddleware(t *testing.T) {
 	)
 
 	// Wait for relayer to run
-	err = testutil.WaitForBlocks(ctx, 5, chainA, chainB)
+	err = testutil.WaitForBlocks(ctx, 10, chainA, chainB)
 	require.NoError(t, err)
 
 	// Assigning denom

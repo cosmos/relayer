@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
@@ -27,6 +29,8 @@ const (
 	ProcessorLegacy                     = "legacy"
 	DefaultClientUpdateThreshold        = 0 * time.Millisecond
 	DefaultFlushInterval                = 5 * time.Minute
+	DefaultMaxMsgLength                 = 5
+	TwoMB                               = 2 * 1024 * 1024
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
@@ -35,7 +39,7 @@ func StartRelayer(
 	log *zap.Logger,
 	chains map[string]*Chain,
 	paths []NamedPath,
-	maxTxSize, maxMsgLength uint64,
+	maxMsgLength uint64,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
@@ -43,7 +47,10 @@ func StartRelayer(
 	processorType string,
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
+	stuckPacket *processor.StuckPacket,
 ) chan error {
+	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+	sdk.SetAddrCacheEnabled(false)
 	errorChan := make(chan error, 1)
 
 	switch processorType {
@@ -80,7 +87,6 @@ func StartRelayer(
 			chainProcessors,
 			ePaths,
 			initialBlockHistory,
-			maxTxSize,
 			maxMsgLength,
 			memo,
 			messageLifecycle,
@@ -88,6 +94,7 @@ func StartRelayer(
 			flushInterval,
 			errorChan,
 			metrics,
+			stuckPacket,
 		)
 		return errorChan
 	case ProcessorLegacy:
@@ -98,7 +105,7 @@ func StartRelayer(
 		src, dst := chains[p.Src.ChainID], chains[p.Dst.ChainID]
 		src.PathEnd = p.Src
 		dst.PathEnd = p.Dst
-		go relayerStartLegacy(ctx, log, src, dst, p.Filter, maxTxSize, maxMsgLength, memo, errorChan)
+		go relayerStartLegacy(ctx, log, src, dst, p.Filter, TwoMB, maxMsgLength, memo, errorChan)
 		return errorChan
 	default:
 		panic(fmt.Errorf("unexpected processor type: %s, supports one of: [%s, %s]", processorType, ProcessorEvents, ProcessorLegacy))
@@ -113,7 +120,10 @@ type path struct {
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
-func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
+func (chain *Chain) chainProcessor(
+	log *zap.Logger,
+	metrics *processor.PrometheusMetrics,
+) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.ChainProvider.(type) {
 	case *penumbraprocessor.PenumbraProvider:
@@ -132,7 +142,6 @@ func relayerStartEventProcessor(
 	chainProcessors []processor.ChainProcessor,
 	paths []path,
 	initialBlockHistory uint64,
-	maxTxSize,
 	maxMsgLength uint64,
 	memo string,
 	messageLifecycle processor.MessageLifecycle,
@@ -140,10 +149,13 @@ func relayerStartEventProcessor(
 	flushInterval time.Duration,
 	errCh chan<- error,
 	metrics *processor.PrometheusMetrics,
+	stuckPacket *processor.StuckPacket,
 ) {
 	defer close(errCh)
 
-	epb := processor.NewEventProcessor().WithChainProcessors(chainProcessors...)
+	epb := processor.NewEventProcessor().
+		WithChainProcessors(chainProcessors...).
+		WithStuckPacket(stuckPacket)
 
 	for _, p := range paths {
 		epb = epb.
@@ -155,6 +167,7 @@ func relayerStartEventProcessor(
 				memo,
 				clientUpdateThresholdTime,
 				flushInterval,
+				maxMsgLength,
 			))
 	}
 

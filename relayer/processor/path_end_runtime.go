@@ -5,8 +5,10 @@ import (
 	"sync"
 	"time"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -28,6 +30,7 @@ type pathEndRuntime struct {
 	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
+	channelOrderCache    map[string]chantypes.Order
 	latestHeader         provider.IBCHeader
 	ibcHeaderCache       IBCHeaderCache
 
@@ -69,6 +72,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		packetProcessing:     make(packetProcessingCache),
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
+		channelOrderCache:    make(map[string]chantypes.Order),
 		clientICQProcessing:  make(clientICQProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
@@ -438,7 +442,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		)
 		return false
 	}
-	if !pathEnd.channelStateCache[k] {
+	if !pathEnd.channelStateCache[k].Open {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
 			zap.String("event_type", eventType),
@@ -603,6 +607,13 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	if eventType != chantypes.EventTypeChannelOpenInit {
 		channelKey = channelKey.Counterparty()
 	}
+
+	// For localhost cache the channel order on OpenInit so that we can access it during the other channel handshake steps
+	if pathEnd.info.ClientID == ibcexported.LocalhostClientID && eventType == chantypes.EventTypeChannelOpenInit {
+		pathEnd.channelOrderCache[channelKey.ChannelID] = message.info.Order
+		counterparty.channelOrderCache[channelKey.CounterpartyChannelID] = message.info.Order
+	}
+
 	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
@@ -838,4 +849,28 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 	}
 
 	return retryCount
+}
+
+func (pathEnd *pathEndRuntime) localhostSentinelProofPacket(
+	_ context.Context,
+	_ provider.PacketInfo,
+	height uint64,
+) (provider.PacketProof, error) {
+	return provider.PacketProof{
+		Proof:       []byte{0x01},
+		ProofHeight: clienttypes.NewHeight(clienttypes.ParseChainID(pathEnd.info.ChainID), height),
+	}, nil
+}
+
+func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
+	_ context.Context,
+	info provider.ChannelInfo,
+	height uint64,
+) (provider.ChannelProof, error) {
+	return provider.ChannelProof{
+		Proof:       []byte{0x01},
+		ProofHeight: clienttypes.NewHeight(clienttypes.ParseChainID(pathEnd.info.ChainID), height),
+		Ordering:    info.Order,
+		Version:     info.Version,
+	}, nil
 }

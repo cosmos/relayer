@@ -82,6 +82,15 @@ interchaintest-legacy:
 interchaintest-multiple:
 	cd interchaintest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
+interchaintest-misbehaviour:
+	cd interchaintest && go test -race -v -run TestRelayerMisbehaviourDetection .
+
+interchaintest-fee-middleware:
+	cd interchaintest && go test -race -v -run TestRelayerFeeMiddleware .
+
+interchaintest-fee-grant:
+	cd interchaintest && go test -race -v -run TestRelayerFeeGrant .
+
 interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
 	cd interchaintest && go test -timeout 30m -race -v -run TestScenario ./...
 

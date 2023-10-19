@@ -216,6 +216,7 @@ type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
 	AddKey(name string, coinType uint32, signingAlgorithm string) (output *KeyOutput, err error)
+	UseKey(key string) error
 	RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error)
 	ShowAddress(name string) (address string, err error)
 	ListAddresses() (map[string]string, error)
@@ -391,7 +392,7 @@ type ChainProvider interface {
 		memo string,
 
 		asyncCtx context.Context,
-		asyncCallback func(*RelayerTxResponse, error),
+		asyncCallbacks []func(*RelayerTxResponse, error),
 	) error
 
 	MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (RelayerMessage, error)
@@ -406,6 +407,8 @@ type ChainProvider interface {
 	TrustingPeriod(ctx context.Context) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
+
+	SetRpcAddr(rpcAddr string) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?
@@ -457,6 +460,7 @@ type QueryProvider interface {
 	QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
 	QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error)
 	QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error)
+	QueryNextSeqAck(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error)
 	QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error)
 	QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error)
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
@@ -564,4 +568,9 @@ func (h TendermintIBCHeader) TMHeader() (*tendermint.Header, error) {
 		TrustedHeight:     h.TrustedHeight,
 		TrustedValidators: trustedVals,
 	}, nil
+}
+
+type ExtensionOption struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
 }

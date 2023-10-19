@@ -47,7 +47,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
     ```shell
     $ git clone https://github.com/cosmos/relayer.git
-    $ cd relayer && git checkout v2.3.0
+    $ cd relayer && git checkout v2.4.0
     $ make install
     ```
 
@@ -58,7 +58,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    ```
    **Default config file location:** `~/.relayer/config/config.yaml`
 
-   By default, transactions will be relayed with a memo of `rly(VERSION)` e.g. `rly(v2.3.0)`.
+   By default, transactions will be relayed with a memo of `rly(VERSION)` e.g. `rly(v2.4.0)`.
 
    To customize the memo for all relaying, use the `--memo` flag when initializing the configuration.
 
@@ -66,7 +66,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    $ rly config init --memo "My custom memo"
    ```
 
-   Custom memos will have `rly(VERSION)` appended. For example, a memo of `My custom memo` running on relayer version `v2.3.0` would result in a transaction memo of `My custom memo | rly(v2.3.0)`. 
+   Custom memos will have `rly(VERSION)` appended. For example, a memo of `My custom memo` running on relayer version `v2.4.0` would result in a transaction memo of `My custom memo | rly(v2.4.0)`. 
    
    The `--memo` flag is also available for other `rly` commands also that involve sending transactions such as `rly tx link` and `rly start`. It can be passed there to override the `config.yaml` value if desired.
 
@@ -112,18 +112,14 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    $ rly keys restore osmosis [key-name] "mnemonic words here"
    ```
 
-5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
+5. **Use the `key-name` created above.**
 
    >This step is necessary if you chose a `key-name` other than "default"
    
-   Example:
-      ```yaml
-      - type: cosmos
-         value:
-         key: YOUR-KEY-NAME-HERE
-         chain-id: cosmoshub-4
-         rpc-addr: http://localhost:26657
-      ```
+    ```shell
+    $ rly keys use cosmoshub [key-name]  
+    $ rly keys use osmosis [key-name]  
+    ```
 
 6. **Ensure the keys associated with the configured chains are funded.**
 

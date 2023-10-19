@@ -35,28 +35,46 @@ var (
 const cometEncodingThreshold = "v0.37.0-alpha"
 
 type CosmosProviderConfig struct {
-	KeyDirectory     string                  `json:"key-directory" yaml:"key-directory"`
-	Key              string                  `json:"key" yaml:"key"`
-	ChainName        string                  `json:"-" yaml:"-"`
-	ChainID          string                  `json:"chain-id" yaml:"chain-id"`
-	RPCAddr          string                  `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix    string                  `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend   string                  `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment    float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices        string                  `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount     uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
-	MaxGasAmount     uint64                  `json:"max-gas-amount" yaml:"max-gas-amount"`
-	Debug            bool                    `json:"debug" yaml:"debug"`
-	Timeout          string                  `json:"timeout" yaml:"timeout"`
-	BlockTimeout     string                  `json:"block-timeout" yaml:"block-timeout"`
-	OutputFormat     string                  `json:"output-format" yaml:"output-format"`
-	SignModeStr      string                  `json:"sign-mode" yaml:"sign-mode"`
-	ExtraCodecs      []string                `json:"extra-codecs" yaml:"extra-codecs"`
-	Modules          []module.AppModuleBasic `json:"-" yaml:"-"`
-	Slip44           *int                    `json:"coin-type" yaml:"coin-type"`
-	SigningAlgorithm string                  `json:"signing-algorithm" yaml:"signing-algorithm"`
-	Broadcast        provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
-	MinLoopDuration  time.Duration           `json:"min-loop-duration" yaml:"min-loop-duration"`
+	KeyDirectory     string                     `json:"key-directory" yaml:"key-directory"`
+	Key              string                     `json:"key" yaml:"key"`
+	ChainName        string                     `json:"-" yaml:"-"`
+	ChainID          string                     `json:"chain-id" yaml:"chain-id"`
+	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend   string                     `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment    float64                    `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices        string                     `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount     uint64                     `json:"min-gas-amount" yaml:"min-gas-amount"`
+	MaxGasAmount     uint64                     `json:"max-gas-amount" yaml:"max-gas-amount"`
+	Debug            bool                       `json:"debug" yaml:"debug"`
+	Timeout          string                     `json:"timeout" yaml:"timeout"`
+	BlockTimeout     string                     `json:"block-timeout" yaml:"block-timeout"`
+	OutputFormat     string                     `json:"output-format" yaml:"output-format"`
+	SignModeStr      string                     `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs      []string                   `json:"extra-codecs" yaml:"extra-codecs"`
+	Modules          []module.AppModuleBasic    `json:"-" yaml:"-"`
+	Slip44           *int                       `json:"coin-type" yaml:"coin-type"`
+	SigningAlgorithm string                     `json:"signing-algorithm" yaml:"signing-algorithm"`
+	Broadcast        provider.BroadcastMode     `json:"broadcast-mode" yaml:"broadcast-mode"`
+	MinLoopDuration  time.Duration              `json:"min-loop-duration" yaml:"min-loop-duration"`
+	ExtensionOptions []provider.ExtensionOption `json:"extension-options" yaml:"extension-options"`
+
+	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
+	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
+}
+
+// By default, TXs will be signed by the feegrantees 'ManagedGrantees' keys in a round robin fashion.
+// Clients can use other signing keys by invoking 'tx.SendMsgsWith' and specifying the signing key.
+type FeeGrantConfiguration struct {
+	GranteesWanted int `json:"num_grantees" yaml:"num_grantees"`
+	//Normally this is the default ChainClient key
+	GranterKey string `json:"granter" yaml:"granter"`
+	//List of keys (by name) that this FeeGranter manages
+	ManagedGrantees []string `json:"grantees" yaml:"grantees"`
+	//Last checked on chain (0 means grants never checked and may not exist)
+	BlockHeightVerified int64 `json:"block_last_verified" yaml:"block_last_verified"`
+	//Index of the last ManagedGrantee used as a TX signer
+	GranteeLastSignerIndex int
 }
 
 func (pc CosmosProviderConfig) Validate() error {
@@ -91,6 +109,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
 		Input:          os.Stdin,
 		Output:         os.Stdout,
+		walletStateMap: map[string]*WalletState{},
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
@@ -112,8 +131,13 @@ type CosmosProvider struct {
 	Cdc            Codec
 	// TODO: GRPC Client type?
 
-	nextAccountSeq uint64
-	txMu           sync.Mutex
+	//nextAccountSeq uint64
+	feegrantMu sync.Mutex
+
+	// the map key is the TX signer, which can either be 'default' (provider key) or a feegrantee
+	// the purpose of the map is to lock on the signer from TX creation through submission,
+	// thus making TX sequencing errors less likely.
+	walletStateMap map[string]*WalletState
 
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
@@ -123,6 +147,11 @@ type CosmosProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+}
+
+type WalletState struct {
+	NextAccountSequence uint64
+	Mu                  sync.Mutex
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
@@ -174,22 +203,34 @@ func (cc *CosmosProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	res, err := cc.QueryStakingParams(ctx)
-
-	var unbondingTime time.Duration
+func (cc *CosmosProvider) MustEncodeAccAddr(addr sdk.AccAddress) string {
+	enc, err := cc.EncodeBech32AccAddr(addr)
 	if err != nil {
-		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-		if consumerErr != nil {
-			return 0,
-				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
-		}
-		unbondingTime = consumerUnbondingPeriod
-	} else {
-		unbondingTime = res.UnbondingTime
+		panic(err)
 	}
+	return enc
+}
 
+// AccountFromKeyOrAddress returns an account from either a key or an address.
+// If 'keyOrAddress' is the empty string, this returns the default key's address.
+func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.AccAddress, err error) {
+	switch {
+	case keyOrAddress == "":
+		out, err = cc.GetKeyAddress(cc.PCfg.Key)
+	case cc.KeyExists(keyOrAddress):
+		out, err = cc.GetKeyAddress(keyOrAddress)
+	default:
+		out, err = sdk.GetFromBech32(keyOrAddress, cc.PCfg.AccountPrefix)
+	}
+	return
+}
+
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+
+	unbondingTime, err := cc.QueryUnbondingPeriod(ctx)
+	if err != nil {
+		return 0, err
+	}
 	// We want the trusting period to be 85% of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
@@ -214,6 +255,13 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// SetPCAddr sets the rpc-addr for the chain.
+// It will fail if the rpcAddr is invalid(not a url).
+func (cc *CosmosProvider) SetRpcAddr(rpcAddr string) error {
+	cc.PCfg.RPCAddr = rpcAddr
+	return nil
 }
 
 // Init initializes the keystore, RPC client, amd light client provider.
@@ -296,9 +344,9 @@ func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {
 	cc.metrics = m
 }
 
-func (cc *CosmosProvider) updateNextAccountSequence(seq uint64) {
-	if seq > cc.nextAccountSeq {
-		cc.nextAccountSeq = seq
+func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, seq uint64) {
+	if seq > sequenceGuard.NextAccountSequence {
+		sequenceGuard.NextAccountSequence = seq
 	}
 }
 
