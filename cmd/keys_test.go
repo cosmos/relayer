@@ -254,6 +254,14 @@ func TestKeysRestoreAll_Delete(t *testing.T) {
 	require.Equal(t, res.Stderr.String(), "key default deleted\n")
 
 	// Listing the keys again gives the no keys warning.
+	res = sys.MustRun(t, "keys", "list", "testChain")
+	require.Empty(t, res.Stdout.String())
+	require.Contains(t, res.Stderr.String(), "no keys found for chain testChain3")
+
+	res = sys.MustRun(t, "keys", "list", "testChain2")
+	require.Empty(t, res.Stdout.String())
+	require.Contains(t, res.Stderr.String(), "no keys found for chain testChain3")
+
 	res = sys.MustRun(t, "keys", "list", "testChain3")
 	require.Empty(t, res.Stdout.String())
 	require.Contains(t, res.Stderr.String(), "no keys found for chain testChain3")
