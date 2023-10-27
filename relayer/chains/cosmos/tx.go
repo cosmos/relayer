@@ -39,8 +39,8 @@ import (
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -1067,7 +1067,7 @@ func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provide
 }
 
 func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	if strings.Contains(clientID, "08-wasm") { // TODO: replace with ibcexported.Wasm at v7.2
+	if strings.Contains(clientID, exported.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
 		wasmData, err := cc.Cdc.Marshaler.MarshalInterface(misbehaviour)
 		if err != nil {
 			return nil, err

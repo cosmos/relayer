@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	tmlightclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	wasm "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
+	wasm "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 )
 
 // AppModuleBasic defines the basic application module used by the module.

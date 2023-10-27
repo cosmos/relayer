@@ -9,9 +9,10 @@ import (
 	sdkcodec "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 )
 
 var tendermintClientCodec = tmClientCodec()
@@ -32,7 +33,7 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 		return "", err
 	}
 
-	if newClient.ClientType() == "08-wasm" { // TODO: replace with ibcexported.Wasm
+	if newClient.ClientType() == exported.Wasm {
 		wasmClientState := newClient.(*wasmclient.ClientState)
 		newClient, err = clienttypes.UnmarshalClientState(tendermintClientCodec, wasmClientState.Data) // Does this need to be UnmarshalInterface?
 		if err != nil {

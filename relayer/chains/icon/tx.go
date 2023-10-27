@@ -15,7 +15,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 
 	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"

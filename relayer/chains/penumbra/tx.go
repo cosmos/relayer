@@ -2,8 +2,8 @@ package penumbra
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -31,14 +31,15 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 	ics23 "github.com/cosmos/ics23/go"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
 	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/ibc/v1alpha1"
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
-	wasmclient "github.com/cosmos/relayer/v2/relayer/codecs/08-wasm-types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -896,7 +897,7 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 }
 
 func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	if strings.Contains(clientID, "08-wasm") { // TODO: replace with ibcexported.Wasm at v7.2
+	if strings.Contains(clientID, exported.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
 		wasmData, err := cc.Codec.Marshaler.MarshalInterface(misbehaviour)
 		if err != nil {
 			return nil, err
@@ -1607,7 +1608,7 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 
 	clientHeader = &tmClientHeader
 
-	if clientType == "08-wasm" { // TODO: replace with ibcexported.Wasm at v7.2
+	if clientType == exported.Wasm {
 		tmClientHeaderBz, err := cc.Codec.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
 			return &wasmclient.Header{}, nil
@@ -1617,7 +1618,7 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
 		}
 		clientHeader = &wasmclient.Header{
-			Data: tmClientHeaderBz,
+			Data:   tmClientHeaderBz,
 			Height: height,
 		}
 	}
@@ -2055,12 +2056,11 @@ func (cc *PenumbraProvider) NewClientState(
 			return &wasmclient.ClientState{}, err
 		}
 		clientState = &wasmclient.ClientState{
-			Data: tmClientStateBz,
-			CodeId: codeID,
+			Data:         tmClientStateBz,
+			CodeId:       codeID,
 			LatestHeight: tmClientState.LatestHeight,
 		}
 	}
-
 
 	return clientState, nil
 }
