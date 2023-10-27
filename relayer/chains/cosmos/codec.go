@@ -27,6 +27,7 @@ import (
 
 	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
 	ethermintcodecs "github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	injectivecodecs "github.com/cosmos/relayer/v2/relayer/codecs/injective"
 )
@@ -58,6 +59,7 @@ var ModuleBasics = []module.AppModuleBasic{
 	cosmosmodule.AppModuleBasic{},
 	stride.AppModuleBasic{},
 	ibcfee.AppModuleBasic{},
+	icon_module.AppModuleBasic{},
 }
 
 type Codec struct {

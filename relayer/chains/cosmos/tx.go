@@ -1011,7 +1011,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 
 	clientHeader = &tmClientHeader
 
-	if clientType == exported.Wasm { // TODO: replace with ibcexported.Wasm at v7.2
+	if clientType == exported.Wasm {
 		tmClientHeaderBz, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
 			return &wasmclient.Header{}, nil

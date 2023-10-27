@@ -3,6 +3,7 @@ package icon
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 	// integration_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
@@ -218,6 +220,8 @@ func (icp *IconProvider) NewClientState(
 	srcWasmCodeID string,
 ) (ibcexported.ClientState, error) {
 
+	var clientState ibcexported.ClientState
+
 	if !dstUpdateHeader.IsCompleteBlock() {
 		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
 	}
@@ -228,8 +232,7 @@ func (icp *IconProvider) NewClientState(
 
 	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(common.NanoToMilliRatio))
 
-	return &icon.ClientState{
-		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration
+	clientState = &icon.ClientState{
 		TrustingPeriod: trustingBlockPeriod,
 		FrozenHeight:   0,
 		MaxClockDrift:  3600,
@@ -237,7 +240,27 @@ func (icp *IconProvider) NewClientState(
 		SrcNetworkId:   getSrcNetworkId(icp.PCfg.ICONNetworkID),
 		NetworkId:      uint64(icp.PCfg.BTPNetworkID),
 		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
-	}, nil
+	}
+
+	latestHeight := clienttypes.NewHeight(0, dstUpdateHeader.Height())
+
+	if srcWasmCodeID != "" {
+		tmClientStateBz, err := icp.codec.Marshaler.MarshalInterface(clientState)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		codeID, err := hex.DecodeString(srcWasmCodeID)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		clientState = &wasmclient.ClientState{
+			Data:         tmClientStateBz,
+			CodeId:       codeID,
+			LatestHeight: latestHeight,
+		}
+	}
+
+	return clientState, nil
 
 }
 
