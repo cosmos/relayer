@@ -29,7 +29,6 @@ func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*cod
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("is tendermint client: %s\n", clientState.GetChainID())
 
 		return clienttypes.PackClientState(&clientState)
 	}

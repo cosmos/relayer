@@ -1274,8 +1274,6 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 		}
 		clientStateExported = clientState
 
-		// different handling for the icon client
-
 	}
 
 	tmClientState, ok := clientStateExported.(*tmclient.ClientState)

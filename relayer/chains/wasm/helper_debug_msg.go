@@ -18,14 +18,12 @@ func jsonDumpDataFile(filename string, bufs interface{}) {
 	// Marshal the slice of structs to JSON format
 	jsonData, err := json.MarshalIndent(bufs, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling slice of structs to JSON:", err)
 		os.Exit(1)
 	}
 
 	// Write JSON data to file
 	err = ioutil.WriteFile(filename, jsonData, 0644)
 	if err != nil {
-		fmt.Println("Error writing JSON to file:", err)
 		os.Exit(1)
 	}
 
@@ -68,7 +66,6 @@ func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 	var d []DataFormat
 	err := readExistingData(filename, &d)
 	if err != nil {
-		fmt.Println("error savingtoFile ", err)
 		return
 	}
 

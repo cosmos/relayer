@@ -1,8 +1,6 @@
 package penumbra
 
 import (
-	"fmt"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -24,7 +22,6 @@ func NewPenumbraMessage(msg sdk.Msg) provider.RelayerMessage {
 
 func PenumbraMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(PenumbraMessage); !ok {
-		fmt.Printf("got data of type %T but wanted PenumbraMessage \n", val)
 		return nil
 	} else {
 		return val.Msg
@@ -52,7 +49,6 @@ func PenumbraMsgs(rm ...provider.RelayerMessage) []sdk.Msg {
 		case cosmos.CosmosMessage:
 			sdkMsgs = append(sdkMsgs, rMsg.(cosmos.CosmosMessage).Msg)
 		default:
-			fmt.Printf("got data of type %T but wanted PenumbraMessage \n", rMsg)
 			return nil
 		}
 	}

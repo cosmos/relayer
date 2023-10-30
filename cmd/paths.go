@@ -408,7 +408,6 @@ $ %s pth fch`, appName, defaultHome, appName)),
 					client, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 					if err != nil {
 						if errors.As(err, new(*github.RateLimitError)) {
-							fmt.Println("some paths failed: ", err)
 							break
 						}
 						fmt.Fprintf(cmd.ErrOrStderr(), "failure retrieving: %s: consider adding to cosmos/chain-registry: ERR: %v\n", pthName, err)
