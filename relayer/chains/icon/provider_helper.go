@@ -8,8 +8,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/gogo/protobuf/proto"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 )
 
 // Implement when a new chain is added to ICON IBC Contract
@@ -24,10 +25,11 @@ func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*cod
 	}
 	if strings.Contains(clientId, common.TendermintLightClient) {
 		var clientState itm.ClientState
-		err := icp.codec.Marshaler.Unmarshal(clientStateB, &clientState)
+		err := proto.Unmarshal(clientStateB, &clientState)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Printf("is tendermint client: %s\n", clientState.GetChainID())
 
 		return clienttypes.PackClientState(&clientState)
 	}

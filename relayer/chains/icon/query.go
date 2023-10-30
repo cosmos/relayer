@@ -151,6 +151,7 @@ func (icp *IconProvider) QueryBalanceWithAddress(ctx context.Context, addr strin
 	if err != nil {
 		return nil, err
 	}
+
 	return sdk.Coins{sdk.Coin{
 		Denom:  "ICX",
 		Amount: math.NewInt(balance.Int64()),
@@ -219,6 +220,7 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		"clientId": srcClientId,
 	}, callParamsWithHeight(types.NewHexInt(height)))
 
+	fmt.Println("[QueryClientStateResponse] callparams:", callParams)
 	//similar should be implemented
 	var clientStateB types.HexBytes
 	err := icp.client.Call(callParams, &clientStateB)
@@ -230,6 +232,7 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("[QueryClientStateResponse] clientStateByte: %x \n ", clientStateB)
 
 	any, err := icp.ClientToAny(srcClientId, clientStateByte)
 	if err != nil {

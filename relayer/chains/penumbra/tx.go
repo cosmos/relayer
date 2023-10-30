@@ -2021,6 +2021,7 @@ func (cc *PenumbraProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 	srcWasmCodeID string,
+	srcChainId string,
 ) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
