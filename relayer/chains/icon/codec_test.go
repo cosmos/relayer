@@ -7,8 +7,8 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	tendermint_client "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	tendermint_client "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,8 +42,10 @@ func TestClientState(t *testing.T) {
 func TestCodecEncode(t *testing.T) {
 
 	testData := tendermint_client.ClientState{
-		ChainId:      "tendermint",
-		LatestHeight: 40,
+		ChainId: "tendermint",
+		LatestHeight: &icon.Height{
+			RevisionHeight: 40,
+		},
 	}
 
 	codec := MakeCodec(ModuleBasics, []string{})

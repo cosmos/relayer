@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

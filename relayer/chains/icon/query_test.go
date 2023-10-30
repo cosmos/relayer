@@ -8,7 +8,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/gogo/protobuf/proto"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 	"github.com/stretchr/testify/assert"
 )
 

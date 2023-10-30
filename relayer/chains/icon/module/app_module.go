@@ -7,8 +7,8 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	"github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 	"github.com/spf13/cobra"
 )
 

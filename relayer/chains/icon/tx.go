@@ -18,11 +18,11 @@ import (
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 
 	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"go.uber.org/zap"
 )
 

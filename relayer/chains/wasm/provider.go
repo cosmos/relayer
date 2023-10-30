@@ -14,7 +14,7 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"

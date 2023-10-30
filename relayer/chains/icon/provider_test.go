@@ -12,8 +12,8 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	icn "github.com/icon-project/ibc-integration/libraries/go/common/icon"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -477,3 +477,25 @@ func TestHash(t *testing.T) {
 
 //		assert.True(t, isValid)
 //	}
+
+func TestGetBala(t *testing.T) {
+
+	prov := GetMockIconProvider(2, "cx4f79451103e51baba633e10e4d355f28ceda3103")
+
+	// ctx := context.Background()
+	// bal, err := prov.QueryBalanceWithAddress(ctx, "hxb6b5791be0b5ef67063b3c10b840fb81514db2fd")
+	// assert.NoError(t, err)
+	// fmt.Println("balance ", bal)
+	b, _ := hex.DecodeString("0a1063656e74617572692d746573746e65741204080110031a0408c0ba1222040880df6e32003a0310cb0240014801")
+
+	data, err := prov.ClientToAny("07-tendermint-4", b)
+	assert.NoError(t, err)
+
+	fmt.Println("data is ", data.Value)
+}
+
+func TestIconConsensusState(t *testing.T) {
+	consensusState := icon.ConsensusState{}
+	fmt.Println(consensusState.GetTimestamp())
+
+}

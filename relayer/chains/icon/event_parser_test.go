@@ -7,7 +7,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )

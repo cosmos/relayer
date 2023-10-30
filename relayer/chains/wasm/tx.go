@@ -35,7 +35,8 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/input"
@@ -149,15 +150,16 @@ func (pc *WasmProviderConfig) SignMode() signing.SignMode {
 	return signMode
 }
 
-func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, clientType string) (ibcexported.ClientState, error) {
-
+func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, srcWasmCodeID string, srcChainId string) (ibcexported.ClientState, error) {
+	revisionNumber := clienttypes.ParseChainID(dstChainID)
+	latestHeight := icon.NewHeight(revisionNumber, dstIBCHeader.Height())
 	return &itm.ClientState{
 		ChainId:                      dstChainID,
 		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
 		TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
 		UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
-		FrozenHeight:                 0,
-		LatestHeight:                 int64(dstIBCHeader.Height()),
+		FrozenHeight:                 &icon.Height{},
+		LatestHeight:                 &latestHeight,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil

@@ -23,8 +23,8 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"

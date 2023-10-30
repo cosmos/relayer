@@ -38,10 +38,14 @@ import (
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -1269,6 +1273,9 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 			return &tmclient.ClientState{}, fmt.Errorf("error unmarshaling tm client state, %w", err)
 		}
 		clientStateExported = clientState
+
+		// different handling for the icon client
+
 	}
 
 	tmClientState, ok := clientStateExported.(*tmclient.ClientState)
@@ -1292,13 +1299,29 @@ func (cc *CosmosProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 	srcWasmCodeID string,
+	srcChainId string,
 ) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	var clientState ibcexported.ClientState
 
+	// different clientState in case of icon
+	if strings.Contains(srcChainId, common.IconModule) {
+		latestHeight := icon.NewHeight(revisionNumber, dstUpdateHeader.Height())
+		return &itm.ClientState{
+			ChainId:                      dstChainID,
+			TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
+			TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
+			UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
+			FrozenHeight:                 &icon.Height{},
+			LatestHeight:                 &latestHeight,
+			AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
+			AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
+		}, nil
+	}
+
 	// Create the ClientState we want on 'c' tracking 'dst'
-	tmClientState := tmclient.ClientState{
+	tmClientState := tendermint.ClientState{
 		ChainId:         dstChainID,
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,

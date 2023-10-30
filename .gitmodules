@@ -8,7 +8,7 @@
     
 [submodule ".github/scripts/IBC-Integration"]
 	path = .github/scripts/IBC-Integration
-	url = https://github.com/icon-project/IBC-Integration.git
+	url = https://github.com/icon-project/ibc-integration.git
 [submodule ".github/scripts/archway"]
 	path = .github/scripts/archway
 	url = https://github.com/archway-network/archway.git

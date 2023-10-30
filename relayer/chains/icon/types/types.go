@@ -25,9 +25,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common"
 	"github.com/icon-project/goloop/common/codec"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 
 	relayer_common "github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/goloop/server/jsonrpc"

@@ -13,8 +13,8 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 
 	"go.uber.org/zap"
 
@@ -25,7 +25,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
-	// integration_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	// integration_types "github.com/icon-project/ibc-integration/libraries/go/common/icon"
 )
 
 var (
@@ -218,6 +218,7 @@ func (icp *IconProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 	srcWasmCodeID string,
+	srcChainId string,
 ) (ibcexported.ClientState, error) {
 
 	var clientState ibcexported.ClientState

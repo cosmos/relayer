@@ -15,12 +15,12 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/crypto"
 	"github.com/icon-project/goloop/common/db"
 	"github.com/icon-project/goloop/common/trie/ompt"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	icn "github.com/icon-project/ibc-integration/libraries/go/common/icon"
 )
 
 var (
