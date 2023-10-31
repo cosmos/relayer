@@ -114,7 +114,7 @@ func (cc *PenumbraProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Re
 		zap.String("tx_hash", res.TxHash),
 	)
 
-	// Log the succesful transaction with fields
+	// Log the successful transaction with fields
 	cc.log.Info(
 		"Successful transaction",
 		fields...,
