@@ -35,7 +35,7 @@ By default, the Relayer will automatically update clients (`MsgUpdateClient`) if
 > This auto-update functionality is specifically useful on low trafficked paths where messages aren't regularly being relayed.
 
 
-Alternitavely, you can choose to update clients more frequently by using the `--time-threshold` flag when running the `rly start` command.
+Alternatively, you can choose to update clients more frequently by using the `--time-threshold` flag when running the `rly start` command.
 
 Example:
 
