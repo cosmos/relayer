@@ -234,9 +234,8 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 		if err != nil {
 			return 0, err
 		}
-	} else {
-		unbondingTime = overrideUnbondingPeriod
 	}
+
 	// We want the trusting period to be 85% of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
