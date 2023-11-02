@@ -143,6 +143,11 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			overrideUnbondingPeriod, err := cmd.Flags().GetDuration(flagClientUnbondingPeriod)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -210,7 +215,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd))
+			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, a.config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -231,6 +236,7 @@ func createClientCmd(a *appState) *cobra.Command {
 	}
 
 	cmd = clientParameterFlags(a.viper, cmd)
+	cmd = clientUnbondingPeriodFlag(a.viper, cmd)
 	cmd = overrideFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	return cmd

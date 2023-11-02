@@ -196,7 +196,7 @@ func (cc *PenumbraProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
 	// TODO
 	return time.Hour * 2, nil
 	/*

@@ -32,6 +32,7 @@ const (
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
 	flagClientTrustingPeriod    = "client-tp"
+	flagClientUnbondingPeriod   = "client-unbonding-period"
 	flagOverride                = "override"
 	flagSrcPort                 = "src-port"
 	flagDstPort                 = "dst-port"
@@ -330,6 +331,14 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 
 func channelParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return srcPortFlag(v, dstPortFlag(v, versionFlag(v, orderFlag(v, cmd))))
+}
+
+func clientUnbondingPeriodFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Duration(flagClientUnbondingPeriod, 0, "custom unbonding period for client state. This is useful when you need to create a new client matching an older client state")
+	if err := v.BindPFlag(flagClientUnbondingPeriod, cmd.Flags().Lookup(flagClientUnbondingPeriod)); err != nil {
+		panic(err)
+	}
+	return cmd
 }
 
 func overrideFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
