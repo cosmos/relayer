@@ -55,11 +55,13 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
-	log, err := newRootLogger(a.viper.GetString("log-format"), cfgWrapper.Global.LogLevel)
-	if err != nil {
-		return err
+	if a.log == nil {
+		log, err := newRootLogger(a.viper.GetString("log-format"), cfgWrapper.Global.LogLevel)
+		if err != nil {
+			return err
+		}
+		a.log = log
 	}
-	a.log = log
 
 	// retrieve the runtime configuration from the disk configuration.
 	newCfg, err := cfgWrapper.RuntimeConfig(ctx, a)
