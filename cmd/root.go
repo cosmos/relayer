@@ -99,6 +99,12 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 		panic(err)
 	}
 
+	// Register --log-level flag
+	rootCmd.PersistentFlags().String("log-level", "info", "log level format (info, debug, warn, error, panic or fatal)")
+	if err := a.viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
+		panic(err)
+	}
+
 	// Register subcommands
 	rootCmd.AddCommand(
 		configCmd(a),
