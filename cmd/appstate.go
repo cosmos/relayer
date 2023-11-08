@@ -56,9 +56,15 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 	if a.log == nil {
-		logLevel := a.viper.GetString("log-level")
-		if logLevel == "" {
-			logLevel = cfgWrapper.Global.LogLevel
+		debugMode := a.viper.GetBool("debug")
+		logLevel := ""
+		if debugMode {
+			logLevel = "debug"
+		} else {
+			logLevel = a.viper.GetString("log-level")
+			if logLevel == "" {
+				logLevel = cfgWrapper.Global.LogLevel
+			}
 		}
 		log, err := newRootLogger(a.viper.GetString("log-format"), logLevel)
 		if err != nil {
