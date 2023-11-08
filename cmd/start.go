@@ -143,6 +143,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
+			if err != nil {
+				return err
+			}
+
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.log,
@@ -156,6 +161,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				processorType,
 				initialBlockHistory,
 				prometheusMetrics,
+				stuckPacket,
 			)
 
 			// Block until the error channel sends a message.
@@ -179,5 +185,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = stuckPacketFlags(a.viper, cmd)
 	return cmd
 }

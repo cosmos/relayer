@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -82,9 +83,9 @@ type msgHandlerParams struct {
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) update(clientInfo clientInfo) {
-	existingClientInfo, ok := l[clientInfo.clientID]
-	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+func (l latestClientState) update(clientInfo chains.ClientInfo) {
+	existingClientInfo, ok := l[clientInfo.ClientID]
+	if ok && clientInfo.ConsensusHeight.LT(existingClientInfo.ConsensusHeight) {
 		// height is less than latest, so no-op
 		return
 	}
@@ -92,7 +93,7 @@ func (l latestClientState) update(clientInfo clientInfo) {
 	tp := time.Hour * 2
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.clientID] = clientInfo.ClientState(tp)
+	l[clientInfo.ClientID] = clientInfo.ClientState(tp)
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -153,7 +154,7 @@ type queryCyclePersistence struct {
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
-func (pcp *PenumbraChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (pcp *PenumbraChainProcessor) Run(ctx context.Context, initialBlockHistory uint64, _ *processor.StuckPacket) error {
 	minQueryLoopDuration := pcp.chainProvider.PCfg.MinLoopDuration
 	if minQueryLoopDuration == 0 {
 		minQueryLoopDuration = defaultMinQueryLoopDuration
@@ -369,7 +370,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 				// tx was not successful
 				continue
 			}
-			messages := ibcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, true)
+			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, true)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)

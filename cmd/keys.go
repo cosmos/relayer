@@ -32,6 +32,7 @@ import (
 const (
 	flagCoinType           = "coin-type"
 	flagAlgo               = "signing-algorithm"
+	flagRestoreAll         = "restore-all"
 	defaultCoinType uint32 = sdk.CoinType
 )
 
@@ -148,61 +149,118 @@ func keysRestoreCmd(a *appState) *cobra.Command {
 		Use:     "restore chain_name key_name mnemonic",
 		Aliases: []string{"r"},
 		Short:   "Restores a mnemonic to the keychain associated with a particular chain",
-		Args:    withUsage(cobra.ExactArgs(3)),
+		Args:    withUsage(cobra.RangeArgs(2, 3)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys restore ibc-0 testkey "[mnemonic-words]"
-$ %s k r cosmoshub faucet-key "[mnemonic-words]"`, appName, appName)),
+$ %s keys restore  ibc-0 testkey "[mnemonic-words]"
+$ %s k r  cosmoshub faucet-key "[mnemonic-words]"
+$ %s k r demo-key "[mnemonic-words]" --restore-all`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			keyName := args[1]
-
-			chain, ok := a.config.Chains[args[0]]
-			if !ok {
-				return errChainNotFound(args[0])
-			}
-
-			if chain.ChainProvider.KeyExists(keyName) {
-				return errKeyExists(keyName)
-			}
 
 			cmdFlags := cmd.Flags()
 
-			coinType, err := cmdFlags.GetInt32(flagCoinType)
+			restoreAll, err := cmdFlags.GetBool(flagRestoreAll)
 			if err != nil {
 				return err
 			}
 
-			if coinType < 0 {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
-					coinType = int32(*ccp.PCfg.Slip44)
-				} else {
-					coinType = int32(defaultCoinType)
+			if !restoreAll {
+
+				keyName := args[1]
+				chain, ok := a.config.Chains[args[0]]
+				if !ok {
+					return errChainNotFound(args[0])
 				}
-			}
 
-			algo, err := cmdFlags.GetString(flagAlgo)
-			if err != nil {
-				return err
-			}
-
-			if algo == "" {
-				if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-					algo = ccp.PCfg.SigningAlgorithm
-				} else {
-					algo = string(hd.Secp256k1Type)
+				if chain.ChainProvider.KeyExists(keyName) {
+					return errKeyExists(keyName)
 				}
+
+				coinType, err := cmdFlags.GetInt32(flagCoinType)
+				if err != nil {
+					return err
+				}
+
+				if coinType < 0 {
+					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+						coinType = int32(*ccp.PCfg.Slip44)
+					} else {
+						coinType = int32(defaultCoinType)
+					}
+				}
+
+				algo, err := cmdFlags.GetString(flagAlgo)
+				if err != nil {
+					return err
+				}
+
+				if algo == "" {
+					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+						algo = ccp.PCfg.SigningAlgorithm
+					} else {
+						algo = string(hd.Secp256k1Type)
+					}
+				}
+
+				address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType), algo)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), address)
+				return nil
+
 			}
 
-			address, err := chain.ChainProvider.RestoreKey(keyName, args[2], uint32(coinType), algo)
-			if err != nil {
-				return err
+			chains := a.config.Chains
+			keyName := args[0]
+
+			for i, c := range chains {
+
+				chain := a.config.Chains[i]
+
+				if chain.ChainProvider.KeyExists(keyName) {
+					return errKeyExists(keyName)
+				}
+
+				coinType, err := cmdFlags.GetInt32(flagCoinType)
+				if err != nil {
+					return err
+				}
+
+				if coinType < 0 {
+					if ccp, ok := c.ChainProvider.(*cosmos.CosmosProvider); ok && ccp.PCfg.Slip44 != nil {
+						coinType = int32(*ccp.PCfg.Slip44)
+					} else {
+						coinType = int32(defaultCoinType)
+					}
+				}
+
+				algo, err := cmdFlags.GetString(flagAlgo)
+				if err != nil {
+					return err
+				}
+
+				if algo == "" {
+					if ccp, ok := c.ChainProvider.(*cosmos.CosmosProvider); ok {
+						algo = ccp.PCfg.SigningAlgorithm
+					} else {
+						algo = string(hd.Secp256k1Type)
+					}
+				}
+
+				addresses, err := c.ChainProvider.RestoreKey(keyName, args[1], uint32(coinType), algo)
+				if err != nil {
+					return err
+				}
+
+				fmt.Fprintln(cmd.OutOrStdout(), addresses)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), address)
 			return nil
 		},
 	}
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 	cmd.Flags().String(flagAlgo, "", "signing algorithm for key (secp256k1, sr25519)")
+	cmd.Flags().Bool(flagRestoreAll, false, "restores keys for all configured chains with a single mnemonic")
 
 	return cmd
 }

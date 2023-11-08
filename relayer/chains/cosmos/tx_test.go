@@ -68,6 +68,14 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 			expectedGas:   75000,
 			expectedErr:   nil,
 		},
+		{
+			name:          "estimated gas is higher than max gas",
+			gasUsed:       50000,
+			gasAdjustment: 1.5,
+			maxGasAmount:  70000,
+			expectedGas:   75000,
+			expectedErr:   fmt.Errorf("estimated gas 75000 is higher than max gas 70000"),
+		},
 	}
 
 	for _, tc := range testCases {

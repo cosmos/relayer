@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,6 +32,7 @@ const (
 	flagUpdateAfterExpiry       = "update-after-expiry"
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
 	flagClientTrustingPeriod    = "client-tp"
+	flagClientUnbondingPeriod   = "client-unbonding-period"
 	flagOverride                = "override"
 	flagSrcPort                 = "src-port"
 	flagDstPort                 = "dst-port"
@@ -57,6 +59,9 @@ const (
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
 	flagOutput                  = "output"
+	flagStuckPacketChainID      = "stuck-packet-chain-id"
+	flagStuckPacketHeightStart  = "stuck-packet-height-start"
+	flagStuckPacketHeightEnd    = "stuck-packet-height-end"
 )
 
 const (
@@ -328,6 +333,14 @@ func channelParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return srcPortFlag(v, dstPortFlag(v, versionFlag(v, orderFlag(v, cmd))))
 }
 
+func clientUnbondingPeriodFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Duration(flagClientUnbondingPeriod, 0, "custom unbonding period for client state. This is useful when you need to create a new client matching an older client state")
+	if err := v.BindPFlag(flagClientUnbondingPeriod, cmd.Flags().Lookup(flagClientUnbondingPeriod)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
 func overrideFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Bool(flagOverride, false, "option to not reuse existing client or channel")
 	if err := v.BindPFlag(flagOverride, cmd.Flags().Lookup(flagOverride)); err != nil {
@@ -423,4 +436,59 @@ func addOutputFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		panic(err)
 	}
 	return cmd
+}
+
+func stuckPacketFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagStuckPacketChainID, "", "chain ID with the stuck packet(s)")
+	if err := v.BindPFlag(flagStuckPacketChainID, cmd.Flags().Lookup(flagStuckPacketChainID)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Uint64(flagStuckPacketHeightStart, 0, "height to start searching for the stuck packet(s)")
+	if err := v.BindPFlag(flagStuckPacketHeightStart, cmd.Flags().Lookup(flagStuckPacketHeightStart)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Uint64(flagStuckPacketHeightEnd, 0, "height to end searching for the stuck packet(s)")
+	if err := v.BindPFlag(flagStuckPacketHeightEnd, cmd.Flags().Lookup(flagStuckPacketHeightEnd)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func parseStuckPacketFromFlags(cmd *cobra.Command) (*processor.StuckPacket, error) {
+	stuckPacketChainID, err := cmd.Flags().GetString(flagStuckPacketChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	if stuckPacketChainID == "" {
+		return nil, nil
+	}
+
+	stuckPacketHeightStart, err := cmd.Flags().GetUint64(flagStuckPacketHeightStart)
+	if err != nil {
+		return nil, err
+	}
+
+	if stuckPacketHeightStart == 0 {
+		return nil, fmt.Errorf("stuck packet chain ID %s is set but start height is not", stuckPacketChainID)
+	}
+
+	stuckPacketHeightEnd, err := cmd.Flags().GetUint64(flagStuckPacketHeightEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	if stuckPacketHeightEnd == 0 {
+		return nil, fmt.Errorf("stuck packet chain ID %s is set but end height is not", stuckPacketChainID)
+	}
+
+	if stuckPacketHeightEnd < stuckPacketHeightStart {
+		return nil, fmt.Errorf("stuck packet end height %d is less than start height %d", stuckPacketHeightEnd, stuckPacketHeightStart)
+	}
+
+	return &processor.StuckPacket{
+		ChainID:     stuckPacketChainID,
+		StartHeight: stuckPacketHeightStart,
+		EndHeight:   stuckPacketHeightEnd,
+	}, nil
 }

@@ -196,7 +196,7 @@ func (cc *PenumbraProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
 	// TODO
 	return time.Hour * 2, nil
 	/*
@@ -225,6 +225,13 @@ func (cc *PenumbraProvider) Sprint(toPrint proto.Message) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// SetPCAddr sets the rpc-addr for the chain.
+// It will fail if the rpcAddr is invalid(not a url).
+func (cc *PenumbraProvider) SetRpcAddr(rpcAddr string) error {
+	cc.PCfg.RPCAddr = rpcAddr
+	return nil
 }
 
 // Init initializes the keystore, RPC client, amd light client provider.

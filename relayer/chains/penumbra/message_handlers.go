@@ -3,22 +3,23 @@ package penumbra
 import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func (pcp *PenumbraChainProcessor) handleMessage(m ibcMessage, c processor.IBCMessagesCache) {
-	switch t := m.info.(type) {
-	case *packetInfo:
-		pcp.handlePacketMessage(m.eventType, provider.PacketInfo(*t), c)
-	case *channelInfo:
-		pcp.handleChannelMessage(m.eventType, provider.ChannelInfo(*t), c)
-	case *connectionInfo:
-		pcp.handleConnectionMessage(m.eventType, provider.ConnectionInfo(*t), c)
-	case *clientInfo:
-		pcp.handleClientMessage(m.eventType, *t)
+func (pcp *PenumbraChainProcessor) handleMessage(m chains.IbcMessage, c processor.IBCMessagesCache) {
+	switch t := m.Info.(type) {
+	case *chains.PacketInfo:
+		pcp.handlePacketMessage(m.EventType, provider.PacketInfo(*t), c)
+	case *chains.ChannelInfo:
+		pcp.handleChannelMessage(m.EventType, provider.ChannelInfo(*t), c)
+	case *chains.ConnectionInfo:
+		pcp.handleConnectionMessage(m.EventType, provider.ConnectionInfo(*t), c)
+	case *chains.ClientInfo:
+		pcp.handleClientMessage(m.EventType, *t)
 	}
 }
 
@@ -71,7 +72,7 @@ func (pcp *PenumbraChainProcessor) handleChannelMessage(eventType string, ci pro
 			pcp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
 			pcp.channelStateCache.SetOpen(channelKey, true, ci.Order)
-		case chantypes.EventTypeChannelCloseConfirm:
+		case chantypes.EventTypeChannelClosed, chantypes.EventTypeChannelCloseConfirm:
 			for k := range pcp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
 					pcp.channelStateCache.SetOpen(channelKey, false, ci.Order)
@@ -116,9 +117,9 @@ func (pcp *PenumbraChainProcessor) handleConnectionMessage(eventType string, ci 
 	pcp.logConnectionMessage(eventType, ci)
 }
 
-func (pcp *PenumbraChainProcessor) handleClientMessage(eventType string, ci clientInfo) {
+func (pcp *PenumbraChainProcessor) handleClientMessage(eventType string, ci chains.ClientInfo) {
 	pcp.latestClientState.update(ci)
-	pcp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
+	pcp.logObservedIBCMessage(eventType, zap.String("client_id", ci.ClientID))
 }
 
 func (pcp *PenumbraChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {

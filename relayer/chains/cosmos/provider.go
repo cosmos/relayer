@@ -225,12 +225,17 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 	return
 }
 
-func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
 
-	unbondingTime, err := cc.QueryUnbondingPeriod(ctx)
-	if err != nil {
-		return 0, err
+	unbondingTime := overrideUnbondingPeriod
+	var err error
+	if unbondingTime == 0 {
+		unbondingTime, err = cc.QueryUnbondingPeriod(ctx)
+		if err != nil {
+			return 0, err
+		}
 	}
+
 	// We want the trusting period to be 85% of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
@@ -255,6 +260,13 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// SetPCAddr sets the rpc-addr for the chain.
+// It will fail if the rpcAddr is invalid(not a url).
+func (cc *CosmosProvider) SetRpcAddr(rpcAddr string) error {
+	cc.PCfg.RPCAddr = rpcAddr
+	return nil
 }
 
 // Init initializes the keystore, RPC client, amd light client provider.
