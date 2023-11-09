@@ -79,16 +79,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 		}
 		// Inside persistent pre-run because this takes effect after flags are parsed.
 		if a.log == nil {
-			logLevel := a.viper.GetString("log-level")
-			debugMode := a.viper.GetBool("debug")
-			if debugMode {
-				logLevel = "debug"
-			}
-			log, err := newRootLogger(a.viper.GetString("log-format"), logLevel)
-			if err != nil {
-				return err
-			}
-			a.log = log
+			a.initLogger("")
 		}
 		return nil
 	}

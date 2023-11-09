@@ -30,6 +30,22 @@ type appState struct {
 	config   *Config
 }
 
+func (a *appState) initLogger(configLogLevel string) error {
+	logLevel := a.viper.GetString("log-level")
+	if a.viper.GetBool("debug") {
+		logLevel = "debug"
+	} else if logLevel == "" {
+		logLevel = configLogLevel
+	}
+	log, err := newRootLogger(a.viper.GetString("log-format"), logLevel)
+	if err != nil {
+		return err
+	}
+
+	a.log = log
+	return nil
+}
+
 func (a *appState) configPath() string {
 	return path.Join(a.homePath, "config", "config.yaml")
 }
@@ -55,22 +71,9 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
+
 	if a.log == nil {
-		debugMode := a.viper.GetBool("debug")
-		logLevel := ""
-		if debugMode {
-			logLevel = "debug"
-		} else {
-			logLevel = a.viper.GetString("log-level")
-			if logLevel == "" {
-				logLevel = cfgWrapper.Global.LogLevel
-			}
-		}
-		log, err := newRootLogger(a.viper.GetString("log-format"), logLevel)
-		if err != nil {
-			return err
-		}
-		a.log = log
+		a.initLogger(cfgWrapper.Global.LogLevel)
 	}
 
 	// retrieve the runtime configuration from the disk configuration.
