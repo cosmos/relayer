@@ -40,7 +40,10 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
-		return nil
+		if os.IsExist(err) {
+			err = nil
+		}
+		return err
 	}
 
 	// read the config file bytes
