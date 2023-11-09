@@ -74,7 +74,23 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		// Inside persistent pre-run because this takes effect after flags are parsed.
 		// reads `homeDir/config/config.yaml` into `a.Config`
-		return a.loadConfigFile(rootCmd.Context())
+		if err := a.loadConfigFile(rootCmd.Context()); err != nil {
+			return err
+		}
+		// Inside persistent pre-run because this takes effect after flags are parsed.
+		if a.log == nil {
+			logLevel := a.viper.GetString("log-level")
+			debugMode := a.viper.GetBool("debug")
+			if debugMode {
+				logLevel = "debug"
+			}
+			log, err := newRootLogger(a.viper.GetString("log-format"), logLevel)
+			if err != nil {
+				return err
+			}
+			a.log = log
+		}
+		return nil
 	}
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
@@ -100,7 +116,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	// Register --log-level flag
-	rootCmd.PersistentFlags().String("log-level", "info", "log level format (info, debug, warn, error, panic or fatal)")
+	rootCmd.PersistentFlags().String("log-level", "", "log level format (info, debug, warn, error, panic or fatal)")
 	if err := a.viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		panic(err)
 	}
