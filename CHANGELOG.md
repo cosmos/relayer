@@ -25,7 +25,7 @@
 * [\#1231](https://github.com/cosmos/relayer/pull/1231) Reduce get bech32 prefix when get signer.
 * [\#1302](https://github.com/cosmos/relayer/pull/1302) Avoid packet get relayed when estimated gas is higher than max gas.
 * [\#1303](https://github.com/cosmos/relayer/pull/1303) Add missing max gas amount on txf to avoid estimate less gas when simualte runTx.
-* [\#](https://github.com/cosmos/relayer/pull/) Ignore only file not exist error when loadConfigFile.
+* [\#1325](https://github.com/cosmos/relayer/pull/1325) Ignore only file not exist error when loadConfigFile.
 
 ## v0.9.3
 
