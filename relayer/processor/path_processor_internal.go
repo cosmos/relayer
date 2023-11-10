@@ -645,6 +645,10 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 			msgCloseConfirm, pathEndChannelCloseMessages.Src,
 		) {
 			res.DstMessages = append(res.DstMessages, msgCloseConfirm)
+			toDeleteSrc[chantypes.EventTypeChannelCloseInit] = append(
+				toDeleteSrc[chantypes.EventTypeChannelCloseInit],
+				chanKey,
+			)
 		}
 
 		// TODO: confirm chankey does not need modification
