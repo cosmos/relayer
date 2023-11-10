@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 
@@ -56,7 +57,10 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
-		return nil
+		if errors.Is(err, fs.ErrNotExist) {
+			err = nil
+		}
+		return err
 	}
 
 	// read the config file bytes
