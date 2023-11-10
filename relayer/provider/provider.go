@@ -404,7 +404,7 @@ type ChainProvider interface {
 	Key() string
 	Address() (string, error)
 	Timeout() string
-	TrustingPeriod(ctx context.Context) (time.Duration, error)
+	TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
 

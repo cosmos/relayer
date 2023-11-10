@@ -96,8 +96,8 @@ func (c *Chain) GetSelfVersion() uint64 {
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (c *Chain) GetTrustingPeriod(ctx context.Context) (time.Duration, error) {
-	return c.ChainProvider.TrustingPeriod(ctx)
+func (c *Chain) GetTrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
+	return c.ChainProvider.TrustingPeriod(ctx, overrideUnbondingPeriod)
 }
 
 func (c *Chain) String() string {

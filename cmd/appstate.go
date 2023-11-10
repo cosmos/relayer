@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 
@@ -30,6 +31,22 @@ type appState struct {
 	config   *Config
 }
 
+func (a *appState) initLogger(configLogLevel string) error {
+	logLevel := a.viper.GetString("log-level")
+	if a.viper.GetBool("debug") {
+		logLevel = "debug"
+	} else if logLevel == "" {
+		logLevel = configLogLevel
+	}
+	log, err := newRootLogger(a.viper.GetString("log-format"), logLevel)
+	if err != nil {
+		return err
+	}
+
+	a.log = log
+	return nil
+}
+
 func (a *appState) configPath() string {
 	return path.Join(a.homePath, "config", "config.yaml")
 }
@@ -40,7 +57,10 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
-		return nil
+		if errors.Is(err, fs.ErrNotExist) {
+			err = nil
+		}
+		return err
 	}
 
 	// read the config file bytes
@@ -54,6 +74,10 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 	err = yaml.Unmarshal(file, cfgWrapper)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config: %w", err)
+	}
+
+	if a.log == nil {
+		a.initLogger(cfgWrapper.Global.LogLevel)
 	}
 
 	// retrieve the runtime configuration from the disk configuration.
