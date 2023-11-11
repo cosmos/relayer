@@ -27,6 +27,7 @@
 * [\#1303](https://github.com/cosmos/relayer/pull/1303) Add missing max gas amount on txf to avoid estimate less gas when simualte runTx.
 * [\#1324](https://github.com/cosmos/relayer/pull/1324) Add log-level in global config.
 * [\#1325](https://github.com/cosmos/relayer/pull/1325) Ignore only file not exist error when loadConfigFile.
+* [\#1326](https://github.com/cosmos/relayer/pull/1326) Avoid sending channel close confirm message after channel get closed successfully.
 
 ## v0.9.3
 
