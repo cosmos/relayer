@@ -343,7 +343,7 @@ func SPrintClientExpirationJson(chain *Chain, expiration time.Time, clientInfo C
 		"TIME":               fmt.Sprintf("%s (%s)", expirationFormatted, remainingTime.Round(time.Second)),
 		"LAST UPDATE HEIGHT": strconv.FormatUint(clientInfo.LatestHeight.GetRevisionHeight(), 10),
 		"TRUSTING PERIOD":    clientInfo.TrustingPeriod.String(),
-		"UNBONDING PERIOD":   fmt.Sprint(clientInfo.UnbondingTime.Round(time.Second)),
+		"UNBONDING PERIOD":   clientInfo.UnbondingTime.Round(time.Second).String(),
 	}
 
 	jsonOutput, err := json.Marshal(data)
