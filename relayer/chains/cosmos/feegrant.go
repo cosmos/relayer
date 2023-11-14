@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/x/feegrant"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/cosmos-sdk/x/feegrant"
 )
 
 // Searches for valid, existing BasicAllowance grants for the ChainClient's configured Feegranter.
@@ -119,7 +119,7 @@ func isValidGrant(a *feegrant.BasicAllowance) bool {
 	//spending limit is specified, check if there are funds remaining on every coin
 	if a.SpendLimit != nil {
 		for _, coin := range a.SpendLimit {
-			if coin.Amount.LTE(types.ZeroInt()) {
+			if coin.Amount.LTE(sdkmath.ZeroInt()) {
 				valid = false
 			}
 		}
