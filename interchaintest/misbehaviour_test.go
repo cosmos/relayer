@@ -20,20 +20,19 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	"github.com/cosmos/ibc-go/v7/modules/core/exported"
-	ibctypes "github.com/cosmos/ibc-go/v7/modules/core/types"
-	ibccomettypes "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v7/testing"
-	ibcmocks "github.com/cosmos/ibc-go/v7/testing/mock"
-	"github.com/cosmos/ibc-go/v7/testing/simapp"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	"github.com/cosmos/ibc-go/v8/modules/core/exported"
+	ibctypes "github.com/cosmos/ibc-go/v8/modules/core/types"
+	ibccomettypes "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	ibcmocks "github.com/cosmos/ibc-go/v8/testing/mock"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -292,9 +291,8 @@ func createTMClientHeader(
 
 	hhash := tmHeader.Hash()
 	blockID := ibctesting.MakeBlockID(hhash, 3, tmhash.Sum([]byte("part_set")))
-	voteSet := comettypes.NewVoteSet(chainID, blockHeight, 1, cometproto.PrecommitType, tmValSet)
 
-	commit, err := comettypes.MakeCommit(blockID, blockHeight, 1, voteSet, signers, timestamp)
+	commit, err := MakeCommit(blockID, blockHeight, 1, tmValSet, signers, chainID, timestamp)
 	require.NoError(t, err)
 
 	signedHeader := &cometproto.SignedHeader{
@@ -328,8 +326,6 @@ func defaultEncoding() simappparams.EncodingConfig {
 	cfg := simappparams.MakeTestEncodingConfig()
 	std.RegisterLegacyAminoCodec(cfg.Amino)
 	std.RegisterInterfaces(cfg.InterfaceRegistry)
-	simapp.ModuleBasics.RegisterLegacyAminoCodec(cfg.Amino)
-	simapp.ModuleBasics.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	banktypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	ibctypes.RegisterInterfaces(cfg.InterfaceRegistry)
@@ -337,4 +333,54 @@ func defaultEncoding() simappparams.EncodingConfig {
 	transfertypes.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	return cfg
+}
+
+func MakeCommit(blockID comettypes.BlockID, height int64, round int32, valSet *comettypes.ValidatorSet, privVals []comettypes.PrivValidator, chainID string, now time.Time) (*comettypes.Commit, error) {
+	sigs := make([]comettypes.CommitSig, len(valSet.Validators))
+	for i := 0; i < len(valSet.Validators); i++ {
+		sigs[i] = comettypes.NewCommitSigAbsent()
+	}
+
+	for _, privVal := range privVals {
+		pk, err := privVal.GetPubKey()
+		if err != nil {
+			return nil, err
+		}
+		addr := pk.Address()
+
+		idx, _ := valSet.GetByAddress(addr)
+		if idx < 0 {
+			return nil, fmt.Errorf("validator with address %s not in validator set", addr)
+		}
+
+		vote := &comettypes.Vote{
+			ValidatorAddress: addr,
+			ValidatorIndex:   idx,
+			Height:           height,
+			Round:            round,
+			Type:             cometproto.PrecommitType,
+			BlockID:          blockID,
+			Timestamp:        now,
+		}
+
+		v := vote.ToProto()
+
+		if err := privVal.SignVote(chainID, v); err != nil {
+			return nil, err
+		}
+
+		sigs[idx] = comettypes.CommitSig{
+			BlockIDFlag:      comettypes.BlockIDFlagCommit,
+			ValidatorAddress: addr,
+			Timestamp:        now,
+			Signature:        v.Signature,
+		}
+	}
+
+	return &comettypes.Commit{
+		Height:     height,
+		Round:      round,
+		BlockID:    blockID,
+		Signatures: sigs,
+	}, nil
 }

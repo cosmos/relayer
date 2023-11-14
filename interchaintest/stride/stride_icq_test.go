@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -155,9 +156,10 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	logger.Info("TestScenarioStrideICAandICQ [3]")
 
+	initBal := sdkmath.NewInt(userFunds)
 	err = stride.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: strideAdminAddr,
-		Amount:  userFunds,
+		Amount:  initBal,
 		Denom:   strideCfg.Denom,
 	})
 	require.NoError(t, err, "failed to fund stride admin account")
@@ -200,7 +202,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	// Fund stride user with ibc denom atom
 	tx, err := gaia.SendIBCTransfer(ctx, gaiaChans[0].ChannelID, gaiaUser.KeyName(), ibc.WalletAmount{
-		Amount:  1_000_000_000_000,
+		Amount:  sdkmath.NewInt(1_000_000_000_000),
 		Denom:   gaiaCfg.Denom,
 		Address: strideAddr,
 	}, ibc.TransferOptions{})

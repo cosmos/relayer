@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -256,7 +257,7 @@ func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms 
 
 	var out sdk.Coins
 	for _, c := range coins {
-		if c.Amount.Equal(sdk.NewInt(0)) {
+		if c.Amount.Equal(sdkmath.NewInt(0)) {
 			continue
 		}
 

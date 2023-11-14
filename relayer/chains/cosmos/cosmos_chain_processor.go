@@ -9,10 +9,10 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -390,13 +390,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
+		var blockRes *chains.Results
 		var ibcHeader provider.IBCHeader
 		sI := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
+			blockRes, err = ccp.chainProvider.BlockResults(queryCtx, &sI)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
@@ -454,8 +454,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		base64Encoded := ccp.chainProvider.cometLegacyEncoding
 
 		blockMsgs := ccp.ibcMessagesFromBlockEvents(
-			blockRes.BeginBlockEvents,
-			blockRes.EndBlockEvents,
+			blockRes.Events,
 			heightUint64,
 			base64Encoded,
 		)

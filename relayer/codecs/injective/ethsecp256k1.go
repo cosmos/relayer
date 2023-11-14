@@ -6,14 +6,13 @@ import (
 	"crypto/subtle"
 	"fmt"
 
-	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-
+	"cosmossdk.io/errors"
+	tmcrypto "github.com/cometbft/cometbft/crypto"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-
-	tmcrypto "github.com/cometbft/cometbft/crypto"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 )
 
 const (
@@ -169,7 +168,7 @@ func (pubKey PubKey) MarshalAmino() ([]byte, error) {
 // UnmarshalAmino overrides Amino binary marshalling.
 func (pubKey *PubKey) UnmarshalAmino(bz []byte) error {
 	if len(bz) != PubKeySize {
-		return sdkerrors.Wrapf(sdkerrors.ErrInvalidPubKey, "invalid pubkey size, expected %d, got %d", PubKeySize, len(bz))
+		return errors.Wrapf(sdkerrors.ErrInvalidPubKey, "invalid pubkey size, expected %d, got %d", PubKeySize, len(bz))
 	}
 	pubKey.Key = bz
 

@@ -8,10 +8,9 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -319,7 +318,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	ppChanged := false
 
-	var latestHeader PenumbraIBCHeader
+	var latestHeader provider.TendermintIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -327,13 +326,13 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
+		var blockRes *chains.Results
 		var ibcHeader provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = pcp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = pcp.chainProvider.BlockResults(queryCtx, &i)
 			return err
 		})
 		eg.Go(func() (err error) {
@@ -348,7 +347,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 			break
 		}
 
-		latestHeader = ibcHeader.(PenumbraIBCHeader)
+		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 
 		heightUint64 := uint64(i)
 
@@ -360,7 +359,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64, true)
+		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.Events, heightUint64, true)
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}

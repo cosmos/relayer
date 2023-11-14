@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	sdkmath "cosmossdk.io/math"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -141,7 +142,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 
 	var eg errgroup.Group
 
-	const transferAmount = int64(1_000_000)
+	transferAmount := sdkmath.NewInt(1_000_000)
 
 	eg.Go(func() error {
 		osmosisHeight, err := osmosis.Height(ctx)
@@ -183,11 +184,9 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 
 	osmosisOnGaiaBalance, err := gaia.GetBalance(ctx, gaiaAddress, osmosisIBCDenom)
 	require.NoError(t, err)
-
-	require.Equal(t, transferAmount, osmosisOnGaiaBalance)
+	require.True(t, transferAmount.Equal(osmosisOnGaiaBalance))
 
 	junoOnGaiaBalance, err := gaia.GetBalance(ctx, gaiaAddress, junoIBCDenom)
 	require.NoError(t, err)
-
-	require.Equal(t, transferAmount, junoOnGaiaBalance)
+	require.True(t, transferAmount.Equal(junoOnGaiaBalance))
 }
