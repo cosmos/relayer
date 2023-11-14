@@ -532,6 +532,7 @@ type ClientStateInfo struct {
 	ChainID        string
 	TrustingPeriod time.Duration
 	LatestHeight   ibcexported.Height
+	UnbondingTime  time.Duration
 }
 
 func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, error) {
@@ -546,6 +547,7 @@ func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, er
 			ChainID:        t.ChainId,
 			TrustingPeriod: t.TrustingPeriod,
 			LatestHeight:   t.LatestHeight,
+			UnbondingTime:  t.UnbondingPeriod,
 		}, nil
 	default:
 		return ClientStateInfo{}, fmt.Errorf("unhandled client state type: (%T)", clientState)
