@@ -295,6 +295,11 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		trustedNextValidatorsHash = header.NextValidatorsHash()
 	}
 
+	// As we only require one chain to be in sync the src.latestHeader may be nil. In that case
+	// we want to skip it
+	if src.latestHeader == nil {
+		return fmt.Errorf("latest header is nil for chain_id: %s. Waiting for catching up", src.info.ChainID)
+	}
 	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
 		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+

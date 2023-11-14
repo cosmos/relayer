@@ -406,7 +406,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
-		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
+		if !pp.pathEnd1.inSync && !pp.pathEnd2.inSync {
 			continue
 		}
 
