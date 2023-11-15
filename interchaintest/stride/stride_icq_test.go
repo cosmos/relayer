@@ -123,8 +123,8 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 	logger.Info("TestScenarioStrideICAandICQ [1]")
 
 	// Fund user accounts, so we can query balances and make assertions.
-	const userFunds = int64(10_000_000_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, stride, gaia)
+	initBal := sdkmath.NewInt(10_000_000_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, stride, gaia)
 	strideUser, gaiaUser := users[0], users[1]
 
 	strideFullNode := stride.Validators[0]
@@ -156,7 +156,6 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	logger.Info("TestScenarioStrideICAandICQ [3]")
 
-	initBal := sdkmath.NewInt(userFunds)
 	err = stride.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: strideAdminAddr,
 		Amount:  initBal,

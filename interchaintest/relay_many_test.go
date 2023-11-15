@@ -113,8 +113,8 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Fund user accounts, so we can query balances and make assertions.
-	const userFunds = int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, gaia, osmosis, juno)
 	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
 
 	// Wait a few blocks for user accounts to be created on chain.
