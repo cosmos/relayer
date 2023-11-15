@@ -80,8 +80,8 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	})
 
 	// Create user accounts on both chains
-	const initFunds = int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "user-key", initFunds, gaia, osmosis)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "user-key", initBal, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0], users[1]
 
@@ -147,7 +147,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	ibcDenoms[2] = transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(channels[2].Counterparty.PortID, channels[2].Counterparty.ChannelID, gaia.Config().Denom))
 
 	// Assert that the transfers are all successful out of the src chain account
-	expectedBal := sdkmath.NewInt(initFunds).Sub(transferAmount.MulRaw(3))
+	expectedBal := initBal.Sub(transferAmount.MulRaw(3))
 	nativeGaiaBal, err := gaia.GetBalance(ctx, gaiaUser.FormattedAddress(), gaia.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, expectedBal.Equal(nativeGaiaBal))
@@ -178,7 +178,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	// Assert that the transfers are all successful back on the original src chain account
 	nativeGaiaBal, err = gaia.GetBalance(ctx, gaiaUser.FormattedAddress(), gaia.Config().Denom)
 	require.NoError(t, err)
-	require.True(t, nativeGaiaBal.Equal(sdkmath.NewInt(initFunds)))
+	require.True(t, nativeGaiaBal.Equal(initBal))
 
 	// Assert that the transfers are all successfully sent back to the original src chain account
 	for _, denom := range ibcDenoms {

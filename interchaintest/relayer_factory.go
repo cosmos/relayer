@@ -14,7 +14,7 @@ type RelayerFactory struct {
 	config RelayerConfig
 }
 
-// LocalRelayerConfig defines parameters for customizing a LocalRelayer.
+// RelayerConfig defines parameters for customizing a LocalRelayer.
 type RelayerConfig struct {
 	Processor           string
 	Memo                string
@@ -28,11 +28,7 @@ func NewRelayerFactory(config RelayerConfig) RelayerFactory {
 }
 
 // Build returns a relayer interface
-func (rf RelayerFactory) Build(
-	t interchaintest.TestName,
-	cli *client.Client,
-	networkID string,
-) ibc.Relayer {
+func (rf RelayerFactory) Build(interchaintest.TestName, *client.Client, string) ibc.Relayer {
 	tst := &testing.T{}
 	return NewRelayer(tst, rf.config)
 }

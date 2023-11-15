@@ -93,8 +93,8 @@ func TestScenarioInterchainAccounts(t *testing.T) {
 	t.Parallel()
 
 	// Fund a user account on chain1 and chain2
-	const userFunds = int64(10_000_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, chain1, chain2)
+	initBal := sdkmath.NewInt(10_000_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, chain1, chain2)
 	chain1User := users[0]
 	chain2User := users[1]
 

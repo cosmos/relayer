@@ -33,7 +33,7 @@ type Relayer struct {
 	cancel context.CancelFunc
 }
 
-// Build returns a relayer interface
+// NewRelayer returns a relayer interface
 func NewRelayer(
 	t *testing.T,
 	config RelayerConfig,
@@ -63,7 +63,7 @@ func (r *Relayer) log() *zap.Logger {
 	return zaptest.NewLogger(r.t)
 }
 
-func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, grpcAddr string) error {
+func (r *Relayer) AddChainConfiguration(_ context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, _ string) error {
 	sys := &relayertest.System{HomeDir: r.home}
 	sys.MustAddChain(r.t, chainConfig.ChainID, cmd.ProviderConfigWrapper{
 		Type: "cosmos",
@@ -300,7 +300,7 @@ func (r *Relayer) start(ctx context.Context, remainingArgs ...string) {
 
 func (r *Relayer) UseDockerNetwork() bool { return false }
 
-func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, env []string) ibc.RelayerExecResult {
+func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, _ []string) ibc.RelayerExecResult {
 	// TODO: env would be ignored for now.
 	// We may want to modify the call to sys() to accept environment overrides,
 	// so this relayer can continue to be used in parallel without environment cross-contamination.

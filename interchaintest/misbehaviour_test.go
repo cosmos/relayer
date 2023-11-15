@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	simappparams "cosmossdk.io/simapp/params"
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	cometproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -93,7 +94,8 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 	})
 
 	// create a new user account and wait a few blocks for it to be created on chain
-	user := interchaintest.GetAndFundTestUsers(t, ctx, "user-1", 10_000_000, chainA)[0]
+	initBal := sdkmath.NewInt(10_000_000)
+	user := interchaintest.GetAndFundTestUsers(t, ctx, "user-1", initBal, chainA)[0]
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
 

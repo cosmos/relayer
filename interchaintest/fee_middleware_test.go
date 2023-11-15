@@ -27,9 +27,23 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 
 	// Get both chains
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "juno", ChainName: "chaina", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chaina", GasPrices: "0.0ujuno"}},
-		{Name: "juno", ChainName: "chainb", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chainb", GasPrices: "0.0ujuno"}}},
-	)
+		{
+			Name:          "juno",
+			ChainName:     "chaina",
+			Version:       "v13.0.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: "chaina", GasPrices: "0.0ujuno"},
+		},
+		{
+			Name:          "juno",
+			ChainName:     "chainb",
+			Version:       "v13.0.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: "chainb", GasPrices: "0.0ujuno"},
+		},
+	})
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
@@ -90,8 +104,8 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 	channelA := chA[0]
 
 	// Fund a user account on chain1 and chain2
-	const userFunds = int64(1_000_000_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, chainA, chainB)
+	initBal := sdkmath.NewInt(1_000_000_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, chainA, chainB)
 	userA := users[0]
 	userAddressA := userA.FormattedAddress()
 	userB := users[1]
@@ -128,8 +142,6 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get initial account balances
-	initBal := sdkmath.NewInt(userFunds)
-
 	userAOrigBal, err := chainA.GetBalance(ctx, userAddressA, chainA.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, initBal.Equal(userAOrigBal))
@@ -177,7 +189,7 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 		func() {
 			err := r.StopRelayer(ctx, eRep)
 			if err != nil {
-				t.Logf("an error occured while stopping the relayer: %s", err)
+				t.Logf("an error occurred while stopping the relayer: %s", err)
 			}
 		},
 	)

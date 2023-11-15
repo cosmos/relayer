@@ -140,10 +140,10 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 
 	// initialize a new acc for the relayer along with a couple user accs
 	initBal := sdkmath.NewInt(10_000_000)
-	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initBal.Int64(), chainA)
+	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initBal, chainA)
 	require.NoError(t, err)
 
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "test-key", initBal.Int64(), chainA, chainA)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "test-key", initBal, chainA, chainA)
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
 
@@ -357,19 +357,17 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	)
 
 	// initialize a new acc for the relayer along with a new user acc
-	const initAmount = int64(10_000_000)
-	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initAmount, chainA)
+	initBal := sdkmath.NewInt(10_000_000)
+	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initBal, chainA)
 	require.NoError(t, err)
 
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "test-key", initAmount, chainA)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "test-key", initBal, chainA)
 	userA := users[0]
 
 	err = testutil.WaitForBlocks(ctx, 5, chainA)
 	require.NoError(t, err)
 
 	// assert initial balance is correct
-	initBal := sdkmath.NewInt(initAmount)
-
 	userABal, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, initBal.Equal(userABal))

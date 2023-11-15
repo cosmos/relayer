@@ -85,8 +85,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	})
 
 	// Create and Fund User Wallets
-	fundAmount := int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", initBal, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
@@ -231,8 +231,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	})
 
 	// Create and Fund User Wallets
-	fundAmount := int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", initBal, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 

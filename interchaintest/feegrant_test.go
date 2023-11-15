@@ -161,37 +161,37 @@ func TestRelayerFeeGrant(t *testing.T) {
 			osmosisChannel := gaiaChans[0].Counterparty
 
 			// Create and Fund User Wallets
-			fundAmount := int64(10_000_000)
+			fundAmount := sdkmath.NewInt(10_000_000)
 
 			// Tiny amount of funding, not enough to pay for a single TX fee (the GRANTER should be paying the fee)
-			granteeFundAmount := int64(10)
+			granteeFundAmount := sdkmath.NewInt(10)
 			granteeKeyPrefix := "grantee1"
 			grantee2KeyPrefix := "grantee2"
 			grantee3KeyPrefix := "grantee3"
 			granterKeyPrefix := "default"
 
 			mnemonicAny := genMnemonic(t)
-			gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, int64(fundAmount), gaia)
+			gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, fundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+			gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKeyPrefix, mnemonicAny, granteeFundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2KeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+			gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2KeyPrefix, mnemonicAny, granteeFundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3KeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+			gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3KeyPrefix, mnemonicAny, granteeFundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			osmosisUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, int64(fundAmount), osmosis)
+			osmosisUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, fundAmount, osmosis)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, int64(fundAmount), gaia)
+			gaiaUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, fundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonic := gaiaGranterWallet.Mnemonic()
@@ -525,12 +525,12 @@ func TestRelayerFeeGrant(t *testing.T) {
 			// Test grantee still has exact amount expected
 			gaiaGranteeIBCBalance, err := gaia.GetBalance(ctx, gaiaGranteeAddr, gaia.Config().Denom)
 			require.NoError(t, err)
-			require.True(t, gaiaGranteeIBCBalance.Equal(sdkmath.NewInt(granteeFundAmount)))
+			require.True(t, gaiaGranteeIBCBalance.Equal(granteeFundAmount))
 
 			// Test granter has less than they started with, meaning fees came from their account
 			gaiaGranterIBCBalance, err := gaia.GetBalance(ctx, gaiaGranterAddr, gaia.Config().Denom)
 			require.NoError(t, err)
-			require.True(t, gaiaGranterIBCBalance.LT(sdkmath.NewInt(fundAmount)))
+			require.True(t, gaiaGranterIBCBalance.LT(fundAmount))
 			r.StopRelayer(ctx, eRep)
 		})
 	}
