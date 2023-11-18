@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -419,8 +420,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				zap.Error(err),
 			)
 
+			maxRetries := math.Round(blockMaxRetries * time.Second.Seconds() / persistence.minQueryLoopDuration.Seconds())
+
 			persistence.retriesAtLatestQueriedBlock++
-			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
+			if persistence.retriesAtLatestQueriedBlock >= int(maxRetries) {
 				ccp.log.Warn("Reached max retries querying for block, skipping", zap.Int64("height", i))
 				// skip this block. now depends on flush to pickup anything missed in the block.
 				persistence.latestQueriedBlock = i
