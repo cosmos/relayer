@@ -146,7 +146,8 @@ type CosmosProvider struct {
 	metrics *processor.PrometheusMetrics
 
 	// for comet < v0.37, decode tm events as base64
-	cometLegacyEncoding bool
+	cometLegacyEncoding   bool
+	cometLegacyEncodingMu sync.Mutex
 }
 
 type WalletState struct {
@@ -356,11 +357,19 @@ func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, 
 }
 
 func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
+	cc.cometLegacyEncodingMu.Lock()
 	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+	cc.cometLegacyEncodingMu.Unlock()
 }
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
+}
+
+func (cc *CosmosProvider) legacyEncodedEventsEnabled() bool {
+	cc.cometLegacyEncodingMu.Lock()
+	defer cc.cometLegacyEncodingMu.Unlock()
+	return cc.cometLegacyEncoding
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
