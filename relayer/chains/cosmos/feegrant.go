@@ -12,6 +12,7 @@ import (
 	"cosmossdk.io/x/feegrant"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
@@ -25,7 +26,7 @@ func (cc *CosmosProvider) GetValidBasicGrants() ([]*feegrant.Grant, error) {
 		return nil, errors.New("no feegrant configuration for chainclient")
 	}
 
-	keyNameOrAddress := cc.PCfg.FeeGrants.GranterKey
+	keyNameOrAddress := cc.PCfg.FeeGrants.GranterKeyOrAddr
 	address, err := cc.AccountFromKeyOrAddress(keyNameOrAddress)
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (cc *CosmosProvider) GetGranteeValidBasicGrants(granteeKey string) ([]*feeg
 		return nil, errors.New("no feegrant configuration for chainclient")
 	}
 
-	granterAddr, err := cc.AccountFromKeyOrAddress(cc.PCfg.FeeGrants.GranterKey)
+	granterAddr, err := cc.AccountFromKeyOrAddress(cc.PCfg.FeeGrants.GranterKeyOrAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +131,9 @@ func isValidGrant(a *feegrant.BasicAllowance) bool {
 
 func (cc *CosmosProvider) ConfigureFeegrants(numGrantees int, granterKey string) error {
 	cc.PCfg.FeeGrants = &FeeGrantConfiguration{
-		GranteesWanted:  numGrantees,
-		GranterKey:      granterKey,
-		ManagedGrantees: []string{},
+		GranteesWanted:   numGrantees,
+		GranterKeyOrAddr: granterKey,
+		ManagedGrantees:  []string{},
 	}
 
 	return cc.PCfg.FeeGrants.AddGranteeKeys(cc)
@@ -144,9 +145,9 @@ func (cc *CosmosProvider) ConfigureWithGrantees(grantees []string, granterKey st
 	}
 
 	cc.PCfg.FeeGrants = &FeeGrantConfiguration{
-		GranteesWanted:  len(grantees),
-		GranterKey:      granterKey,
-		ManagedGrantees: grantees,
+		GranteesWanted:   len(grantees),
+		GranterKeyOrAddr: granterKey,
+		ManagedGrantees:  grantees,
 	}
 
 	for _, newGrantee := range grantees {
@@ -156,6 +157,30 @@ func (cc *CosmosProvider) ConfigureWithGrantees(grantees []string, granterKey st
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func (cc *CosmosProvider) ConfigureWithExternalGranter(grantees []string, granterAddr string) error {
+	if len(grantees) == 0 {
+		return errors.New("list of grantee names cannot be empty")
+	}
+
+	cc.PCfg.FeeGrants = &FeeGrantConfiguration{
+		GranteesWanted:    len(grantees),
+		GranterKeyOrAddr:  granterAddr,
+		ManagedGrantees:   grantees,
+		IsExternalGranter: true,
+	}
+
+	for _, grantee := range grantees {
+		k, err := cc.KeyFromKeyOrAddress(grantee)
+		if k == "" {
+			return fmt.Errorf("invalid empty grantee name")
+		} else if err != nil {
+			return err
 		}
 	}
 
@@ -181,8 +206,8 @@ func (fg *FeeGrantConfiguration) AddGranteeKeys(cc *CosmosProvider) error {
 
 // Get the feegrant params to use for the next TX. If feegrants are not configured for the chain client, the default key will be used for TX signing.
 // Otherwise, a configured feegrantee will be chosen for TX signing in round-robin fashion.
-func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey string) {
-	//By default, we should sign TXs with the ChainClient's default key
+func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKeyOrAddr string) {
+	// By default, we should sign TXs with the ChainClient's default key
 	txSignerKey = cc.PCfg.Key
 
 	if cc.PCfg.FeeGrants == nil {
@@ -191,13 +216,13 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKey str
 	}
 
 	// Use the ChainClient's configured Feegranter key for the next TX.
-	feeGranterKey = cc.PCfg.FeeGrants.GranterKey
+	feeGranterKeyOrAddr = cc.PCfg.FeeGrants.GranterKeyOrAddr
 
 	// The ChainClient Feegrant configuration has never been verified on chain.
 	// Don't use Feegrants as it could cause the TX to fail on chain.
-	if feeGranterKey == "" || cc.PCfg.FeeGrants.BlockHeightVerified <= 0 {
+	if feeGranterKeyOrAddr == "" || cc.PCfg.FeeGrants.BlockHeightVerified <= 0 {
 		fmt.Printf("cc.Config.FeeGrants.BlockHeightVerified <= 0\n")
-		feeGranterKey = ""
+		feeGranterKeyOrAddr = ""
 		return
 	}
 
@@ -226,20 +251,33 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 		return nil, errors.New("ChainClient is a FeeGranter, but is not managing any Grantees")
 	}
 
-	granterKey := cc.PCfg.FeeGrants.GranterKey
+	var granterAddr string
+	var granterAcc types.AccAddress
+	var err error
+
+	granterKey := cc.PCfg.FeeGrants.GranterKeyOrAddr
 	if granterKey == "" {
 		granterKey = cc.PCfg.Key
 	}
 
-	granterAcc, err := cc.GetKeyAddressForKey(granterKey)
-	if err != nil {
-		fmt.Printf("Retrieving key '%s': ChainClient FeeGranter misconfiguration: %s", granterKey, err.Error())
-		return nil, err
-	}
+	if cc.PCfg.FeeGrants.IsExternalGranter {
+		_, err := cc.DecodeBech32AccAddr(granterKey)
+		if err != nil {
+			return nil, fmt.Errorf("an unknown granter was specified: '%s' is not a valid bech32 address", granterKey)
+		}
 
-	granterAddr, granterAddrErr := cc.EncodeBech32AccAddr(granterAcc)
-	if granterAddrErr != nil {
-		return nil, granterAddrErr
+		granterAddr = granterKey
+	} else {
+		granterAcc, err = cc.GetKeyAddressForKey(granterKey)
+		if err != nil {
+			fmt.Printf("Retrieving key '%s': ChainClient FeeGranter misconfiguration: %s", granterKey, err.Error())
+			return nil, err
+		}
+
+		granterAddr, err = cc.EncodeBech32AccAddr(granterAcc)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	validGrants, err := cc.GetValidBasicGrants()
@@ -251,8 +289,8 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 
 	for _, grantee := range cc.PCfg.FeeGrants.ManagedGrantees {
 
-		//Searching for all grants with the given granter failed, so we will search by the grantee.
-		//Reason this lookup sometimes fails is because the 'Search by granter' request is in SDK v0.46+
+		// Searching for all grants with the given granter failed, so we will search by the grantee.
+		// Reason this lookup sometimes fails is because the 'Search by granter' request is in SDK v0.46+
 		if failedLookupGrantsByGranter {
 			validGrants, err = cc.GetGranteeValidBasicGrants(grantee)
 			if err != nil {
@@ -279,14 +317,16 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 			}
 		}
 
-		if !hasGrant {
-			grantsNeeded += 1
+		if !hasGrant && !cc.PCfg.FeeGrants.IsExternalGranter {
+			grantsNeeded++
 			fmt.Printf("Grant will be created on chain for granter %s and grantee %s\n", granterAddr, granteeAddr)
 			grantMsg, err := cc.getMsgGrantBasicAllowance(granterAcc, granteeAcc)
 			if err != nil {
 				return nil, err
 			}
 			msgs = append(msgs, grantMsg)
+		} else if !hasGrant {
+			fmt.Printf("WARN: External granter %s has no on-chain feegrant for grantee %s\n", granterAddr, granteeAddr)
 		}
 	}
 
@@ -299,7 +339,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 
 		granterExists := cc.EnsureExists(cliCtx, granterAcc) == nil
 
-		//Feegranter exists on chain
+		// Feegranter exists on chain
 		if granterExists {
 			txResp, err := cc.SubmitTxAwaitResponse(ctx, msgs, memo, 0, granterKey)
 			if err != nil {
@@ -312,9 +352,9 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 
 			fmt.Printf("TX succeeded, %d new grants configured, %d grants already in place. TX hash: %s\n", grantsNeeded, numGrantees-grantsNeeded, txResp.TxResponse.TxHash)
 			return txResp.TxResponse, err
-		} else {
-			return nil, fmt.Errorf("granter %s does not exist on chain", granterKey)
 		}
+
+		return nil, fmt.Errorf("granter %s does not exist on chain", granterKey)
 	} else {
 		fmt.Printf("All grantees (%d total) already had valid feegrants. Feegrant configuration verified.\n", numGrantees)
 	}
@@ -342,7 +382,7 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowance(ctx context.Context, ga
 		return errors.New("ChainClient is a FeeGranter, but is not managing any Grantees")
 	}
 
-	granterKey := cc.PCfg.FeeGrants.GranterKey
+	granterKey := cc.PCfg.FeeGrants.GranterKeyOrAddr
 	if granterKey == "" {
 		granterKey = cc.PCfg.Key
 	}
@@ -381,7 +421,7 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowanceWithExpiration(ctx conte
 		return errors.New("ChainClient is a FeeGranter, but is not managing any Grantees")
 	}
 
-	granterKey := cc.PCfg.FeeGrants.GranterKey
+	granterKey := cc.PCfg.FeeGrants.GranterKeyOrAddr
 	if granterKey == "" {
 		granterKey = cc.PCfg.Key
 	}

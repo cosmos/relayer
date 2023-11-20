@@ -67,7 +67,7 @@ type CosmosProviderConfig struct {
 	MinLoopDuration  time.Duration              `json:"min-loop-duration" yaml:"min-loop-duration"`
 	ExtensionOptions []provider.ExtensionOption `json:"extension-options" yaml:"extension-options"`
 
-	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
+	// If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
 	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
 }
 
@@ -75,13 +75,15 @@ type CosmosProviderConfig struct {
 // Clients can use other signing keys by invoking 'tx.SendMsgsWith' and specifying the signing key.
 type FeeGrantConfiguration struct {
 	GranteesWanted int `json:"num_grantees" yaml:"num_grantees"`
-	//Normally this is the default ChainClient key
-	GranterKey string `json:"granter" yaml:"granter"`
-	//List of keys (by name) that this FeeGranter manages
+	// Normally this is the default ChainClient key
+	GranterKeyOrAddr string `json:"granter" yaml:"granter"`
+	// Whether we control the granter private key (if not, someone else must authorize our feegrants)
+	IsExternalGranter bool `json:"external_granter" yaml:"external_granter"`
+	// List of keys (by name) that this FeeGranter manages
 	ManagedGrantees []string `json:"grantees" yaml:"grantees"`
-	//Last checked on chain (0 means grants never checked and may not exist)
+	// Last checked on chain (0 means grants never checked and may not exist)
 	BlockHeightVerified int64 `json:"block_last_verified" yaml:"block_last_verified"`
-	//Index of the last ManagedGrantee used as a TX signer
+	// Index of the last ManagedGrantee used as a TX signer
 	GranteeLastSignerIndex int
 }
 

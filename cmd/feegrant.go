@@ -52,14 +52,24 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			if len(args) > 1 {
 				granterKeyOrAddr = args[1]
 			} else if prov.PCfg.FeeGrants != nil {
-				granterKeyOrAddr = prov.PCfg.FeeGrants.GranterKey
+				granterKeyOrAddr = prov.PCfg.FeeGrants.GranterKeyOrAddr
 			} else {
 				granterKeyOrAddr = prov.PCfg.Key
 			}
 
+			externalGranter := false
+
 			granterKey, err := prov.KeyFromKeyOrAddress(granterKeyOrAddr)
 			if err != nil {
-				return fmt.Errorf("could not get granter key from '%s'", granterKeyOrAddr)
+				fmt.Printf("could not get granter key from '%s'", granterKeyOrAddr)
+				externalGranter = true
+			}
+
+			if externalGranter {
+				_, err := prov.DecodeBech32AccAddr(granterKeyOrAddr)
+				if err != nil {
+					return fmt.Errorf("an unknown granter was specified: '%s' is not a valid bech32 address", granterKeyOrAddr)
+				}
 			}
 
 			if delete {
@@ -75,11 +85,12 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return nil
 			}
 
-			if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && !update {
-				return fmt.Errorf("you specified granter '%s' which is different than configured feegranter '%s', but you did not specify the --overwrite-granter flag", granterKeyOrAddr, prov.PCfg.FeeGrants.GranterKey)
-			} else if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKey && update {
+			if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKeyOrAddr && !update {
+				return fmt.Errorf("you specified granter '%s' which is different than configured feegranter '%s', but you did not specify the --overwrite-granter flag", granterKeyOrAddr, prov.PCfg.FeeGrants.GranterKeyOrAddr)
+			} else if prov.PCfg.FeeGrants != nil && granterKey != prov.PCfg.FeeGrants.GranterKeyOrAddr && update {
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
-					prov.PCfg.FeeGrants.GranterKey = granterKey
+					prov.PCfg.FeeGrants.GranterKeyOrAddr = granterKey
+					prov.PCfg.FeeGrants.IsExternalGranter = externalGranter
 					return nil
 				})
 				cobra.CheckErr(cfgErr)
@@ -88,11 +99,17 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			if prov.PCfg.FeeGrants == nil || updateGrantees || len(grantees) > 0 {
 				var feegrantErr error
 
-				//No list of grantees was provided, so we will use the default naming convention "grantee1, ... granteeN"
+				// No list of grantees was provided, so we will use the default naming convention "grantee1, ... granteeN"
 				if grantees == nil {
+					if externalGranter {
+						return fmt.Errorf("external granter %s was specified, pre-authorized grantees must also be specified", granterKeyOrAddr)
+					}
 					feegrantErr = prov.ConfigureFeegrants(numGrantees, granterKey)
-				} else {
+				} else if !externalGranter {
 					feegrantErr = prov.ConfigureWithGrantees(grantees, granterKey)
+				} else {
+					fmt.Println("!! ConfigureWithExternalGranter !!")
+					feegrantErr = prov.ConfigureWithExternalGranter(grantees, granterKeyOrAddr)
 				}
 
 				if feegrantErr != nil {
@@ -102,6 +119,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
 					chain := a.config.Chains[chain]
 					oldProv := chain.ChainProvider.(*cosmos.CosmosProvider)
+					prov.PCfg.FeeGrants.IsExternalGranter = externalGranter
 					oldProv.PCfg.FeeGrants = prov.PCfg.FeeGrants
 					return nil
 				})
@@ -119,8 +137,8 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("error writing grants on chain: '%s'", err.Error())
 			}
 
-			//Get latest height from the chain, mark feegrant configuration as verified up to that height.
-			//This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
+			// Get latest height from the chain, mark feegrant configuration as verified up to that height.
+			// This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
 			if prov.PCfg.FeeGrants != nil {
 				fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
 				h, err := prov.QueryLatestHeight(ctx)
@@ -129,6 +147,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
 					chain := a.config.Chains[chain]
 					oldProv := chain.ChainProvider.(*cosmos.CosmosProvider)
+					prov.PCfg.FeeGrants.IsExternalGranter = externalGranter
 					oldProv.PCfg.FeeGrants = prov.PCfg.FeeGrants
 					oldProv.PCfg.FeeGrants.BlockHeightVerified = h
 					fmt.Printf("Feegrant chain height marked: %d\n", h)
@@ -168,18 +187,6 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 			if !ok {
 				return errors.New("only CosmosProvider can be feegranted")
 			}
-
-			// TODO fix pagination
-			// pageReq, err := client.ReadPageRequest(cmd.Flags())
-			// if err != nil {
-			// 	return err
-			// }
-
-			//TODO fix height
-			// height, err := lensCmd.ReadHeight(cmd.Flags())
-			// if err != nil {
-			// 	return err
-			// }
 
 			keyNameOrAddress := ""
 			if len(args) == 0 {
