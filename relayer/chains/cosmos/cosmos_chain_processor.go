@@ -18,6 +18,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -272,6 +273,10 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	ccp.log.Debug("Entering main query loop")
 
+	if err := ccp.subscribe(ctx); err != nil {
+		ccp.log.Warn("Error subscribing to websocket, falling back to rpc polling", zap.Error(err))
+	}
+
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
 
@@ -284,6 +289,164 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			return nil
 		case <-ticker.C:
 			ticker.Reset(persistence.minQueryLoopDuration)
+		}
+	}
+}
+
+func (ccp CosmosChainProcessor) periodicTMVersionCheck(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			status, err := ccp.nodeStatusWithRetry(ctx)
+			if err != nil {
+				ccp.log.Error(
+					"Failed to query node status after max attempts",
+					zap.Uint("attempts", latestHeightQueryRetries),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
+		}
+	}
+
+}
+
+func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
+
+	// latestHeight, err := ccp.latestHeightWithRetry(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+	// ibcHeader, err := ccp.chainProvider.QueryIBCHeader(ctx, latestHeight)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// valSet := ibcHeader.(provider.TendermintIBCHeader).ValidatorSet
+
+	headerChan, err := ccp.chainProvider.RPCClient.Subscribe(ctx, "header", comettypes.QueryForEvent(comettypes.EventNewBlockHeader).String())
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to blocks over websocket: %w", err)
+	}
+
+	txChan, err := ccp.chainProvider.RPCClient.Subscribe(ctx, "tx", comettypes.QueryForEvent(comettypes.EventTx).String())
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to blocks over websocket: %w", err)
+	}
+
+	// periodically check the tendermint version of the node
+	go ccp.periodicTMVersionCheck(ctx)
+
+	// valSetChan, err := ccp.chainProvider.RPCClient.Subscribe(ctx, "vals", comettypes.QueryForEvent(comettypes.EventValidatorSetUpdates).String())
+	// if err != nil {
+	// 	return fmt.Errorf("failed to subscribe to blocks over websocket: %w", err)
+	// }
+
+	chainID := ccp.chainProvider.ChainId()
+
+	for {
+		ibcMessagesCache := processor.NewIBCMessagesCache()
+		ibcHeaderCache := make(processor.IBCHeaderCache)
+
+		var latestHeader provider.TendermintIBCHeader
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case event := <-headerChan:
+			headerEvent := event.Data.(comettypes.EventDataNewBlockHeader)
+
+			ccp.log.Debug("Received new block header event", zap.Int64("height", headerEvent.Header.Height))
+
+			// TODO try to avoid this query by getting the SignedHeader via websocket.
+			// If we can't, add retry logic.
+			ibcHeader, err := ccp.chainProvider.QueryIBCHeader(ctx, int64(headerEvent.Header.Height))
+			if err != nil {
+				ccp.log.Error("Error querying IBC header",
+					zap.Int64("height", headerEvent.Header.Height),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			latestHeader = ibcHeader.(provider.TendermintIBCHeader)
+
+			heightUint64 := uint64(headerEvent.Header.Height)
+
+			blockMsgs := ccp.ibcMessagesFromBlockEvents(
+				headerEvent.ResultBeginBlock.Events,
+				headerEvent.ResultEndBlock.Events,
+				heightUint64,
+				ccp.chainProvider.cometLegacyEncoding,
+			)
+			for _, m := range blockMsgs {
+				ccp.handleMessage(ctx, m, ibcMessagesCache)
+			}
+
+			ccp.latestBlock = provider.LatestBlock{
+				Height: heightUint64,
+				Time:   headerEvent.Header.Time,
+			}
+
+			// latestHeader = provider.TendermintIBCHeader{
+			// 	ValidatorSet: valSet,
+			// 	SignedHeader: &comettypes.SignedHeader{
+			// 		Header: &headerEvent.Header,
+			// 		// TODO: how do we get Commit without querying light block?
+			// 		// Commit: ,
+			// 	},
+			// }
+
+			ibcHeaderCache[heightUint64] = latestHeader
+		case event := <-txChan:
+			ccp.log.Debug("Received new tx event")
+
+			txEvent := event.Data.(comettypes.EventDataTx)
+
+			tx := txEvent.Result
+			if tx.Code != 0 {
+				// tx was not successful
+				continue
+			}
+			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, uint64(txEvent.Height), ccp.chainProvider.cometLegacyEncoding)
+
+			for _, m := range messages {
+				ccp.handleMessage(ctx, m, ibcMessagesCache)
+			}
+			// case event := <-valSetChan:
+			// 	ccp.log.Debug("Received validator set change event")
+			// 	vsEvent := event.Data.(comettypes.EventDataValidatorSetUpdates)
+			// 	valSet.UpdateWithChangeSet(vsEvent.ValidatorUpdates)
+			// 	continue
+		}
+
+		for _, pp := range ccp.pathProcessors {
+			clientID := pp.RelevantClientID(chainID)
+			clientState, err := ccp.clientState(ctx, clientID)
+			if err != nil {
+				ccp.log.Error("Error fetching client state",
+					zap.String("client_id", clientID),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+				LatestBlock:          ccp.latestBlock,
+				LatestHeader:         latestHeader,
+				IBCMessagesCache:     ibcMessagesCache.Clone(),
+				InSync:               ccp.inSync,
+				ClientState:          clientState,
+				ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
+				IBCHeaderCache:       ibcHeaderCache.Clone(),
+			})
 		}
 	}
 }

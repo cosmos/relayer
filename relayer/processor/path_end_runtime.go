@@ -375,7 +375,9 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.lastClientUpdateHeightMu.Unlock()
 
 	pathEnd.inSync = d.InSync
-	pathEnd.latestHeader = d.LatestHeader
+	if d.LatestHeader != nil {
+		pathEnd.latestHeader = d.LatestHeader
+	}
 	pathEnd.clientState = d.ClientState
 
 	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
@@ -407,8 +409,10 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
-	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
-	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
+	if d.IBCHeaderCache != nil {
+		pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
+		pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
+	}
 }
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
