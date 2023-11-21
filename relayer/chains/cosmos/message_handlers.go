@@ -14,6 +14,8 @@ import (
 )
 
 func (ccp *CosmosChainProcessor) handleMessage(ctx context.Context, m chains.IbcMessage, c processor.IBCMessagesCache) {
+	ccp.messageMu.Lock()
+	defer ccp.messageMu.Unlock()
 	switch t := m.Info.(type) {
 	case *chains.PacketInfo:
 		ccp.handlePacketMessage(m.EventType, provider.PacketInfo(*t), c)

@@ -155,10 +155,12 @@ type CosmosProvider struct {
 	metrics *processor.PrometheusMetrics
 
 	// for comet < v0.37, decode tm events as base64
-	cometLegacyEncoding bool
+	cometLegacyEncoding   bool
+	cometLegacyEncodingMu sync.Mutex
 
 	// for comet < v0.38, use legacy RPC client for ResultsBlockResults
-	cometLegacyBlockResults bool
+	cometLegacyBlockResults   bool
+	cometLegacyBlockResultsMu sync.Mutex
 }
 
 type WalletState struct {
@@ -374,8 +376,13 @@ func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, 
 }
 
 func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
+	cc.cometLegacyEncodingMu.Lock()
 	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+	cc.cometLegacyEncodingMu.Unlock()
+
+	cc.cometLegacyBlockResultsMu.Lock()
 	cc.cometLegacyBlockResults = cc.legacyBlockResults(version)
+	cc.cometLegacyBlockResultsMu.Unlock()
 }
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
@@ -384,6 +391,18 @@ func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) b
 
 func (cc *CosmosProvider) legacyBlockResults(version string) bool {
 	return semver.Compare("v"+version, cometBlockResultsThreshold) < 0
+}
+
+func (cc *CosmosProvider) legacyEncodedEventsEnabled() bool {
+	cc.cometLegacyEncodingMu.Lock()
+	defer cc.cometLegacyEncodingMu.Unlock()
+	return cc.cometLegacyEncoding
+}
+
+func (cc *CosmosProvider) legacyBlockResultsEnabled() bool {
+	cc.cometLegacyBlockResultsMu.Lock()
+	defer cc.cometLegacyBlockResultsMu.Unlock()
+	return cc.cometLegacyBlockResults
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
@@ -425,7 +444,7 @@ func (cc *CosmosProvider) BlockResults(ctx context.Context, height *int64) (*cha
 	var results *chains.Results
 
 	switch {
-	case cc.cometLegacyBlockResults:
+	case cc.legacyBlockResultsEnabled():
 		legacyRes, err := cc.LegacyRPCClient.BlockResults(ctx, height)
 		if err != nil {
 			return nil, err
