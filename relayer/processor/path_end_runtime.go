@@ -370,9 +370,11 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 }
 
 func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
-	pathEnd.lastClientUpdateHeightMu.Lock()
-	pathEnd.latestBlock = d.LatestBlock
-	pathEnd.lastClientUpdateHeightMu.Unlock()
+	if d.LatestBlock.Height != 0 {
+		pathEnd.lastClientUpdateHeightMu.Lock()
+		pathEnd.latestBlock = d.LatestBlock
+		pathEnd.lastClientUpdateHeightMu.Unlock()
+	}
 
 	pathEnd.inSync = d.InSync
 	if d.LatestHeader != nil {
@@ -409,8 +411,12 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 		return
 	}
 
-	pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
-	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
+	if d.ConnectionStateCache != nil {
+		pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
+	}
+	if d.ChannelStateCache != nil {
+		pathEnd.channelStateCache = d.ChannelStateCache // Update latest channel open state for chain
+	}
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
