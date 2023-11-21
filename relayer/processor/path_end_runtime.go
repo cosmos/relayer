@@ -378,22 +378,27 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	if d.LatestHeader != nil {
 		pathEnd.latestHeader = d.LatestHeader
 	}
-	pathEnd.clientState = d.ClientState
 
-	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
-	if err != nil {
-		pathEnd.log.Error(
-			"Failed to check for misbehaviour",
-			zap.String("client_id", pathEnd.info.ClientID),
-			zap.Error(err),
-		)
-	}
-
-	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
+	var terminate bool
+	if d.ClientState.ClientID != "" {
 		pathEnd.clientState = d.ClientState
-		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
-		if ok {
-			pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
+
+		var err error
+		terminate, err = pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
+		if err != nil {
+			pathEnd.log.Error(
+				"Failed to check for misbehaviour",
+				zap.String("client_id", pathEnd.info.ClientID),
+				zap.Error(err),
+			)
+		}
+
+		if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
+			pathEnd.clientState = d.ClientState
+			ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
+			if ok {
+				pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
+			}
 		}
 	}
 
