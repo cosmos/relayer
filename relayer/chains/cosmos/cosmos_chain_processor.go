@@ -397,6 +397,15 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 			}
 		}
 
+		headerErr := eg.Wait()
+		if headerErr != nil {
+			ccp.log.Warn(
+				"Error querying IBC header",
+				zap.Uint64("height", ccp.latestBlock.Height),
+				zap.Error(err),
+			)
+		}
+
 		for _, pp := range ccp.pathProcessors {
 			clientID := pp.RelevantClientID(chainID)
 			var clientState provider.ClientState
@@ -411,13 +420,7 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 				newData.ConnectionStateCache = ccp.connectionStateCache.FilterForClient(clientID)
 				newData.ChannelStateCache = ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients)
 
-				if err := eg.Wait(); err != nil {
-					ccp.log.Warn(
-						"Error querying IBC header",
-						zap.Uint64("height", ccp.latestBlock.Height),
-						zap.Error(err),
-					)
-				} else {
+				if headerErr == nil {
 					newData.LatestHeader = latestHeader
 					newData.IBCHeaderCache = ibcHeaderCache.Clone()
 				}
@@ -512,6 +515,15 @@ func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
 			ibcHeaderCache[heightUint64] = latestHeader
 		}
 
+		headerErr := eg.Wait()
+		if headerErr != nil {
+			ccp.log.Warn(
+				"Error querying IBC header",
+				zap.Uint64("height", ccp.latestBlock.Height),
+				zap.Error(err),
+			)
+		}
+
 		for _, pp := range ccp.pathProcessors {
 			clientID := pp.RelevantClientID(chainID)
 			var clientState provider.ClientState
@@ -524,13 +536,7 @@ func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
 				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
 			}
 
-			if err := eg.Wait(); err != nil {
-				ccp.log.Warn(
-					"Error querying IBC header",
-					zap.Uint64("height", ccp.latestBlock.Height),
-					zap.Error(err),
-				)
-			} else {
+			if headerErr == nil {
 				newData.LatestHeader = latestHeader
 				newData.IBCHeaderCache = ibcHeaderCache.Clone()
 			}
@@ -631,10 +637,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("Chain is in sync")
-			// attempt to switchover to websocket
-			// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
-			// mostly fine because we have the periodic flush, but could be improved.
-			return errSwitchToSubscribe
 		} else {
 			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
@@ -762,6 +764,10 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			for _, pp := range ccp.pathProcessors {
 				pp.ProcessBacklogIfReady()
 			}
+			// attempt to switchover to websocket
+			// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
+			// mostly fine because we have the periodic flush, but could be improved.
+			return errSwitchToSubscribe
 		}
 
 		return nil
@@ -791,6 +797,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	persistence.latestQueriedBlock = newLatestQueriedBlock
+
+	if firstTimeInSync {
+		// attempt to switchover to websocket
+		// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
+		// mostly fine because we have the periodic flush, but could be improved.
+		return errSwitchToSubscribe
+	}
 
 	return nil
 }
