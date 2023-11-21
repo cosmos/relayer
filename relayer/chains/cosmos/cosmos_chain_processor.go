@@ -42,7 +42,7 @@ type CosmosChainProcessor struct {
 
 	// highest block
 	latestBlock   provider.LatestBlock
-	latestBlockMu sync.Mutex
+	latestBlockMu sync.RWMutex
 
 	// holds highest consensus height and header for all clients
 	latestClientState *latestClientState
@@ -89,8 +89,8 @@ func NewCosmosChainProcessor(
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
-		subscriberStart:      make(chan struct{}, 1),
-		subscriberStopped:    make(chan struct{}, 1),
+		subscriberStart:      make(chan struct{}),
+		subscriberStopped:    make(chan struct{}),
 	}
 }
 
@@ -185,9 +185,9 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 		return state, nil
 	}
 
-	ccp.latestBlockMu.Lock()
+	ccp.latestBlockMu.RLock()
 	latestBlock := ccp.latestBlock
-	ccp.latestBlockMu.Unlock()
+	ccp.latestBlockMu.RUnlock()
 
 	var clientState provider.ClientState
 	if clientID == ibcexported.LocalhostClientID {
@@ -296,8 +296,12 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	for {
 		if err := ccp.queryCycle(ctx, &persistence, stuckPacket); err != nil {
 			if errors.Is(err, errSwitchToSubscribe) {
-				<-ccp.subscriberStopped
-				continue
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ccp.subscriberStopped:
+					continue
+				}
 			}
 			return err
 		}
@@ -331,15 +335,16 @@ func (ccp *CosmosChainProcessor) waitForSubscribeStart(ctx context.Context) {
 }
 
 func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
+	subscriber := "cosmos-chain-processor"
 	if err := ccp.chainProvider.LegacyRPCClient.Start(); err != nil {
 		return fmt.Errorf("failed to start client service: %w", err)
 	}
-	blockChan, err := ccp.chainProvider.LegacyRPCClient.Subscribe(ctx, "block", legacycomettypes.QueryForEvent(legacycomettypes.EventNewBlock).String())
+	blockChan, err := ccp.chainProvider.LegacyRPCClient.Subscribe(ctx, subscriber, legacycomettypes.QueryForEvent(legacycomettypes.EventNewBlock).String())
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to legacy blocks over websocket: %w", err)
 	}
 
-	txChan, err := ccp.chainProvider.LegacyRPCClient.Subscribe(ctx, "tx", legacycomettypes.QueryForEvent(legacycomettypes.EventTx).String())
+	txChan, err := ccp.chainProvider.LegacyRPCClient.Subscribe(ctx, subscriber, legacycomettypes.QueryForEvent(legacycomettypes.EventTx).String())
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to legacy tx over websocket: %w", err)
 	}
@@ -356,11 +361,12 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 		var latestBlock provider.LatestBlock
 		var isBlockEvent bool
 
-		var eg errgroup.Group
-
 		select {
 		case <-ctx.Done():
-			return nil
+			if err := ccp.chainProvider.LegacyRPCClient.UnsubscribeAll(context.TODO(), subscriber); err != nil {
+				ccp.log.Error("Error unsubscribing from legacy websocket", zap.Error(err))
+			}
+			return ccp.chainProvider.LegacyRPCClient.Stop()
 		case event := <-blockChan:
 			isBlockEvent = true
 			blockEvent := event.Data.(legacycomettypes.EventDataNewBlock)
@@ -369,9 +375,8 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 
 			heightUint64 := uint64(blockEvent.Block.Height)
 
-			eg.Go(func() (err error) {
+			if err := retry.Do(func() error {
 				// TODO try to avoid this query by getting the SignedHeader via websocket.
-				// If we can't, add retry logic.
 				ibcHeader, err := ccp.chainProvider.QueryIBCHeader(ctx, blockEvent.Block.Height)
 				if err != nil {
 					return err
@@ -381,7 +386,13 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 				ibcHeaderCache[heightUint64] = latestHeader
 
 				return nil
-			})
+			}, retry.Attempts(20), retry.DelayType(retry.FixedDelay), retry.Delay(10*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
+				ccp.log.Warn("Error querying IBC header after max retries",
+					zap.Uint64("height", heightUint64),
+					zap.Error(err),
+				)
+				continue
+			}
 
 			legacyEncodedEvents := ccp.chainProvider.legacyEncodedEventsEnabled()
 
@@ -428,15 +439,6 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 			}
 		}
 
-		headerErr := eg.Wait()
-		if headerErr != nil {
-			ccp.log.Warn(
-				"Error querying IBC header",
-				zap.Uint64("height", latestBlock.Height),
-				zap.Error(err),
-			)
-		}
-
 		for _, pp := range ccp.pathProcessors {
 			clientID := pp.RelevantClientID(chainID)
 			var clientState provider.ClientState
@@ -450,11 +452,8 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 				newData.LatestBlock = latestBlock
 				newData.ConnectionStateCache = ccp.connectionStateCache.FilterForClient(clientID)
 				newData.ChannelStateCache = ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients)
-
-				if headerErr == nil {
-					newData.LatestHeader = latestHeader
-					newData.IBCHeaderCache = ibcHeaderCache.Clone()
-				}
+				newData.LatestHeader = latestHeader
+				newData.IBCHeaderCache = ibcHeaderCache.Clone()
 
 				clientState, err = ccp.clientState(ctx, clientID)
 				if err != nil {
@@ -473,10 +472,11 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 }
 
 func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
+	subscriber := "cosmos-chain-processor"
 	if err := ccp.chainProvider.RPCClient.Start(); err != nil {
 		return fmt.Errorf("failed to start client service: %w", err)
 	}
-	blockChan, err := ccp.chainProvider.RPCClient.Subscribe(ctx, "block", comettypes.QueryForEvent(comettypes.EventNewBlock).String())
+	blockChan, err := ccp.chainProvider.RPCClient.Subscribe(ctx, subscriber, comettypes.QueryForEvent(comettypes.EventNewBlock).String())
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to blocks over websocket: %w", err)
 	}
@@ -492,11 +492,12 @@ func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
 		var latestHeader provider.IBCHeader
 		var latestBlock provider.LatestBlock
 
-		var eg errgroup.Group
-
 		select {
 		case <-ctx.Done():
-			return nil
+			if err := ccp.chainProvider.RPCClient.UnsubscribeAll(context.TODO(), subscriber); err != nil {
+				ccp.log.Error("Error unsubscribing from websocket", zap.Error(err))
+			}
+			return ccp.chainProvider.RPCClient.Stop()
 		case event := <-blockChan:
 			blockEvent := event.Data.(comettypes.EventDataNewBlock)
 
@@ -504,9 +505,8 @@ func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
 
 			heightUint64 := uint64(blockEvent.Block.Height)
 
-			eg.Go(func() (err error) {
+			if err := retry.Do(func() error {
 				// TODO try to avoid this query by getting the SignedHeader via websocket.
-				// If we can't, add retry logic.
 				ibcHeader, err := ccp.chainProvider.QueryIBCHeader(ctx, blockEvent.Block.Height)
 				if err != nil {
 					return err
@@ -516,7 +516,13 @@ func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
 				ibcHeaderCache[heightUint64] = latestHeader
 
 				return nil
-			})
+			}, retry.Attempts(20), retry.DelayType(retry.FixedDelay), retry.Delay(10*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
+				ccp.log.Warn("Error querying IBC header after max retries",
+					zap.Uint64("height", heightUint64),
+					zap.Error(err),
+				)
+				continue
+			}
 
 			legacyEncodedEvents := ccp.chainProvider.legacyEncodedEventsEnabled()
 
@@ -553,30 +559,18 @@ func (ccp *CosmosChainProcessor) subscribe(ctx context.Context) error {
 			ibcHeaderCache[heightUint64] = latestHeader
 		}
 
-		headerErr := eg.Wait()
-		if headerErr != nil {
-			ccp.log.Warn(
-				"Error querying IBC header",
-				zap.Uint64("height", latestBlock.Height),
-				zap.Error(err),
-			)
-		}
-
 		for _, pp := range ccp.pathProcessors {
 			clientID := pp.RelevantClientID(chainID)
 			var clientState provider.ClientState
 
 			newData := processor.ChainProcessorCacheData{
 				LatestBlock:          latestBlock,
+				LatestHeader:         latestHeader,
+				IBCHeaderCache:       ibcHeaderCache.Clone(),
 				IBCMessagesCache:     ibcMessagesCache.Clone(),
 				InSync:               true,
 				ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
 				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
-			}
-
-			if headerErr == nil {
-				newData.LatestHeader = latestHeader
-				newData.IBCHeaderCache = ibcHeaderCache.Clone()
 			}
 
 			clientState, err = ccp.clientState(ctx, clientID)
