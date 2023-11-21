@@ -795,6 +795,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+		if firstTimeInSync {
+			// attempt to switchover to websocket
+			// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
+			// mostly fine because we have the periodic flush, but could be improved.
+			return errSwitchToSubscribe
+		}
 		return nil
 	}
 
