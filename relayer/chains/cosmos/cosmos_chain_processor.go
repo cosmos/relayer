@@ -444,14 +444,15 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 			var clientState provider.ClientState
 
 			newData := processor.ChainProcessorCacheData{
-				IBCMessagesCache: ibcMessagesCache.Clone(),
-				InSync:           true,
+				IBCMessagesCache:     ibcMessagesCache.Clone(),
+				ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
+
+				InSync: true,
 			}
 
 			if isBlockEvent {
 				newData.LatestBlock = latestBlock
-				newData.ConnectionStateCache = ccp.connectionStateCache.FilterForClient(clientID)
-				newData.ChannelStateCache = ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients)
 				newData.LatestHeader = latestHeader
 				newData.IBCHeaderCache = ibcHeaderCache.Clone()
 
