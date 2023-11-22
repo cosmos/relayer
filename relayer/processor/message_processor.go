@@ -577,7 +577,6 @@ func (mp *messageProcessor) sendSingleMessage(
 		errFields = append(errFields, zap.Object("msg", tracker))
 		errFields = append(errFields, zap.Error(err))
 		if errors.Is(err, chantypes.ErrRedundantTx) {
-			mp.log.Debug(fmt.Sprintf("Redundant %s message", msgType), errFields...)
 			return
 		}
 		mp.log.Error(fmt.Sprintf("Error broadcasting %s message", msgType), errFields...)

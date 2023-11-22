@@ -389,13 +389,13 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 
 			legacyEncodedEvents := ccp.chainProvider.legacyEncodedEventsEnabled()
 
-			beginBlockMsgs := ccp.ibcMessagesFromBlockEvents(
+			blockMsgs := ccp.ibcMessagesFromBlockEvents(
 				blockEvent.ResultBeginBlock.Events,
 				blockEvent.ResultEndBlock.Events,
 				heightUint64,
 				legacyEncodedEvents,
 			)
-			for _, m := range beginBlockMsgs {
+			for _, m := range blockMsgs {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 
@@ -412,7 +412,7 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 
 			ccp.log.Debug("Received new legacy tx event", zap.Int64("height", txEvent.Height))
 
-			tx := txEvent.TxResult.Result
+			tx := txEvent.Result
 			if tx.Code != 0 {
 				// tx was not successful
 				continue
@@ -426,21 +426,20 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 
 		for _, pp := range ccp.pathProcessors {
 			clientID := pp.RelevantClientID(chainID)
-			var clientState provider.ClientState
 
 			newData := processor.ChainProcessorCacheData{
-				IBCMessagesCache: ibcMessagesCache.Clone(),
-				InSync:           true,
+				IBCMessagesCache:     ibcMessagesCache.Clone(),
+				InSync:               true,
+				ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+				ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
 			}
 
 			if isBlockEvent {
 				newData.LatestBlock = latestBlock
-				newData.ConnectionStateCache = ccp.connectionStateCache.FilterForClient(clientID)
-				newData.ChannelStateCache = ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients)
 				newData.LatestHeader = latestHeader
 				newData.IBCHeaderCache = ibcHeaderCache.Clone()
 
-				clientState, err = ccp.clientState(ctx, clientID)
+				clientState, err := ccp.clientState(ctx, clientID)
 				if err != nil {
 					ccp.log.Error("Error fetching client state",
 						zap.String("client_id", clientID),
@@ -664,6 +663,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+		if firstTimeInSync {
+			// attempt to switchover to websocket
+			// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
+			// mostly fine because we have the periodic flush, but could be improved.
+			return errSwitchToSubscribe
+		}
 		return nil
 	}
 
