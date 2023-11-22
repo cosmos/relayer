@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
@@ -92,8 +94,10 @@ func (msg packetIBCMessage) assemble(
 
 	var proof provider.PacketProof
 	var err error
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
-	if err != nil {
+	if err := retry.Do(func() error {
+		proof, err = packetProof(ctx, msg.info, 0)
+		return err
+	}, retry.Context(ctx), retry.Attempts(10), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
 	return assembleMessage(msg.info, proof)

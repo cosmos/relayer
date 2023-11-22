@@ -379,7 +379,7 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 				ibcHeaderCache[heightUint64] = latestHeader
 
 				return nil
-			}, retry.Attempts(20), retry.DelayType(retry.FixedDelay), retry.Delay(10*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
+			}, retry.Context(ctx), retry.Attempts(20), retry.DelayType(retry.FixedDelay), retry.Delay(10*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
 				ccp.log.Warn("Error querying IBC header after max retries",
 					zap.Uint64("height", heightUint64),
 					zap.Error(err),
