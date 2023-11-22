@@ -574,15 +574,11 @@ func (mp *messageProcessor) metricParseTxFailureCatagory(err error, src *pathEnd
 		return
 	}
 
-	found := false
 	for _, promError := range promErrorCatagories {
 		if errors.Is(err, promError) {
 			mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
-			found = true
-			break
+			return
 		}
 	}
-	if !found {
-		mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
-	}
+	mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
 }
