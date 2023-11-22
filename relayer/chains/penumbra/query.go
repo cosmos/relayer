@@ -942,11 +942,11 @@ func (cc *PenumbraProvider) QuerySendPacket(
 	srcChanID,
 	srcPortID string,
 	sequence uint64,
-) (provider.PacketInfo, error) {
+) (*provider.PacketInfo, error) {
 	q := sendPacketQuery(srcChanID, srcPortID, sequence)
 	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
 	if err != nil {
-		return provider.PacketInfo{}, err
+		return nil, err
 	}
 	for _, msg := range ibcMsgs {
 		if msg.EventType != chantypes.EventTypeSendPacket {
@@ -954,11 +954,11 @@ func (cc *PenumbraProvider) QuerySendPacket(
 		}
 		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
-				return provider.PacketInfo(*pi), nil
+				return pi.PacketInfo(), nil
 			}
 		}
 	}
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
+	return nil, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
 }
 
 func writeAcknowledgementQuery(channelID string, portID string, seq uint64) string {
@@ -975,11 +975,11 @@ func (cc *PenumbraProvider) QueryRecvPacket(
 	dstChanID,
 	dstPortID string,
 	sequence uint64,
-) (provider.PacketInfo, error) {
+) (*provider.PacketInfo, error) {
 	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
 	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
 	if err != nil {
-		return provider.PacketInfo{}, err
+		return nil, err
 	}
 	for _, msg := range ibcMsgs {
 		if msg.EventType != chantypes.EventTypeWriteAck {
@@ -987,11 +987,11 @@ func (cc *PenumbraProvider) QueryRecvPacket(
 		}
 		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
-				return provider.PacketInfo(*pi), nil
+				return pi.PacketInfo(), nil
 			}
 		}
 	}
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
+	return nil, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
 }
 
 // QueryStatus queries the current node status.

@@ -227,6 +227,11 @@ func (res *ClientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute)
 // alias type to the provider types, used for adding parser methods
 type PacketInfo provider.PacketInfo
 
+func (res *PacketInfo) PacketInfo() *provider.PacketInfo {
+	p := provider.PacketInfo(*res) //nolint:copylocks
+	return &p
+}
+
 func (res *PacketInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddUint64("sequence", res.Sequence)
 	enc.AddString("src_channel", res.SourceChannel)

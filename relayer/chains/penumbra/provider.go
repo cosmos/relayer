@@ -310,7 +310,7 @@ func (cc *PenumbraProvider) BlockTime(ctx context.Context, height int64) (time.T
 	return resultBlock.Block.Time, nil
 }
 
-func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {
+func toPenumbraPacket(pi *provider.PacketInfo) chantypes.Packet {
 	return chantypes.Packet{
 		Sequence:           pi.Sequence,
 		SourcePort:         pi.SourcePort,

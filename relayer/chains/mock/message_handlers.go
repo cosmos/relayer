@@ -31,7 +31,7 @@ func handleMsgTransfer(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeSendPacket, provider.PacketInfo{
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeSendPacket, &provider.PacketInfo{
 		Height:        uint64(p.height),
 		Sequence:      p.packetInfo.Sequence,
 		Data:          p.packetInfo.Data,
@@ -58,7 +58,7 @@ func handleMsgRecvPacket(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.SourceChannel,
 		CounterpartyPortID:    p.packetInfo.SourcePort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeRecvPacket, provider.PacketInfo{
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeRecvPacket, &provider.PacketInfo{
 		Height:        uint64(p.height),
 		Sequence:      p.packetInfo.Sequence,
 		Data:          p.packetInfo.Data,
@@ -84,7 +84,7 @@ func handleMsgAcknowledgement(p msgHandlerParams) {
 		CounterpartyChannelID: p.packetInfo.DestinationChannel,
 		CounterpartyPortID:    p.packetInfo.DestinationPort,
 	}
-	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeAcknowledgePacket, provider.PacketInfo{
+	p.ibcMessagesCache.PacketFlow.Retain(channelKey, chantypes.EventTypeAcknowledgePacket, &provider.PacketInfo{
 		Height:        uint64(p.height),
 		Sequence:      p.packetInfo.Sequence,
 		Data:          p.packetInfo.Data,

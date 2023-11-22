@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
@@ -93,9 +94,11 @@ type PacketInfo struct {
 	TimeoutHeight    clienttypes.Height
 	TimeoutTimestamp uint64
 	Ack              []byte
+	Proof            *PacketProof
+	ProofMu          sync.Mutex
 }
 
-func (pi PacketInfo) Packet() chantypes.Packet {
+func (pi *PacketInfo) Packet() chantypes.Packet {
 	return chantypes.Packet{
 		Sequence:           pi.Sequence,
 		SourcePort:         pi.SourcePort,
@@ -245,50 +248,50 @@ type ChainProvider interface {
 	// ValidatePacket makes sure packet is valid to be relayed.
 	// It should return TimeoutHeightError, TimeoutTimestampError, or TimeoutOnCloseError
 	// for packet timeout scenarios so that timeout message can be written to other chain.
-	ValidatePacket(msgTransfer PacketInfo, latestBlock LatestBlock) error
+	ValidatePacket(msgTransfer *PacketInfo, latestBlock LatestBlock) error
 
 	// [Begin] Packet flow IBC message assembly functions
 
 	// These functions query the proof of the packet state on the chain.
 
 	// PacketCommitment queries for proof that a MsgTransfer has been committed on the chain.
-	PacketCommitment(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	PacketCommitment(ctx context.Context, msgTransfer *PacketInfo, height uint64) (*PacketProof, error)
 
 	// PacketAcknowledgement queries for proof that a MsgRecvPacket has been committed on the chain.
-	PacketAcknowledgement(ctx context.Context, msgRecvPacket PacketInfo, height uint64) (PacketProof, error)
+	PacketAcknowledgement(ctx context.Context, msgRecvPacket *PacketInfo, height uint64) (*PacketProof, error)
 
 	// PacketReceipt queries for proof that a MsgRecvPacket has not been committed to the chain.
-	PacketReceipt(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	PacketReceipt(ctx context.Context, msgTransfer *PacketInfo, height uint64) (*PacketProof, error)
 
 	// NextSeqRecv queries for the appropriate proof required to prove the next expected packet sequence number
 	// for a given counterparty channel. This is used in ORDERED channels to ensure packets are being delivered in the
 	// exact same order as they were sent over the wire.
-	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
+	NextSeqRecv(ctx context.Context, msgTransfer *PacketInfo, height uint64) (*PacketProof, error)
 
 	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
-	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)
+	MsgTransfer(dstAddr string, amount sdk.Coin, info *PacketInfo) (RelayerMessage, error)
 
 	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.
-	MsgRecvPacket(msgTransfer PacketInfo, proof PacketProof) (RelayerMessage, error)
+	MsgRecvPacket(msgTransfer *PacketInfo, proof *PacketProof) (RelayerMessage, error)
 
 	// MsgAcknowledgement takes the packet information from a MsgRecvPacket along with the packet acknowledgement,
 	// and assembles a full MsgAcknowledgement ready to write to the chain.
-	MsgAcknowledgement(msgRecvPacket PacketInfo, proofAcked PacketProof) (RelayerMessage, error)
+	MsgAcknowledgement(msgRecvPacket *PacketInfo, proofAcked *PacketProof) (RelayerMessage, error)
 
 	// MsgTimeout takes the packet information from a MsgTransfer along
 	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeout ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
-	MsgTimeout(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
+	MsgTimeout(msgTransfer *PacketInfo, proofUnreceived *PacketProof) (RelayerMessage, error)
 
 	// MsgTimeoutOnClose takes the packet information from a MsgTransfer along
 	// with the packet receipt to prove that the packet was never relayed,
 	// i.e. that the MsgRecvPacket was never written to the counterparty chain,
 	// and assembles a full MsgTimeoutOnClose ready to write to the chain,
 	// i.e. the chain where the MsgTransfer was committed.
-	MsgTimeoutOnClose(msgTransfer PacketInfo, proofUnreceived PacketProof) (RelayerMessage, error)
+	MsgTimeoutOnClose(msgTransfer *PacketInfo, proofUnreceived *PacketProof) (RelayerMessage, error)
 
 	// Get the commitment prefix of the chain.
 	CommitmentPrefix() commitmenttypes.MerklePrefix
@@ -423,8 +426,8 @@ type QueryProvider interface {
 	QueryIBCHeader(ctx context.Context, h int64) (IBCHeader, error)
 
 	// query packet info for sequence
-	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)
-	QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (PacketInfo, error)
+	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (*PacketInfo, error)
+	QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (*PacketInfo, error)
 
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)

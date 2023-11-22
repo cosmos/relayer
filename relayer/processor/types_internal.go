@@ -47,7 +47,7 @@ type ibcMessage interface {
 // packetIBCMessage holds a packet message's eventType and sequence along with it,
 // useful for sending packets around internal to the PathProcessor.
 type packetIBCMessage struct {
-	info      provider.PacketInfo
+	info      *provider.PacketInfo
 	eventType string
 }
 
@@ -57,8 +57,8 @@ func (msg packetIBCMessage) assemble(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 ) (provider.RelayerMessage, error) {
-	var packetProof func(context.Context, provider.PacketInfo, uint64) (provider.PacketProof, error)
-	var assembleMessage func(provider.PacketInfo, provider.PacketProof) (provider.RelayerMessage, error)
+	var packetProof func(context.Context, *provider.PacketInfo, uint64) (*provider.PacketProof, error)
+	var assembleMessage func(*provider.PacketInfo, *provider.PacketProof) (provider.RelayerMessage, error)
 	switch msg.eventType {
 	case chantypes.EventTypeRecvPacket:
 		packetProof = src.chainProvider.PacketCommitment
@@ -89,17 +89,25 @@ func (msg packetIBCMessage) assemble(
 		packetProof = src.localhostSentinelProofPacket
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
-	defer cancel()
+	msg.info.ProofMu.Lock()
+	defer msg.info.ProofMu.Unlock()
+	proof := msg.info.Proof
+	if proof != nil {
+		return assembleMessage(msg.info, proof)
+	}
 
-	var proof provider.PacketProof
 	var err error
 	if err := retry.Do(func() error {
-		proof, err = packetProof(ctx, msg.info, 0)
+		ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
+		defer cancel()
+		proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 		return err
 	}, retry.Context(ctx), retry.Attempts(10), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
+
+	msg.info.Proof = proof
+
 	return assembleMessage(msg.info, proof)
 }
 
@@ -120,6 +128,8 @@ func (packetIBCMessage) msgType() string {
 // This is typically useful when logging details about a partially sent result.
 func (msg packetIBCMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("type", msg.eventType)
+	msg.info.ProofMu.Lock()
+	defer msg.info.ProofMu.Unlock()
 	enc.AddString("src_port", msg.info.SourcePort)
 	enc.AddString("src_channel", msg.info.SourceChannel)
 	enc.AddString("dst_port", msg.info.DestPort)
@@ -451,7 +461,7 @@ type pathEndConnectionHandshakeResponse struct {
 	DstMessages []connectionIBCMessage
 }
 
-func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
+func packetInfoChannelKey(p *provider.PacketInfo) ChannelKey {
 	return ChannelKey{
 		ChannelID:             p.SourceChannel,
 		PortID:                p.SourcePort,

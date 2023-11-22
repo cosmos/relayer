@@ -3,7 +3,9 @@ package cosmos
 import (
 	"context"
 	"encoding/hex"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains"
@@ -18,7 +20,7 @@ func (ccp *CosmosChainProcessor) handleMessage(ctx context.Context, m chains.Ibc
 	defer ccp.messageMu.Unlock()
 	switch t := m.Info.(type) {
 	case *chains.PacketInfo:
-		ccp.handlePacketMessage(m.EventType, provider.PacketInfo(*t), c)
+		ccp.handlePacketMessage(ctx, m.EventType, t.PacketInfo(), c)
 	case *chains.ChannelInfo:
 		ccp.handleChannelMessage(m.EventType, provider.ChannelInfo(*t), c)
 	case *chains.ConnectionInfo:
@@ -30,7 +32,7 @@ func (ccp *CosmosChainProcessor) handleMessage(ctx context.Context, m chains.Ibc
 	}
 }
 
-func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
+func (ccp *CosmosChainProcessor) handlePacketMessage(ctx context.Context, eventType string, pi *provider.PacketInfo, c processor.IBCMessagesCache) {
 	k, err := processor.PacketInfoChannelKey(eventType, pi)
 	if err != nil {
 		ccp.log.Error("Unexpected error handling packet message",
@@ -55,6 +57,33 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(eventType string, pi provid
 		zap.Uint64("sequence", pi.Sequence),
 		zap.Inline(k),
 	)
+
+	if eventType == chantypes.EventTypeSendPacket || eventType == chantypes.EventTypeWriteAck {
+		var packetProof func(context.Context, *provider.PacketInfo, uint64) (*provider.PacketProof, error)
+		switch eventType {
+		case chantypes.EventTypeSendPacket:
+			packetProof = ccp.chainProvider.PacketCommitment
+		case chantypes.EventTypeWriteAck:
+			packetProof = ccp.chainProvider.PacketAcknowledgement
+		}
+		go func() {
+			pi.ProofMu.Lock()
+			defer pi.ProofMu.Unlock()
+			var proof *provider.PacketProof
+			var err error
+			if err := retry.Do(func() error {
+				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+
+				proof, err = packetProof(ctx, pi, pi.Height)
+				return err
+			}, retry.Context(ctx), retry.Attempts(10), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
+				ccp.log.Error("Error querying packet proof", zap.Error(err))
+				return
+			}
+			pi.Proof = proof
+		}()
+	}
 
 	c.PacketFlow.Retain(k, eventType, pi)
 	ccp.logPacketMessage(eventType, pi)
@@ -148,7 +177,7 @@ func (ccp *CosmosChainProcessor) logObservedIBCMessage(m string, fields ...zap.F
 	ccp.log.With(zap.String("event_type", m)).Debug("Observed IBC message", fields...)
 }
 
-func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi provider.PacketInfo) {
+func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *provider.PacketInfo) {
 	if !ccp.log.Core().Enabled(zapcore.DebugLevel) {
 		return
 	}

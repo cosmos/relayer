@@ -200,7 +200,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 
 	k := pathEndPacketFlowMessages.ChannelKey
 
-	deletePreInitIfMatches := func(info provider.PacketInfo) {
+	deletePreInitIfMatches := func(info *provider.PacketInfo) {
 		cachedInfo, ok := pathEndPacketFlowMessages.SrcPreTransfer[0]
 		if !ok {
 			return
@@ -984,7 +984,13 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		pathEnd1DstMsgRecvPacket := pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket]
 		for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
-				recvPacketInfo.Ack = ackInfo.Ack
+				ackInfo.ProofMu.Lock()
+				ack := ackInfo.Ack
+				ackInfo.ProofMu.Unlock()
+				recvPacketInfo.ProofMu.Lock()
+				recvPacketInfo.Ack = ack
+				recvPacketInfo.ProofMu.Unlock()
+
 				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
 			}
 		}
@@ -992,7 +998,13 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
 		for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
-				recvPacketInfo.Ack = ackInfo.Ack
+				ackInfo.ProofMu.Lock()
+				ack := ackInfo.Ack
+				ackInfo.ProofMu.Unlock()
+				recvPacketInfo.ProofMu.Lock()
+				recvPacketInfo.Ack = ack
+				recvPacketInfo.ProofMu.Unlock()
+
 				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
 			}
 		}

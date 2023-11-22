@@ -13,7 +13,7 @@ import (
 func (pcp *PenumbraChainProcessor) handleMessage(m chains.IbcMessage, c processor.IBCMessagesCache) {
 	switch t := m.Info.(type) {
 	case *chains.PacketInfo:
-		pcp.handlePacketMessage(m.EventType, provider.PacketInfo(*t), c)
+		pcp.handlePacketMessage(m.EventType, t.PacketInfo(), c)
 	case *chains.ChannelInfo:
 		pcp.handleChannelMessage(m.EventType, provider.ChannelInfo(*t), c)
 	case *chains.ConnectionInfo:
@@ -23,7 +23,7 @@ func (pcp *PenumbraChainProcessor) handleMessage(m chains.IbcMessage, c processo
 	}
 }
 
-func (pcp *PenumbraChainProcessor) handlePacketMessage(action string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
+func (pcp *PenumbraChainProcessor) handlePacketMessage(action string, pi *provider.PacketInfo, c processor.IBCMessagesCache) {
 	channelKey, err := processor.PacketInfoChannelKey(action, pi)
 	if err != nil {
 		pcp.log.Error("Unexpected error handling packet message",
@@ -126,7 +126,7 @@ func (pcp *PenumbraChainProcessor) logObservedIBCMessage(m string, fields ...zap
 	pcp.log.With(zap.String("event_type", m)).Debug("Observed IBC message", fields...)
 }
 
-func (pcp *PenumbraChainProcessor) logPacketMessage(message string, pi provider.PacketInfo) {
+func (pcp *PenumbraChainProcessor) logPacketMessage(message string, pi *provider.PacketInfo) {
 	if !pcp.log.Core().Enabled(zapcore.DebugLevel) {
 		return
 	}

@@ -997,7 +997,7 @@ func (cc *PenumbraProvider) MsgRelayAcknowledgement(ctx context.Context, dst pro
 func (cc *PenumbraProvider) MsgTransfer(
 	dstAddr string,
 	amount sdk.Coin,
-	info provider.PacketInfo,
+	info *provider.PacketInfo,
 ) (provider.RelayerMessage, error) {
 	acc, err := cc.Address()
 	if err != nil {
@@ -1186,7 +1186,7 @@ func (cc *PenumbraProvider) MsgRelayRecvPacket(ctx context.Context, dst provider
 	}
 }
 
-func (cc *PenumbraProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+func (cc *PenumbraProvider) ValidatePacket(msgTransfer *provider.PacketInfo, latest provider.LatestBlock) error {
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
@@ -1213,19 +1213,19 @@ func (cc *PenumbraProvider) ValidatePacket(msgTransfer provider.PacketInfo, late
 	return nil
 }
 
-func (cc *PenumbraProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketCommitment(ctx context.Context, msgTransfer *provider.PacketInfo, height uint64) (*provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
+		return nil, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
-func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer *provider.PacketInfo, proof *provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1242,19 +1242,19 @@ func (cc *PenumbraProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof
 	}), nil
 }
 
-func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket *provider.PacketInfo, height uint64) (*provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
+		return nil, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
 	}
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
-func (cc *PenumbraProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgAcknowledgement(msgRecvPacket *provider.PacketInfo, proof *provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1272,20 +1272,20 @@ func (cc *PenumbraProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo
 	}), nil
 }
 
-func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
+func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer *provider.PacketInfo, height uint64) (*provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
+		return nil, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
-func (cc *PenumbraProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgTimeout(msgTransfer *provider.PacketInfo, proof *provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1303,7 +1303,7 @@ func (cc *PenumbraProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pr
 	}), nil
 }
 
-func (cc *PenumbraProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *PenumbraProvider) MsgTimeoutOnClose(msgTransfer *provider.PacketInfo, proof *provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1440,16 +1440,16 @@ func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionI
 // exact same order as they were sent over the wire.
 func (cc *PenumbraProvider) NextSeqRecv(
 	ctx context.Context,
-	msgTransfer provider.PacketInfo,
+	msgTransfer *provider.PacketInfo,
 	height uint64,
-) (provider.PacketProof, error) {
+) (*provider.PacketProof, error) {
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
+		return nil, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
 	}
 
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
@@ -1681,7 +1681,7 @@ func (cc *PenumbraProvider) RelayPacketFromSequence(
 	}); err != nil {
 		switch err.(type) {
 		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError, *provider.TimeoutOnCloseError:
-			var pp provider.PacketProof
+			var pp *provider.PacketProof
 			switch order {
 			case chantypes.UNORDERED:
 				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth)

@@ -27,7 +27,7 @@ func (t *FlushLifecycle) messageLifecycler() {}
 type PacketMessage struct {
 	ChainID   string
 	EventType string
-	Info      provider.PacketInfo
+	Info      *provider.PacketInfo
 }
 
 // PacketMessageLifecycle is used as a stop condition for the PathProcessor.
@@ -128,7 +128,7 @@ type ChannelPacketMessagesCache map[ChannelKey]PacketMessagesCache
 type PacketMessagesCache map[string]PacketSequenceCache
 
 // PacketSequenceCache is used for caching an IBC message for a given packet sequence.
-type PacketSequenceCache map[uint64]provider.PacketInfo
+type PacketSequenceCache map[uint64]*provider.PacketInfo
 
 // ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
 type ChannelMessagesCache map[string]ChannelMessageCache
@@ -363,7 +363,7 @@ func (c ChannelPacketMessagesCache) Cache(
 	eventType string,
 	k ChannelKey,
 	sequence uint64,
-	packetInfo provider.PacketInfo,
+	packetInfo *provider.PacketInfo,
 ) {
 	if _, ok := c[k]; !ok {
 		c[k] = make(PacketMessagesCache)
@@ -409,7 +409,7 @@ func (c ChannelPacketMessagesCache) ShouldRetainSequence(p PathProcessors, k Cha
 
 // Retain assumes the packet is applicable to the channels for a path processor that is subscribed to this chain processor.
 // It creates cache path if it doesn't exist, then caches message.
-func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, pi provider.PacketInfo) {
+func (c ChannelPacketMessagesCache) Retain(k ChannelKey, m string, pi *provider.PacketInfo) {
 	if _, ok := c[k]; !ok {
 		c[k] = make(PacketMessagesCache)
 	}
@@ -576,7 +576,7 @@ func (c IBCHeaderCache) Prune(keep int) {
 }
 
 // PacketInfoChannelKey returns the applicable ChannelKey for the chain based on the eventType.
-func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKey, error) {
+func PacketInfoChannelKey(eventType string, info *provider.PacketInfo) (ChannelKey, error) {
 	switch eventType {
 	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
 		return packetInfoChannelKey(info).Counterparty(), nil

@@ -24,7 +24,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -758,7 +757,7 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 func (cc *CosmosProvider) MsgTransfer(
 	dstAddr string,
 	amount sdk.Coin,
-	info provider.PacketInfo,
+	info *provider.PacketInfo,
 ) (provider.RelayerMessage, error) {
 	acc, err := cc.Address()
 	if err != nil {
@@ -783,7 +782,7 @@ func (cc *CosmosProvider) MsgTransfer(
 	return msgTransfer, nil
 }
 
-func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+func (cc *CosmosProvider) ValidatePacket(msgTransfer *provider.PacketInfo, latest provider.LatestBlock) error {
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
@@ -812,28 +811,28 @@ func (cc *CosmosProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest
 
 func (cc *CosmosProvider) PacketCommitment(
 	ctx context.Context,
-	msgTransfer provider.PacketInfo,
+	msgTransfer *provider.PacketInfo,
 	height uint64,
-) (provider.PacketProof, error) {
+) (*provider.PacketProof, error) {
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	commitment, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet commitment: %w", err)
+		return nil, fmt.Errorf("error querying comet proof for packet commitment: %w", err)
 	}
 	// check if packet commitment exists
 	if len(commitment) == 0 {
-		return provider.PacketProof{}, chantypes.ErrPacketCommitmentNotFound
+		return nil, chantypes.ErrPacketCommitmentNotFound
 	}
 
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
 func (cc *CosmosProvider) MsgRecvPacket(
-	msgTransfer provider.PacketInfo,
-	proof provider.PacketProof,
+	msgTransfer *provider.PacketInfo,
+	proof *provider.PacketProof,
 ) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
@@ -853,26 +852,26 @@ func (cc *CosmosProvider) MsgRecvPacket(
 
 func (cc *CosmosProvider) PacketAcknowledgement(
 	ctx context.Context,
-	msgRecvPacket provider.PacketInfo,
+	msgRecvPacket *provider.PacketInfo,
 	height uint64,
-) (provider.PacketProof, error) {
+) (*provider.PacketProof, error) {
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	ack, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet acknowledgement: %w", err)
+		return nil, fmt.Errorf("error querying comet proof for packet acknowledgement: %w", err)
 	}
 	if len(ack) == 0 {
-		return provider.PacketProof{}, chantypes.ErrInvalidAcknowledgement
+		return nil, chantypes.ErrInvalidAcknowledgement
 	}
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
 func (cc *CosmosProvider) MsgAcknowledgement(
-	msgRecvPacket provider.PacketInfo,
-	proof provider.PacketProof,
+	msgRecvPacket *provider.PacketInfo,
+	proof *provider.PacketProof,
 ) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
@@ -893,16 +892,16 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 
 func (cc *CosmosProvider) PacketReceipt(
 	ctx context.Context,
-	msgTransfer provider.PacketInfo,
+	msgTransfer *provider.PacketInfo,
 	height uint64,
-) (provider.PacketProof, error) {
+) (*provider.PacketProof, error) {
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for packet receipt: %w", err)
+		return nil, fmt.Errorf("error querying comet proof for packet receipt: %w", err)
 	}
 
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
@@ -913,22 +912,22 @@ func (cc *CosmosProvider) PacketReceipt(
 // exact same order as they were sent over the wire.
 func (cc *CosmosProvider) NextSeqRecv(
 	ctx context.Context,
-	msgTransfer provider.PacketInfo,
+	msgTransfer *provider.PacketInfo,
 	height uint64,
-) (provider.PacketProof, error) {
+) (*provider.PacketProof, error) {
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("error querying comet proof for next sequence receive: %w", err)
+		return nil, fmt.Errorf("error querying comet proof for next sequence receive: %w", err)
 	}
 
-	return provider.PacketProof{
+	return &provider.PacketProof{
 		Proof:       proof,
 		ProofHeight: proofHeight,
 	}, nil
 }
 
-func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgTimeout(msgTransfer *provider.PacketInfo, proof *provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -946,7 +945,7 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 	}), nil
 }
 
-func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer *provider.PacketInfo, proof *provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1371,7 +1370,7 @@ func (cc *CosmosProvider) RelayPacketFromSequence(
 	}); err != nil {
 		switch err.(type) {
 		case *provider.TimeoutHeightError, *provider.TimeoutTimestampError, *provider.TimeoutOnCloseError:
-			var pp provider.PacketProof
+			var pp *provider.PacketProof
 			switch order {
 			case chantypes.UNORDERED:
 				pp, err = cc.PacketReceipt(ctx, msgTransfer, dsth)
@@ -1855,7 +1854,7 @@ func BuildSimTx(info *keyring.Record, txf tx.Factory, msgs ...sdk.Msg) ([]byte, 
 		return nil, err
 	}
 
-	var pk cryptotypes.PubKey = &secp256k1.PubKey{} // use default public key type
+	var pk cryptotypes.PubKey
 
 	pk, err = info.GetPubKey()
 	if err != nil {

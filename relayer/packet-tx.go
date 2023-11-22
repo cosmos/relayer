@@ -84,7 +84,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 	}
 
 	// MsgTransfer will call SendPacket on src chain
-	pi := provider.PacketInfo{
+	pi := &provider.PacketInfo{
 		SourceChannel: srcChannel.ChannelId,
 		SourcePort:    srcChannel.PortId,
 		TimeoutHeight: clienttypes.Height{
