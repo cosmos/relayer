@@ -25,7 +25,7 @@ func TestAllowAllChannels(t *testing.T) {
 		info: mockPathEnd,
 		channelStateCache: ChannelStateCache{
 			ChannelKey{
-				ChannelID: testChain0,
+				ChannelID: testChannel0,
 				PortID:    testPort0,
 			}: ChannelState{Open: true},
 			ChannelKey{
