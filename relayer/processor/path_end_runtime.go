@@ -107,7 +107,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 	clientICQMessages := make(ClientICQMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
-		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
+		if pathEnd.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
 			if inSync && pathEnd.metrics != nil {
 				for eventType, pCache := range pmc {
 					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
@@ -873,4 +873,36 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
 		Ordering:    info.Order,
 		Version:     info.Version,
 	}, nil
+}
+
+// if port ID is empty on allowlist channel, allow all ports
+// if port ID is non-empty on allowlist channel, allow only that specific port
+// if port ID is empty on blocklist channel, block all ports
+// if port ID is non-empty on blocklist channel, block only that specific port
+func (pathEnd *pathEndRuntime) ShouldRelayChannel(channelKey ChainChannelKey) bool {
+	pe := pathEnd.info
+	if pe.Rule == RuleAllowList {
+		for _, allowedChannel := range pe.FilterList {
+			if pe.shouldRelayChannelSingle(channelKey, allowedChannel, true) {
+				return true
+			}
+		}
+		return false
+	} else if pe.Rule == RuleDenyList {
+		for _, blockedChannel := range pe.FilterList {
+			if !pe.shouldRelayChannelSingle(channelKey, blockedChannel, false) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// if no filter rule, iterate through cached open channels on client/connection for pathEnd
+	// only return true if channel is built on top of a client for this pathEnd
+	for ch := range pathEnd.channelStateCache {
+		if ch == channelKey.ChannelKey {
+			return true
+		}
+	}
+	return false
 }
