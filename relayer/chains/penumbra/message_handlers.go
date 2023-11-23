@@ -119,7 +119,11 @@ func (pcp *PenumbraChainProcessor) handleConnectionMessage(eventType string, ci 
 
 func (pcp *PenumbraChainProcessor) handleClientMessage(eventType string, ci chains.ClientInfo) {
 	pcp.latestClientState.update(ci)
-	pcp.logObservedIBCMessage(eventType, zap.String("client_id", ci.ClientID))
+	pcp.logObservedIBCMessage(eventType,
+		zap.String("client_id", ci.ClientID),
+		zap.Uint64("observed_height", ci.ObservedHeight),
+		zap.Uint64("consensus_height", ci.ConsensusHeight.RevisionHeight),
+	)
 }
 
 func (pcp *PenumbraChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {

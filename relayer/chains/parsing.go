@@ -103,7 +103,7 @@ func parseIBCMessageFromEvent(
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
 		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
 		clienttypes.EventTypeUpdateClientProposal:
-		msgInfo = new(ClientInfo)
+		msgInfo = &ClientInfo{ObservedHeight: height}
 	case string(processor.ClientICQTypeRequest), string(processor.ClientICQTypeResponse):
 		msgInfo = &ClientICQInfo{
 			Height: height,
@@ -144,15 +144,17 @@ type ClientInfo struct {
 	ClientID        string
 	ConsensusHeight clienttypes.Height
 	Header          []byte
+	ObservedHeight  uint64
 }
 
 func NewClientInfo(
 	clientID string,
 	consensusHeight clienttypes.Height,
 	header []byte,
+	observedHeight uint64,
 ) *ClientInfo {
 	return &ClientInfo{
-		clientID, consensusHeight, header,
+		clientID, consensusHeight, header, observedHeight,
 	}
 }
 

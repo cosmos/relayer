@@ -704,29 +704,54 @@ ClientICQLoop:
 // with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
 	if src.clientTrustedState.ClientState.ConsensusHeight.GTE(src.clientState.ConsensusHeight) {
+		pp.log.Debug(
+			"Client state already trusted",
+			zap.String("chain_id", src.info.ChainID),
+			zap.String("client_id", src.info.ClientID),
+			zap.Uint64("current_height", src.clientState.ConsensusHeight.RevisionHeight),
+			zap.Uint64("trusted_height", src.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight),
+		)
 		// current height already trusted
 		return
 	}
 	// need to assemble new trusted state
 	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
 	if !ok {
-		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
-			dst.clientTrustedState.IBCHeader != nil &&
-			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
-			src.clientTrustedState = provider.ClientTrustedState{
-				ClientState: src.clientState,
-				IBCHeader:   ibcHeaderCurrent,
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok {
+			pp.log.Debug("Don't have next block yet, but have current block header, checking if we have trusted client state")
+			if dst.clientTrustedState.IBCHeader != nil {
+				pp.log.Debug("Don't have next block yet, but have trusted client state, checking if validators hash is the same")
+				if bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+					pp.log.Debug("Don't have next block yet, but the validators haven't changed, so we can trust the current block header",
+						zap.String("chain_id", src.info.ChainID),
+						zap.String("client_id", src.info.ClientID),
+						zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight),
+					)
+					src.clientTrustedState = provider.ClientTrustedState{
+						ClientState: src.clientState,
+						IBCHeader:   ibcHeaderCurrent,
+					}
+				}
 			}
 			return
 		}
-		pp.log.Debug("No cached IBC header for client trusted height",
+
+		pp.log.Debug(
+			"No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
 			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
 		)
 		return
-
 	}
+	pp.log.Debug(
+		"Updating client trusted state",
+		zap.String("chain_id", src.info.ChainID),
+		zap.String("client_id", src.info.ClientID),
+		zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight),
+		zap.Uint64("trusted_height", src.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight),
+	)
+
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
 		IBCHeader:   ibcHeader,

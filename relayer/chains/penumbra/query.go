@@ -200,7 +200,7 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 	}
 
 	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
-	return res.Value, proofBz, clienttypes.NewHeight(revision, uint64(res.Height)+1), nil
+	return res.Value, proofBz, clienttypes.NewHeight(revision, uint64(res.Height)), nil
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height

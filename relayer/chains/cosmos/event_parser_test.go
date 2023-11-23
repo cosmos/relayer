@@ -120,6 +120,7 @@ func TestParseClient(t *testing.T) {
 			RevisionHeight: uint64(1023),
 		},
 		clientHeader,
+		0,
 	), cmp.AllowUnexported(chains.ClientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 }
 
@@ -319,6 +320,7 @@ func TestParseEventLogs(t *testing.T) {
 			RevisionHeight: uint64(1023),
 		},
 		nil,
+		0,
 	), cmp.AllowUnexported(chains.ClientInfo{}, clienttypes.Height{})), "parsed client info does not match expected")
 
 	msgRecvPacket := ibcMessages[1]

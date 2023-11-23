@@ -95,6 +95,7 @@ type PacketInfo struct {
 	TimeoutTimestamp uint64
 	Ack              []byte
 	Proof            *PacketProof
+	ProofEvent       string
 	ProofMu          sync.Mutex
 }
 

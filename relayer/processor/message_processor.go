@@ -93,6 +93,8 @@ func (mp *messageProcessor) processMessages(
 ) error {
 	var needsClientUpdate bool
 
+	mp.assembleMessages(ctx, messages, src, dst)
+
 	// Localhost IBC does not permit client updates
 	if src.clientState.ClientID != ibcexported.LocalhostClientID && dst.clientState.ClientID != ibcexported.LocalhostConnectionID {
 		var err error
@@ -101,12 +103,12 @@ func (mp *messageProcessor) processMessages(
 			return err
 		}
 
-		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-			return err
+		if messages.Size() > 0 || needsClientUpdate {
+			if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+				return err
+			}
 		}
 	}
-
-	mp.assembleMessages(ctx, messages, src, dst)
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 }
@@ -244,6 +246,15 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	if dst.clientTrustedState.IBCHeader != nil {
 		trustedNextValidatorsHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
 	}
+
+	mp.log.Debug(
+		"Assembling msg update client",
+		zap.String("chain_id", dst.info.ChainID),
+		zap.String("client_id", clientID),
+		zap.Uint64("client_consensus_height", clientConsensusHeight.RevisionHeight),
+		zap.Uint64("trusted_consensus_height", trustedConsensusHeight.RevisionHeight),
+		zap.Uint64("latest_height", src.latestBlock.Height),
+	)
 
 	// If the client state height is not equal to the client trusted state height and the client state height is
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.

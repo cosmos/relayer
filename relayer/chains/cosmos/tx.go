@@ -1812,6 +1812,20 @@ func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) 
 	return result.Response, nil
 }
 
+// QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
+func (cc *CosmosProvider) QueryABCINoOpts(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+	result, err := cc.RPCClient.ABCIQuery(ctx, req.Path, req.Data)
+	if err != nil {
+		return abci.ResponseQuery{}, err
+	}
+
+	if !result.Response.IsOK() {
+		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+	}
+
+	return result.Response, nil
+}
+
 func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
 	switch resp.Code {
 	case sdkerrors.ErrInvalidRequest.ABCICode():

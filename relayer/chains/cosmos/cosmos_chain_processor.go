@@ -370,12 +370,12 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 
 			if err := retry.Do(func() error {
 				// TODO try to avoid this query by getting the SignedHeader via websocket.
-				ibcHeader, err := ccp.chainProvider.QueryIBCHeader(ctx, blockEvent.Block.Height)
+				var err error
+				latestHeader, err = ccp.chainProvider.QueryIBCHeader(ctx, blockEvent.Block.Height)
 				if err != nil {
 					return err
 				}
 
-				latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 				ibcHeaderCache[heightUint64] = latestHeader
 
 				return nil
@@ -438,16 +438,16 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 				newData.LatestBlock = latestBlock
 				newData.LatestHeader = latestHeader
 				newData.IBCHeaderCache = ibcHeaderCache.Clone()
+			}
 
-				clientState, err := ccp.clientState(ctx, clientID)
-				if err != nil {
-					ccp.log.Error("Error fetching client state",
-						zap.String("client_id", clientID),
-						zap.Error(err),
-					)
-				} else {
-					newData.ClientState = clientState
-				}
+			clientState, err := ccp.clientState(ctx, clientID)
+			if err != nil {
+				ccp.log.Error("Error fetching client state",
+					zap.String("client_id", clientID),
+					zap.Error(err),
+				)
+			} else {
+				newData.ClientState = clientState
 			}
 
 			pp.HandleNewData(chainID, newData)

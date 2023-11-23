@@ -29,6 +29,10 @@ type pathEndMessages struct {
 	clientICQMessages  []clientICQMessage
 }
 
+func (p pathEndMessages) Size() int {
+	return len(p.connectionMessages) + len(p.channelMessages) + len(p.packetMessages) + len(p.clientICQMessages)
+}
+
 type ibcMessage interface {
 	// assemble executes the appropriate proof query function,
 	// then, if successful, assembles the message for the destination.
@@ -93,13 +97,19 @@ func (msg packetIBCMessage) assemble(
 	defer msg.info.ProofMu.Unlock()
 	proof := msg.info.Proof
 	if proof != nil {
-		return assembleMessage(msg.info, proof)
+		if msg.info.ProofEvent == msg.eventType {
+			fmt.Printf("Returning pre-fetched proof for %s\n", msg.eventType)
+			return assembleMessage(msg.info, proof)
+		} else {
+			fmt.Printf("No pre-fetched proof for %s - proof event mismatch: %s\n", msg.info.ProofEvent, msg.eventType)
+		}
 	}
 
 	var err error
 	if err := retry.Do(func() error {
 		ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
 		defer cancel()
+
 		proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 		return err
 	}, retry.Context(ctx), retry.Attempts(10), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
@@ -107,6 +117,7 @@ func (msg packetIBCMessage) assemble(
 	}
 
 	msg.info.Proof = proof
+	msg.info.ProofEvent = msg.eventType
 
 	return assembleMessage(msg.info, proof)
 }

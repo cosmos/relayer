@@ -3,6 +3,7 @@ package cosmos
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -60,13 +61,17 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(ctx context.Context, eventT
 
 	if eventType == chantypes.EventTypeSendPacket || eventType == chantypes.EventTypeWriteAck {
 		var packetProof func(context.Context, *provider.PacketInfo, uint64) (*provider.PacketProof, error)
+		var proofEvent string
 		switch eventType {
 		case chantypes.EventTypeSendPacket:
 			packetProof = ccp.chainProvider.PacketCommitment
+			proofEvent = chantypes.EventTypeRecvPacket
 		case chantypes.EventTypeWriteAck:
 			packetProof = ccp.chainProvider.PacketAcknowledgement
+			proofEvent = chantypes.EventTypeAcknowledgePacket
 		}
 		go func() {
+			retries := 0
 			pi.ProofMu.Lock()
 			defer pi.ProofMu.Unlock()
 			var proof *provider.PacketProof
@@ -75,13 +80,22 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(ctx context.Context, eventT
 				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 
-				proof, err = packetProof(ctx, pi, pi.Height)
+				// ccp.latestBlockMu.RLock()
+				// latestBlock := ccp.latestBlock
+				// ccp.latestBlockMu.RUnlock()
+
+				proof, err = packetProof(ctx, pi, pi.Height+1)
+				//proof, err = packetProof(ctx, pi, 0)
 				return err
-			}, retry.Context(ctx), retry.Attempts(10), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
+			}, retry.Context(ctx), retry.Attempts(300), retry.DelayType(retry.FixedDelay), retry.Delay(50*time.Millisecond), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+				retries++
+			})); err != nil {
 				ccp.log.Error("Error querying packet proof", zap.Error(err))
 				return
 			}
 			pi.Proof = proof
+			pi.ProofEvent = proofEvent
+			fmt.Printf("Pre-fetched proof for %s after %d retries\n", proofEvent, retries)
 		}()
 	}
 
@@ -161,7 +175,12 @@ func (ccp *CosmosChainProcessor) handleConnectionMessage(eventType string, ci pr
 
 func (ccp *CosmosChainProcessor) handleClientMessage(ctx context.Context, eventType string, ci chains.ClientInfo) {
 	ccp.latestClientState.update(ctx, ci, ccp)
-	ccp.logObservedIBCMessage(eventType, zap.String("client_id", ci.ClientID))
+	ccp.logObservedIBCMessage(
+		eventType,
+		zap.String("client_id", ci.ClientID),
+		zap.Uint64("observed_height", ci.ObservedHeight),
+		zap.Uint64("consensus_height", ci.ConsensusHeight.RevisionHeight),
+	)
 }
 
 func (ccp *CosmosChainProcessor) handleClientICQMessage(
@@ -182,6 +201,7 @@ func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *provider.P
 		return
 	}
 	fields := []zap.Field{
+		zap.Uint64("observed_height", pi.Height),
 		zap.Uint64("sequence", pi.Sequence),
 		zap.String("src_channel", pi.SourceChannel),
 		zap.String("src_port", pi.SourcePort),
@@ -202,6 +222,7 @@ func (ccp *CosmosChainProcessor) logPacketMessage(message string, pi *provider.P
 
 func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.ChannelInfo) {
 	ccp.logObservedIBCMessage(message,
+		zap.Uint64("observed_height", ci.Height),
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("port_id", ci.PortID),
 		zap.String("counterparty_channel_id", ci.CounterpartyChannelID),
@@ -212,7 +233,7 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 
 func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo) {
 	fields := []zap.Field{
-
+		zap.Uint64("observed_height", ci.Height),
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("port_id", ci.PortID),
@@ -222,6 +243,7 @@ func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provid
 
 func (ccp *CosmosChainProcessor) logConnectionMessage(message string, ci provider.ConnectionInfo) {
 	ccp.logObservedIBCMessage(message,
+		zap.Uint64("observed_height", ci.Height),
 		zap.String("client_id", ci.ClientID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("counterparty_client_id", ci.CounterpartyClientID),
