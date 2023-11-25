@@ -364,7 +364,7 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 			isBlockEvent = true
 			blockEvent := event.Data.(comettypes.EventDataNewBlock)
 
-			ccp.log.Debug("Received new legacy block event", zap.Int64("height", blockEvent.Block.Height))
+			// ccp.log.Debug("Received new legacy block event", zap.Int64("height", blockEvent.Block.Height))
 
 			heightUint64 := uint64(blockEvent.Block.Height)
 
@@ -410,7 +410,7 @@ func (ccp *CosmosChainProcessor) subscribeLegacy(ctx context.Context) error {
 		case event := <-txChan:
 			txEvent := event.Data.(comettypes.EventDataTx)
 
-			ccp.log.Debug("Received new legacy tx event", zap.Int64("height", txEvent.Height))
+			// ccp.log.Debug("Received new legacy tx event", zap.Int64("height", txEvent.Height))
 
 			tx := txEvent.Result
 			if tx.Code != 0 {
@@ -663,12 +663,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
-		if firstTimeInSync {
-			// attempt to switchover to websocket
-			// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
-			// mostly fine because we have the periodic flush, but could be improved.
-			return errSwitchToSubscribe
-		}
+		// if firstTimeInSync {
+		// 	// attempt to switchover to websocket
+		// 	// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
+		// 	// mostly fine because we have the periodic flush, but could be improved.
+		// 	return errSwitchToSubscribe
+		// }
 		return nil
 	}
 
@@ -680,7 +680,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			// attempt to switchover to websocket
 			// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
 			// mostly fine because we have the periodic flush, but could be improved.
-			return errSwitchToSubscribe
+			// return errSwitchToSubscribe
 		}
 
 		return nil
@@ -715,7 +715,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		// attempt to switchover to websocket
 		// TODO fixme: can be a few blocks in between when we switch over and when we start processing blocks
 		// mostly fine because we have the periodic flush, but could be improved.
-		return errSwitchToSubscribe
+		// return errSwitchToSubscribe
 	}
 
 	return nil

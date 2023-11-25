@@ -704,13 +704,13 @@ ClientICQLoop:
 // with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
 	if src.clientTrustedState.ClientState.ConsensusHeight.GTE(src.clientState.ConsensusHeight) {
-		pp.log.Debug(
-			"Client state already trusted",
-			zap.String("chain_id", src.info.ChainID),
-			zap.String("client_id", src.info.ClientID),
-			zap.Uint64("current_height", src.clientState.ConsensusHeight.RevisionHeight),
-			zap.Uint64("trusted_height", src.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight),
-		)
+		// pp.log.Debug(
+		// 	"Client state already trusted",
+		// 	zap.String("chain_id", src.info.ChainID),
+		// 	zap.String("client_id", src.info.ClientID),
+		// 	zap.Uint64("current_height", src.clientState.ConsensusHeight.RevisionHeight),
+		// 	zap.Uint64("trusted_height", src.clientTrustedState.ClientState.ConsensusHeight.RevisionHeight),
+		// )
 		// current height already trusted
 		return
 	}
@@ -1009,11 +1009,23 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		pathEnd1DstMsgRecvPacket := pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket]
 		for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
+				proofEvent := ""
+				var proof provider.PacketProof
+
 				ackInfo.ProofMu.Lock()
 				ack := ackInfo.Ack
+
+				if ackInfo.Proof != nil {
+					proof = *ackInfo.Proof
+					proofEvent = ackInfo.ProofEvent
+				}
 				ackInfo.ProofMu.Unlock()
 				recvPacketInfo.ProofMu.Lock()
 				recvPacketInfo.Ack = ack
+				if recvPacketInfo.Proof == nil && proofEvent != "" {
+					recvPacketInfo.Proof = &proof
+					recvPacketInfo.ProofEvent = proofEvent
+				}
 				recvPacketInfo.ProofMu.Unlock()
 
 				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
@@ -1023,11 +1035,22 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
 		for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
+				proofEvent := ""
+				var proof provider.PacketProof
+
 				ackInfo.ProofMu.Lock()
 				ack := ackInfo.Ack
+				if ackInfo.Proof != nil {
+					proof = *ackInfo.Proof
+					proofEvent = ackInfo.ProofEvent
+				}
 				ackInfo.ProofMu.Unlock()
 				recvPacketInfo.ProofMu.Lock()
 				recvPacketInfo.Ack = ack
+				if recvPacketInfo.Proof == nil && proofEvent != "" {
+					recvPacketInfo.Proof = &proof
+					recvPacketInfo.ProofEvent = proofEvent
+				}
 				recvPacketInfo.ProofMu.Unlock()
 
 				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo

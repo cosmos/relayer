@@ -99,6 +99,11 @@ func (msg packetIBCMessage) assemble(
 	if proof != nil {
 		if msg.info.ProofEvent == msg.eventType {
 			fmt.Printf("Returning pre-fetched proof for %s\n", msg.eventType)
+
+			// Remove cached proof so that if we have to retry, we fetch a fresh proof at the latest height.
+			msg.info.Proof = nil
+			msg.info.ProofEvent = ""
+
 			return assembleMessage(msg.info, proof)
 		} else {
 			fmt.Printf("No pre-fetched proof for %s - proof event mismatch: %s\n", msg.info.ProofEvent, msg.eventType)
@@ -115,9 +120,6 @@ func (msg packetIBCMessage) assemble(
 	}, retry.Context(ctx), retry.Attempts(10), retry.DelayType(retry.FixedDelay), retry.Delay(1*time.Millisecond), retry.LastErrorOnly(true)); err != nil {
 		return nil, fmt.Errorf("error querying packet proof: %w", err)
 	}
-
-	msg.info.Proof = proof
-	msg.info.ProofEvent = msg.eventType
 
 	return assembleMessage(msg.info, proof)
 }

@@ -622,6 +622,8 @@ func (cc *CosmosProvider) buildMessages(
 
 	adjusted := gas
 
+	gas = 2000000
+
 	if gas == 0 {
 		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
 

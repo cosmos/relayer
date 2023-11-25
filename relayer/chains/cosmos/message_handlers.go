@@ -3,6 +3,7 @@ package cosmos
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,6 +33,8 @@ func (ccp *CosmosChainProcessor) handleMessage(ctx context.Context, m chains.Ibc
 		ccp.handleClientICQMessage(m.EventType, provider.ClientICQInfo(*t), c)
 	}
 }
+
+var errNoPrefetch = fmt.Errorf("no pre-fetch")
 
 func (ccp *CosmosChainProcessor) handlePacketMessage(ctx context.Context, eventType string, pi *provider.PacketInfo, c processor.IBCMessagesCache) {
 	k, err := processor.PacketInfoChannelKey(eventType, pi)
@@ -80,9 +83,14 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(ctx context.Context, eventT
 				ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 
-				// ccp.latestBlockMu.RLock()
-				// latestBlock := ccp.latestBlock
-				// ccp.latestBlockMu.RUnlock()
+				ccp.latestBlockMu.RLock()
+				latestBlock := ccp.latestBlock
+				ccp.latestBlockMu.RUnlock()
+
+				if latestBlock.Height != pi.Height {
+					// don't pre-fetch
+					return errNoPrefetch
+				}
 
 				proof, err = packetProof(ctx, pi, pi.Height+1)
 				//proof, err = packetProof(ctx, pi, 0)
@@ -90,7 +98,9 @@ func (ccp *CosmosChainProcessor) handlePacketMessage(ctx context.Context, eventT
 			}, retry.Context(ctx), retry.Attempts(300), retry.DelayType(retry.FixedDelay), retry.Delay(50*time.Millisecond), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
 				retries++
 			})); err != nil {
-				ccp.log.Error("Error querying packet proof", zap.Error(err))
+				if !errors.Is(err, errNoPrefetch) {
+					ccp.log.Error("Error querying packet proof", zap.Error(err))
+				}
 				return
 			}
 			pi.Proof = proof

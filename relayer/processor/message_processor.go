@@ -14,6 +14,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 )
 
 // messageProcessor is used for concurrent IBC message assembly and sending
@@ -93,8 +94,12 @@ func (mp *messageProcessor) processMessages(
 ) error {
 	var needsClientUpdate bool
 
-	mp.assembleMessages(ctx, messages, src, dst)
+	var eg errgroup.Group
 
+	eg.Go(func() error {
+		mp.assembleMessages(ctx, messages, src, dst)
+		return nil
+	})
 	// Localhost IBC does not permit client updates
 	if src.clientState.ClientID != ibcexported.LocalhostClientID && dst.clientState.ClientID != ibcexported.LocalhostConnectionID {
 		var err error
@@ -104,10 +109,14 @@ func (mp *messageProcessor) processMessages(
 		}
 
 		if messages.Size() > 0 || needsClientUpdate {
-			if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-				return err
-			}
+			eg.Go(func() error {
+				return mp.assembleMsgUpdateClient(ctx, src, dst)
+			})
 		}
+	}
+
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
