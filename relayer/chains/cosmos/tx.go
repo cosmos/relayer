@@ -378,7 +378,7 @@ func (cc *CosmosProvider) broadcastTx(
 		if isFailed {
 			err = cc.sdkError(res.Codespace, res.Code)
 			if err == nil {
-				err = fmt.Errorf("transaction failed to execute")
+				err = fmt.Errorf("transaction failed to execute: codespace: %s, code: %d, log: %s", res.Codespace, res.Code, res.Log)
 			}
 		}
 		cc.LogFailedTx(rlyResp, err, msgs)
@@ -386,10 +386,8 @@ func (cc *CosmosProvider) broadcastTx(
 	}
 	address, err := cc.Address()
 	if err != nil {
-		cc.log.Error(
-			"failed to get relayer bech32 wallet addresss",
-			zap.Error(err),
-		)
+		return fmt.Errorf("failed to get relayer bech32 wallet address: %w", err)
+
 	}
 	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
 
@@ -439,7 +437,7 @@ func (cc *CosmosProvider) waitForTx(
 		// Check for any registered SDK errors
 		err := cc.sdkError(res.Codespace, res.Code)
 		if err == nil {
-			err = fmt.Errorf("transaction failed to execute")
+			err = fmt.Errorf("transaction failed to execute: codespace: %s, code: %d, log: %s", res.Codespace, res.Code, res.RawLog)
 		}
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
