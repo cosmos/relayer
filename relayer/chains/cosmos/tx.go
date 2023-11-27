@@ -79,24 +79,49 @@ func (cc *CosmosProvider) SendMessage(ctx context.Context, msg provider.RelayerM
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
-var seqGuardSingleton sync.Mutex
-
 // Gets the sequence guard. If it doesn't exist, initialized and returns it.
-func ensureSequenceGuard(cc *CosmosProvider, key string) *WalletState {
-	seqGuardSingleton.Lock()
-	defer seqGuardSingleton.Unlock()
+func (cc *CosmosProvider) ensureSequenceGuard(key string) *WalletState {
+	cc.walletStateMu.RLock()
+	sequenceGuard, ok := cc.walletStateMap[key]
+	cc.walletStateMu.RUnlock()
+
+	if ok {
+		return sequenceGuard
+	}
+
+	acc, err := cc.accountForKey(key)
+	if err != nil {
+		panic(err)
+	}
+
+	cc.walletStateMu.Lock()
+	defer cc.walletStateMu.Unlock()
 
 	if cc.walletStateMap == nil {
 		cc.walletStateMap = map[string]*WalletState{}
 	}
 
-	sequenceGuard, ok := cc.walletStateMap[key]
-	if !ok {
-		cc.walletStateMap[key] = &WalletState{}
-		return cc.walletStateMap[key]
+	sequenceGuard = &WalletState{
+		AccountNumber:       acc.GetAccountNumber(),
+		NextAccountSequence: acc.GetSequence(),
+	}
+	cc.walletStateMap[key] = sequenceGuard
+	return sequenceGuard
+}
+
+func (cc *CosmosProvider) accountForKey(key string) (client.Account, error) {
+	from, err := cc.GetKeyAddressForKey(key)
+	if err != nil {
+		return nil, err
 	}
 
-	return sequenceGuard
+	cliCtx := client.Context{}.WithClient(cc.RPCClient).
+		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
+		WithChainID(cc.PCfg.ChainID).
+		WithCodec(cc.Cdc.Marshaler).
+		WithFromAddress(from)
+
+	return cc.GetAccount(cliCtx, from)
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -165,7 +190,7 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 		return err
 	}
 
-	sequenceGuard := ensureSequenceGuard(cc, txSignerKey)
+	sequenceGuard := cc.ensureSequenceGuard(txSignerKey)
 	sequenceGuard.Mu.Lock()
 	defer sequenceGuard.Mu.Unlock()
 
@@ -250,7 +275,9 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	rand.Seed(time.Now().UnixNano())
 	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
 
-	txf, err := cc.PrepareFactory(cc.TxFactory(), signingKey)
+	sequenceGuard := cc.ensureSequenceGuard(signingKey)
+
+	txf, err := cc.PrepareFactory(cc.TxFactory(), sequenceGuard)
 	if err != nil {
 		return nil, err
 	}
@@ -604,7 +631,7 @@ func (cc *CosmosProvider) buildMessages(
 
 	cMsgs := CosmosMsgs(msgs...)
 
-	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey)
+	txf, err := cc.PrepareFactory(cc.TxFactory(), sequenceGuard)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
@@ -613,16 +640,9 @@ func (cc *CosmosProvider) buildMessages(
 		txf = txf.WithMemo(memo)
 	}
 
-	sequence = txf.Sequence()
-	cc.updateNextAccountSequence(sequenceGuard, sequence)
-	if sequence < sequenceGuard.NextAccountSequence {
-		sequence = sequenceGuard.NextAccountSequence
-		txf = txf.WithSequence(sequence)
-	}
+	gas = 1000000 * uint64(len(msgs))
 
 	adjusted := gas
-
-	gas = 2000000
 
 	if gas == 0 {
 		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
@@ -1606,63 +1626,8 @@ func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relaye
 	return NewCosmosMessage(msg, nil), nil
 }
 
-// PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
-func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.Factory, error) {
-	var (
-		err      error
-		from     sdk.AccAddress
-		num, seq uint64
-	)
-
-	// Get key address and retry if fail
-	if err = retry.Do(func() error {
-		from, err = cc.GetKeyAddressForKey(signingKey)
-		if err != nil {
-			return err
-		}
-		return err
-	}, rtyAtt, rtyDel, rtyErr); err != nil {
-		return tx.Factory{}, err
-	}
-
-	cliCtx := client.Context{}.WithClient(cc.RPCClient).
-		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
-		WithChainID(cc.PCfg.ChainID).
-		WithCodec(cc.Cdc.Marshaler).
-		WithFromAddress(from)
-
-	// Set the account number and sequence on the transaction factory and retry if fail
-	if err = retry.Do(func() error {
-		if err = txf.AccountRetriever().EnsureExists(cliCtx, from); err != nil {
-			return err
-		}
-		return err
-	}, rtyAtt, rtyDel, rtyErr); err != nil {
-		return txf, err
-	}
-
-	// TODO: why this code? this may potentially require another query when we don't want one
-	initNum, initSeq := txf.AccountNumber(), txf.Sequence()
-	if initNum == 0 || initSeq == 0 {
-		if err = retry.Do(func() error {
-			num, seq, err = txf.AccountRetriever().GetAccountNumberSequence(cliCtx, from)
-			if err != nil {
-				return err
-			}
-			return err
-		}, rtyAtt, rtyDel, rtyErr); err != nil {
-			return txf, err
-		}
-
-		if initNum == 0 {
-			txf = txf.WithAccountNumber(num)
-		}
-
-		if initSeq == 0 {
-			txf = txf.WithSequence(seq)
-		}
-	}
-
+// PrepareFactory mutates the tx factory with the min gas settings.
+func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, sequenceGuard *WalletState) (tx.Factory, error) {
 	if cc.PCfg.MinGasAmount != 0 {
 		txf = txf.WithGas(cc.PCfg.MinGasAmount)
 	}
@@ -1670,7 +1635,13 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 	if cc.PCfg.MaxGasAmount != 0 {
 		txf = txf.WithGas(cc.PCfg.MaxGasAmount)
 	}
-	txf, err = cc.SetWithExtensionOptions(txf)
+
+	txf = txf.WithSequence(sequenceGuard.NextAccountSequence)
+	txf = txf.WithAccountNumber(sequenceGuard.AccountNumber)
+
+	cc.log.Debug("Prepare tx", zap.Uint64("sequence", txf.Sequence()), zap.Uint64("account_number", sequenceGuard.AccountNumber))
+
+	txf, err := cc.SetWithExtensionOptions(txf)
 	if err != nil {
 		return tx.Factory{}, err
 	}
@@ -1770,7 +1741,7 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.
 func (cc *CosmosProvider) TxFactory() tx.Factory {
 	return tx.Factory{}.
-		WithAccountRetriever(cc).
+		//WithAccountRetriever(cc).
 		WithChainID(cc.PCfg.ChainID).
 		WithTxConfig(cc.Cdc.TxConfig).
 		WithGasAdjustment(cc.PCfg.GasAdjustment).

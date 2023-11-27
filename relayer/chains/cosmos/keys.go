@@ -233,11 +233,21 @@ func (cc *CosmosProvider) DecodeBech32AccAddr(addr string) (sdk.AccAddress, erro
 }
 
 func (cc *CosmosProvider) GetKeyAddressForKey(key string) (sdk.AccAddress, error) {
+	cc.fromMu.Lock()
+	defer cc.fromMu.Unlock()
+	if addr, ok := cc.from[key]; ok {
+		return addr, nil
+	}
 	info, err := cc.Keybase.Key(key)
 	if err != nil {
 		return nil, err
 	}
-	return info.GetAddress()
+	addr, err := info.GetAddress()
+	if err != nil {
+		return nil, err
+	}
+	cc.from[key] = addr
+	return addr, nil
 }
 
 func (cc *CosmosProvider) KeyFromKeyOrAddress(keyOrAddress string) (string, error) {

@@ -113,6 +113,8 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
+
+		from: make(map[string]sdk.AccAddress),
 	}
 
 	return cp, nil
@@ -138,6 +140,7 @@ type CosmosProvider struct {
 	// the purpose of the map is to lock on the signer from TX creation through submission,
 	// thus making TX sequencing errors less likely.
 	walletStateMap map[string]*WalletState
+	walletStateMu  sync.RWMutex
 
 	// metrics to monitor the provider
 	TotalFees   sdk.Coins
@@ -148,11 +151,53 @@ type CosmosProvider struct {
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding   bool
 	cometLegacyEncodingMu sync.Mutex
+
+	from   map[string]sdk.AccAddress
+	fromMu sync.Mutex
 }
 
 type WalletState struct {
+	AccountNumber       uint64
 	NextAccountSequence uint64
 	Mu                  sync.Mutex
+}
+
+// every 10 seconds, reconcile the account sequence number with the node.
+func (cc *CosmosProvider) periodicUpdateAccountSequence(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+
+	for {
+		walletStateCopy := make(map[string]*WalletState)
+		cc.walletStateMu.RLock()
+		for signer, sequenceGuard := range cc.walletStateMap {
+			walletStateCopy[signer] = sequenceGuard
+		}
+		cc.walletStateMu.RUnlock()
+
+		for signer, sequenceGuard := range walletStateCopy {
+			acc, err := cc.accountForKey(signer)
+			if err != nil {
+				cc.log.Error("failed to get account", zap.Error(err))
+				continue
+			}
+			sequenceGuard.Mu.Lock()
+			sequenceGuard.AccountNumber = acc.GetAccountNumber()
+			sequenceGuard.NextAccountSequence = acc.GetSequence()
+			cc.log.Debug(
+				"Updated account sequence",
+				zap.String("signer", signer),
+				zap.Uint64("account_number", acc.GetAccountNumber()),
+				zap.Uint64("sequence", sequenceGuard.NextAccountSequence),
+			)
+			sequenceGuard.Mu.Unlock()
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			continue
+		}
+	}
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {

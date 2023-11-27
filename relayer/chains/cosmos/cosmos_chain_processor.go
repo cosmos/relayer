@@ -287,6 +287,8 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 
 	ccp.log.Debug("Entering main query loop")
 
+	go ccp.chainProvider.periodicUpdateAccountSequence(ctx)
+
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
 
@@ -318,11 +320,11 @@ func (ccp *CosmosChainProcessor) waitForSubscribeStart(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	case <-ccp.subscriberStart:
-		ccp.log.Debug("Attempting to switch to websocket mode")
-		if err := ccp.subscribeLegacy(ctx); err != nil {
-			ccp.subscriberStopped <- struct{}{}
-			ccp.log.Error("Error subscribing to legacy websocket", zap.Error(err))
-		}
+		//ccp.log.Debug("Attempting to switch to websocket mode")
+		// if err := ccp.subscribeLegacy(ctx); err != nil {
+		// 	ccp.subscriberStopped <- struct{}{}
+		// 	ccp.log.Error("Error subscribing to legacy websocket", zap.Error(err))
+		// }
 
 	}
 }
