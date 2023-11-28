@@ -875,34 +875,61 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
 	}, nil
 }
 
+// if channel ID is non-empty on allowlist, allow only specified channel(s)
+// if channel ID is non-empty on denylist, deny specified channel(s)
+
 // if port ID is empty on allowlist channel, allow all ports
 // if port ID is non-empty on allowlist channel, allow only that specific port
-// if port ID is empty on blocklist channel, block all ports
-// if port ID is non-empty on blocklist channel, block only that specific port
-func (pathEnd *pathEndRuntime) ShouldRelayChannel(channelKey ChainChannelKey) bool {
+// if port ID is empty on denylist channel, block all ports
+// if port ID is non-empty on denylist channel, block only that specific port
+
+// if no filter rule, allow all channels but ensure channels are relevant to the pathEndRuntime,
+// ie, the channel is relevant to a src<->dest chain in the path section of the relayer config
+
+// also, make sure the channel is open before returning true
+func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKey) bool {
 	pe := pathEnd.info
 	if pe.Rule == RuleAllowList {
 		for _, allowedChannel := range pe.FilterList {
-			if pe.shouldRelayChannelSingle(channelKey, allowedChannel, true) {
+			if pe.shouldRelayChannelSingle(chainChannelKey, allowedChannel, true) {
+				if !pathEnd.channelStateCache[chainChannelKey.ChannelKey].Open {
+					pathEnd.log.Warn("Closed channel in allowlist",
+						zap.String("chain-id", chainChannelKey.ChannelKey.ChannelID),
+						zap.String("counterparty-chain-id", chainChannelKey.CounterpartyChainID),
+						zap.Inline(chainChannelKey.ChannelKey),
+					)
+					return false
+				}
 				return true
 			}
 		}
 		return false
 	} else if pe.Rule == RuleDenyList {
 		for _, blockedChannel := range pe.FilterList {
-			if !pe.shouldRelayChannelSingle(channelKey, blockedChannel, false) {
+			if !pe.shouldRelayChannelSingle(chainChannelKey, blockedChannel, false) {
 				return false
 			}
 		}
-		return true
+		return pathEnd.checkChannelOpen(chainChannelKey)
 	}
-
-	// if no filter rule, iterate through cached open channels on client/connection for pathEnd
+	// if no filter rule, iterate through cached channels on client/connection for pathEnd
 	// only return true if channel is built on top of a client for this pathEnd
 	for ch := range pathEnd.channelStateCache {
-		if ch == channelKey.ChannelKey {
-			return true
+		if ch == chainChannelKey.ChannelKey {
+			return pathEnd.checkChannelOpen(chainChannelKey)
 		}
 	}
 	return false
+}
+
+func (pathEnd *pathEndRuntime) checkChannelOpen(chainChannelKey ChainChannelKey) bool {
+	if !pathEnd.channelStateCache[chainChannelKey.ChannelKey].Open {
+		pathEnd.log.Debug("Ignoring closed channel",
+			zap.String("chain-id", chainChannelKey.ChannelKey.ChannelID),
+			zap.String("counterparty-chain-id", chainChannelKey.CounterpartyChainID),
+			zap.Inline(chainChannelKey.ChannelKey),
+		)
+		return false
+	}
+	return true
 }

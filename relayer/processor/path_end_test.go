@@ -4,254 +4,417 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 const (
-	testChain0 = "test-chain-0"
+	testChainID0 = "test-chain-0"
+	testChainID1 = "test-chain-1"
 
 	testChannel0 = "test-channel-0"
 	testChannel1 = "test-channel-1"
 	testChannel2 = "test-channel-2"
 
-	testPort0 = "test-port-0"
-	testPort1 = "test-port-1"
+	testPort  = "trasnfer"
+	testPort2 = "ica-XXX"
 )
 
-// empty allow list and block list should relay everything
-func TestAllowAllChannels(t *testing.T) {
+func TestNoChannelFilter(t *testing.T) {
 	mockPathEnd := PathEnd{}
 
-	mockPathEndRuntime := pathEndRuntime{
-		info: mockPathEnd,
-		channelStateCache: ChannelStateCache{
-			ChannelKey{
-				ChannelID: testChannel0,
-				PortID:    testPort0,
-			}: ChannelState{Open: true},
-			ChannelKey{
-				CounterpartyChannelID: testChannel1,
-				CounterpartyPortID:    testPort1,
-			}: ChannelState{Open: true},
-		},
-	}
-
-	mockAllowedChannel := ChainChannelKey{
+	mockChannel := ChainChannelKey{
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel0,
-			PortID:    testPort0,
 		},
 	}
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though allow list and block list are empty")
 
-	// test counterparty
-	mockAllowedChannel2 := ChainChannelKey{
+	mockCounterpartyChannel := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel0,
+		},
+	}
+
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
+
+		channelStateCache: ChannelStateCache{
+			mockChannel.ChannelKey:             ChannelState{Open: true},
+			mockCounterpartyChannel.ChannelKey: ChannelState{Open: true},
+		},
+	}
+
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel), "does not allow channel to be relayed, even though there is no filter and channel is cached")
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChannel), "does not allow counterparty channel to be relayed, even though there is no filter and channel is cached")
+
+	// channel or counterparty channel is not  not included in channelStateCache,
+	// ie, this channel does not pertain to a both a src and dest chain in the path section of the config
+	// this channel is from a different client
+	mockChannel2 := ChainChannelKey{
+		ChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel2,
+		},
+	}
+
+	mockCounterpartyChanne2 := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel2,
+		},
+	}
+
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChanne2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
+
+}
+
+func TestNoChannelFilterWithClosedChannel(t *testing.T) {
+	mockPathEnd := PathEnd{}
+
+	mockChannel := ChainChannelKey{
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel0,
+		},
+	}
+
+	mockCounterpartyChannel := ChainChannelKey{
 		ChannelKey: ChannelKey{
 			CounterpartyChannelID: testChannel1,
-			CounterpartyPortID:    testPort1,
 		},
 	}
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel2), "does not allow counterparty channel to be relayed, even though allow list and block list are empty")
+
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
+
+		channelStateCache: ChannelStateCache{
+			mockChannel.ChannelKey:             ChannelState{Open: false},
+			mockCounterpartyChannel.ChannelKey: ChannelState{Open: false},
+		},
+	}
+
+	// should not relay because channel is closed
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel), "allowed channel to be relayed, even though the channel is closed")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChannel), "allowed counterparty channel to be relayed, even though the channel is closed")
 }
 
-func TestAllowChannel(t *testing.T) {
+func TestAllowChannelFilter(t *testing.T) {
 	mockAllowedChannel := ChainChannelKey{
-		ChainID: testChain0,
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel0,
 		},
 	}
 
-	mockCounterPartyChannel := ChainChannelKey{
-		CounterpartyChainID: testChain0,
+	mockAllowedCounterPartyChannel := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			CounterpartyChannelID: testChannel0,
 		},
 	}
 
-	mockAllowList := []ChainChannelKey{
-		mockAllowedChannel,
-		mockCounterPartyChannel,
-	}
-
+	// above two channels without port added to allow filter
+	// we should relay on any port for the channel
 	mockPathEnd := PathEnd{
-		Rule:       RuleAllowList,
-		FilterList: mockAllowList,
+		Rule: RuleAllowList,
+		FilterList: []ChainChannelKey{
+			mockAllowedChannel,
+		},
 	}
 
-	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
-
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though channelID is in allow list")
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterPartyChannel), "does not allow counterparty channel to be relayed, even though channelID is in allow list")
-
-	// same channel in allow list except has designated port
+	// same channel and counterparty channel as above except has designated port
+	// need to add these to the channelStateCache
+	// these should still be allowed to relay b/c the channels added to the allowlist
+	// didn't include a port
 	mockAllowedChannelWithSpecificPort := ChainChannelKey{
-		ChainID: testChain0,
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel0,
-			PortID:    testPort0,
+			PortID:    testPort,
 		},
 	}
-
-	// same channel in counterparty allow list except has designated port
 	mockCounterPartyChannelWithSpecificPort := ChainChannelKey{
-		CounterpartyChainID: testChain0,
+		CounterpartyChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			CounterpartyChannelID: testChannel0,
-			CounterpartyPortID:    testPort0,
+			CounterpartyPortID:    testPort,
 		},
 	}
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannelWithSpecificPort), "does not allow channel with port to be relayed, even though there is no port in the allow filter")
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterPartyChannelWithSpecificPort), "does not allow channel with port to be relayed, even though there is no port in the allow filter")
 
-	// channel not on allow list
-	mockBlockedChannel := ChainChannelKey{
-		ChainID: testChain0,
+	// channel and counterparty channel not on allow list
+	mockNotAllowedChannel := ChainChannelKey{
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel2,
 		},
 	}
-
-	mockBlockedCounterpartyChannel := ChainChannelKey{
-		CounterpartyChainID: testChain0,
+	mockNotAllowedCounterpartyChannel := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			CounterpartyChannelID: testChannel2,
 		},
 	}
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedChannel), "allows channel to be relayed, even though portID is not in allow list")
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedCounterpartyChannel), "allows channel to be relayed, even though portID is not in allow list")
-}
 
-func TestBlockedChannel(t *testing.T) {
-	mockBlockedChannel := ChainChannelKey{
-		ChainID: testChain0,
-		ChannelKey: ChannelKey{
-			ChannelID: testChannel0,
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
+
+		channelStateCache: ChannelStateCache{
+			mockAllowedChannel.ChannelKey:                      ChannelState{Open: true},
+			mockAllowedCounterPartyChannel.ChannelKey:          ChannelState{Open: true},
+			mockAllowedChannelWithSpecificPort.ChannelKey:      ChannelState{Open: true},
+			mockCounterPartyChannelWithSpecificPort.ChannelKey: ChannelState{Open: true},
+			mockNotAllowedChannel.ChannelKey:                   ChannelState{Open: true},
+			mockNotAllowedCounterpartyChannel.ChannelKey:       ChannelState{Open: true},
 		},
 	}
 
-	mockBlockedCounterPartyChannel := ChainChannelKey{
-		CounterpartyChainID: testChain0,
-		ChannelKey: ChannelKey{
-			CounterpartyChannelID: testChannel0,
-		},
-	}
-
-	mockDenyList := []ChainChannelKey{
-		mockBlockedChannel,
-		mockBlockedCounterPartyChannel,
-	}
-
-	mockPathEnd := PathEnd{
-		Rule:       RuleDenyList,
-		FilterList: mockDenyList,
-	}
-
-	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
-
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedChannel), "allows channel to be relayed, even though channelID is not in allow list")
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedCounterPartyChannel), "allows channel to be relayed, even though channelID is not in allow list")
-
-	// same blocked channels except with specific port
-	mockBlockedChannelWithSpecificPort := ChainChannelKey{
-		ChainID: testChain0,
-		ChannelKey: ChannelKey{
-			ChannelID: testChannel0,
-			PortID:    testPort0,
-		},
-	}
-
-	mockBlockedCounterPartyChannelWithSpecificPort := ChainChannelKey{
-		CounterpartyChainID: testChain0,
-		ChannelKey: ChannelKey{
-			CounterpartyChannelID: testChannel0,
-			PortID:                testPort0,
-		},
-	}
-
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedChannelWithSpecificPort), "allows channel to be relayed, even though channel/portID is not in allow list")
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedCounterPartyChannelWithSpecificPort), "allows channel to be relayed, even though channel/portID is not in allow list")
-
-	// not on blocked list
-	mockAllowedChannel := ChainChannelKey{
-		ChainID: testChain0,
-		ChannelKey: ChannelKey{
-			ChannelID: testChannel2,
-		},
-	}
-
-	mockAllowedCounterpartyChannel := ChainChannelKey{
-		CounterpartyChainID: testChain0,
-		ChannelKey: ChannelKey{
-			CounterpartyChannelID: testChannel2,
-		},
-	}
+	// allowed channels, no port
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though channelID is in allow list")
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedCounterpartyChannel), "does not allow channel to be relayed, even though channelID is in allow list")
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedCounterPartyChannel), "does not allow counterparty channel to be relayed, even though channelID is in allow list")
+
+	// allowed channels with port
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannelWithSpecificPort), "does not allow channel with specified port to be relayed, even though there is no port in the allow filter")
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterPartyChannelWithSpecificPort), "does not allow counterparty channel with specified port to be relayed, even though there is no port in the allow filter")
+
+	// channels not included in allow list
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockNotAllowedChannel), "allows channel to be relayed, even though channelID is not in allow list")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockNotAllowedCounterpartyChannel), "allows channel to be relayed, even though channelID is not in allow list")
 }
 
-func TestAllowChannelOnlyWithSpecificPort(t *testing.T) {
+func TestAllowChannelFilterWithChannelClosed(t *testing.T) {
 	mockAllowedChannel := ChainChannelKey{
-		ChainID: testChain0,
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel0,
-			PortID:    testPort0,
 		},
 	}
 
-	mockAllowList := []ChainChannelKey{
-		mockAllowedChannel,
+	mockAllowedCounterPartyChannel := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel1,
+		},
 	}
 
 	mockPathEnd := PathEnd{
-		Rule:       RuleAllowList,
-		FilterList: mockAllowList,
+		Rule: RuleAllowList,
+		FilterList: []ChainChannelKey{
+			mockAllowedChannel,
+		},
 	}
 
-	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
+	// channel state, open is false
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
 
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "does not allow port to be relayed on, even though portID is in allow list")
+		channelStateCache: ChannelStateCache{
+			mockAllowedChannel.ChannelKey:             ChannelState{Open: false},
+			mockAllowedCounterPartyChannel.ChannelKey: ChannelState{Open: false},
+		},
+	}
 
-	// same path without designated port
-	mockChannelWithOutPort := ChainChannelKey{
-		ChainID: testChain0,
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "allowed channel to be relayed, even though channel state is closed")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedCounterPartyChannel), "allowed counterparty channel to be relayed, even though channel state is closed")
+
+}
+
+func TestDenyChannelFilter(t *testing.T) {
+	mockBlocked := ChainChannelKey{
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel0,
 		},
 	}
 
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannelWithOutPort), "allows port to be relayed on, even though portID is not in allow list")
+	mockBlockedCounterparty := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel0,
+		},
+	}
+
+	// blocked channels added to deny list
+	mockPathEnd := PathEnd{
+		Rule: RuleDenyList,
+		FilterList: []ChainChannelKey{
+			mockBlocked,
+		},
+	}
+
+	// same channel and counterparty channel as above except has designated port
+	// need to add these to the channelStateCache
+	// these should not allowed to relay b/c the channels were added to the denylist
+	mockBlockedChannelWithSpecificPort := ChainChannelKey{
+		ChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel0,
+			PortID:    testPort,
+		},
+	}
+	mockBlockedCounterPartyChannelWithSpecificPort := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel0,
+			CounterpartyPortID:    testPort,
+		},
+	}
+
+	// channel and counterparty channel not added to deny list
+	mockNotBlocked := ChainChannelKey{
+		ChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel2,
+		},
+	}
+
+	mockNotBlockedCounterparty := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel2,
+		},
+	}
+
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
+
+		channelStateCache: ChannelStateCache{
+			mockBlocked.ChannelKey:                                    ChannelState{Open: true},
+			mockBlockedCounterparty.ChannelKey:                        ChannelState{Open: true},
+			mockBlockedChannelWithSpecificPort.ChannelKey:             ChannelState{Open: true},
+			mockBlockedCounterPartyChannelWithSpecificPort.ChannelKey: ChannelState{Open: true},
+			mockNotBlocked.ChannelKey:                                 ChannelState{Open: true},
+			mockNotBlockedCounterparty.ChannelKey:                     ChannelState{Open: true},
+		},
+	}
+
+	// channels added to deny list
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlocked), "allows channel to be relayed, even though channelID is in deny list")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedCounterparty), "allows channel to be relayed, even though channelID is in deny list")
+
+	// channels added to deny list with specific port
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedChannelWithSpecificPort), "allows channel to be relayed, even though channel is in deny list")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlockedCounterPartyChannelWithSpecificPort), "allows channel to be relayed, even though channel is in deny list")
+
+	// channels not included in deny list
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockNotBlocked), "does not allow channel to be relayed, even though channelID is not in deny list")
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockNotBlockedCounterparty), "does not allow channel to be relayed, even though channelID is not in deny list")
+
+}
+
+func TestAllowChannelFilterWithSpecificPort(t *testing.T) {
+	mockAllowedChannelWithPort := ChainChannelKey{
+		ChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel0,
+			PortID:    testPort,
+		},
+	}
+
+	mockAllowedCounterpartyWithPort := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel0,
+			CounterpartyPortID:    testPort,
+		},
+	}
+
+	mockPathEnd := PathEnd{
+		Rule: RuleAllowList,
+		FilterList: []ChainChannelKey{
+			mockAllowedChannelWithPort,
+		},
+	}
+
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
+
+		channelStateCache: ChannelStateCache{
+			mockAllowedChannelWithPort.ChannelKey:      ChannelState{Open: true},
+			mockAllowedCounterpartyWithPort.ChannelKey: ChannelState{Open: true},
+		},
+	}
+
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannelWithPort), "does not allow port to be relayed on, even though portID is in allow list")
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedCounterpartyWithPort), "does not allow port to be relayed on, even though portID is in allow list")
+
+	// same channel without designated port
+	mockAllowedChannelWithOutPort := ChainChannelKey{
+		ChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel0,
+		},
+	}
+
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannelWithOutPort), "allows port to be relayed on, even though portID is not in allow list")
 }
 
 func TestDenyChannelWithSpecificPort(t *testing.T) {
-	mockDeniedChannel := ChainChannelKey{
-		ChainID: testChain0,
+	mockDeniedChannelWithPort := ChainChannelKey{
+		ChainID: testChainID0,
 		ChannelKey: ChannelKey{
 			ChannelID: testChannel0,
-			PortID:    testPort0,
+			PortID:    testPort,
 		},
 	}
 
-	mockDenyList := []ChainChannelKey{
-		mockDeniedChannel,
+	mockCounterpartyDeniedChannelWithPort := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel0,
+			CounterpartyPortID:    testPort,
+		},
+	}
+
+	// same path with different port
+	mockChannelWithAllowedPort := ChainChannelKey{
+		ChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			ChannelID: testChannel0,
+			PortID:    testPort2,
+		},
+	}
+
+	mocCounterpartykChannelWithAllowedPort := ChainChannelKey{
+		CounterpartyChainID: testChainID0,
+		ChannelKey: ChannelKey{
+			CounterpartyChannelID: testChannel0,
+			CounterpartyPortID:    testPort2,
+		},
 	}
 
 	mockPathEnd := PathEnd{
-		Rule:       RuleDenyList,
-		FilterList: mockDenyList,
-	}
-
-	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
-
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockDeniedChannel), "allows port to be relayed on, even though portID is not in allow list")
-
-	// same path with different port
-	mockChannelWithOutPort := ChainChannelKey{
-		ChainID: testChain0,
-		ChannelKey: ChannelKey{
-			ChannelID: testChannel0,
-			PortID:    testPort1,
+		Rule: RuleDenyList,
+		FilterList: []ChainChannelKey{
+			mockDeniedChannelWithPort,
 		},
 	}
 
-	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockChannelWithOutPort), "does not allow port to be relayed on, even though portID is in allow list")
+	// don't cache port in runtime
+	mockPathEndRuntime := pathEndRuntime{
+		log:  zaptest.NewLogger(t),
+		info: mockPathEnd,
+
+		channelStateCache: ChannelStateCache{
+			mockDeniedChannelWithPort.ChannelKey:              ChannelState{Open: true},
+			mockCounterpartyDeniedChannelWithPort.ChannelKey:  ChannelState{Open: true},
+			mockChannelWithAllowedPort.ChannelKey:             ChannelState{Open: true},
+			mocCounterpartykChannelWithAllowedPort.ChannelKey: ChannelState{Open: true},
+		},
+	}
+
+	// channels and ports added to deny list
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockDeniedChannelWithPort), "allows port to be relayed on, even though portID is in deny list")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyDeniedChannelWithPort), "allows port to be relayed on, even though portID is in deny list")
+
+	// same channels with different ports
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockChannelWithAllowedPort), "does not allow port to be relayed on, even though portID is not in deny list")
+	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mocCounterpartykChannelWithAllowedPort), "does not allow port to be relayed on, even though portID is not in deny list")
+
 }
