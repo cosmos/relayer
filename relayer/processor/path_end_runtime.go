@@ -890,13 +890,6 @@ func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKe
 	if pe.Rule == RuleAllowList {
 		for _, allowedChannel := range pe.FilterList {
 			if pe.shouldRelayChannelSingle(chainChannelKey, allowedChannel, true) {
-				if !pathEnd.channelStateCache[chainChannelKey.ChannelKey].Open {
-					pathEnd.log.Warn("Closed channel in allowlist",
-						zap.String("chain-id", chainChannelKey.ChannelKey.ChannelID),
-						zap.String("counterparty-chain-id", chainChannelKey.CounterpartyChainID),
-						zap.Inline(chainChannelKey.ChannelKey),
-					)
-				}
 				return true
 			}
 		}

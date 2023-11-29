@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -127,19 +126,7 @@ func TestAllowChannelFilter(t *testing.T) {
 		},
 	}
 
-	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
-		info: mockPathEnd,
-
-		channelStateCache: ChannelStateCache{
-			mockAllowedChannel.ChannelKey:                      ChannelState{Open: true},
-			mockAllowedCounterPartyChannel.ChannelKey:          ChannelState{Open: true},
-			mockAllowedChannelWithSpecificPort.ChannelKey:      ChannelState{Open: true},
-			mockCounterPartyChannelWithSpecificPort.ChannelKey: ChannelState{Open: true},
-			mockNotAllowedChannel.ChannelKey:                   ChannelState{Open: true},
-			mockNotAllowedCounterpartyChannel.ChannelKey:       ChannelState{Open: true},
-		},
-	}
+	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
 
 	// allowed channels, no port
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "does not allow channel to be relayed, even though channelID is in allow list")
@@ -250,15 +237,7 @@ func TestAllowChannelFilterWithSpecificPort(t *testing.T) {
 		},
 	}
 
-	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
-		info: mockPathEnd,
-
-		channelStateCache: ChannelStateCache{
-			mockAllowedChannelWithPort.ChannelKey:      ChannelState{Open: true},
-			mockAllowedCounterpartyWithPort.ChannelKey: ChannelState{Open: true},
-		},
-	}
+	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
 
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannelWithPort), "does not allow port to be relayed on, even though portID is in allow list")
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedCounterpartyWithPort), "does not allow port to be relayed on, even though portID is in allow list")
