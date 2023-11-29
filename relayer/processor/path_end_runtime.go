@@ -885,8 +885,6 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
 
 // if no filter rule, allow all channels but ensure channels are relevant to the pathEndRuntime,
 // ie, the channel is relevant to a src<->dest chain in the path section of the relayer config
-
-// also, make sure the channel is open before returning true
 func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKey) bool {
 	pe := pathEnd.info
 	if pe.Rule == RuleAllowList {
@@ -898,7 +896,6 @@ func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKe
 						zap.String("counterparty-chain-id", chainChannelKey.CounterpartyChainID),
 						zap.Inline(chainChannelKey.ChannelKey),
 					)
-					return false
 				}
 				return true
 			}
@@ -910,26 +907,14 @@ func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKe
 				return false
 			}
 		}
-		return pathEnd.checkChannelOpen(chainChannelKey)
+		return true
 	}
 	// if no filter rule, iterate through cached channels on client/connection for pathEnd
 	// only return true if channel is built on top of a client for this pathEnd
 	for ch := range pathEnd.channelStateCache {
 		if ch == chainChannelKey.ChannelKey {
-			return pathEnd.checkChannelOpen(chainChannelKey)
+			return true
 		}
 	}
 	return false
-}
-
-func (pathEnd *pathEndRuntime) checkChannelOpen(chainChannelKey ChainChannelKey) bool {
-	if !pathEnd.channelStateCache[chainChannelKey.ChannelKey].Open {
-		pathEnd.log.Debug("Ignoring closed channel",
-			zap.String("chain-id", chainChannelKey.ChannelKey.ChannelID),
-			zap.String("counterparty-chain-id", chainChannelKey.CounterpartyChainID),
-			zap.Inline(chainChannelKey.ChannelKey),
-		)
-		return false
-	}
-	return true
 }

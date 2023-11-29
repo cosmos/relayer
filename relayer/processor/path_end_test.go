@@ -37,7 +37,6 @@ func TestNoChannelFilter(t *testing.T) {
 	}
 
 	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
 		info: mockPathEnd,
 
 		channelStateCache: ChannelStateCache{
@@ -69,36 +68,6 @@ func TestNoChannelFilter(t *testing.T) {
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChanne2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
 
-}
-
-func TestNoChannelFilterWithClosedChannel(t *testing.T) {
-	mockPathEnd := PathEnd{}
-
-	mockChannel := ChainChannelKey{
-		ChannelKey: ChannelKey{
-			ChannelID: testChannel0,
-		},
-	}
-
-	mockCounterpartyChannel := ChainChannelKey{
-		ChannelKey: ChannelKey{
-			CounterpartyChannelID: testChannel1,
-		},
-	}
-
-	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
-		info: mockPathEnd,
-
-		channelStateCache: ChannelStateCache{
-			mockChannel.ChannelKey:             ChannelState{Open: false},
-			mockCounterpartyChannel.ChannelKey: ChannelState{Open: false},
-		},
-	}
-
-	// should not relay because channel is closed
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel), "allowed channel to be relayed, even though the channel is closed")
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChannel), "allowed counterparty channel to be relayed, even though the channel is closed")
 }
 
 func TestAllowChannelFilter(t *testing.T) {
@@ -185,44 +154,6 @@ func TestAllowChannelFilter(t *testing.T) {
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockNotAllowedCounterpartyChannel), "allows channel to be relayed, even though channelID is not in allow list")
 }
 
-func TestAllowChannelFilterWithChannelClosed(t *testing.T) {
-	mockAllowedChannel := ChainChannelKey{
-		ChainID: testChainID0,
-		ChannelKey: ChannelKey{
-			ChannelID: testChannel0,
-		},
-	}
-
-	mockAllowedCounterPartyChannel := ChainChannelKey{
-		CounterpartyChainID: testChainID0,
-		ChannelKey: ChannelKey{
-			CounterpartyChannelID: testChannel1,
-		},
-	}
-
-	mockPathEnd := PathEnd{
-		Rule: RuleAllowList,
-		FilterList: []ChainChannelKey{
-			mockAllowedChannel,
-		},
-	}
-
-	// channel state, open is false
-	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
-		info: mockPathEnd,
-
-		channelStateCache: ChannelStateCache{
-			mockAllowedChannel.ChannelKey:             ChannelState{Open: false},
-			mockAllowedCounterPartyChannel.ChannelKey: ChannelState{Open: false},
-		},
-	}
-
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedChannel), "allowed channel to be relayed, even though channel state is closed")
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockAllowedCounterPartyChannel), "allowed counterparty channel to be relayed, even though channel state is closed")
-
-}
-
 func TestDenyChannelFilter(t *testing.T) {
 	mockBlocked := ChainChannelKey{
 		ChainID: testChainID0,
@@ -279,19 +210,7 @@ func TestDenyChannelFilter(t *testing.T) {
 		},
 	}
 
-	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
-		info: mockPathEnd,
-
-		channelStateCache: ChannelStateCache{
-			mockBlocked.ChannelKey:                                    ChannelState{Open: true},
-			mockBlockedCounterparty.ChannelKey:                        ChannelState{Open: true},
-			mockBlockedChannelWithSpecificPort.ChannelKey:             ChannelState{Open: true},
-			mockBlockedCounterPartyChannelWithSpecificPort.ChannelKey: ChannelState{Open: true},
-			mockNotBlocked.ChannelKey:                                 ChannelState{Open: true},
-			mockNotBlockedCounterparty.ChannelKey:                     ChannelState{Open: true},
-		},
-	}
+	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
 
 	// channels added to deny list
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockBlocked), "allows channel to be relayed, even though channelID is in deny list")
@@ -396,18 +315,7 @@ func TestDenyChannelWithSpecificPort(t *testing.T) {
 		},
 	}
 
-	// don't cache port in runtime
-	mockPathEndRuntime := pathEndRuntime{
-		log:  zaptest.NewLogger(t),
-		info: mockPathEnd,
-
-		channelStateCache: ChannelStateCache{
-			mockDeniedChannelWithPort.ChannelKey:              ChannelState{Open: true},
-			mockCounterpartyDeniedChannelWithPort.ChannelKey:  ChannelState{Open: true},
-			mockChannelWithAllowedPort.ChannelKey:             ChannelState{Open: true},
-			mocCounterpartykChannelWithAllowedPort.ChannelKey: ChannelState{Open: true},
-		},
-	}
+	mockPathEndRuntime := pathEndRuntime{info: mockPathEnd}
 
 	// channels and ports added to deny list
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockDeniedChannelWithPort), "allows port to be relayed on, even though portID is in deny list")
