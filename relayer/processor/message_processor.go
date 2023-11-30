@@ -35,7 +35,13 @@ type messageProcessor struct {
 }
 
 // catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
-var promErrorCatagories = []error{chantypes.ErrRedundantTx, legacyerrors.ErrInsufficientFunds, legacyerrors.ErrInvalidCoins, legacyerrors.ErrOutOfGas, legacyerrors.ErrWrongSequence}
+var promErrorCatagories = []error{
+	chantypes.ErrRedundantTx,
+	legacyerrors.ErrInsufficientFunds,
+	legacyerrors.ErrInvalidCoins,
+	legacyerrors.ErrOutOfGas,
+	legacyerrors.ErrWrongSequence,
+}
 
 // trackMessage stores the message tracker in the correct slice and index based on the type.
 func (mp *messageProcessor) trackMessage(tracker messageToTrack, i int) {
@@ -374,15 +380,7 @@ func (mp *messageProcessor) sendClientUpdate(
 			zap.Error(err),
 		)
 
-		for _, promError := range promErrorCatagories {
-			if mp.metrics != nil {
-				if errors.Is(err, promError) {
-					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
-				} else {
-					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
-				}
-			}
-		}
+		mp.metricParseTxFailureCatagory(err, src)
 		return
 	}
 	dst.log.Debug("Client update broadcast completed")
@@ -477,15 +475,7 @@ func (mp *messageProcessor) sendBatchMessages(
 			zap.Error(err),
 		}
 
-		for _, promError := range promErrorCatagories {
-			if mp.metrics != nil {
-				if errors.Is(err, promError) {
-					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
-				} else {
-					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
-				}
-			}
-		}
+		mp.metricParseTxFailureCatagory(err, src)
 
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			mp.log.Debug("Redundant message(s)", errFields...)
@@ -564,15 +554,7 @@ func (mp *messageProcessor) sendSingleMessage(
 			zap.String("dst_client_id", dst.info.ClientID),
 		}
 
-		for _, promError := range promErrorCatagories {
-			if mp.metrics != nil {
-				if errors.Is(err, promError) {
-					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
-				} else {
-					mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
-				}
-			}
-		}
+		mp.metricParseTxFailureCatagory(err, src)
 
 		errFields = append(errFields, zap.Object("msg", tracker))
 		errFields = append(errFields, zap.Error(err))
@@ -585,4 +567,18 @@ func (mp *messageProcessor) sendSingleMessage(
 	}
 
 	dst.log.Debug(fmt.Sprintf("Successfully broadcasted %s message", msgType), zap.Object("msg", tracker))
+}
+
+func (mp *messageProcessor) metricParseTxFailureCatagory(err error, src *pathEndRuntime) {
+	if mp.metrics == nil {
+		return
+	}
+
+	for _, promError := range promErrorCatagories {
+		if errors.Is(err, promError) {
+			mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, promError.Error())
+			return
+		}
+	}
+	mp.metrics.IncTxFailure(src.info.PathName, src.info.ChainID, "Tx Failure")
 }
