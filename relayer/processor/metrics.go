@@ -18,6 +18,8 @@ type PrometheusMetrics struct {
 	BlockQueryFailure     *prometheus.CounterVec
 	ClientExpiration      *prometheus.GaugeVec
 	ClientTrustingPeriod  *prometheus.GaugeVec
+	UnrelayedPackets      *prometheus.GaugeVec
+	UnrelayedAcks         *prometheus.GaugeVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(pathName, chain, channel, port, eventType string, count int) {
@@ -56,6 +58,14 @@ func (m *PrometheusMetrics) IncTxFailure(pathName, chain, errDesc string) {
 	m.TxFailureError.WithLabelValues(pathName, chain, errDesc).Inc()
 }
 
+func (m *PrometheusMetrics) SetUnrelayedPackets(pathName, srcChain, destChain, srcChannel, destChannel string, unrelayedPackets int) {
+	m.UnrelayedPackets.WithLabelValues(pathName, srcChain, destChain, srcChain, destChannel).Set(float64(unrelayedPackets))
+}
+
+func (m *PrometheusMetrics) SetUnrelayedAcks(pathName, srcChain, destChain, srcChannel, destChannel string, unrelayedPackets int) {
+	m.UnrelayedAcks.WithLabelValues(pathName, srcChain, destChain, srcChain, destChannel).Set(float64(unrelayedPackets))
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path_name", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
@@ -64,6 +74,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
 	clientTrustingPeriodLables := []string{"path_name", "chain", "client_id"}
+	unrelayedSeqsLabels := []string{"path_name", "src_chain", "dest_chain", "src_channel", "dest_channel"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -104,5 +115,13 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_client_trusting_period_seconds",
 			Help: "The trusting period (in seconds) of the client",
 		}, clientTrustingPeriodLables),
+		UnrelayedPackets: registerer.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cosmos_relayer_unrelayed_packets",
+			Help: "Current number of unrelayed packets on both the source and destinations chains on a specific path and channel",
+		}, unrelayedSeqsLabels),
+		UnrelayedAcks: registerer.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cosmos_relayer_unrelayed_acks",
+			Help: "Current number of unrelayed acknoledgments on both the source and destinations chains on a specific path and channel",
+		}, unrelayedSeqsLabels),
 	}
 }

@@ -296,12 +296,14 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 
 func (pp *PathProcessor) handleFlush(ctx context.Context) {
 	flushTimer := pp.flushInterval
-	if err := pp.flush(ctx); err != nil {
+	channelKeysList, err := pp.flush(ctx)
+	if err != nil {
 		pp.log.Warn("Flush not complete", zap.Error(err))
 		flushTimer = flushFailureRetry
 	}
 	pp.flushTimer.Stop()
 	pp.flushTimer = time.NewTimer(flushTimer)
+	pp.updateUnrelayedPacketMetric(ctx, channelKeysList)
 }
 
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
