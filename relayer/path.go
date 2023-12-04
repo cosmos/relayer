@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
@@ -12,8 +13,9 @@ import (
 )
 
 const (
-	check = "✔"
-	xIcon = "✘"
+	check   = "✔"
+	xIcon   = "✘"
+	EXPIRED = "EXPIRED"
 )
 
 // Paths represent connection paths between chains
@@ -247,6 +249,23 @@ func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithSt
 		return err
 	})
 	if err := eg.Wait(); err != nil || srcCs == nil || dstCs == nil {
+		return out
+	}
+
+	srcExpiration, srcClientInfo, errSrc := QueryClientExpiration(ctx, src, dst)
+	if errSrc != nil {
+		return out
+	}
+
+	dstExpiration, dstClientInfo, errDst := QueryClientExpiration(ctx, dst, src)
+	if errDst != nil {
+		return out
+	}
+
+	srcData := SPrintClientExpiration(src, srcExpiration, srcClientInfo)
+	dstData := SPrintClientExpiration(dst, dstExpiration, dstClientInfo)
+
+	if strings.Contains(srcData, EXPIRED) || strings.Contains(dstData, EXPIRED) {
 		return out
 	}
 	out.Status.Clients = true
