@@ -15,7 +15,7 @@ import (
 const (
 	check   = "✔"
 	xIcon   = "✘"
-	EXPIRED = "EXPIRED"
+	Expired = "EXPIRED"
 )
 
 // Paths represent connection paths between chains
@@ -265,7 +265,7 @@ func (p *Path) QueryPathStatus(ctx context.Context, src, dst *Chain) *PathWithSt
 	srcData := SPrintClientExpiration(src, srcExpiration, srcClientInfo)
 	dstData := SPrintClientExpiration(dst, dstExpiration, dstClientInfo)
 
-	if strings.Contains(srcData, EXPIRED) || strings.Contains(dstData, EXPIRED) {
+	if strings.Contains(srcData, Expired) || strings.Contains(dstData, Expired) {
 		return out
 	}
 	out.Status.Clients = true
