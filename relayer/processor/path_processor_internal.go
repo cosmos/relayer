@@ -1608,9 +1608,10 @@ func (pp *PathProcessor) updateUnrelayedPacketMetric(ctx context.Context, chainC
 // unrelayedSequences returns the unrelayed sequence numbers between two chains
 func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes.Order, ch ChainChannelKey) RelaySequences {
 	var (
-		srcPacketSeq = []uint64{}
-		dstPacketSeq = []uint64{}
-		rs           = RelaySequences{Src: []uint64{}, Dst: []uint64{}}
+		srcPacketSeq                   = []uint64{}
+		dstPacketSeq                   = []uint64{}
+		srcPacketSeqMu, dstPacketSeqMu sync.Mutex
+		rs                             = RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
 	var wg sync.WaitGroup
@@ -1653,7 +1654,9 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 		}
 
 		for _, pc := range res.Commitments {
+			srcPacketSeqMu.Lock()
 			srcPacketSeq = append(srcPacketSeq, pc.Sequence)
+			srcPacketSeqMu.Unlock()
 		}
 	}()
 
@@ -1694,7 +1697,9 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 		}
 
 		for _, pc := range res.Commitments {
+			dstPacketSeqMu.Lock()
 			dstPacketSeq = append(dstPacketSeq, pc.Sequence)
+			dstPacketSeqMu.Unlock()
 		}
 	}()
 
@@ -1702,7 +1707,9 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 		srcUnreceivedPackets, dstUnreceivedPackets []uint64
 	)
 
+	srcPacketSeqMu.Lock()
 	if len(srcPacketSeq) > 0 {
+		srcPacketSeqMu.Unlock()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1731,8 +1738,11 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 			}
 		}()
 	}
+	srcPacketSeqMu.Unlock()
 
+	dstPacketSeqMu.Lock()
 	if len(dstPacketSeq) > 0 {
+		dstPacketSeqMu.Unlock()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1762,6 +1772,7 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 			}
 		}()
 	}
+	dstPacketSeqMu.Unlock()
 	wg.Wait()
 
 	// If this is an UNORDERED channel we can return at this point.
