@@ -21,8 +21,8 @@ Exported metrics:
 | cosmos_relayer_block_query_errors_total       	| The total number of block query failures. The failures are separated into two categories:<br> - "RPC Client"<br> - "IBC Header"                                                                                              	|   Counter |
 | cosmos_relayer_client_expiration_seconds      	| Seconds until the client expires                                                                                                                                                                                             	|   Gauge   |
 | cosmos_relayer_client_trusting_period_seconds 	| The trusting period (in seconds) of the client                                                                                                                                                                               	|   Gauge   |
-| cosmos_relayer_unrelayed_packets                  | Current number of unrelayed packet sequences on a specific path and channel. This is only displayed if you are relaying on a path with an "allowlist" path filter. This is updated after each flush (default is  5 min)       |   Gauge   |
-| cosmos_relayer_unrelayed_acks                     | Current number of unrelayed acknoledgment sequences on a specific path and channel. This is only displayed if you are relaying on a path with an "allowlist" path filter. This is updated after each flush (default is 5 min) |   Gauge   |
+| cosmos_relayer_unrelayed_packets                  | Current number of unrelayed packet sequences on a specific path and channel. This is updated after each flush (default is  5 min)                                                                                             |   Gauge   |
+| cosmos_relayer_unrelayed_acks                     | Current number of unrelayed acknoledgment sequences on a specific path and channel. This is updated after each flush (default is 5 min)                                                                                       |   Gauge   |
 
 
 

@@ -1396,7 +1396,6 @@ SeqLoop:
 // in blocks before the height that the chain processors started querying.
 
 // channelKeysList is a list of channels used to update the unrelayedPackets metric
-// note: this metric is only updated for channels that exist on an "allowlist" path filter
 func (pp *PathProcessor) flush(ctx context.Context) (channelKeysList map[ChainChannelKey]chantypes.Order, err error) {
 	var (
 		commitments1                   = make(map[ChannelKey][]uint64)
@@ -1423,10 +1422,9 @@ func (pp *PathProcessor) flush(ctx context.Context) (channelKeysList map[ChainCh
 		if !pp.pathEnd1.info.ShouldRelayChannel(cck) {
 			continue
 		}
-		// only show stuck packet metrics if there is an allowlist
-		if pp.pathEnd1.info.Rule == RuleAllowList {
-			channelKeysList[cck] = cs.Order
-		}
+
+		// add chainChannelKey to list for prometheus metrics
+		channelKeysList[cck] = cs.Order
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd1, k, commitments1, &commitments1Mu))
 	}
 	for k, cs := range pp.pathEnd2.channelStateCache {
@@ -1441,10 +1439,9 @@ func (pp *PathProcessor) flush(ctx context.Context) (channelKeysList map[ChainCh
 		if !pp.pathEnd2.info.ShouldRelayChannel(cck) {
 			continue
 		}
-		// if we should relay channel, only show stuck packet metrics if there is an allowlist
-		if pp.pathEnd2.info.Rule == RuleAllowList {
-			channelKeysList[cck] = cs.Order
-		}
+
+		// add chainChannelKey to list for prometheus metrics
+		channelKeysList[cck] = cs.Order
 		eg.Go(queryPacketCommitments(ctx, pp.pathEnd2, k, commitments2, &commitments2Mu))
 	}
 
@@ -1610,7 +1607,7 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 	var (
 		srcPacketSeq                   = []uint64{}
 		dstPacketSeq                   = []uint64{}
-		srcPacketSeqMu, dstPacketSeqMu sync.Mutex
+		srcPacketSeqMu, dstPacketSeqMu sync.RWMutex
 		rs                             = RelaySequences{Src: []uint64{}, Dst: []uint64{}}
 	)
 
@@ -1707,9 +1704,9 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 		srcUnreceivedPackets, dstUnreceivedPackets []uint64
 	)
 
-	srcPacketSeqMu.Lock()
+	srcPacketSeqMu.RLock()
 	if len(srcPacketSeq) > 0 {
-		srcPacketSeqMu.Unlock()
+		srcPacketSeqMu.RUnlock()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1738,11 +1735,11 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 			}
 		}()
 	}
-	srcPacketSeqMu.Unlock()
+	srcPacketSeqMu.RUnlock()
 
-	dstPacketSeqMu.Lock()
+	dstPacketSeqMu.RLock()
 	if len(dstPacketSeq) > 0 {
-		dstPacketSeqMu.Unlock()
+		dstPacketSeqMu.RUnlock()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1772,7 +1769,7 @@ func (pp *PathProcessor) unrelayedSequences(ctx context.Context, order chantypes
 			}
 		}()
 	}
-	dstPacketSeqMu.Unlock()
+	dstPacketSeqMu.RUnlock()
 	wg.Wait()
 
 	// If this is an UNORDERED channel we can return at this point.
