@@ -69,11 +69,11 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	return &PrometheusMetrics{
 		Registry: registry,
 		PacketObservedCounter: registerer.NewCounterVec(prometheus.CounterOpts{
-			Name: "cosmos_relayer_observed_packets",
+			Name: "cosmos_relayer_observed_packets_total",
 			Help: "The total number of observed packets",
 		}, packetLabels),
 		PacketRelayedCounter: registerer.NewCounterVec(prometheus.CounterOpts{
-			Name: "cosmos_relayer_relayed_packets",
+			Name: "cosmos_relayer_relayed_packets_total",
 			Help: "The total number of relayed packets",
 		}, packetLabels),
 		LatestHeightGauge: registerer.NewGaugeVec(prometheus.GaugeOpts{
