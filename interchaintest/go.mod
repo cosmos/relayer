@@ -172,7 +172,6 @@ require (
 	github.com/manifoldco/promptui v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20220103164710-9a04d6ca976b // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
@@ -213,13 +212,15 @@ require (
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/rs/cors v1.8.3 // indirect
 	github.com/rs/zerolog v1.31.0 // indirect
+	github.com/sagikazarmark/locafero v0.3.0 // indirect
+	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
-	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.17.0 // indirect
 	github.com/strangelove-ventures/cometbft v0.37.3-0.20231004194858-c01e8d5bcac3 // indirect

@@ -30,6 +30,7 @@ type pathEndRuntime struct {
 	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
+	channelStateCacheMu  sync.RWMutex
 	channelOrderCache    map[string]chantypes.Order
 	latestHeader         provider.IBCHeader
 	ibcHeaderCache       IBCHeaderCache
@@ -403,7 +404,10 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	}
 
 	pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
-	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
+
+	pathEnd.channelStateCacheMu.Lock()
+	pathEnd.channelStateCache = d.ChannelStateCache // Update latest channel open state for chain
+	pathEnd.channelStateCacheMu.Unlock()
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
@@ -902,12 +906,13 @@ func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKe
 		}
 		return true
 	}
-	// if no filter rule, iterate through cached channels on client/connection for pathEnd
-	// only return true if channel is built on top of a client for this pathEnd
-	for ch := range pathEnd.channelStateCache {
-		if ch == chainChannelKey.ChannelKey {
-			return true
-		}
-	}
-	return false
+
+	pathEnd.channelStateCacheMu.RLock()
+	defer pathEnd.channelStateCacheMu.RUnlock()
+
+	// if no filter rule, check if the channel or counterparty channel is in the channelStateCache.
+	// Because channelStateCache only holds channels relevant to the client, we can ensure that the
+	// channel is built on top of a client for this pathEnd
+	_, exists := pathEnd.channelStateCache[chainChannelKey.ChannelKey]
+	return exists
 }
