@@ -13,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	sdkerrors "cosmossdk.io/errors"
+	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
@@ -26,21 +29,20 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	legacyerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
+	feetypes "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	localhost "github.com/cosmos/ibc-go/v8/modules/light-clients/09-localhost"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -173,7 +175,7 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKey, sequenceGuard)
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
-		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+		if strings.Contains(err.Error(), legacyerrors.ErrWrongSequence.Error()) {
 			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
 
@@ -181,7 +183,7 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	}
 
 	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallbacks); err != nil {
-		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+		if strings.Contains(err.Error(), legacyerrors.ErrWrongSequence.Error()) {
 			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
 
@@ -267,8 +269,6 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		if err != nil {
 			return nil, err
 		}
-
-		adjusted = uint64(float64(adjusted) * cc.PCfg.GasAdjustment)
 	}
 
 	//Cannot feegrant your own TX
@@ -302,7 +302,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		// ensure that we allways call done, even in case of an error or panic
 		//defer done()
 
-		if err = tx.Sign(txf, signingKey, txb, false); err != nil {
+		if err = tx.Sign(ctx, txf, signingKey, txb, false); err != nil {
 			return err
 		}
 		return nil
@@ -378,7 +378,7 @@ func (cc *CosmosProvider) broadcastTx(
 		if isFailed {
 			err = cc.sdkError(res.Codespace, res.Code)
 			if err == nil {
-				err = fmt.Errorf("transaction failed to execute")
+				err = fmt.Errorf("transaction failed to execute: codespace: %s, code: %d, log: %s", res.Codespace, res.Code, res.Log)
 			}
 		}
 		cc.LogFailedTx(rlyResp, err, msgs)
@@ -386,10 +386,8 @@ func (cc *CosmosProvider) broadcastTx(
 	}
 	address, err := cc.Address()
 	if err != nil {
-		cc.log.Error(
-			"failed to get relayer bech32 wallet addresss",
-			zap.Error(err),
-		)
+		return fmt.Errorf("failed to get relayer bech32 wallet address: %w", err)
+
 	}
 	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
 
@@ -439,7 +437,7 @@ func (cc *CosmosProvider) waitForTx(
 		// Check for any registered SDK errors
 		err := cc.sdkError(res.Codespace, res.Code)
 		if err == nil {
-			err = fmt.Errorf("transaction failed to execute")
+			err = fmt.Errorf("transaction failed to execute: codespace: %s, code: %d, log: %s", res.Codespace, res.Code, res.RawLog)
 		}
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
@@ -519,6 +517,22 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 			})
 		}
 	}
+
+	// After SDK v0.50, indexed events are no longer provided in the logs on
+	// transaction execution, the response events can be directly used
+	if len(events) == 0 {
+		for _, event := range resp.Events {
+			attributes := make(map[string]string)
+			for _, attribute := range event.Attributes {
+				attributes[attribute.Key] = attribute.Value
+			}
+			events = append(events, provider.RelayerEvent{
+				EventType:  event.Type,
+				Attributes: attributes,
+			})
+		}
+	}
+
 	return events
 }
 
@@ -636,7 +650,7 @@ func (cc *CosmosProvider) buildMessages(
 		return nil, 0, sdk.Coins{}, err
 	}
 
-	if err = tx.Sign(txf, txSignerKey, txb, false); err != nil {
+	if err = tx.Sign(ctx, txf, txSignerKey, txb, false); err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
 
@@ -1013,7 +1027,7 @@ func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionIn
 	counterparty := conntypes.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       defaultChainPrefix,
+		Prefix:       msgOpenInit.CounterpartyCommitmentPrefix,
 	}
 
 	msg := &conntypes.MsgConnectionOpenTry{
@@ -1022,7 +1036,7 @@ func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionIn
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight:          proof.ProofHeight,
 		ProofInit:            proof.ConnectionStateProof,
 		ProofClient:          proof.ClientStateProof,
@@ -1652,6 +1666,9 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 		txf = txf.WithGas(cc.PCfg.MinGasAmount)
 	}
 
+	if cc.PCfg.MaxGasAmount != 0 {
+		txf = txf.WithGas(cc.PCfg.MaxGasAmount)
+	}
 	txf, err = cc.SetWithExtensionOptions(txf)
 	if err != nil {
 		return tx.Factory{}, err
@@ -1660,20 +1677,18 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 }
 
 // AdjustEstimatedGas adjusts the estimated gas usage by multiplying it by the gas adjustment factor
-// and bounding the result by the maximum gas amount option. If the gas usage is zero, the adjusted gas
-// is also zero. If the gas adjustment factor produces an infinite result, an error is returned.
-// max-gas-amount is enforced.
+// and return estimated gas is higher than max gas error. If the gas usage is zero, the adjusted gas
+// is also zero.
 func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 	if gasUsed == 0 {
 		return gasUsed, nil
 	}
+	if cc.PCfg.MaxGasAmount > 0 && gasUsed > cc.PCfg.MaxGasAmount {
+		return 0, fmt.Errorf("estimated gas %d is higher than max gas %d", gasUsed, cc.PCfg.MaxGasAmount)
+	}
 	gas := cc.PCfg.GasAdjustment * float64(gasUsed)
 	if math.IsInf(gas, 1) {
 		return 0, fmt.Errorf("infinite gas used")
-	}
-	// Bound the gas estimate by the max_gas option
-	if cc.PCfg.MaxGasAmount > 0 {
-		gas = math.Min(gas, float64(cc.PCfg.MaxGasAmount))
 	}
 	return uint64(gas), nil
 }
@@ -1688,7 +1703,7 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, error) {
 	extOpts := make([]*types.Any, 0, len(cc.PCfg.ExtensionOptions))
 	for _, opt := range cc.PCfg.ExtensionOptions {
-		max, ok := sdk.NewIntFromString(opt.Value)
+		max, ok := sdkmath.NewIntFromString(opt.Value)
 		if !ok {
 			return txf, fmt.Errorf("invalid opt value")
 		}
@@ -1800,11 +1815,11 @@ func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) 
 
 func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
 	switch resp.Code {
-	case sdkerrors.ErrInvalidRequest.ABCICode():
+	case legacyerrors.ErrInvalidRequest.ABCICode():
 		return status.Error(codes.InvalidArgument, resp.Log)
-	case sdkerrors.ErrUnauthorized.ABCICode():
+	case legacyerrors.ErrUnauthorized.ABCICode():
 		return status.Error(codes.Unauthenticated, resp.Log)
-	case sdkerrors.ErrKeyNotFound.ABCICode():
+	case legacyerrors.ErrKeyNotFound.ABCICode():
 		return status.Error(codes.NotFound, resp.Log)
 	default:
 		return status.Error(codes.Unknown, resp.Log)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -143,6 +143,11 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			overrideUnbondingPeriod, err := cmd.Flags().GetDuration(flagClientUnbondingPeriod)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -210,7 +215,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd))
+			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, a.config.memo(cmd))
 			if err != nil {
 				return err
 			}
@@ -231,6 +236,7 @@ func createClientCmd(a *appState) *cobra.Command {
 	}
 
 	cmd = clientParameterFlags(a.viper, cmd)
+	cmd = clientUnbondingPeriodFlag(a.viper, cmd)
 	cmd = overrideFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	return cmd
@@ -795,6 +801,11 @@ $ %s tx flush demo-path channel-0`,
 				}
 			}
 
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
+			if err != nil {
+				return err
+			}
+
 			ctx, cancel := context.WithTimeout(cmd.Context(), flushTimeout)
 			defer cancel()
 
@@ -811,6 +822,7 @@ $ %s tx flush demo-path channel-0`,
 				relayer.ProcessorEvents,
 				0,
 				nil,
+				stuckPacket,
 			)
 
 			// Block until the error channel sends a message.
@@ -830,6 +842,8 @@ $ %s tx flush demo-path channel-0`,
 
 	cmd = strategyFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = stuckPacketFlags(a.viper, cmd)
+
 	return cmd
 }
 

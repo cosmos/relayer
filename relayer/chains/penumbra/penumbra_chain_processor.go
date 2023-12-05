@@ -8,13 +8,13 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -82,9 +82,9 @@ type msgHandlerParams struct {
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) update(clientInfo clientInfo) {
-	existingClientInfo, ok := l[clientInfo.clientID]
-	if ok && clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+func (l latestClientState) update(clientInfo chains.ClientInfo) {
+	existingClientInfo, ok := l[clientInfo.ClientID]
+	if ok && clientInfo.ConsensusHeight.LT(existingClientInfo.ConsensusHeight) {
 		// height is less than latest, so no-op
 		return
 	}
@@ -92,7 +92,7 @@ func (l latestClientState) update(clientInfo clientInfo) {
 	tp := time.Hour * 2
 
 	// update latest if no existing state or provided consensus height is newer
-	l[clientInfo.clientID] = clientInfo.ClientState(tp)
+	l[clientInfo.ClientID] = clientInfo.ClientState(tp)
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -153,7 +153,7 @@ type queryCyclePersistence struct {
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
-func (pcp *PenumbraChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (pcp *PenumbraChainProcessor) Run(ctx context.Context, initialBlockHistory uint64, _ *processor.StuckPacket) error {
 	minQueryLoopDuration := pcp.chainProvider.PCfg.MinLoopDuration
 	if minQueryLoopDuration == 0 {
 		minQueryLoopDuration = defaultMinQueryLoopDuration
@@ -318,7 +318,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	ppChanged := false
 
-	var latestHeader PenumbraIBCHeader
+	var latestHeader provider.TendermintIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -326,13 +326,13 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
+		var blockRes *chains.Results
 		var ibcHeader provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = pcp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = pcp.chainProvider.BlockResults(queryCtx, &i)
 			return err
 		})
 		eg.Go(func() (err error) {
@@ -347,7 +347,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 			break
 		}
 
-		latestHeader = ibcHeader.(PenumbraIBCHeader)
+		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 
 		heightUint64 := uint64(i)
 
@@ -359,7 +359,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64, true)
+		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.Events, heightUint64, true)
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}
@@ -369,7 +369,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 				// tx was not successful
 				continue
 			}
-			messages := ibcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, true)
+			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, true)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)

@@ -12,8 +12,8 @@ Exported metrics:
 
 |              **Exported Metric**              	|                                                                                                        **Description**                                                                                                       	| **Type** 	|
 |:---------------------------------------------:	|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:	|:--------:	|
-| cosmos_relayer_observed_packets               	| The total number of observed packets                                                                                                                                                                                         	|  Counter 	|
-| cosmos_relayer_relayed_packets                	| The total number of relayed packets                                                                                                                                                                                          	|  Counter 	|
+| cosmos_relayer_observed_packets_total               	| The total number of observed packets                                                                                                                                                                                         	|  Counter 	|
+| cosmos_relayer_relayed_packets_total                	| The total number of relayed packets                                                                                                                                                                                          	|  Counter 	|
 | cosmos_relayer_chain_latest_height            	| The current height of the chain                                                                                                                                                                                              	|   Gauge  	|
 | cosmos_relayer_wallet_balance                 	| The current balance for the relayer's wallet                                                                                                                                                                                 	|   Gauge  	|
 | cosmos_relayer_fees_spent                     	| The amount of fees spent from the relayer's wallet                                                                                                                                                                           	|   Gauge  	|
@@ -35,7 +35,7 @@ By default, the Relayer will automatically update clients (`MsgUpdateClient`) if
 > This auto-update functionality is specifically useful on low trafficked paths where messages aren't regularly being relayed.
 
 
-Alternitavely, you can choose to update clients more frequently by using the `--time-threshold` flag when running the `rly start` command.
+Alternatively, you can choose to update clients more frequently by using the `--time-threshold` flag when running the `rly start` command.
 
 Example:
 
@@ -76,7 +76,25 @@ To remove the feegrant configuration:
 - `rly chains configure feegrant basicallowance kujira --delete`
 
 
+## Stuck Packet
 
+There can be scenarios where a standard flush fails to clear a packet due to differences in the way packets are observed. The standard flush depends on the packet queries working properly. Sometimes the packet queries can miss things that the block scanning performed by the relayer during standard operation wouldn't. For packets affected by this, if they were emitted in recent blocks, the `--block-history` flag can be used to have the standard relayer block scanning start at a block height that many blocks behind the current chain tip. However, if the stuck packet occurred at an old height, farther back than would be reasonable for the `--block-history` scan from historical to current, there is an additional set of flags that can be used to zoom in on the block heights where the stuck packet occurred.
+
+For example, say a relayer is configured between Chain A and B. The relayer was not operational during the time a user on Chain A sends a packet to Chain B. Due to an issue in the queries to Chain A, the typical flush of the relayer does not relay the packet. Say that many days go by before recognition of the issue by the relayer operator. The relayer operator could start up the relayer with a massive `--block-history` to query all blocks from the time of the stuck packet until the current block, but that could take many hours to query through each block. Instead, the relayer operator can flush out the packet by doing the following:
+
+```bash
+rly start $PATH_NAME --stuck-packet-chain-id $CHAIN_A_CHAIN_ID --stuck-packet-height-start $CHAIN_A_STUCK_PACKET_HEIGHT --stuck-packet-height-end $CHAIN_A_STUCK_PACKET_HEIGHT -d
+```
+
+Alternatively, a flush can be run with these flags so that the relayer exits once it is done:
+
+```bash
+rly tx flush $PATH_NAME --stuck-packet-chain-id $CHAIN_A_CHAIN_ID --stuck-packet-height-start $CHAIN_A_STUCK_PACKET_HEIGHT --stuck-packet-height-end $CHAIN_A_STUCK_PACKET_HEIGHT -d
+```
+
+If the `CHAIN_A_STUCK_PACKET_HEIGHT` is not exactly known, the `stuck-packet-height-start` and `stuck-packet-height-end` flags can be placed at heights surrounding the range where the stuck packet is expected to be, for convenience of not needing to dig through every block to determine the exact height.
+
+Note that this narrows the window of visibility that the relayer has into what has happened on the chain, since the relayer is only getting a picture of what happened between `stuck-packet-height-start` and `stuck-packet-height-end` and then starts observing the most recent blocks after that. If a packet was actually relayed properly in between `stuck-packet-height-end` and the chain tip, then the relayer would encounter errors trying to relay a packet that was already relayed. This feature should only be used by advanced users for zooming in on a troublesome packet.
 
 ---
 

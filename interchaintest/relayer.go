@@ -15,9 +15,9 @@ import (
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
+	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -33,7 +33,7 @@ type Relayer struct {
 	cancel context.CancelFunc
 }
 
-// Build returns a relayer interface
+// NewRelayer returns a relayer interface
 func NewRelayer(
 	t *testing.T,
 	config RelayerConfig,
@@ -63,7 +63,7 @@ func (r *Relayer) log() *zap.Logger {
 	return zaptest.NewLogger(r.t)
 }
 
-func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, grpcAddr string) error {
+func (r *Relayer) AddChainConfiguration(_ context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, _ string) error {
 	sys := &relayertest.System{HomeDir: r.home}
 	sys.MustAddChain(r.t, chainConfig.ChainID, cmd.ProviderConfigWrapper{
 		Type: "cosmos",
@@ -300,7 +300,7 @@ func (r *Relayer) start(ctx context.Context, remainingArgs ...string) {
 
 func (r *Relayer) UseDockerNetwork() bool { return false }
 
-func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, env []string) ibc.RelayerExecResult {
+func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, _ []string) ibc.RelayerExecResult {
 	// TODO: env would be ignored for now.
 	// We may want to modify the call to sys() to accept environment overrides,
 	// so this relayer can continue to be used in parallel without environment cross-contamination.
@@ -356,6 +356,16 @@ func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 // SetClientContractHash sets the wasm client contract hash in the chain's config if the counterparty chain in a path used 08-wasm
 // to instantiate the client.
 func (r *Relayer) SetClientContractHash(ctx context.Context, rep ibc.RelayerExecReporter, cfg ibc.ChainConfig, hash string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Relayer) PauseRelayer(ctx context.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Relayer) ResumeRelayer(ctx context.Context) error {
 	//TODO implement me
 	panic("implement me")
 }

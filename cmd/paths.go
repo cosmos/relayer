@@ -364,13 +364,25 @@ func pathsFetchCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fetch",
 		Aliases: []string{"fch"},
-		Short:   "Fetches the json files necessary to setup the paths for the configured chains",
-		Args:    withUsage(cobra.NoArgs),
+		Short:   "Fetches the json files necessary to setup the paths for the configured chains. Passing a chain name will only fetch paths for that chain",
+		Args:    withUsage(cobra.RangeArgs(0, 1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s paths fetch --home %s
-$ %s pth fch`, appName, defaultHome, appName)),
+$ %s paths fetch --testnet
+$ %s pth fch`, appName, defaultHome, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			overwrite, _ := cmd.Flags().GetBool(flagOverwriteConfig)
+			testnet, _ := cmd.Flags().GetBool(flagTestnet)
+
+			// allow the relayer to only pull paths for a specific chain
+			chainReq := ""
+			if len(args) > 0 {
+				chainReq = args[0]
+				_, exist := a.config.Chains[chainReq]
+				if !exist {
+					return fmt.Errorf("chain %s not found in config", chainReq)
+				}
+			}
 
 			return a.performConfigLockingOperation(cmd.Context(), func() error {
 				chains := []string{}
@@ -390,6 +402,11 @@ $ %s pth fch`, appName, defaultHome, appName)),
 						if chainB < chainA {
 							pair = chainB + "-" + chainA
 						}
+
+						if chainReq != "" && !strings.Contains(pair, chainReq) {
+							continue
+						}
+
 						chainCombinations[pair] = true
 					}
 				}
@@ -402,9 +419,15 @@ $ %s pth fch`, appName, defaultHome, appName)),
 						continue
 					}
 
-					// TODO: Don't use github api. Potentially use: https://github.com/eco-stake/cosmos-directory once they integrate IBC data into restAPI. This will avoid rate limits.
+					// TODO: Don't use github api. Potentially use http.get like GetChain() does to avoid rate limits
 					fileName := pthName + ".json"
-					regPath := path.Join("_IBC", fileName)
+					var regPath string
+					if testnet {
+						regPath = path.Join("testnets", "_IBC", fileName)
+					} else {
+						regPath = path.Join("_IBC", fileName)
+
+					}
 					client, _, err := client.Repositories.DownloadContents(cmd.Context(), "cosmos", "chain-registry", regPath, nil)
 					if err != nil {
 						if errors.As(err, new(*github.RateLimitError)) {
@@ -455,5 +478,7 @@ $ %s pth fch`, appName, defaultHome, appName)),
 			})
 		},
 	}
-	return OverwriteConfigFlag(a.viper, cmd)
+	OverwriteConfigFlag(a.viper, cmd)
+	testnetFlag(a.viper, cmd)
+	return cmd
 }

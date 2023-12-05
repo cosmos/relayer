@@ -73,17 +73,15 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		// Inside persistent pre-run because this takes effect after flags are parsed.
-		if log == nil {
-			log, err := newRootLogger(a.viper.GetString("log-format"), a.viper.GetBool("debug"))
-			if err != nil {
-				return err
-			}
-
-			a.log = log
-		}
-
 		// reads `homeDir/config/config.yaml` into `a.Config`
-		return a.loadConfigFile(rootCmd.Context())
+		if err := a.loadConfigFile(rootCmd.Context()); err != nil {
+			return err
+		}
+		// Inside persistent pre-run because this takes effect after flags are parsed.
+		if a.log == nil {
+			a.initLogger("")
+		}
+		return nil
 	}
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
@@ -105,6 +103,12 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	rootCmd.PersistentFlags().String("log-format", "auto", "log output format (auto, logfmt, json, or console)")
 	if err := a.viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
+		panic(err)
+	}
+
+	// Register --log-level flag
+	rootCmd.PersistentFlags().String("log-level", "", "log level format (info, debug, warn, error, panic or fatal)")
+	if err := a.viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		panic(err)
 	}
 
@@ -171,7 +175,7 @@ func Execute() {
 	}
 }
 
-func newRootLogger(format string, debug bool) (*zap.Logger, error) {
+func newRootLogger(format string, logLevel string) (*zap.Logger, error) {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
@@ -191,8 +195,17 @@ func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 	}
 
 	level := zap.InfoLevel
-	if debug {
+	switch logLevel {
+	case "debug":
 		level = zap.DebugLevel
+	case "warn":
+		level = zapcore.WarnLevel
+	case "error":
+		level = zapcore.ErrorLevel
+	case "panic":
+		level = zapcore.PanicLevel
+	case "fatal":
+		level = zapcore.FatalLevel
 	}
 	return zap.New(zapcore.NewCore(
 		enc,

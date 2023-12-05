@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
 )
 
 // RelayerFactory implements the interchaintest RelayerFactory interface.
@@ -13,7 +14,7 @@ type RelayerFactory struct {
 	config RelayerConfig
 }
 
-// LocalRelayerConfig defines parameters for customizing a LocalRelayer.
+// RelayerConfig defines parameters for customizing a LocalRelayer.
 type RelayerConfig struct {
 	Processor           string
 	Memo                string
@@ -27,12 +28,9 @@ func NewRelayerFactory(config RelayerConfig) RelayerFactory {
 }
 
 // Build returns a relayer interface
-func (rf RelayerFactory) Build(
-	t *testing.T,
-	_ *client.Client,
-	networkID string,
-) ibc.Relayer {
-	return NewRelayer(t, rf.config)
+func (rf RelayerFactory) Build(interchaintest.TestName, *client.Client, string) ibc.Relayer {
+	tst := &testing.T{}
+	return NewRelayer(tst, rf.config)
 }
 
 func (RelayerFactory) Capabilities() map[interchaintestrelayer.Capability]bool {

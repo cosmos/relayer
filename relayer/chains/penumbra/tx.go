@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	sdkerrors "cosmossdk.io/errors"
+	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
@@ -20,23 +22,24 @@ import (
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	legacyerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	cosmosproto "github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	ics23 "github.com/cosmos/ics23/go"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
-	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/ibc/v1alpha1"
+	penumbrafee "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/fee/v1alpha1"
+	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/ibc/v1alpha1"
+	penumbranum "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1alpha1"
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
+	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1alpha1"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -279,7 +282,7 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
 }
 
-func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+func parseEventsFromABCIResponse(resp abci.ExecTxResult) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
 	for _, event := range resp.Events {
@@ -314,7 +317,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 
 	txBody := penumbratypes.TransactionBody{
 		Actions:               make([]*penumbratypes.Action, 0),
-		Fee:                   &penumbracrypto.Fee{Amount: &penumbracrypto.Amount{Lo: 0, Hi: 0}},
+		Fee:                   &penumbrafee.Fee{Amount: &penumbranum.Amount{Lo: 0, Hi: 0}},
 		MemoData:              &penumbratypes.MemoData{},
 		TransactionParameters: &penumbratypes.TransactionParameters{},
 	}
@@ -589,7 +592,7 @@ func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvi
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight: clienttypes.Height{
 			RevisionNumber: proofHeight.GetRevisionNumber(),
 			RevisionHeight: proofHeight.GetRevisionHeight(),
@@ -1389,7 +1392,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight:          proof.ProofHeight,
 		ProofInit:            proof.ConnectionStateProof,
 		ProofClient:          proof.ClientStateProof,
@@ -1626,15 +1629,19 @@ func (cc *PenumbraProvider) MsgChannelCloseConfirm(msgCloseInit provider.Channel
 	}), nil
 }
 
-func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	trustedCosmosHeader, ok := trustedHeader.(PenumbraIBCHeader)
+func (cc *PenumbraProvider) MsgUpdateClientHeader(
+	latestHeader provider.IBCHeader,
+	trustedHeight clienttypes.Height,
+	trustedHeader provider.IBCHeader,
+) (ibcexported.ClientMessage, error) {
+	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: PenumbraIBCHeader, actual: %T", trustedHeader)
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: %T, actual: %T", provider.TendermintIBCHeader{}, trustedHeader)
 	}
 
-	latestCosmosHeader, ok := latestHeader.(PenumbraIBCHeader)
+	latestCosmosHeader, ok := latestHeader.(provider.TendermintIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("unsupported IBC header type, expected: PenumbraIBCHeader, actual: %T", latestHeader)
+		return nil, fmt.Errorf("unsupported IBC header type, expected: %T, actual: %T", provider.TendermintIBCHeader{}, latestHeader)
 	}
 
 	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
@@ -1883,7 +1890,7 @@ func (cc *PenumbraProvider) IBCHeaderAtHeight(ctx context.Context, h int64) (pro
 		return nil, err
 	}
 
-	return PenumbraIBCHeader{
+	return provider.TendermintIBCHeader{
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
@@ -2060,7 +2067,7 @@ func (cc *PenumbraProvider) QueryIBCHeader(ctx context.Context, h int64) (provid
 		return nil, err
 	}
 
-	return PenumbraIBCHeader{
+	return provider.TendermintIBCHeader{
 		SignedHeader: lightBlock.SignedHeader,
 		ValidatorSet: lightBlock.ValidatorSet,
 	}, nil
@@ -2091,11 +2098,11 @@ func (cc *PenumbraProvider) QueryABCI(ctx context.Context, req abci.RequestQuery
 
 func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
 	switch resp.Code {
-	case sdkerrors.ErrInvalidRequest.ABCICode():
+	case legacyerrors.ErrInvalidRequest.ABCICode():
 		return status.Error(codes.InvalidArgument, resp.Log)
-	case sdkerrors.ErrUnauthorized.ABCICode():
+	case legacyerrors.ErrUnauthorized.ABCICode():
 		return status.Error(codes.Unauthenticated, resp.Log)
-	case sdkerrors.ErrKeyNotFound.ABCICode():
+	case legacyerrors.ErrKeyNotFound.ABCICode():
 		return status.Error(codes.NotFound, resp.Log)
 	default:
 		return status.Error(codes.Unknown, resp.Log)

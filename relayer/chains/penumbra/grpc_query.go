@@ -18,9 +18,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	sdkerrors "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	legacyerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 )
@@ -37,17 +38,17 @@ func (cc *PenumbraProvider) Invoke(ctx context.Context, method string, req, repl
 
 	// In both cases, we don't allow empty request req (it will panic unexpectedly).
 	if reflect.ValueOf(req).IsNil() {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
+		return sdkerrors.Wrap(legacyerrors.ErrInvalidRequest, "request cannot be nil")
 	}
 
 	// Case 1. Broadcasting a Tx.
 	if reqProto, ok := req.(*tx.BroadcastTxRequest); ok {
 		if !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxRequest)(nil), req)
+			return sdkerrors.Wrapf(legacyerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxRequest)(nil), req)
 		}
 		resProto, ok := reply.(*tx.BroadcastTxResponse)
 		if !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxResponse)(nil), req)
+			return sdkerrors.Wrapf(legacyerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxResponse)(nil), req)
 		}
 
 		broadcastRes, err := cc.TxServiceBroadcast(ctx, reqProto)
@@ -108,7 +109,7 @@ func (cc *PenumbraProvider) RunGRPCQuery(ctx context.Context, method string, req
 		}
 		if height < 0 {
 			return abci.ResponseQuery{}, nil, sdkerrors.Wrapf(
-				sdkerrors.ErrInvalidRequest,
+				legacyerrors.ErrInvalidRequest,
 				"client.Context.Invoke: height (%d) from %q must be >= 0", height, grpctypes.GRPCBlockHeightHeader)
 		}
 

@@ -9,21 +9,22 @@ import (
 	"testing"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -160,37 +161,37 @@ func TestRelayerFeeGrant(t *testing.T) {
 			osmosisChannel := gaiaChans[0].Counterparty
 
 			// Create and Fund User Wallets
-			fundAmount := int64(10_000_000)
+			fundAmount := sdkmath.NewInt(10_000_000)
 
 			// Tiny amount of funding, not enough to pay for a single TX fee (the GRANTER should be paying the fee)
-			granteeFundAmount := int64(10)
+			granteeFundAmount := sdkmath.NewInt(10)
 			granteeKeyPrefix := "grantee1"
 			grantee2KeyPrefix := "grantee2"
 			grantee3KeyPrefix := "grantee3"
 			granterKeyPrefix := "default"
 
 			mnemonicAny := genMnemonic(t)
-			gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, int64(fundAmount), gaia)
+			gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, fundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+			gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKeyPrefix, mnemonicAny, granteeFundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2KeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+			gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2KeyPrefix, mnemonicAny, granteeFundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3KeyPrefix, mnemonicAny, int64(granteeFundAmount), gaia)
+			gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3KeyPrefix, mnemonicAny, granteeFundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			osmosisUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, int64(fundAmount), osmosis)
+			osmosisUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, fundAmount, osmosis)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, int64(fundAmount), gaia)
+			gaiaUser, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, "recipient", mnemonicAny, fundAmount, gaia)
 			require.NoError(t, err)
 
 			mnemonic := gaiaGranterWallet.Mnemonic()
@@ -282,7 +283,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 			r.StartRelayer(ctx, eRep, ibcPath)
 
 			// Send Transaction
-			amountToSend := int64(1_000)
+			amountToSend := sdkmath.NewInt(1_000)
 
 			gaiaDstAddress := types.MustBech32ifyAddressBytes(osmosis.Config().Bech32Prefix, gaiaUser.Address())
 			osmosisDstAddress := types.MustBech32ifyAddressBytes(gaia.Config().Bech32Prefix, osmosisUser.Address())
@@ -422,12 +423,15 @@ func TestRelayerFeeGrant(t *testing.T) {
 							//It's required that TXs be feegranted in a round robin fashion for this chain and message type
 							if isFeegrantedChain && isFeegrantedMsg {
 								fmt.Printf("Msg types: %+v\n", msgs)
-								signers := fullTx.GetSigners()
+
+								signers, _, err := cProv.Cdc.Marshaler.GetMsgV1Signers(fullTx)
+								require.NoError(t, err)
+
 								require.Equal(t, len(signers), 1)
-								granter := fullTx.FeeGranter()
+								granter := fullTx.FeeGranter(cProv.Cdc.Marshaler)
 
 								//Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
-								require.Equal(t, feegrantInfo.granter, granter.String())
+								require.Equal(t, feegrantInfo.granter, string(granter))
 								require.NotEmpty(t, granter)
 
 								for _, msg := range fullTx.GetMsgs() {
@@ -449,7 +453,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 								//Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
 								//In addition, the grantee must be used in round robin fashion
 								//expectedGrantee := nextGrantee(feegrantInfo)
-								actualGrantee := signers[0].String()
+								actualGrantee := string(signers[0])
 								signerList, ok := feegrantMsgSigners[chain]
 								if ok {
 									signerList = append(signerList, actualGrantee)
@@ -457,7 +461,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 								} else {
 									feegrantMsgSigners[chain] = []string{actualGrantee}
 								}
-								fmt.Printf("Chain: %s, msg type: %s, height: %d, signer: %s, granter: %s\n", chain, msgType, curr.Response.Height, actualGrantee, granter.String())
+								fmt.Printf("Chain: %s, msg type: %s, height: %d, signer: %s, granter: %s\n", chain, msgType, curr.Response.Height, actualGrantee, string(granter))
 							}
 							done()
 						}
@@ -512,23 +516,22 @@ func TestRelayerFeeGrant(t *testing.T) {
 			// Test destination wallets have increased funds
 			gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
 			require.NoError(t, err)
-			require.Equal(t, amountToSend, gaiaIBCBalance)
+			require.True(t, amountToSend.Equal(gaiaIBCBalance))
 
 			osmosisIBCBalance, err := gaia.GetBalance(ctx, osmosisDstAddress, osmosisIbcDenom)
 			require.NoError(t, err)
-			require.Equal(t, 3*amountToSend, osmosisIBCBalance)
+			require.True(t, amountToSend.MulRaw(3).Equal(osmosisIBCBalance))
 
 			// Test grantee still has exact amount expected
 			gaiaGranteeIBCBalance, err := gaia.GetBalance(ctx, gaiaGranteeAddr, gaia.Config().Denom)
 			require.NoError(t, err)
-			require.Equal(t, granteeFundAmount, gaiaGranteeIBCBalance)
+			require.True(t, gaiaGranteeIBCBalance.Equal(granteeFundAmount))
 
 			// Test granter has less than they started with, meaning fees came from their account
 			gaiaGranterIBCBalance, err := gaia.GetBalance(ctx, gaiaGranterAddr, gaia.Config().Denom)
 			require.NoError(t, err)
-			require.Less(t, gaiaGranterIBCBalance, fundAmount)
+			require.True(t, gaiaGranterIBCBalance.LT(fundAmount))
 			r.StopRelayer(ctx, eRep)
-
 		})
 	}
 }

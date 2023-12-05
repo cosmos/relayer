@@ -9,13 +9,13 @@ import (
 	"github.com/cometbft/cometbft/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tendermint "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -216,6 +216,7 @@ type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
 	AddKey(name string, coinType uint32, signingAlgorithm string) (output *KeyOutput, err error)
+	UseKey(key string) error
 	RestoreKey(name, mnemonic string, coinType uint32, signingAlgorithm string) (address string, err error)
 	ShowAddress(name string) (address string, err error)
 	ListAddresses() (map[string]string, error)
@@ -403,9 +404,11 @@ type ChainProvider interface {
 	Key() string
 	Address() (string, error)
 	Timeout() string
-	TrustingPeriod(ctx context.Context) (time.Duration, error)
+	TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
+
+	SetRpcAddr(rpcAddr string) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?

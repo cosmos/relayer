@@ -395,8 +395,8 @@ func UnmarshalJSONProviderConfig(data []byte, customTypes map[string]reflect.Typ
 	}
 
 	typeName, ok := m["type"].(string)
-		if !ok {
-		return nil, errors.New("cannot find type");
+	if !ok {
+		return nil, errors.New("cannot find type")
 	}
 
 	var provCfg provider.ProviderConfig
@@ -492,6 +492,7 @@ type GlobalConfig struct {
 	Timeout        string `yaml:"timeout" json:"timeout"`
 	Memo           string `yaml:"memo" json:"memo"`
 	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
+	LogLevel       string `yaml:"log-level" json:"log-level"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
@@ -501,6 +502,7 @@ func newDefaultGlobalConfig(memo string) GlobalConfig {
 		Timeout:        "10s",
 		LightCacheSize: 20,
 		Memo:           memo,
+		LogLevel:       "info",
 	}
 }
 

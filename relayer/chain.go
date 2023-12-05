@@ -9,7 +9,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -96,8 +96,8 @@ func (c *Chain) GetSelfVersion() uint64 {
 }
 
 // GetTrustingPeriod returns the trusting period for the chain
-func (c *Chain) GetTrustingPeriod(ctx context.Context) (time.Duration, error) {
-	return c.ChainProvider.TrustingPeriod(ctx)
+func (c *Chain) GetTrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
+	return c.ChainProvider.TrustingPeriod(ctx, overrideUnbondingPeriod)
 }
 
 func (c *Chain) String() string {

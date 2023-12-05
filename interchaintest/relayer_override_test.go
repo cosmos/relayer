@@ -7,13 +7,13 @@ import (
 
 	"github.com/cosmos/relayer/v2/cmd"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
-	interchaintestrly "github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	interchaintestrly "github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -23,13 +23,13 @@ import (
 // is a client-id present in the relative path config. If the override flag is present, the relayer should always
 // attempt to create a new light client and then overwrite the config file if successful.
 func TestClientOverrideFlag(t *testing.T) {
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 
 	client, network := interchaintest.DockerSetup(t)
 	r := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 	).Build(t, client, network)
 
