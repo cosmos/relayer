@@ -173,7 +173,7 @@ func (cc *PenumbraProvider) Timeout() string {
 }
 
 func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
+	return commitmenttypes.NewMerklePrefix([]byte("ibc-data"))
 }
 
 // Address returns the chains configured address as a string
