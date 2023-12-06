@@ -74,12 +74,13 @@ func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string) Codec
 	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	modBasic.RegisterLegacyAminoCodec(encodingConfig.Amino)
 	modBasic.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+
+	ethermintcodecs.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	encodingConfig.Amino.RegisterConcrete(&ethermintcodecs.PubKey{}, ethermintcodecs.PubKeyName, nil)
+	encodingConfig.Amino.RegisterConcrete(&ethermintcodecs.PrivKey{}, ethermintcodecs.PrivKeyName, nil)
+
 	for _, c := range extraCodecs {
 		switch c {
-		case "ethermint":
-			ethermintcodecs.RegisterInterfaces(encodingConfig.InterfaceRegistry)
-			encodingConfig.Amino.RegisterConcrete(&ethermintcodecs.PubKey{}, ethermintcodecs.PubKeyName, nil)
-			encodingConfig.Amino.RegisterConcrete(&ethermintcodecs.PrivKey{}, ethermintcodecs.PrivKeyName, nil)
 		case "injective":
 			injectivecodecs.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 			encodingConfig.Amino.RegisterConcrete(&injectivecodecs.PubKey{}, injectivecodecs.PubKeyName, nil)
