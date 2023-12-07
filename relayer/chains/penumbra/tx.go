@@ -2018,28 +2018,7 @@ var JmtSpec = &ics23.ProofSpec{
 	PrehashKeyBeforeComparison: true,
 }
 
-var ApphashSpec = &ics23.ProofSpec{
-	LeafSpec: &ics23.LeafOp{
-		Prefix:       nil,
-		Hash:         ics23.HashOp_SHA256,
-		Length:       ics23.LengthOp_NO_PREFIX,
-		PrehashKey:   ics23.HashOp_NO_HASH,
-		PrehashValue: ics23.HashOp_NO_HASH,
-	},
-	InnerSpec: &ics23.InnerSpec{
-		Hash:            ics23.HashOp_SHA256,
-		MaxPrefixLength: 0,
-		MinPrefixLength: 0,
-		ChildOrder:      []int32{0, 1},
-		ChildSize:       32,
-		EmptyChild:      nil,
-	},
-	MinDepth:                   0,
-	MaxDepth:                   1,
-	PrehashKeyBeforeComparison: false,
-}
-
-var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
+var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, JmtSpec}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
 func (cc *PenumbraProvider) NewClientState(
