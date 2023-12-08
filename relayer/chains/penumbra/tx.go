@@ -250,9 +250,12 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	maxHeight := status.SyncInfo.LatestBlockHeight
 
 	// Generate a random block height to query between 1 and maxHeight
-	height := rand.Int63n(maxHeight-1) + 1
+	height := rand.Int63n(maxHeight - 1)
+	if height < 0 {
+		height = 0
+	}
 
-	path := fmt.Sprintf("shielded_pool/anchor/%d", height)
+	path := fmt.Sprintf("sct/anchor/%d", height)
 
 	req := abci.RequestQuery{
 		Path:   "state/key",
@@ -263,20 +266,11 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 
 	res, err := cc.QueryABCI(ctx, req)
 	if err != nil {
-		path := fmt.Sprintf("sct/anchor/%d", height)
+		return nil, err
+	}
 
-		req := abci.RequestQuery{
-			Path:   "state/key",
-			Height: maxHeight,
-			Data:   []byte(path),
-			Prove:  false,
-		}
-		res, err := cc.QueryABCI(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-
-		return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
+	if res.Value == nil {
+		return nil, errors.New("no anchor found for height" + strconv.FormatInt(height, 10))
 	}
 
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
