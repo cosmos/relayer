@@ -2,11 +2,9 @@ package penumbra
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,20 +44,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Variables used for retries
 var (
-	rtyAttNum                   = uint(5)
-	rtyAtt                      = retry.Attempts(rtyAttNum)
-	rtyDel                      = retry.Delay(time.Millisecond * 400)
-	rtyErr                      = retry.LastErrorOnly(true)
-	numRegex                    = regexp.MustCompile("[0-9]+")
+	rtyAttNum = uint(5)
+	rtyAtt    = retry.Attempts(rtyAttNum)
+	rtyDel    = retry.Delay(time.Millisecond * 400)
+	rtyErr    = retry.LastErrorOnly(true)
+
 	defaultBroadcastWaitTimeout = 10 * time.Minute
 	errUnknown                  = "unknown"
 )
 
-// Default IBC settings
 var (
-	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
 )
 
@@ -94,7 +89,11 @@ type intoAny interface {
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *PenumbraProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (cc *PenumbraProvider) SendMessage(
+	ctx context.Context,
+	msg provider.RelayerMessage,
+	memo string,
+) (*provider.RelayerTxResponse, bool, error) {
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
@@ -109,85 +108,85 @@ func msgToPenumbraAction(msg sdk.Msg) (*penumbratypes.Action, error) {
 	switch msg.(type) {
 	case *clienttypes.MsgCreateClient:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *clienttypes.MsgUpdateClient:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenInit:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenAck:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenTry:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenConfirm:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenInit:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenTry:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenAck:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenConfirm:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseInit:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseConfirm:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgRecvPacket:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgAcknowledgement:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
@@ -277,29 +276,22 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 }
 
 func parseEventsFromABCIResponse(resp abci.ExecTxResult) []provider.RelayerEvent {
-	var events []provider.RelayerEvent
+	events := make([]provider.RelayerEvent, len(resp.Events))
 
 	for _, event := range resp.Events {
 		attributes := make(map[string]string)
+
 		for _, attribute := range event.Attributes {
-			// The key and value are base64-encoded strings, so we first have to decode them:
-			key, err := base64.StdEncoding.DecodeString(string(attribute.Key))
-			if err != nil {
-				continue
-			}
-			value, err := base64.StdEncoding.DecodeString(string(attribute.Value))
-			if err != nil {
-				continue
-			}
-			attributes[string(key)] = string(value)
+			attributes[attribute.Key] = attribute.Value
 		}
+
 		events = append(events, provider.RelayerEvent{
 			EventType:  event.Type,
 			Attributes: attributes,
 		})
 	}
-	return events
 
+	return events
 }
 
 func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
