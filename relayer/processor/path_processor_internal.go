@@ -1390,6 +1390,12 @@ SeqLoop:
 	return skipped, nil
 }
 
+// Define the Unrelayed struct outside the function
+type Unrelayed struct {
+	Recv uint64
+	Ack  uint64
+}
+
 // flush runs queries to relay any pending messages which may have been
 // in blocks before the height that the chain processors started querying.
 func (pp *PathProcessor) flush(ctx context.Context) error {
@@ -1436,6 +1442,10 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		return fmt.Errorf("failed to query packet commitments: %w", err)
 	}
 
+	// Debug: Print the commitments maps
+	fmt.Println("Commitments1:", commitments1)
+	fmt.Println("Commitments2:", commitments2)
+
 	// From remaining packet commitments, determine if:
 	// 1. Packet commitment is on source, but MsgRecvPacket has not yet been relayed to destination
 	// 2. Packet commitment is on source, and MsgRecvPacket has been relayed to destination, but MsgAcknowledgement has not been written to source to clear the packet commitment.
@@ -1481,24 +1491,78 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
 	}
 
+	// Debug: Print the skipped map
+	fmt.Println("Skipped:", skipped)
+
 	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync)
 	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync)
 
+	// Build a map before the if len(skipped) > 0 check
+	unrelayed := make(map[ChannelKey]Unrelayed)
+
+	// Initialize the map with Recv: 0 and Ack: 0 for each channel in pathEnd1.channelStateCache
+	for k := range pp.pathEnd1.channelStateCache {
+		unrelayed[k] = Unrelayed{Recv: 0, Ack: 0}
+	}
+
+	// Initialize the map with Recv: 0 and Ack: 0 for each channel in pathEnd2.channelStateCache
+	for k := range pp.pathEnd2.channelStateCache {
+		unrelayed[k] = Unrelayed{Recv: 0, Ack: 0}
+	}
+
+	// Update the map with actual counts from the skipped map
+	for _, chainSkipped := range skipped {
+		for channelKey, skipped := range chainSkipped {
+			if _, exists := unrelayed[channelKey]; exists {
+				unrelayed[channelKey] = Unrelayed{Recv: skipped.Recv, Ack: skipped.Ack}
+			}
+		}
+	}
+
+	totalUnrelayed := 0.0 // Initialize a variable to store the total number of unrelayed packets
 	if len(skipped) > 0 {
 		skippedPacketsString := ""
+
 		for chainID, chainSkipped := range skipped {
 			for channelKey, skipped := range chainSkipped {
 				skippedPacketsString += fmt.Sprintf(
 					"{ %s %s %s recv: %d, ack: %d } ",
 					chainID, channelKey.ChannelID, channelKey.PortID, skipped.Recv, skipped.Ack,
 				)
+				totalUnrelayed += float64(skipped.Recv) // Update the total unrelayed count
 			}
 		}
+
 		return fmt.Errorf(
 			"flush was successful, but packets are still pending. %s",
 			skippedPacketsString,
 		)
 	}
+
+	// hard code test if metric is exposed.
+	// pp.metrics.SetUnrelayedPackets("mainnet-kujira-kava", "kujira", "noble", []uint64{1, 2, 3}, []uint64{0}, totalUnrelayed)
+
+	// Real test
+	// Construct pathName from the two chain IDs
+	pathName := fmt.Sprintf("%s-%s", pp.pathEnd1.info.ChainID, pp.pathEnd2.info.ChainID)
+
+	// Extract sequences from skipped packets
+	var srcSequences, dstSequences []uint64
+	for chainID, chainSkipped := range skipped {
+		for channelKey, _ := range chainSkipped {
+			if chainID == pp.pathEnd1.info.ChainID {
+				srcSequences = append(srcSequences, commitments1[channelKey]...)
+			} else {
+				dstSequences = append(dstSequences, commitments2[channelKey]...)
+			}
+		}
+	}
+
+	// Debug: Print the extracted sequences
+	fmt.Println("SrcSequences:", srcSequences)
+	fmt.Println("DstSequences:", dstSequences)
+
+	pp.metrics.SetUnrelayedPackets(pathName, pp.pathEnd1.info.ChainID, pp.pathEnd2.info.ChainID, srcSequences, dstSequences, totalUnrelayed)
 
 	return nil
 }

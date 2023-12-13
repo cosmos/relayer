@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,6 +19,7 @@ type PrometheusMetrics struct {
 	BlockQueryFailure     *prometheus.CounterVec
 	ClientExpiration      *prometheus.GaugeVec
 	ClientTrustingPeriod  *prometheus.GaugeVec
+	UnrelayedPackets      *prometheus.GaugeVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(pathName, chain, channel, port, eventType string, count int) {
@@ -56,6 +58,18 @@ func (m *PrometheusMetrics) IncTxFailure(pathName, chain, errDesc string) {
 	m.TxFailureError.WithLabelValues(pathName, chain, errDesc).Inc()
 }
 
+func sequenceToString(sequence []uint64) string {
+	var sequenceString string
+	for _, seq := range sequence {
+		sequenceString += strconv.FormatInt(int64(seq), 10)
+	}
+	return sequenceString
+}
+
+func (m *PrometheusMetrics) SetUnrelayedPackets(pathName, srcChain, dstChain string, srcSequence []uint64, dstSequence []uint64, numPackets float64) {
+	m.UnrelayedPackets.WithLabelValues(pathName, srcChain, dstChain, sequenceToString(srcSequence), sequenceToString(dstSequence)).Set(numPackets)
+}
+
 func NewPrometheusMetrics() *PrometheusMetrics {
 	packetLabels := []string{"path_name", "chain", "channel", "port", "type"}
 	heightLabels := []string{"chain"}
@@ -64,6 +78,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 	walletLabels := []string{"chain", "gas_price", "key", "address", "denom"}
 	clientExpirationLables := []string{"path_name", "chain", "client_id", "trusting_period"}
 	clientTrustingPeriodLables := []string{"path_name", "chain", "client_id"}
+	unrelayedLabels := []string{"path_name", "src_chain", "dst_chain", "src_sequence", "dst_sequence"}
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	return &PrometheusMetrics{
@@ -104,5 +119,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "cosmos_relayer_client_trusting_period_seconds",
 			Help: "The trusting period (in seconds) of the client",
 		}, clientTrustingPeriodLables),
+		UnrelayedPackets: registerer.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cosmos_relayer_unrelayed_packets",
+			Help: "The number of unrelayed packets between two chains",
+		}, unrelayedLabels),
 	}
 }
