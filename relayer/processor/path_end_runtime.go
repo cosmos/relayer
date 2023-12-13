@@ -879,16 +879,19 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
 	}, nil
 }
 
-// if channel ID is non-empty on allowlist, allow only specified channel(s)
-// if channel ID is non-empty on denylist, deny specified channel(s)
-
-// if port ID is empty on allowlist channel, allow all ports
-// if port ID is non-empty on allowlist channel, allow only that specific port
-// if port ID is empty on denylist channel, block all ports
-// if port ID is non-empty on denylist channel, block only that specific port
-
-// if no filter rule, allow all channels but ensure channels are relevant to the pathEndRuntime,
-// ie, the channel is relevant to a src<->dest chain in the path section of the relayer config
+// ShouldRelayChannel determines whether a chain channel (and optionally a port), should be relayed
+// by this path end.
+//
+// It first checks if the channel matches any rule in the path end's filter list. If the channel matches a channel
+// in an allowed list, it returns true. If the channel matches any blocked channel it returns false. Otherwise, it returns true.
+//
+// If no filter rule matches, it checks if the channel or its counterparty is present in the path end's
+// channel state cache. This cache only holds channels relevant to the client for this path end, ensuring
+// the channel belongs to a client connected to this path end.
+//
+// Note that this function only determines whether the channel should be relayed based on the path end's
+// configuration. It does not guarantee that the channel is actually relayable, as other checks
+// (e.g., expired client) may still be necessary.
 func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKey) bool {
 	pe := pathEnd.info
 	if pe.Rule == RuleAllowList {
