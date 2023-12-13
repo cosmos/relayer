@@ -4,8 +4,14 @@
 package daov1alpha1
 
 import (
+	context "context"
 	fmt "fmt"
+	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
+	v1alpha1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/asset/v1alpha1"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -114,9 +120,112 @@ func (m *GenesisContent) GetDaoParams() *DaoParameters {
 	return nil
 }
 
+// Requests the list of all asset balances associated with the DAO.
+type DaoAssetBalancesRequest struct {
+	// The expected chain id (empty string if no expectation).
+	ChainId string `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	// (Optional): The specific asset balances to retrieve, if excluded all will be returned.
+	AssetIds []*v1alpha1.AssetId `protobuf:"bytes,2,rep,name=asset_ids,json=assetIds,proto3" json:"asset_ids,omitempty"`
+}
+
+func (m *DaoAssetBalancesRequest) Reset()         { *m = DaoAssetBalancesRequest{} }
+func (m *DaoAssetBalancesRequest) String() string { return proto.CompactTextString(m) }
+func (*DaoAssetBalancesRequest) ProtoMessage()    {}
+func (*DaoAssetBalancesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2476c8b34dca79f, []int{2}
+}
+func (m *DaoAssetBalancesRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DaoAssetBalancesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DaoAssetBalancesRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DaoAssetBalancesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DaoAssetBalancesRequest.Merge(m, src)
+}
+func (m *DaoAssetBalancesRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *DaoAssetBalancesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DaoAssetBalancesRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DaoAssetBalancesRequest proto.InternalMessageInfo
+
+func (m *DaoAssetBalancesRequest) GetChainId() string {
+	if m != nil {
+		return m.ChainId
+	}
+	return ""
+}
+
+func (m *DaoAssetBalancesRequest) GetAssetIds() []*v1alpha1.AssetId {
+	if m != nil {
+		return m.AssetIds
+	}
+	return nil
+}
+
+// The DAO's balance of a single asset.
+type DaoAssetBalancesResponse struct {
+	// The balance for a single asset.
+	Balance *v1alpha1.Value `protobuf:"bytes,1,opt,name=balance,proto3" json:"balance,omitempty"`
+}
+
+func (m *DaoAssetBalancesResponse) Reset()         { *m = DaoAssetBalancesResponse{} }
+func (m *DaoAssetBalancesResponse) String() string { return proto.CompactTextString(m) }
+func (*DaoAssetBalancesResponse) ProtoMessage()    {}
+func (*DaoAssetBalancesResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2476c8b34dca79f, []int{3}
+}
+func (m *DaoAssetBalancesResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DaoAssetBalancesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DaoAssetBalancesResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DaoAssetBalancesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DaoAssetBalancesResponse.Merge(m, src)
+}
+func (m *DaoAssetBalancesResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *DaoAssetBalancesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DaoAssetBalancesResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DaoAssetBalancesResponse proto.InternalMessageInfo
+
+func (m *DaoAssetBalancesResponse) GetBalance() *v1alpha1.Value {
+	if m != nil {
+		return m.Balance
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*DaoParameters)(nil), "penumbra.core.component.dao.v1alpha1.DaoParameters")
 	proto.RegisterType((*GenesisContent)(nil), "penumbra.core.component.dao.v1alpha1.GenesisContent")
+	proto.RegisterType((*DaoAssetBalancesRequest)(nil), "penumbra.core.component.dao.v1alpha1.DaoAssetBalancesRequest")
+	proto.RegisterType((*DaoAssetBalancesResponse)(nil), "penumbra.core.component.dao.v1alpha1.DaoAssetBalancesResponse")
 }
 
 func init() {
@@ -124,30 +233,146 @@ func init() {
 }
 
 var fileDescriptor_a2476c8b34dca79f = []byte{
-	// 359 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0xd2, 0xb1, 0x6a, 0xe3, 0x30,
-	0x18, 0x07, 0xf0, 0xd8, 0x1c, 0x47, 0xce, 0xc7, 0xdd, 0x90, 0x29, 0x70, 0x60, 0x8e, 0x90, 0x21,
-	0x93, 0xd4, 0x24, 0x9b, 0x4b, 0x97, 0xd8, 0x25, 0x53, 0x8b, 0x49, 0xa1, 0x43, 0x31, 0x84, 0xcf,
-	0x96, 0x68, 0x02, 0xb6, 0x3e, 0x21, 0x29, 0x81, 0xbe, 0x45, 0x9f, 0xa1, 0x63, 0x9f, 0xa4, 0x74,
-	0xca, 0xd8, 0xad, 0xc5, 0xd9, 0xfa, 0x14, 0x45, 0x69, 0xe4, 0xd2, 0xcd, 0x8b, 0xd1, 0x87, 0x7f,
-	0xff, 0xcf, 0x7f, 0x6c, 0x07, 0x44, 0x72, 0xb1, 0xa9, 0x72, 0x05, 0xb4, 0x40, 0xc5, 0x69, 0x81,
-	0x95, 0x44, 0xc1, 0x85, 0xa1, 0x0c, 0x90, 0x6e, 0xc7, 0x50, 0xca, 0x15, 0x8c, 0xed, 0x40, 0xa4,
-	0x42, 0x83, 0xbd, 0xa1, 0xf3, 0xc4, 0x7a, 0xd2, 0x78, 0x62, 0x89, 0xf3, 0x83, 0xcb, 0xe0, 0x4f,
-	0x02, 0x98, 0x82, 0x82, 0x8a, 0x1b, 0xae, 0x74, 0xef, 0x2c, 0xf8, 0xc7, 0x00, 0x97, 0x5a, 0x72,
-	0xc1, 0x96, 0x52, 0xa1, 0x44, 0x0d, 0xa5, 0x5e, 0x72, 0x01, 0x79, 0xc9, 0x59, 0xdf, 0xfb, 0xef,
-	0x8d, 0xba, 0x8b, 0x3e, 0x03, 0xbc, 0xb2, 0x22, 0x75, 0xe0, 0xfc, 0xf3, 0xfe, 0x80, 0x05, 0x7f,
-	0xe7, 0x5c, 0x70, 0xbd, 0xd6, 0x31, 0x0a, 0xc3, 0x85, 0xe9, 0x2d, 0x82, 0xc0, 0x2e, 0x94, 0xf6,
-	0x11, 0xfa, 0x90, 0xff, 0x3d, 0x99, 0x92, 0x36, 0xe5, 0xc8, 0xb7, 0x66, 0x8b, 0x5f, 0xec, 0x38,
-	0xea, 0xd9, 0xab, 0xff, 0x54, 0x87, 0xde, 0xae, 0x0e, 0xbd, 0xb7, 0x3a, 0xf4, 0xee, 0xf7, 0x61,
-	0x67, 0xb7, 0x0f, 0x3b, 0x2f, 0xfb, 0xb0, 0x13, 0x8c, 0x0a, 0xac, 0x5a, 0x6d, 0x9f, 0x75, 0xed,
-	0x7a, 0xfb, 0xaa, 0x52, 0xef, 0x26, 0xbb, 0x5d, 0x9b, 0xd5, 0x26, 0xb7, 0x94, 0x16, 0xa8, 0x2b,
-	0xd4, 0x54, 0xf1, 0x12, 0xee, 0xb8, 0xa2, 0xdb, 0x49, 0x73, 0x2c, 0x56, 0xb0, 0x16, 0x9a, 0xb6,
-	0xf9, 0x10, 0xa7, 0x0c, 0xd0, 0x9d, 0x1f, 0xfc, 0x1f, 0x69, 0x1c, 0x27, 0x8f, 0xfe, 0x30, 0x75,
-	0xbd, 0x62, 0xdb, 0x2b, 0x6e, 0x7a, 0x25, 0x80, 0xe4, 0xfa, 0xa8, 0x9f, 0xbf, 0x58, 0x66, 0x59,
-	0xd6, 0xb0, 0x2c, 0x01, 0xcc, 0x1c, 0xab, 0xfd, 0x93, 0x36, 0x2c, 0x9b, 0xa7, 0xb3, 0x0b, 0x6e,
-	0x80, 0x81, 0x81, 0x77, 0x7f, 0xe4, 0x22, 0x51, 0x64, 0x33, 0xf6, 0x7a, 0x0c, 0x45, 0x51, 0x02,
-	0x18, 0x45, 0x2e, 0x96, 0xff, 0x3c, 0xfc, 0x44, 0xd3, 0x8f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x6b,
-	0xb8, 0xe8, 0xf5, 0x76, 0x02, 0x00, 0x00,
+	// 510 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0x41, 0x8b, 0xd3, 0x40,
+	0x14, 0xc7, 0x37, 0x51, 0xdc, 0x76, 0x56, 0x45, 0x72, 0xb1, 0xae, 0x10, 0x96, 0xba, 0x42, 0x4f,
+	0xc9, 0x6e, 0xf7, 0x16, 0xa9, 0x60, 0x1b, 0x59, 0xf6, 0xa0, 0xc4, 0x2c, 0x2c, 0x28, 0x81, 0xf2,
+	0x9a, 0x79, 0xd8, 0x40, 0x3a, 0x2f, 0xce, 0x4c, 0x8b, 0xfb, 0x2d, 0x04, 0xbf, 0x81, 0x78, 0xf2,
+	0x93, 0x88, 0xa7, 0x3d, 0x7a, 0x53, 0xda, 0x9b, 0x9f, 0x42, 0x26, 0x69, 0xba, 0xec, 0x2a, 0x12,
+	0xbc, 0x84, 0x79, 0xc9, 0xef, 0xff, 0x7f, 0xff, 0x37, 0x93, 0x61, 0x5e, 0x81, 0x62, 0x3e, 0x9b,
+	0x48, 0xf0, 0x53, 0x92, 0xe8, 0xa7, 0x34, 0x2b, 0x48, 0xa0, 0xd0, 0x3e, 0x07, 0xf2, 0x17, 0x87,
+	0x90, 0x17, 0x53, 0x38, 0x34, 0x85, 0x57, 0x48, 0xd2, 0xe4, 0xec, 0xd7, 0xbc, 0x67, 0x78, 0x6f,
+	0xc3, 0x7b, 0x06, 0xa9, 0xf9, 0xdd, 0xde, 0x55, 0x57, 0x50, 0x0a, 0xf5, 0xa5, 0x5b, 0x59, 0x56,
+	0x7e, 0xdd, 0x97, 0xec, 0x4e, 0x08, 0x14, 0x81, 0x84, 0x19, 0x6a, 0x94, 0xca, 0x19, 0xb0, 0x87,
+	0x1c, 0x68, 0xac, 0x0a, 0x14, 0x7c, 0x5c, 0x48, 0x2a, 0x48, 0x41, 0xae, 0xc6, 0x28, 0x60, 0x92,
+	0x23, 0xef, 0x58, 0x7b, 0x56, 0xaf, 0x15, 0x77, 0x38, 0xd0, 0xa9, 0x21, 0xa2, 0x1a, 0x78, 0x5e,
+	0x7d, 0xef, 0x72, 0x76, 0xf7, 0x18, 0x05, 0xaa, 0x4c, 0x8d, 0x48, 0x68, 0x14, 0xda, 0x89, 0x19,
+	0x33, 0x86, 0x85, 0x69, 0xa1, 0x4a, 0xfd, 0x4e, 0xff, 0xc8, 0x6b, 0x32, 0x86, 0x77, 0x25, 0x59,
+	0xdc, 0xe6, 0xeb, 0x52, 0x75, 0xdf, 0xb3, 0xfb, 0x21, 0xd0, 0x33, 0x33, 0xc7, 0x10, 0x72, 0x10,
+	0x29, 0xaa, 0x18, 0xdf, 0xcd, 0x51, 0x69, 0xe7, 0x01, 0x6b, 0xa5, 0x53, 0xc8, 0xc4, 0x38, 0xab,
+	0xc2, 0xb6, 0xe3, 0xed, 0xb2, 0x3e, 0xe1, 0xce, 0x90, 0xb5, 0xcb, 0xd1, 0xc7, 0x19, 0x57, 0x1d,
+	0x7b, 0xef, 0x46, 0x6f, 0xa7, 0xff, 0xf8, 0x5a, 0x90, 0x6a, 0x6b, 0x36, 0x01, 0xca, 0x0e, 0x27,
+	0x3c, 0x6e, 0x41, 0xb5, 0x50, 0xdd, 0xd7, 0xac, 0xf3, 0x67, 0x67, 0x55, 0x90, 0x50, 0xe8, 0x0c,
+	0xd8, 0xf6, 0xa4, 0x7a, 0xb7, 0x1e, 0xf3, 0xd1, 0xbf, 0xdd, 0xcf, 0x20, 0x9f, 0x63, 0x5c, 0x6b,
+	0xfa, 0x9f, 0x2d, 0x76, 0xfb, 0xd5, 0x1c, 0xe5, 0xf9, 0x29, 0xca, 0x45, 0x96, 0xa2, 0xf3, 0xd1,
+	0x62, 0xf7, 0xae, 0x37, 0x73, 0x06, 0x8d, 0xb7, 0xee, 0x6f, 0xdb, 0xb3, 0xfb, 0xf4, 0x7f, 0xe5,
+	0xd5, 0x8c, 0x07, 0xd6, 0xf0, 0x87, 0xfd, 0x75, 0xe9, 0x5a, 0x17, 0x4b, 0xd7, 0xfa, 0xb9, 0x74,
+	0xad, 0x0f, 0x2b, 0x77, 0xeb, 0x62, 0xe5, 0x6e, 0x7d, 0x5f, 0xb9, 0x5b, 0xac, 0x97, 0xd2, 0xac,
+	0x91, 0xff, 0xb0, 0x65, 0x8e, 0xd6, 0xfc, 0x80, 0x91, 0xf5, 0x26, 0x79, 0x9b, 0xe9, 0xe9, 0x7c,
+	0x62, 0x50, 0x3f, 0x25, 0x35, 0x23, 0xe5, 0x4b, 0xcc, 0xe1, 0x1c, 0xa5, 0xbf, 0xe8, 0x6f, 0x96,
+	0xe5, 0x21, 0x2a, 0xbf, 0xc9, 0x75, 0x79, 0xc2, 0x81, 0xea, 0xf5, 0x27, 0xfb, 0x66, 0x34, 0x1a,
+	0x85, 0x5f, 0xec, 0xfd, 0xa8, 0xce, 0x35, 0x32, 0xb9, 0x46, 0x9b, 0x5c, 0x21, 0x90, 0x77, 0xb6,
+	0xa6, 0xbf, 0x5d, 0x62, 0x89, 0xc1, 0x92, 0x0d, 0x96, 0x84, 0x40, 0x49, 0x8d, 0x2d, 0xed, 0x83,
+	0x26, 0x58, 0x72, 0x1c, 0x0d, 0x5f, 0xa0, 0x06, 0x0e, 0x1a, 0x7e, 0xd9, 0xbd, 0x5a, 0x12, 0x04,
+	0x46, 0x63, 0x9e, 0x6b, 0x51, 0x10, 0x84, 0x40, 0x41, 0x50, 0xcb, 0x26, 0xb7, 0xca, 0xab, 0x79,
+	0xf4, 0x3b, 0x00, 0x00, 0xff, 0xff, 0x34, 0x72, 0x78, 0x24, 0x1c, 0x04, 0x00, 0x00,
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// QueryServiceClient is the client API for QueryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type QueryServiceClient interface {
+	DaoAssetBalances(ctx context.Context, in *DaoAssetBalancesRequest, opts ...grpc.CallOption) (QueryService_DaoAssetBalancesClient, error)
+}
+
+type queryServiceClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewQueryServiceClient(cc grpc1.ClientConn) QueryServiceClient {
+	return &queryServiceClient{cc}
+}
+
+func (c *queryServiceClient) DaoAssetBalances(ctx context.Context, in *DaoAssetBalancesRequest, opts ...grpc.CallOption) (QueryService_DaoAssetBalancesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_QueryService_serviceDesc.Streams[0], "/penumbra.core.component.dao.v1alpha1.QueryService/DaoAssetBalances", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &queryServiceDaoAssetBalancesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type QueryService_DaoAssetBalancesClient interface {
+	Recv() (*DaoAssetBalancesResponse, error)
+	grpc.ClientStream
+}
+
+type queryServiceDaoAssetBalancesClient struct {
+	grpc.ClientStream
+}
+
+func (x *queryServiceDaoAssetBalancesClient) Recv() (*DaoAssetBalancesResponse, error) {
+	m := new(DaoAssetBalancesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// QueryServiceServer is the server API for QueryService service.
+type QueryServiceServer interface {
+	DaoAssetBalances(*DaoAssetBalancesRequest, QueryService_DaoAssetBalancesServer) error
+}
+
+// UnimplementedQueryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedQueryServiceServer struct {
+}
+
+func (*UnimplementedQueryServiceServer) DaoAssetBalances(req *DaoAssetBalancesRequest, srv QueryService_DaoAssetBalancesServer) error {
+	return status.Errorf(codes.Unimplemented, "method DaoAssetBalances not implemented")
+}
+
+func RegisterQueryServiceServer(s grpc1.Server, srv QueryServiceServer) {
+	s.RegisterService(&_QueryService_serviceDesc, srv)
+}
+
+func _QueryService_DaoAssetBalances_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DaoAssetBalancesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(QueryServiceServer).DaoAssetBalances(m, &queryServiceDaoAssetBalancesServer{stream})
+}
+
+type QueryService_DaoAssetBalancesServer interface {
+	Send(*DaoAssetBalancesResponse) error
+	grpc.ServerStream
+}
+
+type queryServiceDaoAssetBalancesServer struct {
+	grpc.ServerStream
+}
+
+func (x *queryServiceDaoAssetBalancesServer) Send(m *DaoAssetBalancesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+var _QueryService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "penumbra.core.component.dao.v1alpha1.QueryService",
+	HandlerType: (*QueryServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "DaoAssetBalances",
+			Handler:       _QueryService_DaoAssetBalances_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "penumbra/core/component/dao/v1alpha1/dao.proto",
 }
 
 func (m *DaoParameters) Marshal() (dAtA []byte, err error) {
@@ -218,6 +443,85 @@ func (m *GenesisContent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *DaoAssetBalancesRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DaoAssetBalancesRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DaoAssetBalancesRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.AssetIds) > 0 {
+		for iNdEx := len(m.AssetIds) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AssetIds[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintDao(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.ChainId) > 0 {
+		i -= len(m.ChainId)
+		copy(dAtA[i:], m.ChainId)
+		i = encodeVarintDao(dAtA, i, uint64(len(m.ChainId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *DaoAssetBalancesResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DaoAssetBalancesResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DaoAssetBalancesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Balance != nil {
+		{
+			size, err := m.Balance.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintDao(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintDao(dAtA []byte, offset int, v uint64) int {
 	offset -= sovDao(v)
 	base := offset
@@ -249,6 +553,38 @@ func (m *GenesisContent) Size() (n int) {
 	_ = l
 	if m.DaoParams != nil {
 		l = m.DaoParams.Size()
+		n += 1 + l + sovDao(uint64(l))
+	}
+	return n
+}
+
+func (m *DaoAssetBalancesRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ChainId)
+	if l > 0 {
+		n += 1 + l + sovDao(uint64(l))
+	}
+	if len(m.AssetIds) > 0 {
+		for _, e := range m.AssetIds {
+			l = e.Size()
+			n += 1 + l + sovDao(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *DaoAssetBalancesResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Balance != nil {
+		l = m.Balance.Size()
 		n += 1 + l + sovDao(uint64(l))
 	}
 	return n
@@ -392,6 +728,208 @@ func (m *GenesisContent) Unmarshal(dAtA []byte) error {
 				m.DaoParams = &DaoParameters{}
 			}
 			if err := m.DaoParams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDao(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDao
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DaoAssetBalancesRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDao
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DaoAssetBalancesRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DaoAssetBalancesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ChainId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDao
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDao
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDao
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ChainId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AssetIds", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDao
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDao
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDao
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AssetIds = append(m.AssetIds, &v1alpha1.AssetId{})
+			if err := m.AssetIds[len(m.AssetIds)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDao(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthDao
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DaoAssetBalancesResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDao
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DaoAssetBalancesResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DaoAssetBalancesResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Balance", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDao
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDao
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDao
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Balance == nil {
+				m.Balance = &v1alpha1.Value{}
+			}
+			if err := m.Balance.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

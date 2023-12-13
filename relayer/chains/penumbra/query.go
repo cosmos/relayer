@@ -924,7 +924,7 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, true)...)
+		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, cc.cometLegacyEncoding)...)
 	}
 
 	return ibcMsgs, nil
