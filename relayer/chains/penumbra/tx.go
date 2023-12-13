@@ -250,9 +250,12 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	maxHeight := status.SyncInfo.LatestBlockHeight
 
 	// Generate a random block height to query between 1 and maxHeight
-	height := rand.Int63n(maxHeight-1) + 1
+	height := rand.Int63n(maxHeight - 1)
+	if height < 0 {
+		height = 0
+	}
 
-	path := fmt.Sprintf("shielded_pool/anchor/%d", height)
+	path := fmt.Sprintf("sct/anchor/%d", height)
 
 	req := abci.RequestQuery{
 		Path:   "state/key",
@@ -263,20 +266,11 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 
 	res, err := cc.QueryABCI(ctx, req)
 	if err != nil {
-		path := fmt.Sprintf("sct/anchor/%d", height)
+		return nil, err
+	}
 
-		req := abci.RequestQuery{
-			Path:   "state/key",
-			Height: maxHeight,
-			Data:   []byte(path),
-			Prove:  false,
-		}
-		res, err := cc.QueryABCI(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-
-		return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
+	if res.Value == nil {
+		return nil, errors.New("no anchor found for height" + strconv.FormatInt(height, 10))
 	}
 
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
@@ -2024,28 +2018,7 @@ var JmtSpec = &ics23.ProofSpec{
 	PrehashKeyBeforeComparison: true,
 }
 
-var ApphashSpec = &ics23.ProofSpec{
-	LeafSpec: &ics23.LeafOp{
-		Prefix:       nil,
-		Hash:         ics23.HashOp_SHA256,
-		Length:       ics23.LengthOp_NO_PREFIX,
-		PrehashKey:   ics23.HashOp_NO_HASH,
-		PrehashValue: ics23.HashOp_NO_HASH,
-	},
-	InnerSpec: &ics23.InnerSpec{
-		Hash:            ics23.HashOp_SHA256,
-		MaxPrefixLength: 0,
-		MinPrefixLength: 0,
-		ChildOrder:      []int32{0, 1},
-		ChildSize:       32,
-		EmptyChild:      nil,
-	},
-	MinDepth:                   0,
-	MaxDepth:                   1,
-	PrehashKeyBeforeComparison: false,
-}
-
-var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
+var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, JmtSpec}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
 func (cc *PenumbraProvider) NewClientState(
