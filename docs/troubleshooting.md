@@ -10,7 +10,7 @@
 
 <br>
 
-## Generic Troubleshoot
+## Generic Troubleshooting
 
 ### **Ensure `rly` package is properly installed**
 
@@ -22,7 +22,7 @@
    If this returns an error, make sure you have Go installed and your Go environment is setup. Then redo [Step 1](#basic-usage---relaying-packets-across-chains).
 
 
-### **Verify valid `chain`, `client`, and `connection`**
+### **Verify valid `keys`, `balance`, and `path`**
 
 ```shell
 $ rly chains list
@@ -43,7 +43,7 @@ If output:
 ```shell
 -> chns(✘) clnts(✘) conn(✘)
 ```
-Verify that you have a healthy RPC address. 
+Verify that you have a healthy RPC address. This means the relayer was unable to query the latest height of one or both the chains.
 
 If:
 ```shell
@@ -80,7 +80,7 @@ it will be helpful to provide the output from `http://localhost:7597/debug/pprof
 ## Specific Errors
 
 <details>
-<summary>error querying blockdata</summary>
+<summary>error querying block data</summary>
 
 <br>
 The relayer looks back in time at historical transactions and needs to have an index of them.
