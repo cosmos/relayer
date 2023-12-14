@@ -359,7 +359,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.Events, heightUint64, true)
+		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.Events, heightUint64, pcp.chainProvider.cometLegacyEncoding)
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}
@@ -369,7 +369,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 				// tx was not successful
 				continue
 			}
-			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, true)
+			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, pcp.chainProvider.cometLegacyEncoding)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)
