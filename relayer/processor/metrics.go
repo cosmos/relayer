@@ -62,8 +62,8 @@ func (m *PrometheusMetrics) SetUnrelayedPackets(pathName, srcChain, destChain, s
 	m.UnrelayedPackets.WithLabelValues(pathName, srcChain, destChain, srcChannel, destChannel).Set(float64(unrelayedPackets))
 }
 
-func (m *PrometheusMetrics) SetUnrelayedAcks(pathName, srcChain, destChain, srcChannel, destChannel string, unrelayedPackets int) {
-	m.UnrelayedAcks.WithLabelValues(pathName, srcChain, destChain, srcChannel, destChannel).Set(float64(unrelayedPackets))
+func (m *PrometheusMetrics) SetUnrelayedAcks(pathName, srcChain, destChain, srcChannel, destChannel string, UnrelayedAcks int) {
+	m.UnrelayedAcks.WithLabelValues(pathName, srcChain, destChain, srcChannel, destChannel).Set(float64(UnrelayedAcks))
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
@@ -117,11 +117,11 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		}, clientTrustingPeriodLables),
 		UnrelayedPackets: registerer.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_unrelayed_packets",
-			Help: "Current number of unrelayed packets on both the source and destinations chains on a specific path and channel",
+			Help: "Current number of unrelayed packets on both the source and destination chains for a specific path and channel",
 		}, unrelayedSeqsLabels),
 		UnrelayedAcks: registerer.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cosmos_relayer_unrelayed_acks",
-			Help: "Current number of unrelayed acknoledgments on both the source and destinations chains on a specific path and channel",
+			Help: "Current number of unrelayed acknowledgements on both the source and destination chains for a specific path and channel",
 		}, unrelayedSeqsLabels),
 	}
 }
