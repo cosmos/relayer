@@ -254,7 +254,7 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 	// by converting int64 to float64.
 	// Use integer math the whole time, first reducing by a factor of 100
 	// and then re-growing by the `percentage` param.
-	tp := unbondingTime / time.Duration(100*percentage)
+	tp := time.Duration(int64(unbondingTime) / 100 * percentage)
 
 	// And we only want the trusting period to be whole hours.
 	// But avoid rounding if the time is less than 1 hour
