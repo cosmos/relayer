@@ -610,9 +610,13 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	case chantypes.EventTypeRecvPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
+	case chantypes.EventTypeAcknowledgePacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeWriteAck] = []uint64{sequence}
+		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
+	case chantypes.EventTypeTimeoutPacket:
+		toDelete[eventType] = []uint64{sequence}
 		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
 	}
 	// delete in progress send for this specific message
