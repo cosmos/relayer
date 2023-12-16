@@ -352,6 +352,16 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTimer.C:
+		for len(pp.pathEnd1.incomingCacheData) > 0 {
+			d := <-pp.pathEnd1.incomingCacheData
+			// we have new data from ChainProcessor for pathEnd1
+			pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.messageLifecycle, pp.pathEnd2)
+		}
+		for len(pp.pathEnd2.incomingCacheData) > 0 {
+			d := <-pp.pathEnd2.incomingCacheData
+			// we have new data from ChainProcessor for pathEnd2
+			pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.messageLifecycle, pp.pathEnd1)
+		}
 		// Periodic flush to clear out any old packets
 		pp.handleFlush(ctx)
 	}

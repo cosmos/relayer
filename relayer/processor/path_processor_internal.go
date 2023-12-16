@@ -1261,6 +1261,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	var skipped *skippedPackets
 
 	for i, seq := range unrecv {
+		if state, ok := dst.messageCache.PacketState.State(k, seq); ok && stateValue(state) >= stateValue(chantypes.EventTypeRecvPacket) {
+			continue // already recv'd by path processor
+		}
+
 		srcMu.Lock()
 		if srcCache.IsCached(chantypes.EventTypeSendPacket, k, seq) {
 			continue // already cached
@@ -1340,8 +1344,13 @@ SeqLoop:
 	}
 
 	for i, seq := range unacked {
-		dstMu.Lock()
 		ck := k.Counterparty()
+
+		if state, ok := dst.messageCache.PacketState.State(ck, seq); ok && stateValue(state) >= stateValue(chantypes.EventTypeAcknowledgePacket) {
+			continue // already acked by path processor
+		}
+
+		dstMu.Lock()
 		if dstCache.IsCached(chantypes.EventTypeRecvPacket, ck, seq) &&
 			dstCache.IsCached(chantypes.EventTypeWriteAck, ck, seq) {
 			continue // already cached
