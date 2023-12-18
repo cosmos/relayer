@@ -99,10 +99,19 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd))
+			clientSrc, clientDst, err := c[src].CreateClients(
+				cmd.Context(),
+				c[dst],
+				allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour,
+				override,
+				customClientTrustingPeriod,
+				a.config.memo(cmd),
+			)
 			if err != nil {
 				return err
 			}
+
 			if clientSrc != "" || clientDst != "" {
 				if err := a.updatePathConfig(cmd.Context(), path, clientSrc, clientDst, "", ""); err != nil {
 					return err
@@ -157,6 +166,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			if !ok {
 				return errChainNotFound(args[0])
 			}
+
 			dst, ok := a.config.Chains[args[1]]
 			if !ok {
 				return errChainNotFound(args[1])
@@ -175,6 +185,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			if exists := src.ChainProvider.KeyExists(src.ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", src.ChainProvider.Key(), src.ChainID())
 			}
+
 			if exists := dst.ChainProvider.KeyExists(dst.ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", dst.ChainProvider.Key(), dst.ChainID())
 			}
@@ -199,32 +210,49 @@ func createClientCmd(a *appState) *cobra.Command {
 					return err
 				}
 				return nil
-			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr, retry.OnRetry(func(n uint, err error) {
-				a.log.Info(
-					"Failed to get light signed header",
-					zap.String("src_chain_id", src.ChainID()),
-					zap.Int64("src_height", srch),
-					zap.String("dst_chain_id", dst.ChainID()),
-					zap.Int64("dst_height", dsth),
-					zap.Uint("attempt", n+1),
-					zap.Uint("max_attempts", relayer.RtyAttNum),
-					zap.Error(err),
-				)
-				srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), src, dst)
-			})); err != nil {
+			}, retry.Context(
+				cmd.Context()),
+				relayer.RtyAtt,
+				relayer.RtyDel,
+				relayer.RtyErr,
+				retry.OnRetry(func(n uint, err error) {
+					a.log.Info(
+						"Failed to get light signed header",
+						zap.String("src_chain_id", src.ChainID()),
+						zap.Int64("src_height", srch),
+						zap.String("dst_chain_id", dst.ChainID()),
+						zap.Int64("dst_height", dsth),
+						zap.Uint("attempt", n+1),
+						zap.Uint("max_attempts", relayer.RtyAttNum),
+						zap.Error(err),
+					)
+					srch, dsth, _ = relayer.QueryLatestHeights(cmd.Context(), src, dst)
+				})); err != nil {
 				return err
 			}
 
-			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, a.config.memo(cmd))
+			clientID, err := relayer.CreateClient(
+				cmd.Context(),
+				src, dst,
+				srcUpdateHeader, dstUpdateHeader,
+				allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour,
+				override,
+				customClientTrustingPeriod,
+				overrideUnbondingPeriod,
+				a.config.memo(cmd),
+			)
 			if err != nil {
 				return err
 			}
+
 			var clientSrc, clientDst string
 			if path.Src.ChainID == src.ChainID() {
 				clientSrc = clientID
 			} else {
 				clientDst = clientID
 			}
+
 			if clientID != "" {
 				if err = a.updatePathConfig(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
@@ -261,6 +289,7 @@ corresponding update-client messages.`,
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
+
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
@@ -292,6 +321,7 @@ func upgradeClientsCmd(a *appState) *cobra.Command {
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
+
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
@@ -370,6 +400,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
+
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
@@ -382,20 +413,38 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+			clientSrc, clientDst, err := c[src].CreateClients(
+				cmd.Context(),
+				c[dst],
+				allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour,
+				override,
+				customClientTrustingPeriod,
+				memo,
+			)
 			if err != nil {
 				return err
 			}
+
 			if clientSrc != "" || clientDst != "" {
 				if err := a.updatePathConfig(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
 			}
 
-			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
+			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(
+				cmd.Context(),
+				c[dst],
+				retries,
+				to,
+				memo,
+				initialBlockHistory,
+				pathName,
+			)
 			if err != nil {
 				return err
 			}
+
 			if connectionSrc != "" || connectionDst != "" {
 				if err := a.updatePathConfig(cmd.Context(), pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
@@ -419,7 +468,8 @@ func createChannelCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "channel path_name",
 		Aliases: []string{"chan"},
-		Short:   "create a channel between two configured chains with a configured path using specified or default channel identifiers",
+		Short: "create a channel between two configured chains with a configured path using specified or " +
+			"default channel identifiers",
 		Long: strings.TrimSpace(`Create or repair a channel between two IBC-connected networks
 along a specific path.`,
 		),
@@ -430,7 +480,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pathName := args[0]
 
 			c, src, dst, err := a.config.ChainsFromPath(pathName)
@@ -477,12 +526,25 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
+
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.config.memo(cmd), pathName)
+			return c[src].CreateOpenChannels(
+				cmd.Context(),
+				c[dst],
+				retries,
+				to,
+				srcPort,
+				dstPort,
+				order,
+				version,
+				override,
+				a.config.memo(cmd),
+				pathName,
+			)
 		},
 	}
 
@@ -531,6 +593,7 @@ $ %s tx channel-close demo-path channel-0 transfer -o 3s`,
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
+
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
@@ -641,6 +704,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
 			}
+
 			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
@@ -653,10 +717,19 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create clients if they aren't already created
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+			clientSrc, clientDst, err := c[src].CreateClients(
+				cmd.Context(),
+				c[dst],
+				allowUpdateAfterExpiry,
+				allowUpdateAfterMisbehaviour,
+				override,
+				customClientTrustingPeriod,
+				memo,
+			)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}
+
 			if clientSrc != "" || clientDst != "" {
 				if err := a.updatePathConfig(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
@@ -664,10 +737,19 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create connection if it isn't already created
-			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
+			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(
+				cmd.Context(),
+				c[dst],
+				retries,
+				to,
+				memo,
+				initialBlockHistory,
+				pathName,
+			)
 			if err != nil {
 				return fmt.Errorf("error creating connections: %w", err)
 			}
+
 			if connectionSrc != "" || connectionDst != "" {
 				if err := a.updatePathConfig(cmd.Context(), pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
@@ -675,7 +757,19 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
+			return c[src].CreateOpenChannels(
+				cmd.Context(),
+				c[dst],
+				retries,
+				to,
+				srcPort,
+				dstPort,
+				order,
+				version,
+				override,
+				memo,
+				pathName,
+			)
 		},
 	}
 	cmd = timeoutFlag(a.viper, cmd)
@@ -909,6 +1003,7 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			if !ok {
 				return errChainNotFound(args[0])
 			}
+
 			dst, ok := a.config.Chains[args[1]]
 			if !ok {
 				return errChainNotFound(args[1])
@@ -938,11 +1033,12 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			srcChannelID := args[4]
 
 			var pathConnectionID string
-			if src.ChainID() == path.Src.ChainID {
+			switch {
+			case src.ChainID() == path.Src.ChainID:
 				pathConnectionID = path.Src.ConnectionID
-			} else if src.ChainID() == path.Dst.ChainID {
+			case src.ChainID() == path.Dst.ChainID:
 				pathConnectionID = path.Dst.ConnectionID
-			} else {
+			default:
 				return fmt.Errorf("no path configured using chain-id: %s", src.ChainID())
 			}
 
@@ -995,10 +1091,23 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				dstAddr = rawDstAddr
 			}
 
-			return src.SendTransferMsg(cmd.Context(), a.log, dst, amount, dstAddr, toHeightOffset, toTimeOffset, srcChannel)
+			memo := a.config.memo(cmd)
+
+			return src.SendTransferMsg(
+				cmd.Context(),
+				a.log,
+				dst,
+				amount,
+				dstAddr,
+				memo,
+				toHeightOffset,
+				toTimeOffset,
+				srcChannel,
+			)
 		},
 	}
 
+	cmd = memoFlag(a.viper, cmd)
 	return timeoutFlags(a.viper, pathFlag(a.viper, cmd))
 }
 
@@ -1062,11 +1171,11 @@ func registerCounterpartyCmd(a *appState) *cobra.Command {
 		Short:   "register the counterparty relayer address for ics-29 fee middleware",
 		Args:    withUsage(cobra.MatchAll(cobra.ExactArgs(5))),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd
+$ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk 
+juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd
 $ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd`,
 			appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
@@ -1082,10 +1191,15 @@ $ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny48
 			if err != nil {
 				return err
 			}
-			res, success, err := chain.ChainProvider.SendMessage(cmd.Context(), msg, "")
+
+			memo := a.config.memo(cmd)
+
+			res, success, err := chain.ChainProvider.SendMessage(cmd.Context(), msg, memo)
 			fmt.Println(res, success, err)
+
 			return nil
 		},
 	}
-	return cmd
+
+	return memoFlag(a.viper, cmd)
 }

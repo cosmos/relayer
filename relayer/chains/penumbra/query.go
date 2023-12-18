@@ -174,6 +174,8 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 		height--
 	}
 
+	key = append([]byte("ibc-data/"), key...)
+
 	cc.log.Debug("Querying K/V", zap.String("ChainId", cc.ChainId()), zap.Int64("Height", height), zap.String("Key", string(key)))
 	req := abci.RequestQuery{
 		Path:   "state/key",
@@ -922,7 +924,7 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, true)...)
+		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, cc.cometLegacyEncoding)...)
 	}
 
 	return ibcMsgs, nil

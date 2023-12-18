@@ -6,7 +6,6 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,7 +21,6 @@ const (
 	flagForceAdd                = "force-add"
 	flagPath                    = "path"
 	flagTestnet                 = "testnet"
-	flagMaxTxSize               = "max-tx-size"
 	flagMaxMsgLength            = "max-msgs"
 	flagIBCDenoms               = "ibc-denoms"
 	flagTimeoutHeightOffset     = "timeout-height-offset"
@@ -64,13 +62,7 @@ const (
 	flagStuckPacketHeightEnd    = "stuck-packet-height-end"
 )
 
-const (
-	// 7597 is "RLYR" on a telephone keypad.
-	// It also happens to be unassigned in the IANA port list.
-	defaultDebugAddr = "localhost:7597"
-
-	blankValue = "blank"
-)
+const blankValue = "blank"
 
 func ibcDenomFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagIBCDenoms, "i", false, "Display IBC denominations for sending tokens back to other chains")
@@ -89,7 +81,14 @@ func heightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func paginationFlags(v *viper.Viper, cmd *cobra.Command, query string) *cobra.Command {
-	cmd.Flags().Uint64(flagPage, 1, fmt.Sprintf("pagination page of %s to query for. This sets offset to a multiple of limit", query))
+	cmd.Flags().Uint64(
+		flagPage,
+		1,
+		fmt.Sprintf("pagination page of %s to query for. This sets offset to a multiple of limit",
+			query,
+		),
+	)
+
 	cmd.Flags().String(flagPageKey, "", fmt.Sprintf("pagination page-key of %s to query for", query))
 	cmd.Flags().Uint64(flagLimit, 100, fmt.Sprintf("pagination limit of %s to query for", query))
 	cmd.Flags().Bool(flagCountTotal, false, fmt.Sprintf("count total number of records in %s to query for", query))
@@ -304,10 +303,15 @@ func retryFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func updateTimeFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Duration(flagThresholdTime, relayer.DefaultClientUpdateThreshold, "time after previous client update before automatic client update")
+	cmd.Flags().Duration(
+		flagThresholdTime,
+		relayer.DefaultClientUpdateThreshold,
+		"time after previous client update before automatic client update",
+	)
 	if err := v.BindPFlag(flagThresholdTime, cmd.Flags().Lookup(flagThresholdTime)); err != nil {
 		panic(err)
 	}
+
 	return cmd
 }
 
@@ -316,13 +320,20 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		"allow governance to update the client if expiry occurs")
 	cmd.Flags().BoolP(flagUpdateAfterMisbehaviour, "m", true,
 		"allow governance to update the client if misbehaviour freezing occurs")
-	cmd.Flags().Duration(flagClientTrustingPeriod, 0, "custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)")
+	cmd.Flags().Duration(
+		flagClientTrustingPeriod,
+		0,
+		"custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)",
+	)
+
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
 	}
+
 	if err := v.BindPFlag(flagUpdateAfterMisbehaviour, cmd.Flags().Lookup(flagUpdateAfterMisbehaviour)); err != nil {
 		panic(err)
 	}
+
 	if err := v.BindPFlag(flagClientTrustingPeriod, cmd.Flags().Lookup(flagClientTrustingPeriod)); err != nil {
 		panic(err)
 	}
@@ -334,10 +345,17 @@ func channelParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func clientUnbondingPeriodFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Duration(flagClientUnbondingPeriod, 0, "custom unbonding period for client state. This is useful when you need to create a new client matching an older client state")
+	cmd.Flags().Duration(
+		flagClientUnbondingPeriod,
+		0,
+		"custom unbonding period for client state. This is useful when you need to create a new client matching "+
+			"an older client state",
+	)
+
 	if err := v.BindPFlag(flagClientUnbondingPeriod, cmd.Flags().Lookup(flagClientUnbondingPeriod)); err != nil {
 		panic(err)
 	}
+
 	return cmd
 }
 
@@ -382,10 +400,17 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().String(flagDebugAddr, "", "address to use for debug and metrics server. By default, will be the api-listen-addr parameter in the global config.")
+	cmd.Flags().String(
+		flagDebugAddr,
+		"",
+		"address to use for debug and metrics server. By default, "+
+			"will be the api-listen-addr parameter in the global config.",
+	)
+
 	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
 		panic(err)
 	}
+
 	return cmd
 }
 
@@ -398,18 +423,32 @@ func processorFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func initBlockFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().Uint64P(flagInitialBlockHistory, "b", 20, "initial block history to query when using 'events' as the processor for relaying")
+	cmd.Flags().Uint64P(
+		flagInitialBlockHistory,
+		"b",
+		20,
+		"initial block history to query when using 'events' as the processor for relaying",
+	)
+
 	if err := v.BindPFlag(flagInitialBlockHistory, cmd.Flags().Lookup(flagInitialBlockHistory)); err != nil {
 		panic(err)
 	}
+
 	return cmd
 }
 
 func flushIntervalFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().DurationP(flagFlushInterval, "i", relayer.DefaultFlushInterval, "how frequently should a flush routine be run")
+	cmd.Flags().DurationP(
+		flagFlushInterval,
+		"i",
+		relayer.DefaultFlushInterval,
+		"how frequently should a flush routine be run",
+	)
+
 	if err := v.BindPFlag(flagFlushInterval, cmd.Flags().Lookup(flagFlushInterval)); err != nil {
 		panic(err)
 	}
+
 	return cmd
 }
 
@@ -483,7 +522,11 @@ func parseStuckPacketFromFlags(cmd *cobra.Command) (*processor.StuckPacket, erro
 	}
 
 	if stuckPacketHeightEnd < stuckPacketHeightStart {
-		return nil, fmt.Errorf("stuck packet end height %d is less than start height %d", stuckPacketHeightEnd, stuckPacketHeightStart)
+		return nil, fmt.Errorf(
+			"stuck packet end height %d is less than start height %d",
+			stuckPacketHeightEnd,
+			stuckPacketHeightStart,
+		)
 	}
 
 	return &processor.StuckPacket{
