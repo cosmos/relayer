@@ -1421,7 +1421,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		if !cs.Open {
 			continue
 		}
-		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
+		if !pp.pathEnd1.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pp.pathEnd1.info.ChainID,
 			CounterpartyChainID: pp.pathEnd2.info.ChainID,
 			ChannelKey:          k,
@@ -1434,7 +1434,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		if !cs.Open {
 			continue
 		}
-		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
+		if !pp.pathEnd2.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pp.pathEnd2.info.ChainID,
 			CounterpartyChainID: pp.pathEnd1.info.ChainID,
 			ChannelKey:          k,

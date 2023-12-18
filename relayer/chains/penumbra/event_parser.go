@@ -7,7 +7,8 @@ import (
 
 func (ccp *PenumbraChainProcessor) ibcMessagesFromBlockEvents(
 	events []abci.Event,
-	height uint64, base64Encoded bool,
+	height uint64,
+	base64Encoded bool,
 ) (res []chains.IbcMessage) {
 	chainID := ccp.chainProvider.ChainId()
 	res = append(res, chains.IbcMessagesFromEvents(ccp.log, events, chainID, height, base64Encoded)...)
