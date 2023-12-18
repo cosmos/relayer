@@ -1204,6 +1204,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+		if pp.metrics != nil {
+			pp.metrics.SetUnrelayedPackets(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, 0)
+			pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, 0)
+		}
 		return nil, nil
 	}
 
@@ -1212,6 +1216,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 	if err != nil {
 		return nil, err
+	}
+
+	if pp.metrics != nil {
+		pp.metrics.SetUnrelayedPackets(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unrecv))
 	}
 
 	dstHeight := int64(dst.latestBlock.Height)
@@ -1325,6 +1333,10 @@ SeqLoop:
 		}
 		// does not exist in unrecv, so this is an ack that must be written
 		unacked = append(unacked, seq)
+	}
+
+	if pp.metrics != nil {
+		pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unacked))
 	}
 
 	for i, seq := range unacked {
