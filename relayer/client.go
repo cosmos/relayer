@@ -19,7 +19,7 @@ import (
 func (c *Chain) CreateClients(ctx context.Context,
 	dst *Chain,
 	allowUpdateAfterExpiry,
-	allowUpdateAfterMisbehavior,
+	allowUpdateAfterMisbehaviour,
 	override bool,
 	customClientTrustingPeriod,
 	maxClockDrift time.Duration,
@@ -72,7 +72,7 @@ func (c *Chain) CreateClients(ctx context.Context,
 		// Create client on src for dst if the client id is unspecified
 		clientSrc, err = CreateClient(egCtx, c, dst,
 			srcUpdateHeader, dstUpdateHeader,
-			allowUpdateAfterExpiry, allowUpdateAfterMisbehavior,
+			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
 			override, customClientTrustingPeriod,
 			overrideUnbondingPeriod, maxClockDrift, memo)
 		if err != nil {
@@ -86,7 +86,7 @@ func (c *Chain) CreateClients(ctx context.Context,
 		// Create client on dst for src if the client id is unspecified
 		clientDst, err = CreateClient(egCtx, dst, c,
 			dstUpdateHeader, srcUpdateHeader,
-			allowUpdateAfterExpiry, allowUpdateAfterMisbehavior,
+			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
 			override, customClientTrustingPeriod,
 			overrideUnbondingPeriod, maxClockDrift, memo)
 		if err != nil {
@@ -117,7 +117,7 @@ func CreateClient(
 	src, dst *Chain,
 	srcUpdateHeader, dstUpdateHeader provider.IBCHeader,
 	allowUpdateAfterExpiry,
-	allowUpdateAfterMisbehavior,
+	allowUpdateAfterMisbehaviour,
 	override bool,
 	customClientTrustingPeriod,
 	overrideUnbondingPeriod,
@@ -180,7 +180,7 @@ func CreateClient(
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
-	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, maxClockDrift, allowUpdateAfterExpiry, allowUpdateAfterMisbehavior)
+	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, maxClockDrift, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
