@@ -79,6 +79,11 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -106,6 +111,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				allowUpdateAfterMisbehaviour,
 				override,
 				customClientTrustingPeriod,
+				maxClockDrift,
 				a.config.memo(cmd),
 			)
 			if err != nil {
@@ -158,6 +164,11 @@ func createClientCmd(a *appState) *cobra.Command {
 			}
 
 			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
+			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
 			if err != nil {
 				return err
 			}
@@ -240,6 +251,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				override,
 				customClientTrustingPeriod,
 				overrideUnbondingPeriod,
+				maxClockDrift,
 				a.config.memo(cmd),
 			)
 			if err != nil {
@@ -348,7 +360,7 @@ func createConnectionCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection path_name",
 		Aliases: []string{"conn"},
-		Short:   "create a connection between two configured chains with a configured path",
+		Short:   "create a connection between two configured chains with a configured path; if existing client does not exist, it will create one",
 		Long: strings.TrimSpace(`Create or repair a connection between two IBC-connected networks
 along a specific path.`,
 		),
@@ -396,6 +408,11 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -420,6 +437,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				allowUpdateAfterMisbehaviour,
 				override,
 				customClientTrustingPeriod,
+				maxClockDrift,
 				memo,
 			)
 			if err != nil {
@@ -700,6 +718,11 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -724,6 +747,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				allowUpdateAfterMisbehaviour,
 				override,
 				customClientTrustingPeriod,
+				maxClockDrift,
 				memo,
 			)
 			if err != nil {
