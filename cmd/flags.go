@@ -31,7 +31,7 @@ const (
 	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
 	flagClientTrustingPeriod    = "client-tp"
 	flagClientUnbondingPeriod   = "client-unbonding-period"
-	flagClockDrift              = "max-clock-drift"
+	flagMaxClockDrift           = "max-clock-drift"
 	flagOverride                = "override"
 	flagSrcPort                 = "src-port"
 	flagDstPort                 = "dst-port"
@@ -326,7 +326,7 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		0,
 		"custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)",
 	)
-	cmd.Flags().Duration(flagClockDrift, (10 * time.Minute),
+	cmd.Flags().Duration(flagMaxClockDrift, (10 * time.Minute),
 		"custom max clock drift for client(s)")
 
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
@@ -341,7 +341,7 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		panic(err)
 	}
 
-	if err := v.BindPFlag(flagClockDrift, cmd.Flags().Lookup(flagClockDrift)); err != nil {
+	if err := v.BindPFlag(flagMaxClockDrift, cmd.Flags().Lookup(flagMaxClockDrift)); err != nil {
 		panic(err)
 	}
 	return cmd

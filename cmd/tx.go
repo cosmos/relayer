@@ -79,7 +79,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
 			if err != nil {
 				return err
 			}
@@ -408,7 +408,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
-			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
 			if err != nil {
 				return err
 			}
@@ -718,7 +718,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
-			maxClockDrift, err := cmd.Flags().GetDuration(flagClockDrift)
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
 			if err != nil {
 				return err
 			}
