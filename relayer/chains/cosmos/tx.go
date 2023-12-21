@@ -121,6 +121,8 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 	}
 
 	wg.Add(1)
+	// For debug:
+	// time.Sleep(10 * time.Second)
 
 	if err := retry.Do(func() error {
 		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, []func(*provider.RelayerTxResponse, error){callback})

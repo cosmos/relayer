@@ -19,6 +19,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	"github.com/cosmos/relayer/v2/relayer/codecs/artela"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -106,7 +107,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 	cp := &CosmosProvider{
 		log:            log,
 		PCfg:           pc,
-		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
+		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option(), artela.EthSecp256k1Option()},
 		Input:          os.Stdin,
 		Output:         os.Stdout,
 		walletStateMap: map[string]*WalletState{},

@@ -1,0 +1,21 @@
+{
+    "type": "cosmos",
+    "value": {
+      "key": "yuan",
+      "chain-id": "artela_11820-1",
+      "rpc-addr": "http://47.254.27.97:26657",
+      "grpc-addr": "http://47.254.27.97:9090",
+      "account-prefix": "artl",
+      "keyring-backend": "test",
+      "gas-adjustment": 1.5,
+      "gas-prices": "20000000000uart",
+      "min-gas-amount": 1,
+      "debug": true,
+      "timeout": "10s",
+      "output-format": "json",
+      "sign-mode": "direct",
+      "signing-algorithm": "ethsecp256k1",
+      "extra-codecs": ["artela"],
+      "coin-type": 60
+    }
+  }

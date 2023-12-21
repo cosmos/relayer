@@ -1,0 +1,21 @@
+{
+    "type": "cosmos",
+    "value": {
+      "key": "jerry",
+      "chain-id": "evmos_9000-1",
+      "rpc-addr": "http://47.91.28.85:26657",
+      "grpc-addr": "http://47.91.28.85:9090",
+      "account-prefix": "evmos",
+      "keyring-backend": "test",
+      "gas-adjustment": 1.5,
+      "gas-prices": "20000000000aevmos",
+      "min-gas-amount": 1,
+      "debug": true,
+      "timeout": "10s",
+      "output-format": "json",
+      "sign-mode": "direct",
+      "signing-algorithm": "ethsecp256k1",
+      "extra-codecs": ["ethermint"],
+      "coin-type": 60
+    }
+  }

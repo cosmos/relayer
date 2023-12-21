@@ -891,6 +891,9 @@ $ %s tx transfer ibc-0 ibc-1 100000stake raw:non-bech32-address channel-0 --path
 $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk channel-0 --path demo -c 5
 `, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// For debug:
+			// time.Sleep(10 * time.Second)
+
 			src, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
@@ -899,7 +902,6 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 			if !ok {
 				return errChainNotFound(args[1])
 			}
-
 			pathString, err := cmd.Flags().GetString(flagPath)
 			if err != nil {
 				return err

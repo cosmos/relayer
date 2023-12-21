@@ -28,6 +28,7 @@ import (
 
 	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	artelacodecs "github.com/cosmos/relayer/v2/relayer/codecs/artela"
 	ethermintcodecs "github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	injectivecodecs "github.com/cosmos/relayer/v2/relayer/codecs/injective"
 )
@@ -82,6 +83,10 @@ func makeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string) Codec
 			injectivecodecs.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 			encodingConfig.Amino.RegisterConcrete(&injectivecodecs.PubKey{}, injectivecodecs.PubKeyName, nil)
 			encodingConfig.Amino.RegisterConcrete(&injectivecodecs.PrivKey{}, injectivecodecs.PrivKeyName, nil)
+		case "artela":
+			artelacodecs.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+			encodingConfig.Amino.RegisterConcrete(&artelacodecs.PubKey{}, artelacodecs.PubKeyName, nil)
+			encodingConfig.Amino.RegisterConcrete(&artelacodecs.PrivKey{}, artelacodecs.PrivKeyName, nil)
 		}
 	}
 
