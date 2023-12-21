@@ -248,7 +248,7 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 		}
 	}
 
-	// We want the trusting period to be `percentage`% of the unbonding time.
+	// We want the trusting period to be `percentage` of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
 	// by converting int64 to float64.

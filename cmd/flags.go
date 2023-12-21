@@ -31,6 +31,7 @@ const (
 	flagUpdateAfterMisbehaviour        = "update-after-misbehaviour"
 	flagClientTrustingPeriod           = "client-tp"
 	flagClientUnbondingPeriod          = "client-unbonding-period"
+	flagClientTrustingPeriodPercentage = "client-tp-percentage"
 	flagOverride                       = "override"
 	flagSrcPort                        = "src-port"
 	flagDstPort                        = "dst-port"
@@ -60,7 +61,6 @@ const (
 	flagStuckPacketChainID             = "stuck-packet-chain-id"
 	flagStuckPacketHeightStart         = "stuck-packet-height-start"
 	flagStuckPacketHeightEnd           = "stuck-packet-height-end"
-	flagClientTrustingPeriodPercentage = "client-tp-percentage"
 )
 
 const blankValue = "blank"
@@ -324,12 +324,12 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Duration(
 		flagClientTrustingPeriod,
 		0,
-		"custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time) if left blank, will use `client-tp-percentage`",
+		"custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)`",
 	)
 	cmd.Flags().Int64(
 		flagClientTrustingPeriodPercentage,
 		85,
-		"custom light client trusting period percentage ex. 66 (default: 85)",
+		"custom light client trusting period percentage ex. 66 (default: 85); this flag overrides the client-tp flag",
 	)
 
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
