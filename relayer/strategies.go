@@ -39,6 +39,7 @@ func StartRelayer(
 	chains map[string]*Chain,
 	paths []NamedPath,
 	maxMsgLength uint64,
+	memoLimit int,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
@@ -99,6 +100,7 @@ func StartRelayer(
 			ePaths,
 			initialBlockHistory,
 			maxMsgLength,
+			memoLimit,
 			memo,
 			messageLifecycle,
 			clientUpdateThresholdTime,
@@ -154,6 +156,7 @@ func relayerStartEventProcessor(
 	paths []path,
 	initialBlockHistory uint64,
 	maxMsgLength uint64,
+	memoLimit int,
 	memo string,
 	messageLifecycle processor.MessageLifecycle,
 	clientUpdateThresholdTime time.Duration,
@@ -179,6 +182,7 @@ func relayerStartEventProcessor(
 				clientUpdateThresholdTime,
 				flushInterval,
 				maxMsgLength,
+				memoLimit,
 			))
 	}
 

@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/avast/retry-go/v4"
 	"strings"
 	"time"
+
+	"github.com/avast/retry-go/v4"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -933,6 +934,7 @@ $ %s tx flush demo-path channel-0`,
 				chains,
 				paths,
 				maxMsgLength,
+				a.config.Global.ICS20MemoLimit,
 				a.config.memo(cmd),
 				0,
 				0,

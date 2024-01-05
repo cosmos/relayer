@@ -493,6 +493,7 @@ type GlobalConfig struct {
 	Memo           string `yaml:"memo" json:"memo"`
 	LightCacheSize int    `yaml:"light-cache-size" json:"light-cache-size"`
 	LogLevel       string `yaml:"log-level" json:"log-level"`
+	ICS20MemoLimit int    `yaml:"ics20-memo-limit" json:"ics20-memo-limit"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
