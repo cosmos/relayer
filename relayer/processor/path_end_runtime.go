@@ -2,9 +2,11 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -98,10 +100,35 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 	return false
 }
 
+// checkMemoLimit returns an error if the packet memo exceeds the configured limit.
+func checkMemoLimit(packetData []byte, memoLimit int) error {
+	if memoLimit == 0 {
+		// no limit
+		return nil
+	}
+
+	var packet transfertypes.FungibleTokenPacketData
+	if err := transfertypes.ModuleCdc.Unmarshal(packetData, &packet); err != nil {
+		// not an ICS-20 packet
+		return nil
+	}
+
+	if len(packet.Memo) > int(memoLimit) {
+		return fmt.Errorf("packet memo size: %d exceeds limit: %d", len(packet.Memo), memoLimit)
+	}
+
+	return nil
+}
+
 // mergeMessageCache merges relevant IBC messages for packet flows, connection handshakes, and channel handshakes.
 // inSync indicates whether both involved ChainProcessors are in sync or not. When true, the observed packets
 // metrics will be counted so that observed vs relayed packets can be compared.
-func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, counterpartyChainID string, inSync bool) {
+func (pathEnd *pathEndRuntime) mergeMessageCache(
+	messageCache IBCMessagesCache,
+	counterpartyChainID string,
+	inSync bool,
+	memoLimit int,
+) {
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
 	channelHandshakeMessages := make(ChannelMessagesCache)
@@ -109,14 +136,28 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
-			if inSync && pathEnd.metrics != nil {
-				for eventType, pCache := range pmc {
+			newPmc := make(PacketMessagesCache)
+			for eventType, pCache := range pmc {
+				if inSync && pathEnd.metrics != nil {
 					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
 				}
+				newPc := make(PacketSequenceCache)
+				for seq, p := range pCache {
+					if err := checkMemoLimit(p.Data, memoLimit); err != nil {
+						pathEnd.log.Warn("Ignoring packet", zap.Error(err))
+						continue
+					}
+
+					newPc[seq] = p
+				}
+				if len(newPc) > 0 {
+					newPmc[eventType] = newPc
+				}
 			}
-			packetMessages[ch] = pmc
+			packetMessages[ch] = newPmc
 		}
 	}
+
 	pathEnd.messageCache.PacketFlow.Merge(packetMessages)
 
 	for eventType, cmc := range messageCache.ConnectionHandshake {
@@ -370,7 +411,16 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 	return true, nil
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
+func (pathEnd *pathEndRuntime) mergeCacheData(
+	ctx context.Context,
+	cancel func(),
+	d ChainProcessorCacheData,
+	counterpartyChainID string,
+	counterpartyInSync bool,
+	messageLifecycle MessageLifecycle,
+	counterParty *pathEndRuntime,
+	memoLimit int,
+) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.lastClientUpdateHeightMu.Unlock()
@@ -409,7 +459,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.channelStateCache = d.ChannelStateCache // Update latest channel open state for chain
 	pathEnd.channelStateCacheMu.Unlock()
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync, memoLimit) // Merge incoming packet IBC messages into the backlog
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
