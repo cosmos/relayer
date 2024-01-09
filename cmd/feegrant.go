@@ -6,6 +6,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // feegrantConfigureCmd returns the fee grant configuration commands for this module
@@ -61,7 +62,6 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 
 			granterKey, err := prov.KeyFromKeyOrAddress(granterKeyOrAddr)
 			if err != nil {
-				fmt.Printf("could not get granter key from '%s'", granterKeyOrAddr)
 				externalGranter = true
 			}
 
@@ -73,7 +73,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			}
 
 			if delete {
-				fmt.Printf("Deleting %s feegrant configuration\n", chain)
+				a.log.Info("deleting feegrant configuration", zap.String("chain", chain))
 
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
 					chain := a.config.Chains[chain]
@@ -108,7 +108,6 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				} else if !externalGranter {
 					feegrantErr = prov.ConfigureWithGrantees(grantees, granterKey)
 				} else {
-					fmt.Println("!! ConfigureWithExternalGranter !!")
 					feegrantErr = prov.ConfigureWithExternalGranter(grantees, granterKeyOrAddr)
 				}
 
@@ -140,7 +139,6 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			// Get latest height from the chain, mark feegrant configuration as verified up to that height.
 			// This means we've verified feegranting is enabled on-chain and TXs can be sent with a feegranter.
 			if prov.PCfg.FeeGrants != nil {
-				fmt.Printf("Querying latest chain height to mark FeeGrant height... \n")
 				h, err := prov.QueryLatestHeight(ctx)
 				cobra.CheckErr(err)
 
@@ -150,7 +148,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 					prov.PCfg.FeeGrants.IsExternalGranter = externalGranter
 					oldProv.PCfg.FeeGrants = prov.PCfg.FeeGrants
 					oldProv.PCfg.FeeGrants.BlockHeightVerified = h
-					fmt.Printf("Feegrant chain height marked: %d\n", h)
+					a.log.Info("feegrant configured", zap.Int64("height", h))
 					return nil
 				})
 				cobra.CheckErr(cfgErr)
@@ -197,7 +195,7 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 
 			granterAcc, err := prov.AccountFromKeyOrAddress(keyNameOrAddress)
 			if err != nil {
-				fmt.Printf("Error retrieving account from key '%s'\n", keyNameOrAddress)
+				a.log.Error("unknown account", zap.String("key or address", keyNameOrAddress))
 				return err
 			}
 			granterAddr := prov.MustEncodeAccAddr(granterAcc)
@@ -210,7 +208,7 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 			for _, grant := range res {
 				allowance, e := prov.Sprint(grant.Allowance)
 				cobra.CheckErr(e)
-				fmt.Printf("Granter: %s, Grantee: %s, Allowance: %s\n", grant.Granter, grant.Grantee, allowance)
+				a.log.Info("feegrant", zap.String("granter", grant.Granter), zap.String("grantee", grant.Grantee), zap.String("allowance", allowance))
 			}
 
 			return nil

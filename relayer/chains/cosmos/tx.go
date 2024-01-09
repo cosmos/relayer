@@ -200,7 +200,7 @@ func (cc *CosmosProvider) SubmitTxAwaitResponse(ctx context.Context, msgs []sdk.
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("TX result code: %d. Waiting for TX with hash %s\n", resp.Code, resp.Hash)
+
 	tx1resp, err := cc.AwaitTx(resp.Hash, 15*time.Second)
 	if err != nil {
 		return nil, err
@@ -319,9 +319,6 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	}
 
 	res, err := cc.RPCClient.BroadcastTxAsync(ctx, txBytes)
-	if res != nil {
-		fmt.Printf("TX hash: %s\n", res.Hash)
-	}
 	if err != nil {
 		return nil, err
 	}
