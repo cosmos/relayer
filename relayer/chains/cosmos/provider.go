@@ -237,7 +237,7 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 	return
 }
 
-func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error) {
 
 	unbondingTime := overrideUnbondingPeriod
 	var err error
@@ -248,13 +248,13 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 		}
 	}
 
-	// We want the trusting period to be 85% of the unbonding time.
+	// We want the trusting period to be `percentage` of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
 	// by converting int64 to float64.
 	// Use integer math the whole time, first reducing by a factor of 100
-	// and then re-growing by 85x.
-	tp := unbondingTime / 100 * 85
+	// and then re-growing by the `percentage` param.
+	tp := time.Duration(int64(unbondingTime) / 100 * percentage)
 
 	// And we only want the trusting period to be whole hours.
 	// But avoid rounding if the time is less than 1 hour

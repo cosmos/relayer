@@ -11,56 +11,57 @@ import (
 )
 
 const (
-	flagHome                    = "home"
-	flagURL                     = "url"
-	flagSkip                    = "skip"
-	flagTimeout                 = "timeout"
-	flagJSON                    = "json"
-	flagYAML                    = "yaml"
-	flagFile                    = "file"
-	flagForceAdd                = "force-add"
-	flagPath                    = "path"
-	flagTestnet                 = "testnet"
-	flagMaxMsgLength            = "max-msgs"
-	flagIBCDenoms               = "ibc-denoms"
-	flagTimeoutHeightOffset     = "timeout-height-offset"
-	flagTimeoutTimeOffset       = "timeout-time-offset"
-	flagMaxRetries              = "max-retries"
-	flagThresholdTime           = "time-threshold"
-	flagUpdateAfterExpiry       = "update-after-expiry"
-	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
-	flagClientTrustingPeriod    = "client-tp"
-	flagClientUnbondingPeriod   = "client-unbonding-period"
-	flagMaxClockDrift           = "max-clock-drift"
-	flagOverride                = "override"
-	flagSrcPort                 = "src-port"
-	flagDstPort                 = "dst-port"
-	flagOrder                   = "order"
-	flagVersion                 = "version"
-	flagDebugAddr               = "debug-addr"
-	flagOverwriteConfig         = "overwrite"
-	flagLimit                   = "limit"
-	flagHeight                  = "height"
-	flagPage                    = "page"
-	flagPageKey                 = "page-key"
-	flagCountTotal              = "count-total"
-	flagReverse                 = "reverse"
-	flagProcessor               = "processor"
-	flagInitialBlockHistory     = "block-history"
-	flagFlushInterval           = "flush-interval"
-	flagMemo                    = "memo"
-	flagFilterRule              = "filter-rule"
-	flagFilterChannels          = "filter-channels"
-	flagSrcChainID              = "src-chain-id"
-	flagDstChainID              = "dst-chain-id"
-	flagSrcClientID             = "src-client-id"
-	flagDstClientID             = "dst-client-id"
-	flagSrcConnID               = "src-connection-id"
-	flagDstConnID               = "dst-connection-id"
-	flagOutput                  = "output"
-	flagStuckPacketChainID      = "stuck-packet-chain-id"
-	flagStuckPacketHeightStart  = "stuck-packet-height-start"
-	flagStuckPacketHeightEnd    = "stuck-packet-height-end"
+	flagHome                           = "home"
+	flagURL                            = "url"
+	flagSkip                           = "skip"
+	flagTimeout                        = "timeout"
+	flagJSON                           = "json"
+	flagYAML                           = "yaml"
+	flagFile                           = "file"
+	flagForceAdd                       = "force-add"
+	flagPath                           = "path"
+	flagTestnet                        = "testnet"
+	flagMaxMsgLength                   = "max-msgs"
+	flagIBCDenoms                      = "ibc-denoms"
+	flagTimeoutHeightOffset            = "timeout-height-offset"
+	flagTimeoutTimeOffset              = "timeout-time-offset"
+	flagMaxRetries                     = "max-retries"
+	flagThresholdTime                  = "time-threshold"
+	flagUpdateAfterExpiry              = "update-after-expiry"
+	flagUpdateAfterMisbehaviour        = "update-after-misbehaviour"
+	flagClientTrustingPeriod           = "client-tp"
+	flagClientUnbondingPeriod          = "client-unbonding-period"
+	flagClientTrustingPeriodPercentage = "client-tp-percentage"
+	flagMaxClockDrift                  = "max-clock-drift"
+	flagOverride                       = "override"
+	flagSrcPort                        = "src-port"
+	flagDstPort                        = "dst-port"
+	flagOrder                          = "order"
+	flagVersion                        = "version"
+	flagDebugAddr                      = "debug-addr"
+	flagOverwriteConfig                = "overwrite"
+	flagLimit                          = "limit"
+	flagHeight                         = "height"
+	flagPage                           = "page"
+	flagPageKey                        = "page-key"
+	flagCountTotal                     = "count-total"
+	flagReverse                        = "reverse"
+	flagProcessor                      = "processor"
+	flagInitialBlockHistory            = "block-history"
+	flagFlushInterval                  = "flush-interval"
+	flagMemo                           = "memo"
+	flagFilterRule                     = "filter-rule"
+	flagFilterChannels                 = "filter-channels"
+	flagSrcChainID                     = "src-chain-id"
+	flagDstChainID                     = "dst-chain-id"
+	flagSrcClientID                    = "src-client-id"
+	flagDstClientID                    = "dst-client-id"
+	flagSrcConnID                      = "src-connection-id"
+	flagDstConnID                      = "dst-connection-id"
+	flagOutput                         = "output"
+	flagStuckPacketChainID             = "stuck-packet-chain-id"
+	flagStuckPacketHeightStart         = "stuck-packet-height-start"
+	flagStuckPacketHeightEnd           = "stuck-packet-height-end"
 )
 
 const blankValue = "blank"
@@ -324,7 +325,12 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().Duration(
 		flagClientTrustingPeriod,
 		0,
-		"custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)",
+		"custom light client trusting period ex. 24h (default: 85% of chains reported unbonding time)`",
+	)
+	cmd.Flags().Int64(
+		flagClientTrustingPeriodPercentage,
+		85,
+		"custom light client trusting period percentage ex. 66 (default: 85); this flag overrides the client-tp flag",
 	)
 	cmd.Flags().Duration(flagMaxClockDrift, (10 * time.Minute),
 		"custom max clock drift for client(s)")
@@ -344,6 +350,10 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	if err := v.BindPFlag(flagMaxClockDrift, cmd.Flags().Lookup(flagMaxClockDrift)); err != nil {
 		panic(err)
 	}
+	if err := v.BindPFlag(flagClientTrustingPeriodPercentage, cmd.Flags().Lookup(flagClientTrustingPeriodPercentage)); err != nil {
+		panic(err)
+	}
+
 	return cmd
 }
 

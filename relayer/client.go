@@ -23,6 +23,7 @@ func (c *Chain) CreateClients(ctx context.Context,
 	override bool,
 	customClientTrustingPeriod,
 	maxClockDrift time.Duration,
+	customClientTrustingPeriodPercentage int64,
 	memo string) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
@@ -74,7 +75,8 @@ func (c *Chain) CreateClients(ctx context.Context,
 			srcUpdateHeader, dstUpdateHeader,
 			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
 			override, customClientTrustingPeriod,
-			overrideUnbondingPeriod, maxClockDrift, memo)
+			overrideUnbondingPeriod, maxClockDrift,
+			customClientTrustingPeriodPercentage, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -88,7 +90,8 @@ func (c *Chain) CreateClients(ctx context.Context,
 			dstUpdateHeader, srcUpdateHeader,
 			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
 			override, customClientTrustingPeriod,
-			overrideUnbondingPeriod, maxClockDrift, memo)
+			overrideUnbondingPeriod, maxClockDrift,
+			customClientTrustingPeriodPercentage, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -122,6 +125,7 @@ func CreateClient(
 	customClientTrustingPeriod,
 	overrideUnbondingPeriod,
 	maxClockDrift time.Duration,
+	customClientTrustingPeriodPercentage int64,
 	memo string) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
@@ -142,7 +146,7 @@ func CreateClient(
 	if tp == 0 {
 		if err := retry.Do(func() error {
 			var err error
-			tp, err = dst.GetTrustingPeriod(ctx, overrideUnbondingPeriod)
+			tp, err = dst.GetTrustingPeriod(ctx, overrideUnbondingPeriod, customClientTrustingPeriodPercentage)
 			if err != nil {
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
