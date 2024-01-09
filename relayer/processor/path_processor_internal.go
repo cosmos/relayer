@@ -1474,17 +1474,32 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	for k, seqs := range commitments2 {
 		k := k
 		seqs := seqs
+
 		eg.Go(func() error {
-			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
+			s, err := pp.queuePendingRecvAndAcks(
+				ctx,
+				pp.pathEnd2,
+				pp.pathEnd1,
+				k,
+				seqs,
+				pathEnd2Cache.PacketFlow,
+				pathEnd1Cache.PacketFlow,
+				&pathEnd2CacheMu,
+				&pathEnd1CacheMu,
+			)
+
 			if err != nil {
 				return err
 			}
+
 			if s != nil {
 				if _, ok := skipped[pp.pathEnd2.info.ChainID]; !ok {
 					skipped[pp.pathEnd2.info.ChainID] = make(map[ChannelKey]skippedPackets)
 				}
+
 				skipped[pp.pathEnd2.info.ChainID][k] = *s
 			}
+
 			return nil
 		})
 	}
@@ -1493,8 +1508,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
 	}
 
-	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.memoLimit)
-	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.memoLimit)
+	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.memoLimit, pp.maxReceiverSize)
+	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.memoLimit, pp.maxReceiverSize)
 
 	if len(skipped) > 0 {
 		skippedPacketsString := ""
