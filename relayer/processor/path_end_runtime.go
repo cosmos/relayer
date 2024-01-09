@@ -102,16 +102,13 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 
 // checkMemoLimit returns an error if the packet memo exceeds the configured limit.
 func checkMemoLimit(packetData []byte, memoLimit int) error {
-	fmt.Printf("In checkMemoLimit limit: %d \n", memoLimit)
 	if memoLimit <= 0 {
 		// no limit
 		return nil
 	}
 
 	var packet transfertypes.FungibleTokenPacketData
-	if err := transfertypes.ModuleCdc.Unmarshal(packetData, &packet); err != nil {
-		fmt.Printf("Not an ics-20 packet err: %s \n", err)
-		fmt.Printf("Packet Data: %s \n", string(packetData))
+	if err := transfertypes.ModuleCdc.UnmarshalJSON(packetData, &packet); err != nil {
 		// not an ICS-20 packet
 		return nil
 	}
@@ -119,8 +116,6 @@ func checkMemoLimit(packetData []byte, memoLimit int) error {
 	if len(packet.Memo) > memoLimit {
 		return fmt.Errorf("packet memo size: %d exceeds limit: %d", len(packet.Memo), memoLimit)
 	}
-
-	fmt.Printf("Memo length is within limit, len: %d \n", len(packet.Memo))
 
 	return nil
 }
@@ -133,7 +128,7 @@ func checkMaxReceiverSize(packetData []byte, maxReceiverSize int) error {
 	}
 
 	var packet transfertypes.FungibleTokenPacketData
-	if err := transfertypes.ModuleCdc.Unmarshal(packetData, &packet); err != nil {
+	if err := transfertypes.ModuleCdc.UnmarshalJSON(packetData, &packet); err != nil {
 		// not an ICS-20 packet
 		return nil
 	}
@@ -180,10 +175,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(
 
 				newPc := make(PacketSequenceCache)
 				for seq, p := range pCache {
-					fmt.Println("About to check memo limit")
-
 					if err := checkMemoLimit(p.Data, memoLimit); err != nil {
-						fmt.Printf("Ignoring packet err: %s \n", err)
 						pathEnd.log.Warn("Ignoring packet", zap.Error(err))
 						continue
 					}
