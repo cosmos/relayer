@@ -32,6 +32,7 @@ const (
 	flagClientTrustingPeriod           = "client-tp"
 	flagClientUnbondingPeriod          = "client-unbonding-period"
 	flagClientTrustingPeriodPercentage = "client-tp-percentage"
+	flagMaxClockDrift                  = "max-clock-drift"
 	flagOverride                       = "override"
 	flagSrcPort                        = "src-port"
 	flagDstPort                        = "dst-port"
@@ -331,6 +332,8 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		85,
 		"custom light client trusting period percentage ex. 66 (default: 85); this flag overrides the client-tp flag",
 	)
+	cmd.Flags().Duration(flagMaxClockDrift, (10 * time.Minute),
+		"custom max clock drift for client(s)")
 
 	if err := v.BindPFlag(flagUpdateAfterExpiry, cmd.Flags().Lookup(flagUpdateAfterExpiry)); err != nil {
 		panic(err)
@@ -344,6 +347,9 @@ func clientParameterFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		panic(err)
 	}
 
+	if err := v.BindPFlag(flagMaxClockDrift, cmd.Flags().Lookup(flagMaxClockDrift)); err != nil {
+		panic(err)
+	}
 	if err := v.BindPFlag(flagClientTrustingPeriodPercentage, cmd.Flags().Lookup(flagClientTrustingPeriodPercentage)); err != nil {
 		panic(err)
 	}

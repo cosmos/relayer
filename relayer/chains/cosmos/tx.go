@@ -1557,7 +1557,8 @@ func (cc *CosmosProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
-	dstUbdPeriod time.Duration,
+	dstUbdPeriod,
+	maxClockDrift time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
@@ -1569,7 +1570,7 @@ func (cc *CosmosProvider) NewClientState(
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
 		UnbondingPeriod: dstUbdPeriod,
-		MaxClockDrift:   time.Minute * 10,
+		MaxClockDrift:   maxClockDrift,
 		FrozenHeight:    clienttypes.ZeroHeight(),
 		LatestHeight: clienttypes.Height{
 			RevisionNumber: revisionNumber,

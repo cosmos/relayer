@@ -3,6 +3,8 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -11,11 +13,18 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"time"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, customClientTrustingPeriodPercentage int64, memo string) (string, string, error) {
+func (c *Chain) CreateClients(ctx context.Context,
+	dst *Chain,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour,
+	override bool,
+	customClientTrustingPeriod,
+	maxClockDrift time.Duration,
+	customClientTrustingPeriodPercentage int64,
+	memo string) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -62,7 +71,12 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, customClientTrustingPeriodPercentage, overrideUnbondingPeriod, memo)
+		clientSrc, err = CreateClient(egCtx, c, dst,
+			srcUpdateHeader, dstUpdateHeader,
+			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
+			override, customClientTrustingPeriod,
+			overrideUnbondingPeriod, maxClockDrift,
+			customClientTrustingPeriodPercentage, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -72,7 +86,12 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, customClientTrustingPeriodPercentage, overrideUnbondingPeriod, memo)
+		clientDst, err = CreateClient(egCtx, dst, c,
+			dstUpdateHeader, srcUpdateHeader,
+			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
+			override, customClientTrustingPeriod,
+			overrideUnbondingPeriod, maxClockDrift,
+			customClientTrustingPeriodPercentage, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -100,12 +119,13 @@ func CreateClient(
 	ctx context.Context,
 	src, dst *Chain,
 	srcUpdateHeader, dstUpdateHeader provider.IBCHeader,
-	allowUpdateAfterExpiry bool,
-	allowUpdateAfterMisbehaviour bool,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour,
 	override bool,
-	customClientTrustingPeriod time.Duration,
+	customClientTrustingPeriod,
+	overrideUnbondingPeriod,
+	maxClockDrift time.Duration,
 	customClientTrustingPeriodPercentage int64,
-	overrideUnbondingPeriod time.Duration,
 	memo string) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
@@ -164,7 +184,7 @@ func CreateClient(
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
-	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, maxClockDrift, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
