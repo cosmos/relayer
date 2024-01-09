@@ -232,7 +232,7 @@ type ChainProvider interface {
 	Init(ctx context.Context) error
 
 	// [Begin] Client IBC message assembly functions
-	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
+	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod, maxClockDrift time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (RelayerMessage, error)
 
