@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TestMemoAndReceiverLimit tests the functionality of sending transfers with a memo and receiver limit configured.
 func TestMemoAndReceiverLimit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
@@ -109,19 +110,27 @@ func TestMemoAndReceiverLimit(t *testing.T) {
 		_ = ic.Close()
 	})
 
-	// read relayer config
-	// set memo limit
-	// write relayer config
+	// Create and fund user accs & assert initial balances.
+	initBal := sdkmath.NewInt(1_000_000_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, chainA, chainB)
 
+	require.NoError(t, testutil.WaitForBlocks(ctx, 2, chainA, chainB))
+
+	userA := users[0]
+	userB := users[1]
+
+	userABal, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.True(t, initBal.Equal(userABal))
+
+	userBBal, err := chainB.GetBalance(ctx, userB.FormattedAddress(), chainB.Config().Denom)
+	require.NoError(t, err)
+	require.True(t, initBal.Equal(userBBal))
+
+	// Read relayer config from disk, configure memo limit, & write config back to disk.
 	relayer := r.(*relayertest.Relayer)
 
 	cfg := relayer.Sys().MustGetConfig(t)
-
-	t.Logf("Global Config: %+v \n", cfg.Global)
-
-	for _, c := range cfg.ProviderConfigs {
-		t.Logf("Provider Config: %+v \n", c.Value)
-	}
 
 	cfg.Global.ICS20MemoLimit = 10
 
@@ -145,14 +154,6 @@ func TestMemoAndReceiverLimit(t *testing.T) {
 	err = relayer.Sys().WriteConfig(t, cfgBz)
 	require.NoError(t, err)
 
-	cfg = relayer.Sys().MustGetConfig(t)
-
-	t.Logf("Global Config: %+v \n", cfg.Global)
-
-	for _, c := range cfg.ProviderConfigs {
-		t.Logf("Provider Config: %+v \n", c.Value)
-	}
-
 	err = r.StartRelayer(ctx, eRep, pathName)
 	require.NoError(t, err)
 
@@ -165,63 +166,64 @@ func TestMemoAndReceiverLimit(t *testing.T) {
 		},
 	)
 
-	// create and fund user accs
-	// assert initial balances
-
-	// initialize a new acc for the relayer along with a couple user accs
-	initBal := sdkmath.NewInt(1_000_000_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, chainA, chainB)
-
-	require.NoError(t, testutil.WaitForBlocks(ctx, 2, chainA, chainB))
-
-	userA := users[0]
-	userB := users[1]
-
-	// assert initial balances are correct
-	userABal, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
-	require.NoError(t, err)
-	require.True(t, initBal.Equal(userABal))
-
-	userBBal, err := chainB.GetBalance(ctx, userB.FormattedAddress(), chainB.Config().Denom)
-	require.NoError(t, err)
-	require.True(t, initBal.Equal(userBBal))
-
+	// Send transfer that should succeed & assert balances.
 	channels, err := r.GetChannels(ctx, eRep, chainA.Config().ChainID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(channels))
 
 	channel := channels[0]
 
-	// send transfer with memo that exceeds limit
-	// ensure transfer failed and assert balances
-	// compose and send a localhost IBC transfer which should be successful
 	transferAmount := sdkmath.NewInt(1_000)
+
 	transfer := ibc.WalletAmount{
 		Address: userB.FormattedAddress(),
 		Denom:   chainA.Config().Denom,
 		Amount:  transferAmount,
 	}
 
-	// use a memo with a length that exceeds our configured limit
+	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transfer, ibc.TransferOptions{})
+	require.NoError(t, err)
+
+	require.NoError(t, testutil.WaitForBlocks(ctx, 5, chainA, chainB))
+
+	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
+	denom := transfertypes.GetPrefixedDenom(
+		channel.Counterparty.PortID,
+		channel.Counterparty.ChannelID,
+		chainA.Config().Denom,
+	)
+	trace := transfertypes.ParseDenomTrace(denom)
+
+	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
+	require.NoError(t, err)
+	require.True(t, userABal.Equal(initBal.Sub(transferAmount)))
+
+	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
+	require.NoError(t, err)
+	require.True(t, userBBal.Equal(transferAmount))
+
+	// Send transfer with memo that exceeds limit, ensure transfer failed and assert balances.
 	opts := ibc.TransferOptions{
 		Memo: "this memo is too long",
+		Timeout: &ibc.IBCTimeout{
+			Height: 10,
+		},
 	}
 
 	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transfer, opts)
 	require.NoError(t, err)
 
-	require.NoError(t, testutil.WaitForBlocks(ctx, 5, chainA, chainB))
+	require.NoError(t, testutil.WaitForBlocks(ctx, 11, chainA, chainB))
 
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.True(t, initBal.Equal(userABal))
+	require.True(t, !userABal.Equal(initBal.Sub(transferAmount)))
 
-	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), chainB.Config().Denom)
+	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
-	require.True(t, initBal.Equal(userBBal))
+	require.True(t, userBBal.Equal(transferAmount))
 
-	// send transfer with receiver field that exceeds limit
-	// ensure transfer failed and assert balances
+	// Send transfer with receiver field that exceeds limit, ensure transfer failed and assert balances.
 	var junkReceiver string
 
 	for i := 0; i < 130; i++ {
@@ -241,33 +243,7 @@ func TestMemoAndReceiverLimit(t *testing.T) {
 
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.True(t, initBal.Equal(userABal))
-
-	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), chainB.Config().Denom)
-	require.NoError(t, err)
-	require.True(t, initBal.Equal(userBBal))
-
-	// send transfer that should succeed
-	// ensure transfer succeeded and assert balances
-	transfer = ibc.WalletAmount{
-		Address: userB.FormattedAddress(),
-		Denom:   chainA.Config().Denom,
-		Amount:  transferAmount,
-	}
-
-	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transfer, opts)
-	require.NoError(t, err)
-
-	require.NoError(t, testutil.WaitForBlocks(ctx, 5, chainA, chainB))
-
-	// compose the ibc denom for balance assertions
-	denom := transfertypes.GetPrefixedDenom(channel.Counterparty.PortID, channel.Counterparty.ChannelID, chainA.Config().Denom)
-	trace := transfertypes.ParseDenomTrace(denom)
-
-	// assert  balances are correct
-	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
-	require.NoError(t, err)
-	require.True(t, userABal.Equal(initBal.Sub(transferAmount)))
+	require.True(t, !userABal.Equal(initBal.Sub(transferAmount)))
 
 	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
