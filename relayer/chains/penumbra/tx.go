@@ -190,7 +190,12 @@ func msgToPenumbraAction(msg sdk.Msg) (*penumbratypes.Action, error) {
 				RawAction: anyMsg,
 			}},
 		}, nil
-
+	case *chantypes.MsgTimeout:
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
+				RawAction: anyMsg,
+			}},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown message type: %T", msg)
 	}
