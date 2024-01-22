@@ -246,7 +246,7 @@ func (cc *CosmosProvider) GetTxFeeGrant() (txSignerKey string, feeGranterKeyOrAd
 
 // Ensure all Basic Allowance grants are in place for the given ChainClient.
 // This will query (RPC) for existing grants and create new grants if they don't exist.
-func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*sdk.TxResponse, error) {
+func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string, gas uint64) (*sdk.TxResponse, error) {
 	if cc.PCfg.FeeGrants == nil {
 		return nil, errors.New("chain client must be a FeeGranter to establish grants")
 	} else if len(cc.PCfg.FeeGrants.ManagedGrantees) == 0 {
@@ -342,7 +342,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string) (*
 
 		// Feegranter exists on chain
 		if granterExists {
-			txResp, err := cc.SubmitTxAwaitResponse(ctx, msgs, memo, 0, granterKey)
+			txResp, err := cc.SubmitTxAwaitResponse(ctx, msgs, memo, gas, granterKey)
 			if err != nil {
 				return nil, err
 			} else if txResp != nil && txResp.TxResponse != nil && txResp.TxResponse.Code != 0 {

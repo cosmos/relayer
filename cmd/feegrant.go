@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	sdkflags "github.com/cosmos/cosmos-sdk/client/flags"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -130,8 +132,15 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			gas := uint64(0)
+			gasStr, _ := cmd.Flags().GetString(sdkflags.FlagGas)
+			if gasStr != "" {
+				gasSetting, _ := sdkflags.ParseGasSetting(gasStr)
+				gas = gasSetting.Gas
+			}
+
 			ctx := cmd.Context()
-			_, err = prov.EnsureBasicGrants(ctx, memo)
+			_, err = prov.EnsureBasicGrants(ctx, memo, gas)
 			if err != nil {
 				return fmt.Errorf("error writing grants on chain: '%s'", err.Error())
 			}
@@ -164,6 +173,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 	cmd.Flags().IntVar(&numGrantees, "num-grantees", 10, "number of grantees that will be feegranted with basic allowances")
 	cmd.Flags().StringSliceVar(&grantees, "grantees", nil, "comma separated list of grantee key names (keys are created if they do not exist)")
 	cmd.MarkFlagsMutuallyExclusive("num-grantees", "grantees", "delete")
+	cmd.Flags().String(sdkflags.FlagGas, "", fmt.Sprintf("gas limit to set per-transaction; set to %q to calculate sufficient gas automatically (default %d)", sdkflags.GasFlagAuto, sdkflags.DefaultGasLimit))
 
 	memoFlag(a.viper, cmd)
 	return cmd
