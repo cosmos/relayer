@@ -68,6 +68,10 @@ For example, configure feegrants for Kujira:
 - Note: above, `default` is the key that will need to contain funds (the granter)
 - 10 grantees will be configured, so those 10 address will sign TXs in round robin order.
 
+An external feegrant configuration can be applied with the following command:
+- `rly chains configure feegrant basicallowance cosmoshub cosmosaddr --grantees grantee3`
+- Note: above, `cosmosaddr` is a bech32 address that has already issued a feegrant allowance to `grantee3`.
+- External configuration means that someone else controls `cosmosaddr` (you do not need the mnemonic).
 
 You may also choose to specify the exact names of your grantees:
 - `rly chains configure feegrant basicallowance kujira default --grantees "kuji1,kuji2,kuji3"`
@@ -77,7 +81,6 @@ Rerunning the feegrant command will simply confirm your configuration is correct
 
 To remove the feegrant configuration:
 - `rly chains configure feegrant basicallowance kujira --delete`
-
 
 ## Stuck Packet
 
