@@ -232,7 +232,7 @@ type ChainProvider interface {
 	Init(ctx context.Context) error
 
 	// [Begin] Client IBC message assembly functions
-	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
+	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod, maxClockDrift time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error)
 
 	MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (RelayerMessage, error)
 
@@ -404,7 +404,7 @@ type ChainProvider interface {
 	Key() string
 	Address() (string, error)
 	Timeout() string
-	TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error)
+	TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
 

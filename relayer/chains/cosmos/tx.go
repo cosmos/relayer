@@ -618,16 +618,6 @@ func (cc *CosmosProvider) buildMessages(
 		txf = txf.WithSequence(sequence)
 	}
 
-	adjusted := gas
-
-	if gas == 0 {
-		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
-
-		if err != nil {
-			return nil, 0, sdk.Coins{}, err
-		}
-	}
-
 	// Cannot feegrant your own TX
 	if txSignerKey != feegranterKeyOrAddr && feegranterKeyOrAddr != "" {
 		var granterAddr sdk.AccAddress
@@ -644,6 +634,16 @@ func (cc *CosmosProvider) buildMessages(
 		}
 
 		txf = txf.WithFeeGranter(granterAddr)
+	}
+
+	adjusted := gas
+
+	if gas == 0 {
+		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
+
+		if err != nil {
+			return nil, 0, sdk.Coins{}, err
+		}
 	}
 
 	// Set the gas amount on the transaction factory
@@ -1562,7 +1562,8 @@ func (cc *CosmosProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
-	dstUbdPeriod time.Duration,
+	dstUbdPeriod,
+	maxClockDrift time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
@@ -1574,7 +1575,7 @@ func (cc *CosmosProvider) NewClientState(
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
 		UnbondingPeriod: dstUbdPeriod,
-		MaxClockDrift:   time.Minute * 10,
+		MaxClockDrift:   maxClockDrift,
 		FrozenHeight:    clienttypes.ZeroHeight(),
 		LatestHeight: clienttypes.Height{
 			RevisionNumber: revisionNumber,

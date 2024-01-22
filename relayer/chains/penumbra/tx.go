@@ -2,11 +2,9 @@ package penumbra
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/rand"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,20 +44,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Variables used for retries
 var (
-	rtyAttNum                   = uint(5)
-	rtyAtt                      = retry.Attempts(rtyAttNum)
-	rtyDel                      = retry.Delay(time.Millisecond * 400)
-	rtyErr                      = retry.LastErrorOnly(true)
-	numRegex                    = regexp.MustCompile("[0-9]+")
+	rtyAttNum = uint(5)
+	rtyAtt    = retry.Attempts(rtyAttNum)
+	rtyDel    = retry.Delay(time.Millisecond * 400)
+	rtyErr    = retry.LastErrorOnly(true)
+
 	defaultBroadcastWaitTimeout = 10 * time.Minute
 	errUnknown                  = "unknown"
 )
 
-// Default IBC settings
 var (
-	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
 )
 
@@ -94,7 +89,11 @@ type intoAny interface {
 
 // SendMessage attempts to sign, encode & send a RelayerMessage
 // This is used extensively in the relayer as an extension of the Provider interface
-func (cc *PenumbraProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (cc *PenumbraProvider) SendMessage(
+	ctx context.Context,
+	msg provider.RelayerMessage,
+	memo string,
+) (*provider.RelayerTxResponse, bool, error) {
 	return cc.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
@@ -109,89 +108,94 @@ func msgToPenumbraAction(msg sdk.Msg) (*penumbratypes.Action, error) {
 	switch msg.(type) {
 	case *clienttypes.MsgCreateClient:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *clienttypes.MsgUpdateClient:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenInit:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenAck:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenTry:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *conntypes.MsgConnectionOpenConfirm:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenInit:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenTry:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenAck:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelOpenConfirm:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseInit:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgChannelCloseConfirm:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgRecvPacket:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
 	case *chantypes.MsgAcknowledgement:
 		return &penumbratypes.Action{
-			Action: &penumbratypes.Action_IbcAction{IbcAction: &penumbraibctypes.IbcAction{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
 				RawAction: anyMsg,
 			}},
 		}, nil
-
+	case *chantypes.MsgTimeout:
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
+				RawAction: anyMsg,
+			}},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown message type: %T", msg)
 	}
@@ -250,9 +254,12 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	maxHeight := status.SyncInfo.LatestBlockHeight
 
 	// Generate a random block height to query between 1 and maxHeight
-	height := rand.Int63n(maxHeight-1) + 1
+	height := rand.Int63n(maxHeight - 1)
+	if height < 0 {
+		height = 0
+	}
 
-	path := fmt.Sprintf("shielded_pool/anchor/%d", height)
+	path := fmt.Sprintf("sct/anchor/%d", height)
 
 	req := abci.RequestQuery{
 		Path:   "state/key",
@@ -263,49 +270,33 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 
 	res, err := cc.QueryABCI(ctx, req)
 	if err != nil {
-		path := fmt.Sprintf("sct/anchor/%d", height)
+		return nil, err
+	}
 
-		req := abci.RequestQuery{
-			Path:   "state/key",
-			Height: maxHeight,
-			Data:   []byte(path),
-			Prove:  false,
-		}
-		res, err := cc.QueryABCI(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-
-		return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
+	if res.Value == nil {
+		return nil, errors.New("no anchor found for height" + strconv.FormatInt(height, 10))
 	}
 
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
 }
 
 func parseEventsFromABCIResponse(resp abci.ExecTxResult) []provider.RelayerEvent {
-	var events []provider.RelayerEvent
+	events := make([]provider.RelayerEvent, len(resp.Events))
 
 	for _, event := range resp.Events {
 		attributes := make(map[string]string)
+
 		for _, attribute := range event.Attributes {
-			// The key and value are base64-encoded strings, so we first have to decode them:
-			key, err := base64.StdEncoding.DecodeString(string(attribute.Key))
-			if err != nil {
-				continue
-			}
-			value, err := base64.StdEncoding.DecodeString(string(attribute.Value))
-			if err != nil {
-				continue
-			}
-			attributes[string(key)] = string(value)
+			attributes[attribute.Key] = attribute.Value
 		}
+
 		events = append(events, provider.RelayerEvent{
 			EventType:  event.Type,
 			Attributes: attributes,
 		})
 	}
-	return events
 
+	return events
 }
 
 func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
@@ -2024,35 +2015,15 @@ var JmtSpec = &ics23.ProofSpec{
 	PrehashKeyBeforeComparison: true,
 }
 
-var ApphashSpec = &ics23.ProofSpec{
-	LeafSpec: &ics23.LeafOp{
-		Prefix:       nil,
-		Hash:         ics23.HashOp_SHA256,
-		Length:       ics23.LengthOp_NO_PREFIX,
-		PrehashKey:   ics23.HashOp_NO_HASH,
-		PrehashValue: ics23.HashOp_NO_HASH,
-	},
-	InnerSpec: &ics23.InnerSpec{
-		Hash:            ics23.HashOp_SHA256,
-		MaxPrefixLength: 0,
-		MinPrefixLength: 0,
-		ChildOrder:      []int32{0, 1},
-		ChildSize:       32,
-		EmptyChild:      nil,
-	},
-	MinDepth:                   0,
-	MaxDepth:                   1,
-	PrehashKeyBeforeComparison: false,
-}
-
-var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, ApphashSpec}
+var PenumbraProofSpecs = []*ics23.ProofSpec{JmtSpec, JmtSpec}
 
 // NewClientState creates a new tendermint client state tracking the dst chain.
 func (cc *PenumbraProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
-	dstUbdPeriod time.Duration,
+	dstUbdPeriod,
+	maxClockDrift time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
@@ -2064,7 +2035,7 @@ func (cc *PenumbraProvider) NewClientState(
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
 		UnbondingPeriod: dstUbdPeriod,
-		MaxClockDrift:   time.Minute * 10,
+		MaxClockDrift:   maxClockDrift,
 		FrozenHeight:    clienttypes.ZeroHeight(),
 		LatestHeight: clienttypes.Height{
 			RevisionNumber: revisionNumber,

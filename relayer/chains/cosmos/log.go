@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
 	feetypes "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/types"
@@ -102,11 +101,10 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
 
 	// Extract fees and fee_payer if present
-	ir := types.NewInterfaceRegistry()
-	cdc := codec.NewProtoCodec(ir)
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
 
 	var m sdk.Msg
-	if err := ir.UnpackAny(res.Tx, &m); err == nil {
+	if err := cc.Cdc.InterfaceRegistry.UnpackAny(res.Tx, &m); err == nil {
 		if tx, ok := m.(*typestx.Tx); ok {
 			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
 			if feePayer := getFeePayer(cc.log, cdc, tx); feePayer != "" {

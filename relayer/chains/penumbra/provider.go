@@ -185,7 +185,7 @@ func (cc *PenumbraProvider) Timeout() string {
 }
 
 func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
+	return commitmenttypes.NewMerklePrefix([]byte("ibc-data"))
 }
 
 // Address returns the chains configured address as a string
@@ -208,7 +208,7 @@ func (cc *PenumbraProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
+func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error) {
 	// TODO
 	return time.Hour * 2, nil
 	/*
@@ -223,7 +223,7 @@ func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondin
 		// by converting int64 to float64.
 		// Use integer math the whole time, first reducing by a factor of 100
 		// and then re-growing by 85x.
-		tp := res.UnbondingTime / 100 * 85
+		tp := res.UnbondingTime / 100 * 85 // TODO: replace with percentage
 
 		// And we only want the trusting period to be whole hours.
 		return tp.Truncate(time.Hour), nil
