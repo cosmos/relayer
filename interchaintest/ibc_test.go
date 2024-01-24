@@ -41,14 +41,6 @@ func interchaintestConformance(t *testing.T, rf interchaintest.RelayerFactory) {
 			ChainConfig:   ibc.ChainConfig{ChainID: "osmosis-1001"},
 		},
 	})
-	//
-	//rff := interchaintest.NewBuiltinRelayerFactory(
-	//	ibc.CosmosRly,
-	//	zaptest.NewLogger(t),
-	//	interchaintestrelayer.CustomDockerImage("relayer", "local", "100:1000"),
-	//	interchaintestrelayer.ImagePull(false),
-	//	interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
-	//)
 
 	conformance.Test(
 		t,
