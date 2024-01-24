@@ -8,14 +8,15 @@ import (
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/p2p"
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
-	cometprotoversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sltypes "github.com/strangelove-ventures/cometbft-client/abci/types"
 	"github.com/strangelove-ventures/cometbft-client/client"
 	slbytes "github.com/strangelove-ventures/cometbft-client/libs/bytes"
 	slclient "github.com/strangelove-ventures/cometbft-client/rpc/client"
+	coretypes2 "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
 	types2 "github.com/strangelove-ventures/cometbft-client/types"
 )
 
@@ -52,19 +53,7 @@ func (r RPCClient) ABCIQuery(
 		return nil, err
 	}
 
-	return &coretypes.ResultABCIQuery{
-		Response: types.ResponseQuery{
-			Code:      res.Response.Code,
-			Log:       res.Response.Log,
-			Info:      res.Response.Info,
-			Index:     res.Response.Index,
-			Key:       res.Response.Key,
-			Value:     res.Response.Value,
-			ProofOps:  convertProofOps(res.Response.ProofOps),
-			Height:    res.Response.Height,
-			Codespace: res.Response.Codespace,
-		},
-	}, nil
+	return convertResultABCIQuery(res), nil
 }
 
 func (r RPCClient) ABCIQueryWithOptions(
@@ -83,19 +72,7 @@ func (r RPCClient) ABCIQueryWithOptions(
 		return nil, err
 	}
 
-	return &coretypes.ResultABCIQuery{
-		Response: types.ResponseQuery{
-			Code:      res.Response.Code,
-			Log:       res.Response.Log,
-			Info:      res.Response.Info,
-			Index:     res.Response.Index,
-			Key:       res.Response.Key,
-			Value:     res.Response.Value,
-			ProofOps:  convertProofOps(res.Response.ProofOps),
-			Height:    res.Response.Height,
-			Codespace: res.Response.Codespace,
-		},
-	}, nil
+	return convertResultABCIQuery(res), nil
 }
 
 func (r RPCClient) BroadcastTxCommit(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTxCommit, error) {
@@ -174,7 +151,7 @@ func (r RPCClient) Validators(
 	for i, val := range res.Validators {
 		vals[i] = &tmtypes.Validator{
 			Address:          tmtypes.Address(val.Address),
-			PubKey:           nil, // TODO: PubKey in our response type is an interface, need to figure out how to handle
+			PubKey:           nil,
 			VotingPower:      val.VotingPower,
 			ProposerPriority: val.ProposerPriority,
 		}
@@ -225,7 +202,7 @@ func (r RPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) 
 		},
 		ValidatorInfo: coretypes.ValidatorInfo{
 			Address:     bytes.HexBytes(res.ValidatorInfo.Address),
-			PubKey:      nil, // TODO: PubKey in our response type is an interface, need to figure out how to handle
+			PubKey:      nil,
 			VotingPower: res.ValidatorInfo.VotingPower,
 		},
 	}, nil
@@ -270,15 +247,15 @@ func (r RPCClient) BlockResults(ctx context.Context, height *int64) (*coretypes.
 			Info:      tx.Info,
 			GasWanted: tx.GasWanted,
 			GasUsed:   tx.GasUsed,
-			Events:    nil,
+			Events:    converStringEvents(tx.Events),
 			Codespace: tx.Codespace,
 		}
 	}
 
 	return &coretypes.ResultBlockResults{
 		Height:                res.Height,
-		TxsResults:            nil,
-		FinalizeBlockEvents:   nil,
+		TxsResults:            txs,
+		FinalizeBlockEvents:   converStringEvents(res.Events),
 		ValidatorUpdates:      nil,
 		ConsensusParamUpdates: nil,
 		AppHash:               res.AppHash,
@@ -353,23 +330,7 @@ func (r RPCClient) Tx(ctx context.Context, hash []byte, prove bool) (*coretypes.
 		return nil, err
 	}
 
-	return &coretypes.ResultTx{
-		Hash:     bytes.HexBytes(res.Hash),
-		Height:   res.Height,
-		Index:    res.Index,
-		TxResult: types.ExecTxResult{}, // TODO:
-		Tx:       tmtypes.Tx(res.Tx),
-		Proof: tmtypes.TxProof{
-			RootHash: bytes.HexBytes(res.Proof.RootHash),
-			Data:     tmtypes.Tx(res.Proof.Data),
-			Proof: merkle.Proof{
-				Total:    res.Proof.Proof.Total,
-				Index:    res.Proof.Proof.Index,
-				LeafHash: res.Proof.Proof.LeafHash,
-				Aunts:    res.Proof.Proof.Aunts,
-			},
-		},
-	}, nil
+	return convertResultTx(res), nil
 }
 
 func (r RPCClient) TxSearch(
@@ -384,11 +345,14 @@ func (r RPCClient) TxSearch(
 		return nil, err
 	}
 
-	_ = res
+	txs := make([]*coretypes.ResultTx, len(res))
+	for i, tx := range res {
+		txs[i] = convertResultTx(tx)
+	}
 
 	return &coretypes.ResultTxSearch{
-		Txs:        nil,
-		TotalCount: 0,
+		Txs:        txs,
+		TotalCount: len(txs),
 	}, nil
 }
 
@@ -403,11 +367,17 @@ func (r RPCClient) BlockSearch(
 		return nil, err
 	}
 
-	_ = res
+	blocks := make([]*coretypes.ResultBlock, len(res.Blocks))
+	for i, block := range res.Blocks {
+		blocks[i] = &coretypes.ResultBlock{
+			BlockID: convertBlockID(block.BlockID),
+			Block:   convertBlock(block.Block),
+		}
+	}
 
 	return &coretypes.ResultBlockSearch{
-		Blocks:     nil,
-		TotalCount: 0,
+		Blocks:     blocks,
+		TotalCount: res.TotalCount,
 	}, nil
 }
 
@@ -447,13 +417,30 @@ func convertEvents(events []sltypes.Event) []types.Event {
 	return evts
 }
 
+func converStringEvents(events sdk.StringEvents) []types.Event {
+	evts := make([]types.Event, len(events))
+
+	for i, evt := range events {
+		attributes := make([]types.EventAttribute, len(evt.Attributes))
+
+		for j, attr := range evt.Attributes {
+			attributes[j] = types.EventAttribute{
+				Key:   attr.Key,
+				Value: attr.Value,
+			}
+		}
+
+		evts[i] = types.Event{
+			Type:       evt.Type,
+			Attributes: attributes,
+		}
+	}
+
+	return evts
+}
+
 func convertHeader(header types2.Header) tmtypes.Header {
 	return tmtypes.Header{
-		// TODO: Version does not appear to be present in our response type
-		Version: cometprotoversion.Consensus{
-			Block: 0,
-			App:   0,
-		},
 		ChainID: header.ChainID,
 		Height:  header.Height,
 		Time:    header.Time,
@@ -507,12 +494,57 @@ func convertBlock(block *types2.Block) *tmtypes.Block {
 		Data: tmtypes.Data{
 			Txs: txs,
 		},
-		Evidence: tmtypes.EvidenceData{}, // TODO: EvidenceData
+		Evidence: tmtypes.EvidenceData{},
 		LastCommit: &tmtypes.Commit{
 			Height:     block.LastCommit.Height,
 			Round:      block.LastCommit.Round,
 			BlockID:    convertBlockID(block.LastCommit.BlockID),
 			Signatures: signatures,
+		},
+	}
+}
+
+func convertResultABCIQuery(res *coretypes2.ResultABCIQuery) *coretypes.ResultABCIQuery {
+	return &coretypes.ResultABCIQuery{
+		Response: types.ResponseQuery{
+			Code:      res.Response.Code,
+			Log:       res.Response.Log,
+			Info:      res.Response.Info,
+			Index:     res.Response.Index,
+			Key:       res.Response.Key,
+			Value:     res.Response.Value,
+			ProofOps:  convertProofOps(res.Response.ProofOps),
+			Height:    res.Response.Height,
+			Codespace: res.Response.Codespace,
+		},
+	}
+}
+
+func convertResultTx(res *client.TxResponse) *coretypes.ResultTx {
+	return &coretypes.ResultTx{
+		Hash:   bytes.HexBytes(res.Hash),
+		Height: res.Height,
+		Index:  res.Index,
+		TxResult: types.ExecTxResult{
+			Code:      res.ExecTx.Code,
+			Data:      res.ExecTx.Data,
+			Log:       res.ExecTx.Log,
+			Info:      res.ExecTx.Info,
+			GasWanted: res.ExecTx.GasWanted,
+			GasUsed:   res.ExecTx.GasUsed,
+			Events:    converStringEvents(res.ExecTx.Events),
+			Codespace: res.ExecTx.Codespace,
+		},
+		Tx: tmtypes.Tx(res.Tx),
+		Proof: tmtypes.TxProof{
+			RootHash: bytes.HexBytes(res.Proof.RootHash),
+			Data:     tmtypes.Tx(res.Proof.Data),
+			Proof: merkle.Proof{
+				Total:    res.Proof.Proof.Total,
+				Index:    res.Proof.Proof.Index,
+				LeafHash: res.Proof.Proof.LeafHash,
+				Aunts:    res.Proof.Proof.Aunts,
+			},
 		},
 	}
 }
