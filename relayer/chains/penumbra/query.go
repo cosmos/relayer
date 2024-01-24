@@ -27,8 +27,10 @@ import (
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	ics23 "github.com/cosmos/ics23/go"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	abcitypes "github.com/strangelove-ventures/cometbft-client/abci/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -42,18 +44,18 @@ func (cc *PenumbraProvider) QueryTx(ctx context.Context, hashHex string) (*provi
 		return nil, err
 	}
 
-	resp, err := cc.RPCClient.Tx(ctx, hash, true)
+	resp, err := cc.RPCClient.Client.Tx(ctx, hash, true)
 	if err != nil {
 		return nil, err
 	}
 
-	events := parseEventsFromResponseDeliverTx(resp.TxResult)
+	events := parseEventsFromResponseDeliverTx(resp.ExecTx.Events)
 
 	return &provider.RelayerTxResponse{
 		Height: resp.Height,
 		TxHash: string(hash),
-		Code:   resp.TxResult.Code,
-		Data:   string(resp.TxResult.Data),
+		Code:   resp.ExecTx.Code,
+		Data:   string(resp.ExecTx.Data),
 		Events: events,
 	}, nil
 }
@@ -72,7 +74,7 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.RPCClient.Client.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -80,13 +82,13 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 	// Currently, we only call QueryTxs() in two spots and in both of them we are expecting there to only be,
 	// at most, one tx in the response. Because of this we don't want to initialize the slice with an initial size.
 	var txResps []*provider.RelayerTxResponse
-	for _, tx := range res.Txs {
-		relayerEvents := parseEventsFromResponseDeliverTx(tx.TxResult)
+	for _, tx := range res {
+		relayerEvents := parseEventsFromResponseDeliverTx(tx.ExecTx.Events)
 		txResps = append(txResps, &provider.RelayerTxResponse{
 			Height: tx.Height,
 			TxHash: string(tx.Hash),
-			Code:   tx.TxResult.Code,
-			Data:   string(tx.TxResult.Data),
+			Code:   tx.ExecTx.Code,
+			Data:   string(tx.ExecTx.Data),
 			Events: relayerEvents,
 		})
 	}
@@ -95,14 +97,15 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp abci.ExecTxResult) []provider.RelayerEvent {
+func parseEventsFromResponseDeliverTx(resp sdk.StringEvents) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
-	for _, event := range resp.Events {
+	for _, event := range resp {
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
-			attributes[string(attribute.Key)] = string(attribute.Value)
+			attributes[attribute.Key] = attribute.Value
 		}
+
 		events = append(events, provider.RelayerEvent{
 			EventType:  event.Type,
 			Attributes: attributes,
@@ -189,7 +192,7 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	merkleProof, err := commitmenttypes.ConvertProofs(res.ProofOps)
+	merkleProof, err := ConvertProofs(res.ProofOps)
 	if err != nil {
 		return nil, nil, clienttypes.Height{}, err
 	}
@@ -203,6 +206,30 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 
 	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
 	return res.Value, proofBz, clienttypes.NewHeight(revision, uint64(res.Height)+1), nil
+}
+
+// ConvertProofs converts crypto.ProofOps into MerkleProof.
+// This function is copied from ibc-go, so we can modify it to work with our CometBFT client wrapper types.
+// see: https://github.com/cosmos/ibc-go/blob/04531d83bf51d949f4bf2d61e88e419d1620ea32/modules/core/23-commitment/types/utils.go#L12-L29
+func ConvertProofs(tmProof *abcitypes.ProofOps) (commitmenttypes.MerkleProof, error) {
+	if tmProof == nil {
+		return commitmenttypes.MerkleProof{}, sdkerrors.Wrapf(commitmenttypes.ErrInvalidMerkleProof, "tendermint proof is nil")
+	}
+
+	// Unmarshal all proof ops to CommitmentProof
+	proofs := make([]*ics23.CommitmentProof, len(tmProof.Ops))
+	for i, op := range tmProof.Ops {
+		var p ics23.CommitmentProof
+		err := p.Unmarshal(op.Data)
+		if err != nil || p.Proof == nil {
+			return commitmenttypes.MerkleProof{}, sdkerrors.Wrapf(commitmenttypes.ErrInvalidMerkleProof, "could not unmarshal proof op into CommitmentProof at index %d: %v", i, err)
+		}
+		proofs[i] = &p
+	}
+
+	return commitmenttypes.MerkleProof{
+		Proofs: proofs,
+	}, nil
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height
@@ -301,7 +328,7 @@ func (cc *PenumbraProvider) QueryUpgradeProof(ctx context.Context, key []byte, h
 		return nil, clienttypes.Height{}, err
 	}
 
-	merkleProof, err := commitmenttypes.ConvertProofs(res.ProofOps)
+	merkleProof, err := ConvertProofs(res.ProofOps)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}
@@ -917,14 +944,15 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+	res, err := cc.RPCClient.Client.TxSearch(ctx, query, true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
+
 	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
-	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, cc.cometLegacyEncoding)...)
+	for _, tx := range res {
+		ibcMsgs = append(ibcMsgs, chains.ParseIBCMessagesFromEvents(log, chainID, 0, tx.ExecTx.Events)...)
 	}
 
 	return ibcMsgs, nil

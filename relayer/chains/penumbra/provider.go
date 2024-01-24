@@ -8,10 +8,8 @@ import (
 	"path"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
@@ -23,14 +21,11 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/chains"
+	cwrapper "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	legacyclient "github.com/strangelove-ventures/cometbft/rpc/client"
-	legacyhttp "github.com/strangelove-ventures/cometbft/rpc/client/http"
-	legacyjson "github.com/strangelove-ventures/cometbft/rpc/jsonrpc/client"
+	"github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 var (
@@ -142,22 +137,15 @@ func (h PenumbraIBCHeader) NextValidatorsHash() []byte {
 type PenumbraProvider struct {
 	log *zap.Logger
 
-	PCfg            PenumbraProviderConfig
-	Keybase         keyring.Keyring
-	KeyringOptions  []keyring.Option
-	RPCClient       rpcclient.Client
-	LegacyRPCClient legacyclient.Client
-	LightProvider   provtypes.Provider
-	Input           io.Reader
-	Output          io.Writer
-	Codec           Codec
-	RPCCaller       jsonrpcclient.Caller
-
-	// for comet < v0.37, decode tm events as base64
-	cometLegacyEncoding bool
-
-	// for comet < v0.38, use legacy RPC client for ResultsBlockResults
-	cometLegacyBlockResults bool
+	PCfg           PenumbraProviderConfig
+	Keybase        keyring.Keyring
+	KeyringOptions []keyring.Option
+	RPCClient      cwrapper.RPCClient
+	LightProvider  provtypes.Provider
+	Input          io.Reader
+	Output         io.Writer
+	Codec          Codec
+	RPCCaller      jsonrpcclient.Caller
 }
 
 func (cc *PenumbraProvider) ProviderConfig() provider.ProviderConfig {
@@ -261,33 +249,19 @@ func (cc *PenumbraProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient, err := newRPCClient(cc.PCfg.RPCAddr, timeout)
-	if err != nil {
-		return err
-	}
-
 	lightprovider, err := prov.New(cc.PCfg.ChainID, cc.PCfg.RPCAddr)
 	if err != nil {
 		return err
 	}
 
-	legacyRPCClient, err := NewLegacyRPCClient(cc.PCfg.RPCAddr, timeout)
+	c, err := client.NewClient(cc.PCfg.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
 
-	cc.LegacyRPCClient = legacyRPCClient
-	cc.RPCClient = rpcClient
+	cc.RPCClient = cwrapper.RPCClient{Client: c}
 	cc.LightProvider = lightprovider
 	cc.Keybase = keybase
-
-	status, err := cc.QueryStatus(ctx)
-	if err != nil {
-		// Operations can occur before the node URL is added to the config, so noop here.
-		return nil
-	}
-
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
 
 	return nil
 }
@@ -341,19 +315,6 @@ func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {
 	}
 }
 
-func (cc *PenumbraProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
-	cc.cometLegacyBlockResults = cc.legacyBlockResults(version)
-}
-
-func (cc *PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, cometEncodingThreshold) < 0
-}
-
-func (cc *PenumbraProvider) legacyBlockResults(version string) bool {
-	return semver.Compare("v"+version, cometBlockResultsThreshold) < 0
-}
-
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
 func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
@@ -371,61 +332,4 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 		return nil, err
 	}
 	return rpcClient, nil
-}
-
-// NewLegacyRPCClient initializes a new CometBFT RPC client, from our forked repo, connected to the specified address.
-func NewLegacyRPCClient(addr string, timeout time.Duration) (*legacyhttp.HTTP, error) {
-	httpClient, err := legacyjson.DefaultHTTPClient(addr)
-	if err != nil {
-		return nil, err
-	}
-	httpClient.Timeout = timeout
-	rpcClient, err := legacyhttp.NewWithClient(addr, "/websocket", httpClient)
-	if err != nil {
-		return nil, err
-	}
-	return rpcClient, nil
-}
-
-// BlockResults uses the appropriate CometBFT RPC client to fetch the block results at a specific height,
-// it then parses the tx results and block events into our generalized types.
-func (cc *PenumbraProvider) BlockResults(ctx context.Context, height *int64) (*chains.Results, error) {
-	var results *chains.Results
-
-	switch {
-	case cc.cometLegacyBlockResults:
-		legacyRes, err := cc.LegacyRPCClient.BlockResults(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-
-		var events []abci.Event
-		events = append(events, chains.ConvertEvents(legacyRes.BeginBlockEvents)...)
-		events = append(events, chains.ConvertEvents(legacyRes.EndBlockEvents)...)
-
-		results = &chains.Results{
-			TxsResults: chains.ConvertTxResults(legacyRes.TxsResults),
-			Events:     events,
-		}
-	default:
-		res, err := cc.RPCClient.BlockResults(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-
-		var txRes []*chains.TxResult
-		for _, tx := range res.TxsResults {
-			txRes = append(txRes, &chains.TxResult{
-				Code:   tx.Code,
-				Events: tx.Events,
-			})
-		}
-
-		results = &chains.Results{
-			TxsResults: txRes,
-			Events:     res.FinalizeBlockEvents,
-		}
-	}
-
-	return results, nil
 }

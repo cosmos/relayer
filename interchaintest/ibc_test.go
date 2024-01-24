@@ -22,10 +22,34 @@ import (
 //
 // The canonical set of test chains are defined in the interchaintest repository.
 func interchaintestConformance(t *testing.T, rf interchaintest.RelayerFactory) {
+	nf := 1
+	nv := 1
+
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.1", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
-		{Name: "osmosis", Version: "v7.2.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
+		{
+			Name:          "gaia",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: "cosmoshub-1004"},
+		},
+		{
+			Name:          "osmosis",
+			Version:       "v22.0.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: "osmosis-1001"},
+		},
 	})
+	//
+	//rff := interchaintest.NewBuiltinRelayerFactory(
+	//	ibc.CosmosRly,
+	//	zaptest.NewLogger(t),
+	//	interchaintestrelayer.CustomDockerImage("relayer", "local", "100:1000"),
+	//	interchaintestrelayer.ImagePull(false),
+	//	interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
+	//)
+
 	conformance.Test(
 		t,
 		context.Background(),

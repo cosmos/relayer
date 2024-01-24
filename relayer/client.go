@@ -235,6 +235,7 @@ func CreateClient(
 	if err := retry.Do(func() error {
 		var success bool
 		var err error
+
 		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, memo)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
@@ -536,6 +537,14 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 // parseClientIDFromEvents parses events emitted from a MsgCreateClient and returns the
 // client identifier.
 func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
+	// TODO: Remove debug output before merging PR
+	for _, event := range events {
+		fmt.Printf("Event Type: %s \n", event.EventType)
+		for attrKey, attrVal := range event.Attributes {
+			fmt.Printf("Event Attr Key: %s Attr Val: %s \n", attrKey, attrVal)
+		}
+	}
+
 	for _, event := range events {
 		if event.EventType == clienttypes.EventTypeCreateClient {
 			for attributeKey, attributeValue := range event.Attributes {
@@ -545,6 +554,7 @@ func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 			}
 		}
 	}
+
 	return "", fmt.Errorf("client identifier event attribute not found")
 }
 
