@@ -50,7 +50,7 @@ func (cc *CosmosProvider) GetValidBasicGrants() ([]*feegrant.Grant, error) {
 				validGrants = append(validGrants, grant)
 			}
 		default:
-			cc.log.Debug("ignoring grant",
+			cc.log.Debug("Ignoring grant",
 				zap.String("type", grant.Allowance.TypeUrl),
 				zap.String("granter", grant.Granter),
 				zap.String("grantee", grant.Grantee))
@@ -99,7 +99,7 @@ func (cc *CosmosProvider) GetGranteeValidBasicGrants(granteeKey string) ([]*feeg
 					validGrants = append(validGrants, grant)
 				}
 			default:
-				cc.log.Debug("ignoring grant",
+				cc.log.Debug("Ignoring grant",
 					zap.String("type", grant.Allowance.TypeUrl),
 					zap.String("granter", grant.Granter),
 					zap.String("grantee", grant.Grantee))
@@ -301,7 +301,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string, ga
 
 		granteeAcc, err := cc.GetKeyAddressForKey(grantee)
 		if err != nil {
-			cc.log.Error("Unknown grantee", zap.String("key name", grantee))
+			cc.log.Error("Unknown grantee", zap.String("key_name", grantee))
 			return nil, err
 		}
 
@@ -327,7 +327,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string, ga
 			}
 			msgs = append(msgs, grantMsg)
 		} else if !hasGrant {
-			cc.log.Warn("Missing feegrant", zap.String("external granter", granterAddr), zap.String("grantee", granteeAddr))
+			cc.log.Warn("Missing feegrant", zap.String("external_granter", granterAddr), zap.String("grantee", granteeAddr))
 		}
 	}
 
@@ -346,11 +346,11 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string, ga
 			if err != nil {
 				return nil, err
 			} else if txResp != nil && txResp.TxResponse != nil && txResp.TxResponse.Code != 0 {
-				cc.log.Warn("Feegrant TX failed", zap.String("TX hash", txResp.TxResponse.TxHash), zap.Uint32("code", txResp.TxResponse.Code))
+				cc.log.Warn("Feegrant TX failed", zap.String("tx_hash", txResp.TxResponse.TxHash), zap.Uint32("code", txResp.TxResponse.Code))
 				return nil, fmt.Errorf("could not configure feegrant for granter %s", granterKey)
 			}
 
-			cc.log.Info("Feegrant succeeded", zap.Int("new grants", grantsNeeded), zap.Int("existing grants", numGrantees-grantsNeeded), zap.String("TX hash", txResp.TxResponse.TxHash))
+			cc.log.Info("Feegrant succeeded", zap.Int("new_grants", grantsNeeded), zap.Int("existing_grants", numGrantees-grantsNeeded), zap.String("tx_hash", txResp.TxResponse.TxHash))
 			return txResp.TxResponse, err
 		}
 
@@ -376,7 +376,7 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowance(ctx context.Context, ga
 	}
 	granterAddr, err := cc.GetKeyAddressForKey(granterKey)
 	if err != nil {
-		cc.log.Error("Unknown granter", zap.String("key name", granterKey))
+		cc.log.Error("Unknown granter", zap.String("key_name", granterKey))
 		return err
 	}
 
@@ -384,7 +384,7 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowance(ctx context.Context, ga
 		granteeAddr, err := cc.GetKeyAddressForKey(grantee)
 
 		if err != nil {
-			cc.log.Error("Unknown grantee", zap.String("key name", grantee))
+			cc.log.Error("Unknown grantee", zap.String("key_name", grantee))
 			return err
 		}
 
@@ -414,7 +414,7 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowanceWithExpiration(ctx conte
 
 	granterAddr, err := cc.GetKeyAddressForKey(granterKey)
 	if err != nil {
-		cc.log.Error("Unknown granter", zap.String("key name", granterKey))
+		cc.log.Error("Unknown granter", zap.String("key_name", granterKey))
 		return err
 	}
 
@@ -422,7 +422,7 @@ func (cc *CosmosProvider) GrantAllGranteesBasicAllowanceWithExpiration(ctx conte
 		granteeAddr, err := cc.GetKeyAddressForKey(grantee)
 
 		if err != nil {
-			cc.log.Error("Unknown grantee", zap.String("key name", grantee))
+			cc.log.Error("Unknown grantee", zap.String("key_name", grantee))
 			return err
 		}
 

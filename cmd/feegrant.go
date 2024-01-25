@@ -75,7 +75,7 @@ func feegrantConfigureBasicCmd(a *appState) *cobra.Command {
 			}
 
 			if delete {
-				a.log.Info("deleting feegrant configuration", zap.String("chain", chain))
+				a.log.Info("Deleting feegrant configuration", zap.String("chain", chain))
 
 				cfgErr := a.performConfigLockingOperation(cmd.Context(), func() error {
 					chain := a.config.Chains[chain]
@@ -205,7 +205,7 @@ func feegrantBasicGrantsCmd(a *appState) *cobra.Command {
 
 			granterAcc, err := prov.AccountFromKeyOrAddress(keyNameOrAddress)
 			if err != nil {
-				a.log.Error("unknown account", zap.String("key or address", keyNameOrAddress))
+				a.log.Error("Unknown account", zap.String("key_or_address", keyNameOrAddress), zap.Error(err))
 				return err
 			}
 			granterAddr := prov.MustEncodeAccAddr(granterAcc)
