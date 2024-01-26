@@ -268,7 +268,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 			//You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
 			//Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
 			localRelayer := r.(*Relayer)
-			res := localRelayer.sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.KeyName(), "--grantees", granteeCsv, "--overwrite-granter")
+			res := localRelayer.Sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.KeyName(), "--grantees", granteeCsv, "--overwrite-granter")
 			if res.Err != nil {
 				fmt.Printf("configure feegrant results: %s\n", res.Stdout.String())
 				t.Fatalf("failed to rly config feegrants: %v", res.Err)
