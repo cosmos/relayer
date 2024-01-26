@@ -2,14 +2,29 @@ import React from 'react'
 import { DocsThemeConfig } from 'nextra-theme-docs'
 
 const config: DocsThemeConfig = {
-  logo: <span>My Project</span>,
+   head: (
+        <>
+          <meta property="og:title" content="Interchaintest - Strangelove" />
+          <meta
+              property="og:description"
+              content={"IBC testing environment"}
+          />
+          <title>{"Interchaintest - Strangelove"}</title>
+          <link rel="icon" type="image/x-icon" href="/images/favicon.png" />
+        </>
+    ),
+   logo: (
+    <>
+      <img
+        src="https://strange.love/assets/press-kit/sl-logo.png"
+        width="25px"
+      ></img><span className="cursor-default"> &nbsp;&nbsp;Interchaintest</span>
+      </>
+      ),
   project: {
-    link: 'https://github.com/shuding/nextra-docs-template',
+    link: 'https://github.com/strangelove-ventures/interchaintest',
   },
-  chat: {
-    link: 'https://discord.com',
-  },
-  docsRepositoryBase: 'https://github.com/shuding/nextra-docs-template',
+  docsRepositoryBase: 'https://github.com/strangelove-ventures/interchaintest/tree/docs-site',
   footer: {
     text: 'Nextra Docs Template',
   },
