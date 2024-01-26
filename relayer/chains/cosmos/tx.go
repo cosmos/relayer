@@ -20,7 +20,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	client2 "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -46,6 +46,7 @@ import (
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	ctypes "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -200,8 +201,9 @@ func (cc *CosmosProvider) SubmitTxAwaitResponse(ctx context.Context, msgs []sdk.
 	if err != nil {
 		return nil, err
 	}
+
 	fmt.Printf("TX result code: %d. Waiting for TX with hash %s\n", resp.Code, resp.Hash)
-	tx1resp, err := cc.AwaitTx(resp.Hash, 15*time.Second)
+	tx1resp, err := cc.AwaitTx(bytes.HexBytes(resp.Hash), 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +244,7 @@ func (cc *CosmosProvider) AwaitTx(txHash bytes.HexBytes, timeout time.Duration) 
 // sent and executed successfully is returned.
 //
 // feegranterKey - key name of the address set as the feegranter, empty string will not feegrant
-func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKey string, feegranterKey string) (*coretypes.ResultBroadcastTx, error) {
+func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKey string, feegranterKey string) (*ctypes.ResultBroadcastTx, error) {
 	sdkConfigMutex.Lock()
 	sdkConf := sdk.GetConfig()
 	sdkConf.SetBech32PrefixForAccount(cc.PCfg.AccountPrefix, cc.PCfg.AccountPrefix+"pub")
@@ -318,7 +320,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		return nil, err
 	}
 
-	res, err := cc.RPCClient.BroadcastTxAsync(ctx, txBytes)
+	res, err := cc.RPCClient.Client.BroadcastTxAsync(ctx, txBytes)
 	if res != nil {
 		fmt.Printf("TX hash: %s\n", res.Hash)
 	}
@@ -490,10 +492,12 @@ func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse
 	if err != nil {
 		return nil, err
 	}
+
 	p, ok := txbz.(intoAny)
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
+
 	any := p.AsAny()
 	return sdk.NewResponseResultTx(resTx, any, ""), nil
 }
@@ -1305,6 +1309,7 @@ func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, path string, re
 	if err != nil {
 		return provider.ICQProof{}, fmt.Errorf("failed to execute interchain query: %w", err)
 	}
+
 	return provider.ICQProof{
 		Result:   res.Value,
 		ProofOps: res.ProofOps,
@@ -1763,6 +1768,7 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 	if err := simRes.Unmarshal(res.Value); err != nil {
 		return txtypes.SimulateResponse{}, 0, err
 	}
+
 	gas, err := cc.AdjustEstimatedGas(simRes.GasInfo.GasUsed)
 	return simRes, gas, err
 }
@@ -1793,10 +1799,11 @@ func (pc *CosmosProviderConfig) SignMode() signing.SignMode {
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
 func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
-	opts := rpcclient.ABCIQueryOptions{
+	opts := client2.ABCIQueryOptions{
 		Height: req.Height,
 		Prove:  req.Prove,
 	}
+
 	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
 		return abci.ResponseQuery{}, err

@@ -235,6 +235,7 @@ func CreateClient(
 	if err := retry.Do(func() error {
 		var success bool
 		var err error
+
 		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, memo)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
@@ -545,6 +546,7 @@ func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 			}
 		}
 	}
+
 	return "", fmt.Errorf("client identifier event attribute not found")
 }
 

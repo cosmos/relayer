@@ -142,6 +142,7 @@ func (cc *CosmosProvider) RunGRPCQuery(ctx context.Context, method string, req i
 	// HeaderCallOption, then we manually set the value of that header to the
 	// metadata.
 	md = metadata.Pairs(grpctypes.GRPCBlockHeightHeader, strconv.FormatInt(abciRes.Height, 10))
+
 	return abciRes, md, nil
 }
 

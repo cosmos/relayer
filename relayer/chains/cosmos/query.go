@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -15,7 +16,6 @@ import (
 	"cosmossdk.io/x/feegrant"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	abci "github.com/cometbft/cometbft/abci/types"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,6 +34,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	coretypes "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
@@ -44,7 +45,7 @@ const PaginationDelay = 10 * time.Millisecond
 var _ provider.QueryProvider = &CosmosProvider{}
 
 // queryIBCMessages returns an array of IBC messages given a tag
-func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string, base64Encoded bool) ([]chains.IbcMessage, error) {
+func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]chains.IbcMessage, error) {
 	if query == "" {
 		return nil, errors.New("query string must be provided")
 	}
@@ -57,13 +58,16 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	var eg errgroup.Group
 	chainID := cc.ChainId()
-	var ibcMsgs []chains.IbcMessage
-	var mu sync.Mutex
+
+	var (
+		eg      errgroup.Group
+		ibcMsgs []chains.IbcMessage
+		mu      sync.Mutex
+	)
 
 	eg.Go(func() error {
-		res, err := cc.RPCClient.BlockSearch(ctx, query, &page, &limit, "")
+		res, err := cc.RPCClient.Client.BlockSearch(ctx, query, &page, &limit, "")
 		if err != nil {
 			return err
 		}
@@ -73,14 +77,14 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		for _, b := range res.Blocks {
 			b := b
 			nestedEg.Go(func() error {
-				block, err := cc.BlockResults(ctx, &b.Block.Height)
+				block, err := cc.RPCClient.Client.BlockResults(ctx, &b.Block.Height)
 				if err != nil {
 					return err
 				}
 
 				mu.Lock()
 				defer mu.Unlock()
-				ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, block.Events, chainID, 0, base64Encoded)...)
+				ibcMsgs = append(ibcMsgs, chains.ParseIBCMessagesFromEvents(log, chainID, 0, block.Events)...)
 
 				return nil
 			})
@@ -89,15 +93,15 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 	})
 
 	eg.Go(func() error {
-		res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+		res, err := cc.RPCClient.Client.TxSearch(ctx, query, true, &page, &limit, "")
 		if err != nil {
 			return err
 		}
 
 		mu.Lock()
 		defer mu.Unlock()
-		for _, tx := range res.Txs {
-			ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, base64Encoded)...)
+		for _, tx := range res {
+			ibcMsgs = append(ibcMsgs, chains.ParseIBCMessagesFromEvents(log, chainID, 0, tx.ExecTx.Events)...)
 		}
 
 		return nil
@@ -117,18 +121,18 @@ func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provide
 		return nil, err
 	}
 
-	resp, err := cc.RPCClient.Tx(ctx, hash, true)
+	resp, err := cc.RPCClient.Client.Tx(ctx, hash, true)
 	if err != nil {
 		return nil, err
 	}
 
-	events := parseEventsFromResponseDeliverTx(resp.TxResult)
+	events := parseEventsFromResponseDeliverTx(resp.ExecTx.Events)
 
 	return &provider.RelayerTxResponse{
 		Height: resp.Height,
 		TxHash: string(hash),
-		Code:   resp.TxResult.Code,
-		Data:   string(resp.TxResult.Data),
+		Code:   resp.ExecTx.Code,
+		Data:   string(resp.ExecTx.Data),
 		Events: events,
 	}, nil
 }
@@ -147,7 +151,7 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.RPCClient.Client.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -155,13 +159,13 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 	// Currently, we only call QueryTxs() in two spots and in both of them we are expecting there to only be,
 	// at most, one tx in the response. Because of this we don't want to initialize the slice with an initial size.
 	var txResps []*provider.RelayerTxResponse
-	for _, tx := range res.Txs {
-		relayerEvents := parseEventsFromResponseDeliverTx(tx.TxResult)
+	for _, tx := range res {
+		relayerEvents := parseEventsFromResponseDeliverTx(tx.ExecTx.Events)
 		txResps = append(txResps, &provider.RelayerTxResponse{
 			Height: tx.Height,
 			TxHash: string(tx.Hash),
-			Code:   tx.TxResult.Code,
-			Data:   string(tx.TxResult.Data),
+			Code:   tx.ExecTx.Code,
+			Data:   string(tx.ExecTx.Data),
 			Events: relayerEvents,
 		})
 	}
@@ -170,20 +174,22 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp abci.ExecTxResult) []provider.RelayerEvent {
-	var events []provider.RelayerEvent
+func parseEventsFromResponseDeliverTx(events sdk.StringEvents) []provider.RelayerEvent {
+	var rlyEvents []provider.RelayerEvent
 
-	for _, event := range resp.Events {
+	for _, event := range events {
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
-			attributes[string(attribute.Key)] = string(attribute.Value)
+			attributes[attribute.Key] = attribute.Value
 		}
-		events = append(events, provider.RelayerEvent{
+
+		rlyEvents = append(rlyEvents, provider.RelayerEvent{
 			EventType:  event.Type,
 			Attributes: attributes,
 		})
 	}
-	return events
+
+	return rlyEvents
 }
 
 // QueryFeegrantsByGrantee returns all requested grants for the given grantee.
@@ -600,10 +606,22 @@ func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64)
 		return &tmclient.ConsensusState{}, 0, err
 	}
 
+	// TODO: this may not work
+	valbz, err := json.Marshal(nextVals.Validators)
+	if err != nil {
+		return &tmclient.ConsensusState{}, 0, err
+	}
+
+	var vals []*tmtypes.Validator
+	err = json.Unmarshal(valbz, &vals)
+	if err != nil {
+		return &tmclient.ConsensusState{}, 0, err
+	}
+
 	state := &tmclient.ConsensusState{
 		Timestamp:          commit.Time,
 		Root:               commitmenttypes.NewMerkleRoot(commit.AppHash),
-		NextValidatorsHash: tmtypes.NewValidatorSet(nextVals.Validators).Hash(),
+		NextValidatorsHash: tmtypes.NewValidatorSet(vals).Hash(),
 	}
 
 	return state, height, nil
@@ -1014,26 +1032,25 @@ func (cc *CosmosProvider) QuerySendPacket(
 	srcPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
-	status, err := cc.QueryStatus(ctx)
+	q := sendPacketQuery(srcChanID, srcPortID, sequence)
+
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
 
-	q := sendPacketQuery(srcChanID, srcPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
-	if err != nil {
-		return provider.PacketInfo{}, err
-	}
 	for _, msg := range ibcMsgs {
 		if msg.EventType != chantypes.EventTypeSendPacket {
 			continue
 		}
+
 		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
 		}
 	}
+
 	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for send_packet query: %s", q)
 }
 
@@ -1043,26 +1060,25 @@ func (cc *CosmosProvider) QueryRecvPacket(
 	dstPortID string,
 	sequence uint64,
 ) (provider.PacketInfo, error) {
-	status, err := cc.QueryStatus(ctx)
+	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
+
+	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q)
 	if err != nil {
 		return provider.PacketInfo{}, err
 	}
 
-	q := writeAcknowledgementQuery(dstChanID, dstPortID, sequence)
-	ibcMsgs, err := cc.queryIBCMessages(ctx, cc.log, 1, 1000, q, cc.legacyEncodedEvents(zap.NewNop(), status.NodeInfo.Version))
-	if err != nil {
-		return provider.PacketInfo{}, err
-	}
 	for _, msg := range ibcMsgs {
 		if msg.EventType != chantypes.EventTypeWriteAck {
 			continue
 		}
+
 		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
 		}
 	}
+
 	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
 }
 
@@ -1195,7 +1211,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 
 // Query current node status
 func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
-	status, err := cc.RPCClient.Status(ctx)
+	status, err := cc.RPCClient.Client.Status(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query node status: %w", err)
 	}
