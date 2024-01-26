@@ -1,11 +1,86 @@
-# Introduction
+# Interchaintest
  
-Welcome to Nextra! This is a basic docs template. You can use it as a starting point for your own project :)
+<p align="center" width="100%">
+  <img
+    src="https://cdn.sanity.io/images/tbquvn3i/production/c3f30f7253d200f387538712a7311bf627f0eb9b-58x56.svg"
+    alt="interchaintest logo"
+    width="90px"
+    height="90px"
+  />
+</p>
 
-## What is Nextra?
+<div width="100%" style={{
+  display:'flex',
+  justifyContent:'center',
+  alignItems: 'center',
+  paddingTop: '12px'
+  }}>
+<div style={{paddingRight:'4px'}}>
+  <a href="https://github.com/strangelove-ventures/interchaintest/actions/workflows/e2e-tests.yml">
+    <img
+      height="20"
+      src="https://github.com/strangelove-ventures/interchaintest/actions/workflows/e2e-tests.yml/badge.svg"
+    />
+  </a>
+</div>
+<div style={{paddingRight:'4px'}}>
+  <a href="https://github.com/strangelove-ventures/interchaintest/blob/main/LICENSE">
+    <img
+      height="20"
+      src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"
+    />
+  </a>
+</div>
 
-A **simple**, **powerful** and **flexible** site generation framework with everything you love from Next.js.
+<div style={{paddingRight:'4px'}}>
+  <a href="https://github.com/strangelove-ventures/interchaintest/releases/latest">
+    <img
+      height="20"
+      src="https://github.com/strangelove-ventures/interchaintest/actions/workflows/release.yml/badge.svg"
+    />
+  </a>
+  </div>
+</div>
 
-## Documentation
+Interchaintest (formerly known as IBCtest) is a full-featured testing environment for IBC-compatible blockchains. It orchestrates Go tests that run docker containers for multiple networks concurrently across local, devnet, testnet, and mainnet.
 
-The documentation is available at [https://nextra.site](https://nextra.site).
+## Why use interchaintest?
+
+In order to ship production-grade software for the Interchain, we needed sophisticated developer tooling...but IBC and Web3 have a *lot* of moving parts, which can lead to a steep learning curve and all sorts of pain. Recognize any of these?
+
+- repeatedly building repo-specific, Docker- and shell-based testing solutions,
+- duplication of effort, and
+- difficulty in repurposing existing testing harnesses for new problem domains.
+
+We built `interchaintest` to extract patterns and create a generic test harness: a use-case-agnostic framework for generating repeatable, diagnostic tests for every aspect of IBC.
+
+Read more at the [Announcing `interchaintest` blog post](https://strange.love/blog/announcing-interchaintest).
+
+## Who benefits from `interchaintest`?
+
+`interchaintest` is for developers who expect top-shelf testing tools when working on blockchain protocols such as Cosmos or Ethereum.
+
+## What does `interchaintest` do?
+
+`interchaintest` is a framework for testing blockchain functionality and interoperability between chains, primarily with the Inter-Blockchain Communication (IBC) protocol.
+
+Want to quickly spin up custom testnets and dev environments to test IBC, [Relayer](https://github.com/cosmos/relayer) setup, chain infrastructure, smart contracts, etc.? `interchaintest` orchestrates Go tests that utilize Docker containers for multiple [IBC](https://www.ibcprotocol.dev/)-compatible blockchains.
+
+##  How do I use it?
+
+### As a Module
+
+Most people choose to import `interchaintest` as a module.
+- Often, teams will [integrate `interchaintest` with a github CI/CD pipeline](./docs/ciTests.md).
+- Most teams will write their own suite. Here's a tutorial on [Writing Custom Tests](./docs/writeCustomTests.md).
+- You can also [utilize our suite of built-in Conformance Tests that exercise high-level IBC compatibility](./docs/conformance-tests-lib.md).
+
+### As a Binary
+
+There's also an option to [build and run `interchaintest` as a binary](./docs/buildBinary.md) (which might be preferable, e.g., with custom chain sets). You can still [run Conformance Tests](./docs/conformance-tests-bin.md).
+
+
+### References
+- [Environment Variable Options](./docs/envOptions.md)
+- [Retaining Data on Failed Tests](./docs/retainingDataOnFailedTests.md)
+
