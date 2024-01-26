@@ -66,7 +66,7 @@ func IbcMessagesFromEvents(
 		} else {
 			evt = sdk.StringifyEvent(event)
 		}
-		m := parseIBCMessageFromEvent(log, evt, chainID, height)
+		m := ParseIBCMessageFromEvent(log, evt, chainID, height)
 		if m == nil || m.Info == nil {
 			// Not an IBC message, don't need to log here
 			continue
@@ -81,7 +81,22 @@ type messageInfo interface {
 	ParseAttrs(log *zap.Logger, attrs []sdk.Attribute)
 }
 
-func parseIBCMessageFromEvent(
+func ParseIBCMessagesFromEvents(log *zap.Logger, chainID string, height uint64, events sdk.StringEvents) []IbcMessage {
+	var messages []IbcMessage
+
+	for _, event := range events {
+		msg := ParseIBCMessageFromEvent(log, event, chainID, height)
+		if msg == nil {
+			continue
+		}
+
+		messages = append(messages, *msg)
+	}
+
+	return messages
+}
+
+func ParseIBCMessageFromEvent(
 	log *zap.Logger,
 	event sdk.StringEvent,
 	chainID string,

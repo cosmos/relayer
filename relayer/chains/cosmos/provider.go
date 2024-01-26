@@ -9,10 +9,8 @@ import (
 	"sync"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -20,15 +18,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	"github.com/cosmos/relayer/v2/relayer/chains"
+	cwrapper "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	legacyclient "github.com/strangelove-ventures/cometbft/rpc/client"
-	legacyhttp "github.com/strangelove-ventures/cometbft/rpc/client/http"
-	legacyjson "github.com/strangelove-ventures/cometbft/rpc/jsonrpc/client"
+	"github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 var (
@@ -129,15 +124,14 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg            CosmosProviderConfig
-	Keybase         keyring.Keyring
-	KeyringOptions  []keyring.Option
-	RPCClient       rpcclient.Client
-	LegacyRPCClient legacyclient.Client
-	LightProvider   provtypes.Provider
-	Input           io.Reader
-	Output          io.Writer
-	Cdc             Codec
+	PCfg           CosmosProviderConfig
+	Keybase        keyring.Keyring
+	KeyringOptions []keyring.Option
+	RPCClient      cwrapper.RPCClient
+	LightProvider  provtypes.Provider
+	Input          io.Reader
+	Output         io.Writer
+	Cdc            Codec
 	// TODO: GRPC Client type?
 
 	//nextAccountSeq uint64
@@ -285,7 +279,14 @@ func (cc *CosmosProvider) SetRpcAddr(rpcAddr string) error {
 // Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
 // NOTE: Init must be called after creating a new instance of CosmosProvider.
 func (cc *CosmosProvider) Init(ctx context.Context) error {
-	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, cc.KeyringOptions...)
+	keybase, err := keyring.New(
+		cc.PCfg.ChainID,
+		cc.PCfg.KeyringBackend,
+		cc.PCfg.KeyDirectory,
+		cc.Input,
+		cc.Cdc.Marshaler,
+		cc.KeyringOptions...,
+	)
 	if err != nil {
 		return err
 	}
@@ -296,7 +297,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient, err := NewRPCClient(cc.PCfg.RPCAddr, timeout)
+	c, err := client.NewClient(cc.PCfg.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
@@ -306,23 +307,11 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	legacyRPCClient, err := NewLegacyRPCClient(cc.PCfg.RPCAddr, timeout)
-	if err != nil {
-		return err
-	}
+	rpcClient := cwrapper.RPCClient{Client: c}
 
 	cc.RPCClient = rpcClient
-	cc.LegacyRPCClient = legacyRPCClient
 	cc.LightProvider = lightprovider
 	cc.Keybase = keybase
-
-	status, err := cc.QueryStatus(ctx)
-	if err != nil {
-		// Operations can occur before the node URL is added to the config, so noop here.
-		return nil
-	}
-
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
 
 	return nil
 }
@@ -373,19 +362,6 @@ func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, 
 	}
 }
 
-func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
-	cc.cometLegacyBlockResults = cc.legacyBlockResults(version)
-}
-
-func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, cometEncodingThreshold) < 0
-}
-
-func (cc *CosmosProvider) legacyBlockResults(version string) bool {
-	return semver.Compare("v"+version, cometBlockResultsThreshold) < 0
-}
-
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
 func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
@@ -403,61 +379,4 @@ func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 		return nil, err
 	}
 	return rpcClient, nil
-}
-
-// NewLegacyRPCClient initializes a new CometBFT RPC client, from our forked repo, connected to the specified address.
-func NewLegacyRPCClient(addr string, timeout time.Duration) (*legacyhttp.HTTP, error) {
-	httpClient, err := legacyjson.DefaultHTTPClient(addr)
-	if err != nil {
-		return nil, err
-	}
-	httpClient.Timeout = timeout
-	rpcClient, err := legacyhttp.NewWithClient(addr, "/websocket", httpClient)
-	if err != nil {
-		return nil, err
-	}
-	return rpcClient, nil
-}
-
-// BlockResults uses the appropriate CometBFT RPC client to fetch the block results at a specific height,
-// it then parses the tx results and block events into our generalized types.
-func (cc *CosmosProvider) BlockResults(ctx context.Context, height *int64) (*chains.Results, error) {
-	var results *chains.Results
-
-	switch {
-	case cc.cometLegacyBlockResults:
-		legacyRes, err := cc.LegacyRPCClient.BlockResults(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-
-		var events []abci.Event
-		events = append(events, chains.ConvertEvents(legacyRes.BeginBlockEvents)...)
-		events = append(events, chains.ConvertEvents(legacyRes.EndBlockEvents)...)
-
-		results = &chains.Results{
-			TxsResults: chains.ConvertTxResults(legacyRes.TxsResults),
-			Events:     events,
-		}
-	default:
-		res, err := cc.RPCClient.BlockResults(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-
-		var txRes []*chains.TxResult
-		for _, tx := range res.TxsResults {
-			txRes = append(txRes, &chains.TxResult{
-				Code:   tx.Code,
-				Events: tx.Events,
-			})
-		}
-
-		results = &chains.Results{
-			TxsResults: txRes,
-			Events:     res.FinalizeBlockEvents,
-		}
-	}
-
-	return results, nil
 }
