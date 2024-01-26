@@ -10,7 +10,7 @@ const config: DocsThemeConfig = {
               content={"IBC testing environment"}
           />
           <title>{"Interchaintest - Strangelove"}</title>
-          <link rel="icon" type="image/x-icon" href="/images/favicon.png" />
+          <link rel="icon" type="image/png" href="favicon.png" />
         </>
     ),
    logo: (
