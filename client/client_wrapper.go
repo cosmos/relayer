@@ -505,6 +505,11 @@ func convertBlock(block *types2.Block) *tmtypes.Block {
 }
 
 func convertResultABCIQuery(res *coretypes2.ResultABCIQuery) *coretypes.ResultABCIQuery {
+	var ops *crypto.ProofOps
+	if res.Response.ProofOps != nil {
+		ops = convertProofOps(res.Response.ProofOps)
+	}
+
 	return &coretypes.ResultABCIQuery{
 		Response: types.ResponseQuery{
 			Code:      res.Response.Code,
@@ -513,7 +518,7 @@ func convertResultABCIQuery(res *coretypes2.ResultABCIQuery) *coretypes.ResultAB
 			Index:     res.Response.Index,
 			Key:       res.Response.Key,
 			Value:     res.Response.Value,
-			ProofOps:  convertProofOps(res.Response.ProofOps),
+			ProofOps:  ops,
 			Height:    res.Response.Height,
 			Codespace: res.Response.Codespace,
 		},

@@ -18,10 +18,9 @@ import (
 	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/crypto/merkle"
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
-	"github.com/cometbft/cometbft/proto/tendermint/crypto"
+	client2 "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -47,9 +46,6 @@ import (
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	abcitypes "github.com/strangelove-ventures/cometbft-client/abci/types"
-	client2 "github.com/strangelove-ventures/cometbft-client/client"
-	rpcclient "github.com/strangelove-ventures/cometbft-client/rpc/client"
 	ctypes "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -477,7 +473,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
 		case <-time.After(time.Millisecond * 100):
-			res, err := cc.RPCClient.Client.Tx(ctx, txHash, false)
+			res, err := cc.RPCClient.Tx(ctx, txHash, false)
 			if err == nil {
 				return cc.mkTxResult(res)
 			}
@@ -491,7 +487,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 }
 
 // mkTxResult decodes a comet transaction into an SDK TxResponse.
-func (cc *CosmosProvider) mkTxResult(resTx *client2.TxResponse) (*sdk.TxResponse, error) {
+func (cc *CosmosProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
 	txbz, err := cc.Cdc.TxConfig.TxDecoder()(resTx.Tx)
 	if err != nil {
 		return nil, err
@@ -502,53 +498,8 @@ func (cc *CosmosProvider) mkTxResult(resTx *client2.TxResponse) (*sdk.TxResponse
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
 
-	events := make([]abci.Event, len(resTx.ExecTx.Events))
-	for i, event := range resTx.ExecTx.Events {
-		attributes := make([]abci.EventAttribute, len(event.Attributes))
-
-		for j, attr := range event.Attributes {
-			attributes[j] = abci.EventAttribute{
-				Key:   attr.Key,
-				Value: attr.Value,
-				Index: false,
-			}
-		}
-
-		events[i] = abci.Event{
-			Type:       event.Type,
-			Attributes: attributes,
-		}
-	}
-
-	res := &coretypes.ResultTx{
-		Hash:   bytes.HexBytes(resTx.Hash),
-		Height: resTx.Height,
-		Index:  resTx.Index,
-		TxResult: abci.ExecTxResult{
-			Code:      resTx.ExecTx.Code,
-			Data:      resTx.ExecTx.Data,
-			Log:       resTx.ExecTx.Log,
-			Info:      resTx.ExecTx.Info,
-			GasWanted: resTx.ExecTx.GasWanted,
-			GasUsed:   resTx.ExecTx.GasUsed,
-			Events:    events,
-			Codespace: resTx.ExecTx.Codespace,
-		},
-		Tx: tmtypes.Tx(resTx.Tx),
-		Proof: tmtypes.TxProof{
-			RootHash: bytes.HexBytes(resTx.Proof.RootHash),
-			Data:     tmtypes.Tx(resTx.Proof.Data),
-			Proof: merkle.Proof{
-				Total:    resTx.Proof.Proof.Total,
-				Index:    resTx.Proof.Proof.Total,
-				LeafHash: resTx.Proof.Proof.LeafHash,
-				Aunts:    resTx.Proof.Proof.Aunts,
-			},
-		},
-	}
-
 	any := p.AsAny()
-	return sdk.NewResponseResultTx(res, any, ""), nil
+	return sdk.NewResponseResultTx(resTx, any, ""), nil
 }
 
 func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
@@ -1359,21 +1310,9 @@ func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, path string, re
 		return provider.ICQProof{}, fmt.Errorf("failed to execute interchain query: %w", err)
 	}
 
-	proofOps := &crypto.ProofOps{}
-
-	proofOps.Ops = make([]crypto.ProofOp, 0, len(res.ProofOps.Ops))
-
-	for i, op := range res.ProofOps.Ops {
-		proofOps.Ops[i] = crypto.ProofOp{
-			Type: op.Type,
-			Key:  op.Key,
-			Data: op.Data,
-		}
-	}
-
 	return provider.ICQProof{
 		Result:   res.Value,
-		ProofOps: proofOps,
+		ProofOps: res.ProofOps,
 		Height:   res.Height,
 	}, nil
 }
@@ -1813,7 +1752,7 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 		Data: txBytes,
 	}
 
-	var res abcitypes.ResponseQuery
+	var res abci.ResponseQuery
 	if err := retry.Do(func() error {
 		var err error
 		res, err = cc.QueryABCI(ctx, simQuery)
@@ -1859,19 +1798,19 @@ func (pc *CosmosProviderConfig) SignMode() signing.SignMode {
 }
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
-func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abcitypes.ResponseQuery, error) {
-	opts := rpcclient.ABCIQueryOptions{
+func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
+	opts := client2.ABCIQueryOptions{
 		Height: req.Height,
 		Prove:  req.Prove,
 	}
 
-	result, err := cc.RPCClient.Client.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
+	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
-		return abcitypes.ResponseQuery{}, err
+		return abci.ResponseQuery{}, err
 	}
 
 	if !result.Response.IsOK() {
-		return abcitypes.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
 	}
 
 	// data from trusted node or subspace query doesn't need verification
@@ -1882,7 +1821,7 @@ func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) 
 	return result.Response, nil
 }
 
-func sdkErrorToGRPCError(resp abcitypes.ResponseQuery) error {
+func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
 	switch resp.Code {
 	case legacyerrors.ErrInvalidRequest.ABCICode():
 		return status.Error(codes.InvalidArgument, resp.Log)

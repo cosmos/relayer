@@ -27,10 +27,8 @@ import (
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	ics23 "github.com/cosmos/ics23/go"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	abcitypes "github.com/strangelove-ventures/cometbft-client/abci/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -192,7 +190,7 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 		return nil, nil, clienttypes.Height{}, err
 	}
 
-	merkleProof, err := ConvertProofs(res.ProofOps)
+	merkleProof, err := commitmenttypes.ConvertProofs(res.ProofOps)
 	if err != nil {
 		return nil, nil, clienttypes.Height{}, err
 	}
@@ -206,30 +204,6 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 
 	revision := clienttypes.ParseChainID(cc.PCfg.ChainID)
 	return res.Value, proofBz, clienttypes.NewHeight(revision, uint64(res.Height)+1), nil
-}
-
-// ConvertProofs converts crypto.ProofOps into MerkleProof.
-// This function is copied from ibc-go, so we can modify it to work with our CometBFT client wrapper types.
-// see: https://github.com/cosmos/ibc-go/blob/04531d83bf51d949f4bf2d61e88e419d1620ea32/modules/core/23-commitment/types/utils.go#L12-L29
-func ConvertProofs(tmProof *abcitypes.ProofOps) (commitmenttypes.MerkleProof, error) {
-	if tmProof == nil {
-		return commitmenttypes.MerkleProof{}, sdkerrors.Wrapf(commitmenttypes.ErrInvalidMerkleProof, "tendermint proof is nil")
-	}
-
-	// Unmarshal all proof ops to CommitmentProof
-	proofs := make([]*ics23.CommitmentProof, len(tmProof.Ops))
-	for i, op := range tmProof.Ops {
-		var p ics23.CommitmentProof
-		err := p.Unmarshal(op.Data)
-		if err != nil || p.Proof == nil {
-			return commitmenttypes.MerkleProof{}, sdkerrors.Wrapf(commitmenttypes.ErrInvalidMerkleProof, "could not unmarshal proof op into CommitmentProof at index %d: %v", i, err)
-		}
-		proofs[i] = &p
-	}
-
-	return commitmenttypes.MerkleProof{
-		Proofs: proofs,
-	}, nil
 }
 
 // QueryClientStateResponse retrieves the latest consensus state for a client in state at a given height
@@ -328,7 +302,7 @@ func (cc *PenumbraProvider) QueryUpgradeProof(ctx context.Context, key []byte, h
 		return nil, clienttypes.Height{}, err
 	}
 
-	merkleProof, err := ConvertProofs(res.ProofOps)
+	merkleProof, err := commitmenttypes.ConvertProofs(res.ProofOps)
 	if err != nil {
 		return nil, clienttypes.Height{}, err
 	}

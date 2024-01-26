@@ -10,7 +10,6 @@ import (
 
 	sdkerrors "cosmossdk.io/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	legacyerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -137,18 +136,6 @@ func (cc *PenumbraProvider) RunGRPCQuery(ctx context.Context, method string, req
 		return abci.ResponseQuery{}, nil, err
 	}
 
-	proofOps := &crypto.ProofOps{}
-
-	if abciRes.ProofOps != nil {
-		for _, op := range abciRes.ProofOps.Ops {
-			proofOps.Ops = append(proofOps.Ops, crypto.ProofOp{
-				Type: op.Type,
-				Key:  op.Key,
-				Data: op.Data,
-			})
-		}
-	}
-
 	// Create header metadata. For now the headers contain:
 	// - block height
 	// We then parse all the call options, if the call option is a
@@ -156,17 +143,7 @@ func (cc *PenumbraProvider) RunGRPCQuery(ctx context.Context, method string, req
 	// metadata.
 	md = metadata.Pairs(grpctypes.GRPCBlockHeightHeader, strconv.FormatInt(abciRes.Height, 10))
 
-	return abci.ResponseQuery{
-		Code:      abciRes.Code,
-		Log:       abciRes.Log,
-		Info:      abciRes.Info,
-		Index:     abciRes.Index,
-		Key:       abciRes.Key,
-		Value:     abciRes.Value,
-		ProofOps:  proofOps,
-		Height:    abciRes.Height,
-		Codespace: abciRes.Codespace,
-	}, md, nil
+	return abciRes, md, nil
 }
 
 // TxServiceBroadcast is a helper function to broadcast a Tx with the correct gRPC types
