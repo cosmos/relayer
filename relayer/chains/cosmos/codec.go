@@ -2,9 +2,11 @@ package cosmos
 
 import (
 	feegrant "cosmossdk.io/x/feegrant/module"
+	"cosmossdk.io/x/tx/signing"
 	"cosmossdk.io/x/upgrade"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -21,6 +23,7 @@ import (
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/modules/capability"
 	ibcfee "github.com/cosmos/ibc-go/v8/modules/apps/29-fee"
 	"github.com/cosmos/ibc-go/v8/modules/apps/transfer"
@@ -66,9 +69,9 @@ type Codec struct {
 	Amino             *codec.LegacyAmino
 }
 
-func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string) Codec {
+func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string, accBech32Prefix, valBech32Prefix string) Codec {
 	modBasic := module.NewBasicManager(moduleBasics...)
-	encodingConfig := MakeCodecConfig()
+	encodingConfig := MakeCodecConfig(accBech32Prefix, valBech32Prefix)
 	std.RegisterLegacyAminoCodec(encodingConfig.Amino)
 	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	modBasic.RegisterLegacyAminoCodec(encodingConfig.Amino)
@@ -89,9 +92,22 @@ func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string) Codec
 	return encodingConfig
 }
 
-func MakeCodecConfig() Codec {
-	interfaceRegistry := types.NewInterfaceRegistry()
+func MakeCodecConfig(accBech32Prefix, valBech32Prefix string) Codec {
+	interfaceRegistry, err := types.NewInterfaceRegistryWithOptions(types.InterfaceRegistryOptions{
+		ProtoFiles: proto.HybridResolver,
+		SigningOptions: signing.Options{
+			AddressCodec:          address.NewBech32Codec(accBech32Prefix),
+			ValidatorAddressCodec: address.NewBech32Codec(valBech32Prefix),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
+
+	done := SetSDKConfigContext(accBech32Prefix)
+	defer done()
+
 	return Codec{
 		InterfaceRegistry: interfaceRegistry,
 		Marshaler:         marshaler,
