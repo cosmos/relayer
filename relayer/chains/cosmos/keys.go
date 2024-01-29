@@ -255,6 +255,10 @@ func (cc *CosmosProvider) KeyFromKeyOrAddress(keyOrAddress string) (string, erro
 		if err != nil {
 			return "", err
 		}
+
+		done := SetSDKConfigContext(cc.PCfg.AccountPrefix)
+		defer done()
+
 		kr, err := cc.Keybase.KeyByAddress(acc)
 		if err != nil {
 			return "", err

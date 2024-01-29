@@ -632,22 +632,22 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			fundAmount := sdkmath.NewInt(10_000_000)
 
 			// Tiny amount of funding, not enough to pay for a single TX fee (the GRANTER should be paying the fee)
-			granteeFundAmount := sdkmath.NewInt(10)
 			granteeKeyPrefix := "grantee1"
 			grantee2KeyPrefix := "grantee2"
 			grantee3KeyPrefix := "grantee3"
 			granterKeyPrefix := "default"
 
 			mnemonicAny := genMnemonic(t)
-			gaiaGranteeWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granteeKeyPrefix, mnemonicAny, granteeFundAmount, gaia)
+
+			gaiaGranteeWallet, err := buildUserUnfunded(ctx, granteeKeyPrefix, mnemonicAny, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGrantee2Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee2KeyPrefix, mnemonicAny, granteeFundAmount, gaia)
+			gaiaGrantee2Wallet, err := buildUserUnfunded(ctx, grantee2KeyPrefix, mnemonicAny, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
-			gaiaGrantee3Wallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, grantee3KeyPrefix, mnemonicAny, granteeFundAmount, gaia)
+			gaiaGrantee3Wallet, err := buildUserUnfunded(ctx, grantee3KeyPrefix, mnemonicAny, gaia)
 			require.NoError(t, err)
 
 			mnemonicAny = genMnemonic(t)
@@ -1000,7 +1000,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			// Test grantee still has exact amount expected
 			gaiaGranteeIBCBalance, err := gaia.GetBalance(ctx, gaiaGranteeAddr, gaia.Config().Denom)
 			require.NoError(t, err)
-			require.True(t, gaiaGranteeIBCBalance.Equal(granteeFundAmount))
+			require.True(t, gaiaGranteeIBCBalance.Equal(sdkmath.ZeroInt()))
 
 			// Test granter has less than they started with, meaning fees came from their account
 			gaiaGranterIBCBalance, err := gaia.GetBalance(ctx, gaiaGranterAddr, gaia.Config().Denom)
@@ -1009,6 +1009,32 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			r.StopRelayer(ctx, eRep)
 		})
 	}
+}
+
+func buildUserUnfunded(
+	ctx context.Context,
+	keyNamePrefix, mnemonic string,
+	chain ibc.Chain,
+) (ibc.Wallet, error) {
+	chainCfg := chain.Config()
+	keyName := fmt.Sprintf("%s-%s-%s", keyNamePrefix, chainCfg.ChainID, randLowerCaseLetterString(3))
+	user, err := chain.BuildWallet(ctx, keyName, mnemonic)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get source user wallet: %w", err)
+	}
+
+	return user, nil
+}
+
+var chars = []byte("abcdefghijklmnopqrstuvwxyz")
+
+// RandLowerCaseLetterString returns a lowercase letter string of given length
+func randLowerCaseLetterString(length int) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
 }
 
 func Feegrant(
