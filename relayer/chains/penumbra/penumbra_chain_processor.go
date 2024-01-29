@@ -11,10 +11,10 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-
-	"github.com/cosmos/relayer/v2/relayer/chains"
+	"github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -325,19 +325,26 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 	chainID := pcp.chainProvider.ChainId()
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
-		var eg errgroup.Group
-		var blockRes *chains.Results
-		var ibcHeader provider.IBCHeader
+		var (
+			eg        errgroup.Group
+			blockRes  *client.BlockResponse
+			ibcHeader provider.IBCHeader
+		)
+
 		i := i
+
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = pcp.chainProvider.BlockResults(queryCtx, &i)
+
+			blockRes, err = pcp.chainProvider.RPCClient.Client.BlockResults(queryCtx, &i)
 			return err
 		})
+
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
+
 			ibcHeader, err = pcp.chainProvider.QueryIBCHeader(queryCtx, i)
 			return err
 		})
@@ -359,17 +366,18 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.Events, heightUint64, pcp.chainProvider.cometLegacyEncoding)
+		blockMsgs := chains.ParseIBCMessagesFromEvents(pcp.log, chainID, heightUint64, blockRes.Events)
+
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}
 
-		for _, tx := range blockRes.TxsResults {
+		for _, tx := range blockRes.TxResponses {
 			if tx.Code != 0 {
 				// tx was not successful
 				continue
 			}
-			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, pcp.chainProvider.cometLegacyEncoding)
+			messages := chains.ParseIBCMessagesFromEvents(pcp.log, chainID, heightUint64, tx.Events)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)

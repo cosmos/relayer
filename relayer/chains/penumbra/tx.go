@@ -16,7 +16,7 @@ import (
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
 	tmcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	"github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -39,6 +39,7 @@ import (
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
 	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1alpha1"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	client2 "github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -280,7 +281,7 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
 }
 
-func parseEventsFromABCIResponse(resp abci.ExecTxResult) []provider.RelayerEvent {
+func parseEventsFromABCIResponse(resp client2.ExecTxResponse) []provider.RelayerEvent {
 	events := make([]provider.RelayerEvent, len(resp.Events))
 
 	for _, event := range resp.Events {
@@ -365,7 +366,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 		ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 		defer cancel()
 
-		res, err := cc.RPCClient.Tx(ctx, syncRes.Hash, false)
+		res, err := cc.RPCClient.Client.Tx(ctx, syncRes.Hash, false)
 		if err != nil {
 			return err
 		}
@@ -373,9 +374,9 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 
 		height = res.Height
 		txhash = syncRes.Hash.String()
-		code = res.TxResult.Code
+		code = res.ExecTx.Code
 
-		events = append(events, parseEventsFromABCIResponse(res.TxResult)...)
+		events = append(events, parseEventsFromABCIResponse(res.ExecTx)...)
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		cc.log.Info(
@@ -2067,10 +2068,11 @@ func (cc *PenumbraProvider) QueryIBCHeader(ctx context.Context, h int64) (provid
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
 func (cc *PenumbraProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
-	opts := rpcclient.ABCIQueryOptions{
+	opts := client.ABCIQueryOptions{
 		Height: req.Height,
 		Prove:  req.Prove,
 	}
+
 	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
 		return abci.ResponseQuery{}, err
@@ -2261,10 +2263,12 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 	if err != nil {
 		return nil, err
 	}
+
 	p, ok := txbz.(intoAny)
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
+
 	any := p.AsAny()
 	return sdk.NewResponseResultTx(resTx, any, ""), nil
 }

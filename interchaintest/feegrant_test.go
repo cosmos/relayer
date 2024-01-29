@@ -12,8 +12,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/x/feegrant"
 	"github.com/avast/retry-go/v4"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
@@ -22,6 +20,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	clienttypes "github.com/strangelove-ventures/cometbft-client/client"
 	"github.com/strangelove-ventures/interchaintest/v8"
 	cosmosv8 "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
@@ -271,7 +270,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 			//You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
 			//Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
 			localRelayer := r.(*Relayer)
-			res := localRelayer.sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.KeyName(), "--grantees", granteeCsv, "--overwrite-granter")
+			res := localRelayer.Sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.KeyName(), "--grantees", granteeCsv, "--overwrite-granter")
 			if res.Err != nil {
 				fmt.Printf("configure feegrant results: %s\n", res.Stdout.String())
 				t.Fatalf("failed to rly config feegrants: %v", res.Err)
@@ -396,7 +395,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
-							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
+							txResp, err := TxWithRetry(ctx, cProv.RPCClient.Client, hash)
 							require.Nil(t, err)
 
 							require.Nil(t, err)
@@ -538,9 +537,9 @@ func TestRelayerFeeGrant(t *testing.T) {
 	}
 }
 
-func TxWithRetry(ctx context.Context, client rpcclient.Client, hash []byte) (*ctypes.ResultTx, error) {
+func TxWithRetry(ctx context.Context, client *clienttypes.Client, hash []byte) (*clienttypes.TxResponse, error) {
 	var err error
-	var res *ctypes.ResultTx
+	var res *clienttypes.TxResponse
 	if err = retry.Do(func() error {
 		res, err = client.Tx(ctx, hash, true)
 		return err
@@ -745,7 +744,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			//You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
 			//Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
 			localRelayer := r.(*Relayer)
-			res := localRelayer.sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.FormattedAddress(), "--grantees", granteeCsv, "--overwrite-granter")
+			res := localRelayer.Sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.FormattedAddress(), "--grantees", granteeCsv, "--overwrite-granter")
 			if res.Err != nil {
 				fmt.Printf("configure feegrant results: %s\n", res.Stdout.String())
 				t.Fatalf("failed to rly config feegrants: %v", res.Err)
@@ -870,7 +869,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
-							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
+							txResp, err := TxWithRetry(ctx, cProv.RPCClient.Client, hash)
 							require.Nil(t, err)
 
 							require.Nil(t, err)

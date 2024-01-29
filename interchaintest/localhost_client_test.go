@@ -78,7 +78,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	numFullNodes := 0
 	image := ibc.DockerImage{
 		Repository: "ghcr.io/cosmos/ibc-go-simd",
-		Version:    "v8.0.0-beta.1",
+		Version:    "v8.0.0",
 		UidGid:     "100:1000",
 	}
 	cdc := DefaultEncoding()
