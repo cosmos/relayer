@@ -307,7 +307,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient := cwrapper.RPCClient{Client: c}
+	rpcClient := cwrapper.NewRPCClient(c)
 
 	cc.RPCClient = rpcClient
 	cc.LightProvider = lightprovider

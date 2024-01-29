@@ -4,7 +4,11 @@ import (
 	"context"
 
 	"github.com/cometbft/cometbft/abci/types"
+	cometcrypto "github.com/cometbft/cometbft/crypto"
+	ced25519 "github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/crypto/merkle"
+	csecp256k1 "github.com/cometbft/cometbft/crypto/secp256k1"
+	csr25519 "github.com/cometbft/cometbft/crypto/sr25519"
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/p2p"
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
@@ -14,6 +18,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sltypes "github.com/strangelove-ventures/cometbft-client/abci/types"
 	"github.com/strangelove-ventures/cometbft-client/client"
+	slcrypto "github.com/strangelove-ventures/cometbft-client/crypto"
+	"github.com/strangelove-ventures/cometbft-client/crypto/ed25519"
+	"github.com/strangelove-ventures/cometbft-client/crypto/secp256k1"
+	"github.com/strangelove-ventures/cometbft-client/crypto/sr25519"
 	slbytes "github.com/strangelove-ventures/cometbft-client/libs/bytes"
 	slclient "github.com/strangelove-ventures/cometbft-client/rpc/client"
 	coretypes2 "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
@@ -23,11 +31,15 @@ import (
 // RPCClient wraps our slimmed down CometBFT client and converts the returned types to the upstream CometBFT types.
 // This is useful so that it can be used in any function calls that expect the upstream types.
 type RPCClient struct {
-	Client *client.Client
+	c *client.Client
+}
+
+func NewRPCClient(c *client.Client) RPCClient {
+	return RPCClient{c: c}
 }
 
 func (r RPCClient) ABCIInfo(ctx context.Context) (*coretypes.ResultABCIInfo, error) {
-	res, err := r.Client.ABCIInfo(ctx)
+	res, err := r.c.ABCIInfo(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +60,7 @@ func (r RPCClient) ABCIQuery(
 	path string,
 	data bytes.HexBytes,
 ) (*coretypes.ResultABCIQuery, error) {
-	res, err := r.Client.ABCIQuery(ctx, path, slbytes.HexBytes(data))
+	res, err := r.c.ABCIQuery(ctx, path, slbytes.HexBytes(data))
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +79,7 @@ func (r RPCClient) ABCIQueryWithOptions(
 		Prove:  opts.Prove,
 	}
 
-	res, err := r.Client.ABCIQueryWithOptions(ctx, path, slbytes.HexBytes(data), o)
+	res, err := r.c.ABCIQueryWithOptions(ctx, path, slbytes.HexBytes(data), o)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +88,7 @@ func (r RPCClient) ABCIQueryWithOptions(
 }
 
 func (r RPCClient) BroadcastTxCommit(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTxCommit, error) {
-	res, err := r.Client.BroadcastTxCommit(ctx, types2.Tx(tx))
+	res, err := r.c.BroadcastTxCommit(ctx, types2.Tx(tx))
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +120,7 @@ func (r RPCClient) BroadcastTxCommit(ctx context.Context, tx tmtypes.Tx) (*coret
 }
 
 func (r RPCClient) BroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
-	res, err := r.Client.BroadcastTxAsync(ctx, types2.Tx(tx))
+	res, err := r.c.BroadcastTxAsync(ctx, types2.Tx(tx))
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +135,7 @@ func (r RPCClient) BroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*corety
 }
 
 func (r RPCClient) BroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
-	res, err := r.Client.BroadcastTxSync(ctx, types2.Tx(tx))
+	res, err := r.c.BroadcastTxSync(ctx, types2.Tx(tx))
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +154,7 @@ func (r RPCClient) Validators(
 	height *int64,
 	page, perPage *int,
 ) (*coretypes.ResultValidators, error) {
-	res, err := r.Client.Validators(ctx, height, page, perPage)
+	res, err := r.c.Validators(ctx, height, page, perPage)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +163,7 @@ func (r RPCClient) Validators(
 	for i, val := range res.Validators {
 		vals[i] = &tmtypes.Validator{
 			Address:          tmtypes.Address(val.Address),
-			PubKey:           nil,
+			PubKey:           convertPubKey(val.PubKey),
 			VotingPower:      val.VotingPower,
 			ProposerPriority: val.ProposerPriority,
 		}
@@ -166,7 +178,7 @@ func (r RPCClient) Validators(
 }
 
 func (r RPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
-	res, err := r.Client.Status(ctx)
+	res, err := r.c.Status(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -202,14 +214,14 @@ func (r RPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) 
 		},
 		ValidatorInfo: coretypes.ValidatorInfo{
 			Address:     bytes.HexBytes(res.ValidatorInfo.Address),
-			PubKey:      nil,
+			PubKey:      convertPubKey(res.ValidatorInfo.PubKey),
 			VotingPower: res.ValidatorInfo.VotingPower,
 		},
 	}, nil
 }
 
 func (r RPCClient) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
-	res, err := r.Client.Block(ctx, height)
+	res, err := r.c.Block(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +233,7 @@ func (r RPCClient) Block(ctx context.Context, height *int64) (*coretypes.ResultB
 }
 
 func (r RPCClient) BlockByHash(ctx context.Context, hash []byte) (*coretypes.ResultBlock, error) {
-	res, err := r.Client.BlockByHash(ctx, hash)
+	res, err := r.c.BlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +245,7 @@ func (r RPCClient) BlockByHash(ctx context.Context, hash []byte) (*coretypes.Res
 }
 
 func (r RPCClient) BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
-	res, err := r.Client.BlockResults(ctx, height)
+	res, err := r.c.BlockResults(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +278,7 @@ func (r RPCClient) BlockchainInfo(
 	ctx context.Context,
 	minHeight, maxHeight int64,
 ) (*coretypes.ResultBlockchainInfo, error) {
-	res, err := r.Client.BlockchainInfo(ctx, minHeight, maxHeight)
+	res, err := r.c.BlockchainInfo(ctx, minHeight, maxHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +306,7 @@ func (r RPCClient) BlockchainInfo(
 }
 
 func (r RPCClient) Commit(ctx context.Context, height *int64) (*coretypes.ResultCommit, error) {
-	res, err := r.Client.Commit(ctx, height)
+	res, err := r.c.Commit(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +337,7 @@ func (r RPCClient) Commit(ctx context.Context, height *int64) (*coretypes.Result
 }
 
 func (r RPCClient) Tx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error) {
-	res, err := r.Client.Tx(ctx, hash, prove)
+	res, err := r.c.Tx(ctx, hash, prove)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +352,7 @@ func (r RPCClient) TxSearch(
 	page, perPage *int,
 	orderBy string,
 ) (*coretypes.ResultTxSearch, error) {
-	res, err := r.Client.TxSearch(ctx, query, prove, page, perPage, orderBy)
+	res, err := r.c.TxSearch(ctx, query, prove, page, perPage, orderBy)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +374,7 @@ func (r RPCClient) BlockSearch(
 	page, perPage *int,
 	orderBy string,
 ) (*coretypes.ResultBlockSearch, error) {
-	res, err := r.Client.BlockSearch(ctx, query, page, perPage, orderBy)
+	res, err := r.c.BlockSearch(ctx, query, page, perPage, orderBy)
 	if err != nil {
 		return nil, err
 	}
@@ -551,5 +563,18 @@ func convertResultTx(res *client.TxResponse) *coretypes.ResultTx {
 				Aunts:    res.Proof.Proof.Aunts,
 			},
 		},
+	}
+}
+
+func convertPubKey(pk slcrypto.PubKey) cometcrypto.PubKey {
+	switch key := pk.(type) {
+	case ed25519.PubKey:
+		return ced25519.PubKey(key)
+	case secp256k1.PubKey:
+		return csecp256k1.PubKey(key)
+	case sr25519.PubKey:
+		return csr25519.PubKey(key)
+	default:
+		return nil
 	}
 }

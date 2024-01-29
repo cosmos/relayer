@@ -11,15 +11,16 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	clienttypes "github.com/strangelove-ventures/cometbft-client/client"
 	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
@@ -393,7 +394,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
-							txResp, err := TxWithRetry(ctx, cProv.RPCClient.Client, hash)
+							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
 							require.Nil(t, err)
 
 							require.Nil(t, err)
@@ -535,9 +536,9 @@ func TestRelayerFeeGrant(t *testing.T) {
 	}
 }
 
-func TxWithRetry(ctx context.Context, client *clienttypes.Client, hash []byte) (*clienttypes.TxResponse, error) {
+func TxWithRetry(ctx context.Context, client client.RPCClient, hash []byte) (*coretypes.ResultTx, error) {
 	var err error
-	var res *clienttypes.TxResponse
+	var res *coretypes.ResultTx
 	if err = retry.Do(func() error {
 		res, err = client.Tx(ctx, hash, true)
 		return err

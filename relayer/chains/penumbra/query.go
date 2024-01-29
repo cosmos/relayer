@@ -42,18 +42,18 @@ func (cc *PenumbraProvider) QueryTx(ctx context.Context, hashHex string) (*provi
 		return nil, err
 	}
 
-	resp, err := cc.RPCClient.Client.Tx(ctx, hash, true)
+	resp, err := cc.RPCClient.Tx(ctx, hash, true)
 	if err != nil {
 		return nil, err
 	}
 
-	events := parseEventsFromResponseDeliverTx(resp.ExecTx.Events)
+	events := parseEventsFromResponseDeliverTx(resp.TxResult.Events)
 
 	return &provider.RelayerTxResponse{
 		Height: resp.Height,
 		TxHash: string(hash),
-		Code:   resp.ExecTx.Code,
-		Data:   string(resp.ExecTx.Data),
+		Code:   resp.TxResult.Code,
+		Data:   string(resp.TxResult.Data),
 		Events: events,
 	}, nil
 }
@@ -72,7 +72,7 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.Client.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -80,13 +80,13 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 	// Currently, we only call QueryTxs() in two spots and in both of them we are expecting there to only be,
 	// at most, one tx in the response. Because of this we don't want to initialize the slice with an initial size.
 	var txResps []*provider.RelayerTxResponse
-	for _, tx := range res {
-		relayerEvents := parseEventsFromResponseDeliverTx(tx.ExecTx.Events)
+	for _, tx := range res.Txs {
+		relayerEvents := parseEventsFromResponseDeliverTx(tx.TxResult.Events)
 		txResps = append(txResps, &provider.RelayerTxResponse{
 			Height: tx.Height,
 			TxHash: string(tx.Hash),
-			Code:   tx.ExecTx.Code,
-			Data:   string(tx.ExecTx.Data),
+			Code:   tx.TxResult.Code,
+			Data:   string(tx.TxResult.Data),
 			Events: relayerEvents,
 		})
 	}
@@ -95,7 +95,7 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp sdk.StringEvents) []provider.RelayerEvent {
+func parseEventsFromResponseDeliverTx(resp []abci.Event) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
 	for _, event := range resp {
@@ -918,15 +918,15 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.Client.TxSearch(ctx, query, true, &page, &limit, "")
+	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
 
 	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
-	for _, tx := range res {
-		ibcMsgs = append(ibcMsgs, chains.ParseIBCMessagesFromEvents(log, chainID, 0, tx.ExecTx.Events)...)
+	for _, tx := range res.Txs {
+		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
 	}
 
 	return ibcMsgs, nil

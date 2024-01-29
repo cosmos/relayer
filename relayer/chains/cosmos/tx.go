@@ -46,7 +46,6 @@ import (
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	ctypes "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -203,7 +202,7 @@ func (cc *CosmosProvider) SubmitTxAwaitResponse(ctx context.Context, msgs []sdk.
 	}
 
 	fmt.Printf("TX result code: %d. Waiting for TX with hash %s\n", resp.Code, resp.Hash)
-	tx1resp, err := cc.AwaitTx(bytes.HexBytes(resp.Hash), 15*time.Second)
+	tx1resp, err := cc.AwaitTx(resp.Hash, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +243,7 @@ func (cc *CosmosProvider) AwaitTx(txHash bytes.HexBytes, timeout time.Duration) 
 // sent and executed successfully is returned.
 //
 // feegranterKey - key name of the address set as the feegranter, empty string will not feegrant
-func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKey string, feegranterKey string) (*ctypes.ResultBroadcastTx, error) {
+func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKey string, feegranterKey string) (*coretypes.ResultBroadcastTx, error) {
 	sdkConfigMutex.Lock()
 	sdkConf := sdk.GetConfig()
 	sdkConf.SetBech32PrefixForAccount(cc.PCfg.AccountPrefix, cc.PCfg.AccountPrefix+"pub")
@@ -320,7 +319,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		return nil, err
 	}
 
-	res, err := cc.RPCClient.Client.BroadcastTxAsync(ctx, txBytes)
+	res, err := cc.RPCClient.BroadcastTxAsync(ctx, txBytes)
 	if res != nil {
 		fmt.Printf("TX hash: %s\n", res.Hash)
 	}
