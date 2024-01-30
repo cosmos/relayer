@@ -1,7 +1,6 @@
 package chains
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -30,42 +29,15 @@ type ibcMessageInfo interface {
 	MarshalLogObject(enc zapcore.ObjectEncoder) error
 }
 
-func parseBase64Event(log *zap.Logger, event abci.Event) sdk.StringEvent {
-	evt := sdk.StringEvent{Type: event.Type}
-	for _, attr := range event.Attributes {
-		key, err := base64.StdEncoding.DecodeString(attr.Key)
-		if err != nil {
-			log.Error("Failed to decode legacy key as base64", zap.String("base64", attr.Key), zap.Error(err))
-			continue
-		}
-		value, err := base64.StdEncoding.DecodeString(attr.Value)
-		if err != nil {
-			log.Error("Failed to decode legacy value as base64", zap.String("base64", attr.Value), zap.Error(err))
-			continue
-		}
-		evt.Attributes = append(evt.Attributes, sdk.Attribute{
-			Key:   string(key),
-			Value: string(value),
-		})
-	}
-	return evt
-}
-
 // IbcMessagesFromEvents parses all events within a transaction to find IBC messages
 func IbcMessagesFromEvents(
 	log *zap.Logger,
 	events []abci.Event,
 	chainID string,
 	height uint64,
-	base64Encoded bool,
 ) (messages []IbcMessage) {
 	for _, event := range events {
-		var evt sdk.StringEvent
-		if base64Encoded {
-			evt = parseBase64Event(log, event)
-		} else {
-			evt = sdk.StringifyEvent(event)
-		}
+		evt := sdk.StringifyEvent(event)
 		m := ParseIBCMessageFromEvent(log, evt, chainID, height)
 		if m == nil || m.Info == nil {
 			// Not an IBC message, don't need to log here
@@ -79,21 +51,6 @@ func IbcMessagesFromEvents(
 type messageInfo interface {
 	ibcMessageInfo
 	ParseAttrs(log *zap.Logger, attrs []sdk.Attribute)
-}
-
-func ParseIBCMessagesFromEvents(log *zap.Logger, chainID string, height uint64, events sdk.StringEvents) []IbcMessage {
-	var messages []IbcMessage
-
-	for _, event := range events {
-		msg := ParseIBCMessageFromEvent(log, event, chainID, height)
-		if msg == nil {
-			continue
-		}
-
-		messages = append(messages, *msg)
-	}
-
-	return messages
 }
 
 func ParseIBCMessageFromEvent(

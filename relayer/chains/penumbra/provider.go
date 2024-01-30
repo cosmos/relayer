@@ -259,7 +259,7 @@ func (cc *PenumbraProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	cc.RPCClient = cwrapper.RPCClient{Client: c}
+	cc.RPCClient = cwrapper.NewRPCClient(c)
 	cc.LightProvider = lightprovider
 	cc.Keybase = keybase
 

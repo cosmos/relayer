@@ -8,13 +8,13 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -327,7 +327,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var (
 			eg        errgroup.Group
-			blockRes  *client.BlockResponse
+			blockRes  *coretypes.ResultBlockResults
 			ibcHeader provider.IBCHeader
 		)
 
@@ -337,7 +337,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 
-			blockRes, err = pcp.chainProvider.RPCClient.Client.BlockResults(queryCtx, &i)
+			blockRes, err = pcp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
 		})
 
@@ -366,18 +366,18 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := chains.ParseIBCMessagesFromEvents(pcp.log, chainID, heightUint64, blockRes.Events)
+		blockMsgs := chains.IbcMessagesFromEvents(pcp.log, blockRes.FinalizeBlockEvents, chainID, heightUint64)
 
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}
 
-		for _, tx := range blockRes.TxResponses {
+		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
 				// tx was not successful
 				continue
 			}
-			messages := chains.ParseIBCMessagesFromEvents(pcp.log, chainID, heightUint64, tx.Events)
+			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)

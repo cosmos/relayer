@@ -505,7 +505,7 @@ func newDefaultGlobalConfig(memo string) GlobalConfig {
 		LightCacheSize:  20,
 		Memo:            memo,
 		LogLevel:        "info",
-		MaxReceiverSize: 128,
+		MaxReceiverSize: 150,
 	}
 }
 

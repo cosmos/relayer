@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
@@ -16,8 +17,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/strangelove-ventures/cometbft-client/client"
-	coretypes "github.com/strangelove-ventures/cometbft-client/rpc/core/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -389,7 +388,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var (
 			eg        errgroup.Group
-			blockRes  *client.BlockResponse
+			blockRes  *coretypes.ResultBlockResults
 			ibcHeader provider.IBCHeader
 		)
 
@@ -399,7 +398,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 
-			blockRes, err = ccp.chainProvider.RPCClient.Client.BlockResults(queryCtx, &sI)
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
@@ -458,19 +457,19 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		messages := chains.ParseIBCMessagesFromEvents(ccp.log, chainID, heightUint64, blockRes.Events)
+		messages := chains.IbcMessagesFromEvents(ccp.log, blockRes.FinalizeBlockEvents, chainID, heightUint64)
 
 		for _, m := range messages {
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
 
-		for _, tx := range blockRes.TxResponses {
+		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
 				// tx was not successful
 				continue
 			}
 
-			messages := chains.ParseIBCMessagesFromEvents(ccp.log, chainID, heightUint64, tx.Events)
+			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
