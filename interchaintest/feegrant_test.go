@@ -870,7 +870,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
-							txResp, err := TxWithRetry(ctx, cProv.RPCClient.Client, hash)
+							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
 							require.Nil(t, err)
 
 							require.Nil(t, err)
