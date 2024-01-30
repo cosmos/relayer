@@ -154,6 +154,8 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(
 	channelHandshakeMessages := make(ChannelMessagesCache)
 	clientICQMessages := make(ClientICQMessagesCache)
 
+	messageCache.PacketState.Prune(100) // Only keep most recent 100 packet states per channel
+
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pathEnd.info.ChainID,
@@ -194,6 +196,12 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(
 			}
 
 			packetMessages[ch] = newPmc
+
+			for eventType, pCache := range newPmc {
+				for seq := range pCache {
+					pathEnd.messageCache.PacketState.UpdateState(ch, seq, eventType)
+				}
+			}
 		}
 	}
 
@@ -610,9 +618,13 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	case chantypes.EventTypeRecvPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
+	case chantypes.EventTypeAcknowledgePacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeWriteAck] = []uint64{sequence}
+		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
+	case chantypes.EventTypeTimeoutPacket:
+		toDelete[eventType] = []uint64{sequence}
 		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
 	}
 	// delete in progress send for this specific message
