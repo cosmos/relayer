@@ -14,10 +14,15 @@ var sdkConfigMutex sync.Mutex
 // Don't use this unless you know what you're doing.
 // TODO: :dagger: :knife: :chainsaw: remove this function
 func (cc *CosmosProvider) SetSDKContext() func() {
+	return SetSDKConfigContext(cc.PCfg.AccountPrefix)
+}
+
+// SetSDKContext sets the SDK config to the given bech32 prefixes
+func SetSDKConfigContext(prefix string) func() {
 	sdkConfigMutex.Lock()
 	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(cc.PCfg.AccountPrefix, cc.PCfg.AccountPrefix+"pub")
-	sdkConf.SetBech32PrefixForValidator(cc.PCfg.AccountPrefix+"valoper", cc.PCfg.AccountPrefix+"valoperpub")
-	sdkConf.SetBech32PrefixForConsensusNode(cc.PCfg.AccountPrefix+"valcons", cc.PCfg.AccountPrefix+"valconspub")
+	sdkConf.SetBech32PrefixForAccount(prefix, prefix+"pub")
+	sdkConf.SetBech32PrefixForValidator(prefix+"valoper", prefix+"valoperpub")
+	sdkConf.SetBech32PrefixForConsensusNode(prefix+"valcons", prefix+"valconspub")
 	return sdkConfigMutex.Unlock
 }

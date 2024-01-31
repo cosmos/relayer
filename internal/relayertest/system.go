@@ -139,6 +139,11 @@ func (s *System) MustGetConfig(t *testing.T) (config cmd.ConfigInputWrapper) {
 	return config
 }
 
+func (s *System) WriteConfig(t *testing.T, contents []byte) error {
+	t.Helper()
+	return os.WriteFile(filepath.Join(s.HomeDir, "config", "config.yaml"), contents, 0600)
+}
+
 // A fixed mnemonic and its resulting cosmos address, helpful for tests that need a mnemonic.
 const (
 	ZeroMnemonic   = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"

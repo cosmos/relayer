@@ -79,7 +79,8 @@ type PathProcessor struct {
 	// true if this is a localhost IBC connection
 	isLocalhost bool
 
-	maxMsgs uint64
+	maxMsgs                    uint64
+	memoLimit, maxReceiverSize int
 
 	metrics *PrometheusMetrics
 }
@@ -105,6 +106,7 @@ func NewPathProcessor(
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
 	maxMsgs uint64,
+	memoLimit, maxReceiverSize int,
 ) *PathProcessor {
 	isLocalhost := pathEnd1.ClientID == ibcexported.LocalhostClientID
 
@@ -119,6 +121,8 @@ func NewPathProcessor(
 		metrics:                   metrics,
 		isLocalhost:               isLocalhost,
 		maxMsgs:                   maxMsgs,
+		memoLimit:                 memoLimit,
+		maxReceiverSize:           maxReceiverSize,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
@@ -319,15 +323,65 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		return true
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
-		pp.pathEnd1.mergeCacheData(ctx, cancel, d, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.messageLifecycle, pp.pathEnd2)
+		pp.pathEnd1.mergeCacheData(
+			ctx,
+			cancel,
+			d,
+			pp.pathEnd2.info.ChainID,
+			pp.pathEnd2.inSync,
+			pp.messageLifecycle,
+			pp.pathEnd2,
+			pp.memoLimit,
+			pp.maxReceiverSize,
+		)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd2
-		pp.pathEnd2.mergeCacheData(ctx, cancel, d, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.messageLifecycle, pp.pathEnd1)
+		pp.pathEnd2.mergeCacheData(
+			ctx,
+			cancel,
+			d,
+			pp.pathEnd1.info.ChainID,
+			pp.pathEnd1.inSync,
+			pp.messageLifecycle,
+			pp.pathEnd1,
+			pp.memoLimit,
+			pp.maxReceiverSize,
+		)
 
 	case <-pp.retryProcess:
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTimer.C:
+		for len(pp.pathEnd1.incomingCacheData) > 0 {
+			d := <-pp.pathEnd1.incomingCacheData
+			// we have new data from ChainProcessor for pathEnd1
+			pp.pathEnd1.mergeCacheData(
+				ctx,
+				cancel,
+				d,
+				pp.pathEnd2.info.ChainID,
+				pp.pathEnd2.inSync,
+				pp.messageLifecycle,
+				pp.pathEnd2,
+				pp.memoLimit,
+				pp.maxReceiverSize,
+			)
+		}
+		for len(pp.pathEnd2.incomingCacheData) > 0 {
+			d := <-pp.pathEnd2.incomingCacheData
+			// we have new data from ChainProcessor for pathEnd2
+			pp.pathEnd2.mergeCacheData(
+				ctx,
+				cancel,
+				d,
+				pp.pathEnd1.info.ChainID,
+				pp.pathEnd1.inSync,
+				pp.messageLifecycle,
+				pp.pathEnd1,
+				pp.memoLimit,
+				pp.maxReceiverSize,
+			)
+		}
 		// Periodic flush to clear out any old packets
 		pp.handleFlush(ctx)
 	}

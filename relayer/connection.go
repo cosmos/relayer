@@ -41,6 +41,8 @@ func (c *Chain) CreateOpenConnections(
 		DefaultClientUpdateThreshold,
 		DefaultFlushInterval,
 		DefaultMaxMsgLength,
+		0,
+		0,
 	)
 
 	var connectionSrc, connectionDst string
