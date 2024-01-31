@@ -35,8 +35,9 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbrafee "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/fee/v1alpha1"
 	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/ibc/v1alpha1"
-	penumbranum "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1alpha1"
+	penumbraasset "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1alpha1"
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
+	penumbrardsa "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/decaf377_rdsa/v1alpha1"
 	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1alpha1"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -307,10 +308,14 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 	// will have a signing protocol for this.
 
 	txBody := penumbratypes.TransactionBody{
-		Actions:               make([]*penumbratypes.Action, 0),
-		Fee:                   &penumbrafee.Fee{Amount: &penumbranum.Amount{Lo: 0, Hi: 0}},
-		MemoData:              &penumbratypes.MemoData{},
-		TransactionParameters: &penumbratypes.TransactionParameters{},
+		Actions: make([]*penumbratypes.Action, 0),
+		TransactionParameters: &penumbratypes.TransactionParameters{
+			Fee: &penumbrafee.Fee{
+				Amount: &penumbraasset.Amount{Lo: 0, Hi: 0},
+			},
+		},
+		DetectionData: &penumbratypes.DetectionData{},
+		Memo:          nil,
 	}
 
 	for _, msg := range PenumbraMsgs(msgs...) {
@@ -328,7 +333,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 
 	tx := &penumbratypes.Transaction{
 		Body:       &txBody,
-		BindingSig: make([]byte, 64), // use the Cool Signature
+		BindingSig: &penumbrardsa.BindingSignature{Inner: make([]byte, 64)},
 		Anchor:     anchor,
 	}
 
