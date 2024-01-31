@@ -123,7 +123,7 @@ build-gaia:
 .PHONY: two-chains test test-integration interchaintest install build lint coverage clean
 
 PACKAGE_NAME          := github.com/cosmos/relayer
-GOLANG_CROSS_VERSION  ?= v1.19.4
+GOLANG_CROSS_VERSION  ?= v1.21.5
 
 SYSROOT_DIR     ?= sysroots
 SYSROOT_ARCHIVE ?= sysroots.tar.bz2
