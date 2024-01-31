@@ -26,7 +26,7 @@ const config: DocsThemeConfig = {
   },
   docsRepositoryBase: 'https://github.com/strangelove-ventures/interchaintest/tree/docs-site',
   footer: {
-    text: 'Nextra Docs Template',
+    text: 'Built with ❤️ by Strangelove',
   },
 }
 
