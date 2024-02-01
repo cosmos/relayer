@@ -334,7 +334,9 @@ func (msg clientICQMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // processingMessage tracks the state of a IBC message currently being processed.
 type processingMessage struct {
-	retryCount uint64
+	retryCount          uint64
+	lastProcessedHeight uint64
+	assembled           bool
 
 	processing bool
 	mu         sync.Mutex
@@ -346,10 +348,19 @@ func (m *processingMessage) isProcessing() bool {
 	return m.processing
 }
 
-func (m *processingMessage) setProcessing(processing bool) {
+func (m *processingMessage) setProcessing(height uint64, assembled bool, retryCount uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.processing = processing
+	m.processing = true
+	m.retryCount = retryCount
+	m.lastProcessedHeight = height
+	m.assembled = assembled
+}
+
+func (m *processingMessage) setFinishedProcessing() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.processing = false
 }
 
 type packetProcessingCache map[ChannelKey]packetChannelMessageCache
@@ -372,10 +383,14 @@ func (c *packetMessageSendCache) get(sequence uint64) *processingMessage {
 	return c.m[sequence]
 }
 
-func (c *packetMessageSendCache) set(sequence uint64) {
+func (c *packetMessageSendCache) set(sequence uint64, height uint64, assembled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.m[sequence] = &processingMessage{processing: true}
+	c.m[sequence] = &processingMessage{
+		processing:          true,
+		lastProcessedHeight: height,
+		assembled:           assembled,
+	}
 }
 
 func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint64) {
@@ -411,10 +426,14 @@ func (c *channelKeySendCache) get(key ChannelKey) *processingMessage {
 	return c.m[key]
 }
 
-func (c *channelKeySendCache) set(key ChannelKey) {
+func (c *channelKeySendCache) set(key ChannelKey, height uint64, assembled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.m[key] = &processingMessage{processing: true}
+	c.m[key] = &processingMessage{
+		processing:          true,
+		lastProcessedHeight: height,
+		assembled:           assembled,
+	}
 }
 
 func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelKey) {
@@ -450,10 +469,14 @@ func (c *connectionKeySendCache) get(key ConnectionKey) *processingMessage {
 	return c.m[key]
 }
 
-func (c *connectionKeySendCache) set(key ConnectionKey) {
+func (c *connectionKeySendCache) set(key ConnectionKey, height uint64, assembled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.m[key] = &processingMessage{processing: true}
+	c.m[key] = &processingMessage{
+		processing:          true,
+		lastProcessedHeight: height,
+		assembled:           assembled,
+	}
 }
 
 func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]ConnectionKey) {
@@ -488,10 +511,14 @@ func (c *clientICQProcessingCache) get(queryID provider.ClientICQQueryID) *proce
 	return c.m[queryID]
 }
 
-func (c *clientICQProcessingCache) set(queryID provider.ClientICQQueryID) {
+func (c *clientICQProcessingCache) set(queryID provider.ClientICQQueryID, height uint64, assembled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.m[queryID] = &processingMessage{processing: true}
+	c.m[queryID] = &processingMessage{
+		processing:          true,
+		lastProcessedHeight: height,
+		assembled:           assembled,
+	}
 }
 
 func (c *clientICQProcessingCache) deleteMessages(toDelete ...provider.ClientICQQueryID) {

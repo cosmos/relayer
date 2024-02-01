@@ -322,6 +322,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 
 		retries := dst.trackProcessingMessage(t)
 		if t.assembledMsg() == nil {
+			dst.trackFinishedProcessingMessage(t)
 			continue
 		}
 

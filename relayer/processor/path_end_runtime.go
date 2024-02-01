@@ -579,6 +579,12 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		// this message is currently being processed (broadcasting), do not attempt to send again yet.
 		return false
 	}
+	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
+	}
+
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
 			zap.String("event_type", eventType),
@@ -657,6 +663,11 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		// this message is currently being processed (broadcasting), do not attempt to send again yet.
 		return false
 	}
+	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
+	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending connection message after max retries",
 			zap.String("event_type", eventType),
@@ -729,6 +740,11 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	}
 	if inProgress.isProcessing() {
 		// this message is currently being processed (broadcasting), do not attempt to send again yet.
+		return false
+	}
+	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
 		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
@@ -817,6 +833,11 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 		// this message is currently being processed (broadcasting), do not attempt to send again yet.
 		return false
 	}
+	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
+	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending client ICQ message after max retries",
 			zap.String("query_id", string(queryID)),
@@ -864,10 +885,9 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		inProgress := channelProcessingCache.get(sequence)
 
 		if inProgress == nil {
-			channelProcessingCache.set(sequence)
+			channelProcessingCache.set(sequence, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.retryCount++
-			inProgress.processing = true
+			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
 		}
 	case channelMessageToTrack:
 		eventType := t.msg.eventType
@@ -883,10 +903,9 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 
 		inProgress := msgProcessCache.get(channelKey)
 		if inProgress == nil {
-			msgProcessCache.set(channelKey)
+			msgProcessCache.set(channelKey, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.retryCount++
-			inProgress.processing = true
+			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
 		}
 	case connectionMessageToTrack:
 		eventType := t.msg.eventType
@@ -902,20 +921,18 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 
 		inProgress := msgProcessCache.get(connectionKey)
 		if inProgress == nil {
-			msgProcessCache.set(connectionKey)
+			msgProcessCache.set(connectionKey, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.retryCount++
-			inProgress.processing = true
+			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
 		}
 	case clientICQMessageToTrack:
 		queryID := t.msg.info.QueryID
 
 		inProgress := pathEnd.clientICQProcessing.get(queryID)
 		if inProgress == nil {
-			pathEnd.clientICQProcessing.set(queryID)
+			pathEnd.clientICQProcessing.set(queryID, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.retryCount++
-			inProgress.processing = true
+			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
 		}
 	}
 
@@ -942,7 +959,7 @@ func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToT
 
 		inProgress := channelProcessingCache.get(sequence)
 		if inProgress != nil {
-			inProgress.setProcessing(false)
+			inProgress.setFinishedProcessing()
 		}
 	case channelMessageToTrack:
 		eventType := t.msg.eventType
@@ -957,7 +974,7 @@ func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToT
 
 		inProgress := msgProcessCache.get(channelKey)
 		if inProgress != nil {
-			inProgress.setProcessing(false)
+			inProgress.setFinishedProcessing()
 		}
 	case connectionMessageToTrack:
 		eventType := t.msg.eventType
@@ -972,14 +989,14 @@ func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToT
 
 		inProgress := msgProcessCache.get(connectionKey)
 		if inProgress != nil {
-			inProgress.setProcessing(false)
+			inProgress.setFinishedProcessing()
 		}
 	case clientICQMessageToTrack:
 		queryID := t.msg.info.QueryID
 
 		inProgress := pathEnd.clientICQProcessing.get(queryID)
 		if inProgress != nil {
-			inProgress.setProcessing(false)
+			inProgress.setFinishedProcessing()
 		}
 	}
 }
