@@ -657,13 +657,14 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 }
 
 func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
+	var doneQueryIDs []provider.ClientICQQueryID
+
 ClientICQLoop:
 	for queryID, queryMsg := range queryMessages {
 		for resQueryID := range responseMessages {
 			if queryID == resQueryID {
 				// done with this query, remove all retention.
-				pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
-				delete(pathEnd.clientICQProcessing, queryID)
+				doneQueryIDs = append(doneQueryIDs, queryID)
 				continue ClientICQLoop
 			}
 		}
@@ -675,11 +676,16 @@ ClientICQLoop:
 		}
 	}
 
-	// now iterate through completion message and remove any leftover messages.
+	// remove all retention for queries that have been responded to.
 	for queryID := range responseMessages {
-		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
-		delete(pathEnd.clientICQProcessing, queryID)
+		doneQueryIDs = append(doneQueryIDs, queryID)
 	}
+
+	pathEnd.clientICQProcessing.deleteMessages(doneQueryIDs...)
+	pathEnd.messageCache.ClientICQ.DeleteMessages(doneQueryIDs...)
+
+	// now iterate through completion message and remove any leftover messages.
+
 	return res
 }
 

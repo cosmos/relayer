@@ -613,9 +613,11 @@ func (c ClientICQMessageCache) Merge(other ClientICQMessageCache) {
 }
 
 // DeleteMessages deletes cached messages for the provided query ID.
-func (c ClientICQMessagesCache) DeleteMessages(queryID provider.ClientICQQueryID) {
-	for _, cm := range c {
-		delete(cm, queryID)
+func (c ClientICQMessagesCache) DeleteMessages(queryID ...provider.ClientICQQueryID) {
+	for _, qID := range queryID {
+		for _, cm := range c {
+			delete(cm, qID)
+		}
 	}
 }
 
