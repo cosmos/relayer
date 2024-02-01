@@ -431,7 +431,7 @@ func (mp *messageProcessor) sendBatchMessages(
 
 	callback := func(_ *provider.RelayerTxResponse, err error) {
 		for _, t := range batch {
-			dst.trackFinishedProcessingMessage(t)
+			dst.finishedProcessing <- t
 		}
 		// only increment metrics counts for successful packets
 		if err != nil || mp.metrics == nil {
@@ -471,7 +471,7 @@ func (mp *messageProcessor) sendBatchMessages(
 
 	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks); err != nil {
 		for _, t := range batch {
-			dst.trackFinishedProcessingMessage(t)
+			dst.finishedProcessing <- t
 		}
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),
@@ -519,7 +519,7 @@ func (mp *messageProcessor) sendSingleMessage(
 	callbacks := []func(rtr *provider.RelayerTxResponse, err error){}
 
 	callback := func(_ *provider.RelayerTxResponse, err error) {
-		dst.trackFinishedProcessingMessage(tracker)
+		dst.finishedProcessing <- tracker
 
 		t, ok := tracker.(packetMessageToTrack)
 		if !ok {
@@ -558,7 +558,7 @@ func (mp *messageProcessor) sendSingleMessage(
 
 	err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callbacks)
 	if err != nil {
-		dst.trackFinishedProcessingMessage(tracker)
+		dst.finishedProcessing <- tracker
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),

@@ -316,6 +316,10 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 			zap.Error(ctx.Err()),
 		)
 		return true
+	case t := <-pp.pathEnd1.finishedProcessing:
+		pp.pathEnd1.trackFinishedProcessingMessage(t)
+	case t := <-pp.pathEnd2.finishedProcessing:
+		pp.pathEnd2.trackFinishedProcessingMessage(t)
 	case d := <-pp.pathEnd1.incomingCacheData:
 		// we have new data from ChainProcessor for pathEnd1
 		pp.pathEnd1.mergeCacheData(
@@ -395,7 +399,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			return
 		}
 
-		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 {
+		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 || len(pp.pathEnd1.finishedProcessing) > 0 || len(pp.pathEnd2.finishedProcessing) > 0 {
 			// signals are available, so this will not need to block.
 			if pp.processAvailableSignals(ctx, cancel) {
 				return

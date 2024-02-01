@@ -57,6 +57,8 @@ type pathEndRuntime struct {
 	lastClientUpdateHeightMu sync.Mutex
 
 	metrics *PrometheusMetrics
+
+	finishedProcessing chan messageToTrack
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -68,6 +70,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		),
 		info:                 pathEnd,
 		incomingCacheData:    make(chan ChainProcessorCacheData, 100),
+		finishedProcessing:   make(chan messageToTrack, 1000),
 		connectionStateCache: make(ConnectionStateCache),
 		channelStateCache:    make(ChannelStateCache),
 		messageCache:         NewIBCMessagesCache(),
@@ -890,7 +893,7 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		if inProgress == nil {
 			channelProcessingCache.set(sequence, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	case channelMessageToTrack:
 		eventType := t.msg.eventType
@@ -908,7 +911,7 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		if inProgress == nil {
 			msgProcessCache.set(channelKey, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	case connectionMessageToTrack:
 		eventType := t.msg.eventType
@@ -926,7 +929,7 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		if inProgress == nil {
 			msgProcessCache.set(connectionKey, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	case clientICQMessageToTrack:
 		queryID := t.msg.info.QueryID
@@ -935,7 +938,7 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		if inProgress == nil {
 			pathEnd.clientICQProcessing.set(queryID, pathEnd.latestBlock.Height, t.assembled != nil)
 		} else {
-			inProgress.setProcessing(pathEnd.latestBlock.Height, t.assembled != nil, inProgress.retryCount+1)
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	}
 
@@ -962,7 +965,7 @@ func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToT
 
 		inProgress := channelProcessingCache.get(sequence)
 		if inProgress != nil {
-			inProgress.setFinishedProcessing()
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
 		}
 	case channelMessageToTrack:
 		eventType := t.msg.eventType
@@ -977,7 +980,7 @@ func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToT
 
 		inProgress := msgProcessCache.get(channelKey)
 		if inProgress != nil {
-			inProgress.setFinishedProcessing()
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
 		}
 	case connectionMessageToTrack:
 		eventType := t.msg.eventType
@@ -992,14 +995,14 @@ func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToT
 
 		inProgress := msgProcessCache.get(connectionKey)
 		if inProgress != nil {
-			inProgress.setFinishedProcessing()
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
 		}
 	case clientICQMessageToTrack:
 		queryID := t.msg.info.QueryID
 
 		inProgress := pathEnd.clientICQProcessing.get(queryID)
 		if inProgress != nil {
-			inProgress.setFinishedProcessing()
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
 		}
 	}
 }

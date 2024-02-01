@@ -348,18 +348,18 @@ func (m *processingMessage) isProcessing() bool {
 	return m.processing
 }
 
-func (m *processingMessage) setProcessing(height uint64, assembled bool, retryCount uint64) {
+func (m *processingMessage) setProcessing(assembled bool, retryCount uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.processing = true
 	m.retryCount = retryCount
-	m.lastProcessedHeight = height
 	m.assembled = assembled
 }
 
-func (m *processingMessage) setFinishedProcessing() {
+func (m *processingMessage) setFinishedProcessing(height uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.lastProcessedHeight = height
 	m.processing = false
 }
 
