@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -333,52 +334,164 @@ func (msg clientICQMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // processingMessage tracks the state of a IBC message currently being processed.
 type processingMessage struct {
-	assembled           bool
-	lastProcessedHeight uint64
-	retryCount          uint64
+	retryCount uint64
+
+	processing bool
+	mu         sync.Mutex
+}
+
+func (m *processingMessage) isProcessing() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.processing
+}
+
+func (m *processingMessage) setProcessing(processing bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.processing = processing
 }
 
 type packetProcessingCache map[ChannelKey]packetChannelMessageCache
-type packetChannelMessageCache map[string]packetMessageSendCache
-type packetMessageSendCache map[uint64]processingMessage
+type packetChannelMessageCache map[string]*packetMessageSendCache
+
+type packetMessageSendCache struct {
+	mu sync.Mutex
+	m  map[uint64]*processingMessage
+}
+
+func newPacketMessageSendCache() *packetMessageSendCache {
+	return &packetMessageSendCache{
+		m: make(map[uint64]*processingMessage),
+	}
+}
+
+func (c *packetMessageSendCache) get(sequence uint64) *processingMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.m[sequence]
+}
+
+func (c *packetMessageSendCache) set(sequence uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[sequence] = &processingMessage{processing: true}
+}
 
 func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint64) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
+			c[message].mu.Lock()
 			for _, sequence := range toDeleteMessages {
-				delete(c[message], sequence)
+				delete(c[message].m, sequence)
 			}
+			c[message].mu.Unlock()
 		}
 	}
 }
 
-type channelProcessingCache map[string]channelKeySendCache
-type channelKeySendCache map[ChannelKey]processingMessage
+type channelProcessingCache map[string]*channelKeySendCache
+type channelKeySendCache struct {
+	mu sync.Mutex
+	m  map[ChannelKey]*processingMessage
+}
+
+func newChannelKeySendCache() *channelKeySendCache {
+	return &channelKeySendCache{
+		m: make(map[ChannelKey]*processingMessage),
+	}
+}
+
+func (c *channelKeySendCache) get(key ChannelKey) *processingMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.m[key]
+}
+
+func (c *channelKeySendCache) set(key ChannelKey) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[key] = &processingMessage{processing: true}
+}
 
 func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
+			c[message].mu.Lock()
 			for _, channel := range toDeleteMessages {
-				delete(c[message], channel)
+				delete(c[message].m, channel)
 			}
+			c[message].mu.Unlock()
 		}
 	}
 }
 
-type connectionProcessingCache map[string]connectionKeySendCache
-type connectionKeySendCache map[ConnectionKey]processingMessage
+type connectionProcessingCache map[string]*connectionKeySendCache
+type connectionKeySendCache struct {
+	mu sync.Mutex
+	m  map[ConnectionKey]*processingMessage
+}
+
+func newConnectionKeySendCache() *connectionKeySendCache {
+	return &connectionKeySendCache{
+		m: make(map[ConnectionKey]*processingMessage),
+	}
+}
+
+func (c *connectionKeySendCache) get(key ConnectionKey) *processingMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.m[key]
+}
+
+func (c *connectionKeySendCache) set(key ConnectionKey) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[key] = &processingMessage{processing: true}
+}
 
 func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]ConnectionKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
+			c[message].mu.Lock()
 			for _, connection := range toDeleteMessages {
-				delete(c[message], connection)
+				delete(c[message].m, connection)
 			}
+			c[message].mu.Unlock()
 		}
 	}
 }
 
-type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
+type clientICQProcessingCache struct {
+	mu sync.Mutex
+	m  map[provider.ClientICQQueryID]*processingMessage
+}
+
+func newClientICQProcessingCache() *clientICQProcessingCache {
+	return &clientICQProcessingCache{
+		m: make(map[provider.ClientICQQueryID]*processingMessage),
+	}
+}
+
+func (c *clientICQProcessingCache) get(queryID provider.ClientICQQueryID) *processingMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.m[queryID]
+}
+
+func (c *clientICQProcessingCache) set(queryID provider.ClientICQQueryID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[queryID] = &processingMessage{processing: true}
+}
+
+func (c *clientICQProcessingCache) deleteMessages(toDelete ...provider.ClientICQQueryID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, queryID := range toDelete {
+		delete(c.m, queryID)
+	}
+}
 
 // contains MsgRecvPacket from counterparty
 // entire packet flow

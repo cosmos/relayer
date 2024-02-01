@@ -32,11 +32,6 @@ const (
 	// Amount of time between flushes if the previous flush failed.
 	flushFailureRetry = 5 * time.Second
 
-	// If message assembly fails from either proof query failure on the source
-	// or assembling the message for the destination, how many blocks should pass
-	// before retrying.
-	blocksToRetryAssemblyAfter = 0
-
 	// If the message was assembled successfully, but sending the message failed,
 	// how many blocks should pass before retrying.
 	blocksToRetrySendAfter = 5
