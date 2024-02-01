@@ -381,6 +381,9 @@ func (c *packetMessageSendCache) set(sequence uint64) {
 func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint64) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
+			if _, ok := c[message]; !ok {
+				continue
+			}
 			c[message].mu.Lock()
 			for _, sequence := range toDeleteMessages {
 				delete(c[message].m, sequence)
@@ -417,6 +420,9 @@ func (c *channelKeySendCache) set(key ChannelKey) {
 func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
+			if _, ok := c[message]; !ok {
+				continue
+			}
 			c[message].mu.Lock()
 			for _, channel := range toDeleteMessages {
 				delete(c[message].m, channel)
@@ -453,6 +459,9 @@ func (c *connectionKeySendCache) set(key ConnectionKey) {
 func (c connectionProcessingCache) deleteMessages(toDelete ...map[string][]ConnectionKey) {
 	for _, toDeleteMap := range toDelete {
 		for message, toDeleteMessages := range toDeleteMap {
+			if _, ok := c[message]; !ok {
+				continue
+			}
 			c[message].mu.Lock()
 			for _, connection := range toDeleteMessages {
 				delete(c[message].m, connection)
