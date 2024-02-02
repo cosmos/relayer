@@ -18,7 +18,7 @@ require (
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/google/uuid v1.4.0
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
-	github.com/moby/moby v24.0.7+incompatible
+	github.com/moby/moby v24.0.9+incompatible
 	github.com/strangelove-ventures/interchaintest/v8 v8.0.1-0.20231114192524-e3719592933b
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
