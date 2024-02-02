@@ -307,12 +307,14 @@ func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) 
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryStateTimeout)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)
 	}
+
 	for _, ch := range channels {
 		if len(ch.ConnectionHops) != 1 {
 			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
@@ -322,6 +324,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			)
 			continue
 		}
+
 		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
 		k := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
@@ -329,8 +332,10 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
 		}
+
 		ccp.channelStateCache.SetOpen(k, ch.State == chantypes.OPEN, ch.Ordering)
 	}
+
 	return nil
 }
 

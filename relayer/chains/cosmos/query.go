@@ -887,11 +887,24 @@ func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.Ident
 	qc := chantypes.NewQueryClient(cc)
 	p := DefaultPageRequest()
 	chans := []*chantypes.IdentifiedChannel{}
+	res := &chantypes.QueryChannelsResponse{}
 
 	for {
-		res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
-			Pagination: p,
-		})
+		err := func() error {
+			ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+			defer cancel()
+
+			var err error
+			res, err = qc.Channels(ctx, &chantypes.QueryChannelsRequest{
+				Pagination: p,
+			})
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}()
+
 		if err != nil {
 			return nil, err
 		}
@@ -905,6 +918,7 @@ func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.Ident
 		time.Sleep(PaginationDelay)
 		p.Key = next
 	}
+
 	return chans, nil
 }
 
