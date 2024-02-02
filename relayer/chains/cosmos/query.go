@@ -888,13 +888,12 @@ func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.Ident
 	chans := []*chantypes.IdentifiedChannel{}
 
 	for {
-		res, err := cc.queryChannels(ctx, p)
+		res, next, err := cc.QueryChannelsPaginated(ctx, p)
 		if err != nil {
 			return nil, err
 		}
 
-		chans = append(chans, res.Channels...)
-		next := res.GetPagination().GetNextKey()
+		chans = append(chans, res...)
 		if len(next) == 0 {
 			break
 		}
@@ -911,24 +910,6 @@ func (cc *CosmosProvider) QueryChannelsPaginated(
 	ctx context.Context,
 	pageRequest *querytypes.PageRequest,
 ) ([]*chantypes.IdentifiedChannel, []byte, error) {
-	chans := []*chantypes.IdentifiedChannel{}
-
-	res, err := cc.queryChannels(ctx, pageRequest)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	chans = append(chans, res.Channels...)
-	next := res.GetPagination().GetNextKey()
-
-	return chans, next, nil
-}
-
-// queryChannels is a helper method for performing a paginated query request to fetch IBC channels on a chain.
-func (cc *CosmosProvider) queryChannels(
-	ctx context.Context,
-	pageRequest *querytypes.PageRequest,
-) (*chantypes.QueryChannelsResponse, error) {
 	qc := chantypes.NewQueryClient(cc)
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
@@ -937,12 +918,13 @@ func (cc *CosmosProvider) queryChannels(
 	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
 		Pagination: pageRequest,
 	})
-
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return res, nil
+	next := res.GetPagination().GetNextKey()
+
+	return res.Channels, next, nil
 }
 
 // QueryPacketCommitments returns an array of packet commitments
