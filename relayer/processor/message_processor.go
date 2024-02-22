@@ -434,9 +434,7 @@ func (mp *messageProcessor) sendBatchMessages(
 	} else {
 		// messages are batch with appended MsgUpdateClient
 		msgs = make([]provider.RelayerMessage, 1+len(batch))
-		if mp.msgUpdateClient != nil {
-			msgs[0] = mp.msgUpdateClient
-		}
+		msgs[0] = mp.msgUpdateClient
 
 		for i, t := range batch {
 			msgs[i+1] = t.assembledMsg()
