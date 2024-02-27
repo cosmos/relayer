@@ -29,7 +29,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.1
-	github.com/strangelove-ventures/cometbft-client v0.0.0-20240122193328-9503d3144af6
+	github.com/strangelove-ventures/cometbft-client v0.1.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tyler-smith/go-bip39 v1.1.0
 	go.uber.org/multierr v1.10.0
