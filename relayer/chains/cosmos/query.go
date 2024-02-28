@@ -882,22 +882,18 @@ func (cc *CosmosProvider) QueryConnectionChannels(ctx context.Context, height in
 	return channels, nil
 }
 
-// QueryChannels returns all the channels that are registered on a chain
+// QueryChannels returns all the channels that are registered on a chain.
 func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
-	qc := chantypes.NewQueryClient(cc)
 	p := DefaultPageRequest()
 	chans := []*chantypes.IdentifiedChannel{}
 
 	for {
-		res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
-			Pagination: p,
-		})
+		res, next, err := cc.QueryChannelsPaginated(ctx, p)
 		if err != nil {
 			return nil, err
 		}
 
-		chans = append(chans, res.Channels...)
-		next := res.GetPagination().GetNextKey()
+		chans = append(chans, res...)
 		if len(next) == 0 {
 			break
 		}
@@ -905,13 +901,19 @@ func (cc *CosmosProvider) QueryChannels(ctx context.Context) ([]*chantypes.Ident
 		time.Sleep(PaginationDelay)
 		p.Key = next
 	}
+
 	return chans, nil
 }
 
-// QueryChannels returns all the channels that are registered on a chain
-func (cc *CosmosProvider) QueryChannelsPaginated(ctx context.Context, pageRequest *querytypes.PageRequest) ([]*chantypes.IdentifiedChannel, []byte, error) {
+// QueryChannelsPaginated returns all the channels for a particular paginated request that are registered on a chain.
+func (cc *CosmosProvider) QueryChannelsPaginated(
+	ctx context.Context,
+	pageRequest *querytypes.PageRequest,
+) ([]*chantypes.IdentifiedChannel, []byte, error) {
 	qc := chantypes.NewQueryClient(cc)
-	chans := []*chantypes.IdentifiedChannel{}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
 
 	res, err := qc.Channels(ctx, &chantypes.QueryChannelsRequest{
 		Pagination: pageRequest,
@@ -920,10 +922,9 @@ func (cc *CosmosProvider) QueryChannelsPaginated(ctx context.Context, pageReques
 		return nil, nil, err
 	}
 
-	chans = append(chans, res.Channels...)
 	next := res.GetPagination().GetNextKey()
 
-	return chans, next, nil
+	return res.Channels, next, nil
 }
 
 // QueryPacketCommitments returns an array of packet commitments
