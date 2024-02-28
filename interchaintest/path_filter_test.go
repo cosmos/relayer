@@ -29,8 +29,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
-		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "gaia", Version: "v14.1.0", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "osmosis", Version: "v22.0.0", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -176,8 +176,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
-		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "gaia", Version: "v14.1.0", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "osmosis", Version: "v22.0.0", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
 	chains, err := cf.Chains(t.Name())

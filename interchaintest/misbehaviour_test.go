@@ -49,9 +49,21 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	cf := interchaintest.NewBuiltinChainFactory(logger, []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom", Bech32Prefix: "cosmos"}},
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom", Bech32Prefix: "cosmos"}}},
-	)
+		{
+			Name:          "gaia",
+			Version:       "v14.1.0",
+			NumValidators: &numVals,
+			NumFullNodes:  &numFullNodes,
+			ChainConfig:   ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom", Bech32Prefix: "cosmos"},
+		},
+		{
+			Name:          "gaia",
+			Version:       "v14.1.0",
+			NumValidators: &numVals,
+			NumFullNodes:  &numFullNodes,
+			ChainConfig:   ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom", Bech32Prefix: "cosmos"},
+		},
+	})
 
 	chains, err := cf.Chains(t.Name())
 	require.NoError(t, err)
