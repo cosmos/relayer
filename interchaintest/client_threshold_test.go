@@ -35,8 +35,22 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		// Two otherwise identical chains that only differ by ChainName and ChainID.
-		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
-		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
+		{
+			Name:          "gaia",
+			ChainName:     "g0",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g0ChainId},
+		},
+		{
+			Name:          "gaia",
+			ChainName:     "g1",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g1ChainId},
+		},
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -177,8 +191,22 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		// Two otherwise identical chains that only differ by ChainID.
-		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
-		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
+		{
+			Name:          "gaia",
+			ChainName:     "g0",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g0ChainId},
+		},
+		{
+			Name:          "gaia",
+			ChainName:     "g1",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g1ChainId},
+		},
 	})
 
 	chains, err := cf.Chains(t.Name())

@@ -43,12 +43,12 @@ func TestClientOverrideFlag(t *testing.T) {
 		{
 			Name:      "gaia",
 			ChainName: "gaia",
-			Version:   "v7.0.3",
+			Version:   "v14.1.0",
 		},
 		{
 			Name:      "osmosis",
 			ChainName: "osmosis",
-			Version:   "v11.0.1",
+			Version:   "v22.0.0",
 		},
 	})
 
