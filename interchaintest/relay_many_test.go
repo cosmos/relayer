@@ -35,14 +35,14 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
-			Version:       "v7.0.3",
+			Version:       "v14.1.0",
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
 		{
 			Name:          "osmosis",
 			ChainName:     "osmosis",
-			Version:       "v11.0.1",
+			Version:       "v22.0.0",
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},

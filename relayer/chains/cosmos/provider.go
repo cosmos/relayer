@@ -9,10 +9,8 @@ import (
 	"sync"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -22,14 +20,12 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/codecs/artela"
 	"github.com/cosmos/relayer/v2/relayer/chains"
+	cwrapper "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	legacyclient "github.com/strangelove-ventures/cometbft/rpc/client"
-	legacyhttp "github.com/strangelove-ventures/cometbft/rpc/client/http"
-	legacyjson "github.com/strangelove-ventures/cometbft/rpc/jsonrpc/client"
+	"github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 var (
@@ -68,7 +64,7 @@ type CosmosProviderConfig struct {
 	MinLoopDuration  time.Duration              `json:"min-loop-duration" yaml:"min-loop-duration"`
 	ExtensionOptions []provider.ExtensionOption `json:"extension-options" yaml:"extension-options"`
 
-	//If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
+	// If FeeGrantConfiguration is set, TXs submitted by the ChainClient will be signed by the FeeGrantees in a round-robin fashion by default.
 	FeeGrants *FeeGrantConfiguration `json:"feegrants" yaml:"feegrants"`
 }
 
@@ -76,13 +72,15 @@ type CosmosProviderConfig struct {
 // Clients can use other signing keys by invoking 'tx.SendMsgsWith' and specifying the signing key.
 type FeeGrantConfiguration struct {
 	GranteesWanted int `json:"num_grantees" yaml:"num_grantees"`
-	//Normally this is the default ChainClient key
-	GranterKey string `json:"granter" yaml:"granter"`
-	//List of keys (by name) that this FeeGranter manages
+	// Normally this is the default ChainClient key
+	GranterKeyOrAddr string `json:"granter" yaml:"granter"`
+	// Whether we control the granter private key (if not, someone else must authorize our feegrants)
+	IsExternalGranter bool `json:"external_granter" yaml:"external_granter"`
+	// List of keys (by name) that this FeeGranter manages
 	ManagedGrantees []string `json:"grantees" yaml:"grantees"`
-	//Last checked on chain (0 means grants never checked and may not exist)
+	// Last checked on chain (0 means grants never checked and may not exist)
 	BlockHeightVerified int64 `json:"block_last_verified" yaml:"block_last_verified"`
-	//Index of the last ManagedGrantee used as a TX signer
+	// Index of the last ManagedGrantee used as a TX signer
 	GranteeLastSignerIndex int
 }
 
@@ -121,7 +119,7 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 		walletStateMap: map[string]*WalletState{},
 
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
-		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
+		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs, pc.AccountPrefix, pc.AccountPrefix+"valoper"),
 	}
 
 	return cp, nil
@@ -130,15 +128,14 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg            CosmosProviderConfig
-	Keybase         keyring.Keyring
-	KeyringOptions  []keyring.Option
-	RPCClient       rpcclient.Client
-	LegacyRPCClient legacyclient.Client
-	LightProvider   provtypes.Provider
-	Input           io.Reader
-	Output          io.Writer
-	Cdc             Codec
+	PCfg           CosmosProviderConfig
+	Keybase        keyring.Keyring
+	KeyringOptions []keyring.Option
+	RPCClient      cwrapper.RPCClient
+	LightProvider  provtypes.Provider
+	Input          io.Reader
+	Output         io.Writer
+	Cdc            Codec
 	// TODO: GRPC Client type?
 
 	//nextAccountSeq uint64
@@ -238,7 +235,7 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 	return
 }
 
-func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error) {
 
 	unbondingTime := overrideUnbondingPeriod
 	var err error
@@ -249,13 +246,13 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 		}
 	}
 
-	// We want the trusting period to be 85% of the unbonding time.
+	// We want the trusting period to be `percentage` of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
 	// by converting int64 to float64.
 	// Use integer math the whole time, first reducing by a factor of 100
-	// and then re-growing by 85x.
-	tp := unbondingTime / 100 * 85
+	// and then re-growing by the `percentage` param.
+	tp := time.Duration(int64(unbondingTime) / 100 * percentage)
 
 	// And we only want the trusting period to be whole hours.
 	// But avoid rounding if the time is less than 1 hour
@@ -286,7 +283,14 @@ func (cc *CosmosProvider) SetRpcAddr(rpcAddr string) error {
 // Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
 // NOTE: Init must be called after creating a new instance of CosmosProvider.
 func (cc *CosmosProvider) Init(ctx context.Context) error {
-	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, cc.KeyringOptions...)
+	keybase, err := keyring.New(
+		cc.PCfg.ChainID,
+		cc.PCfg.KeyringBackend,
+		cc.PCfg.KeyDirectory,
+		cc.Input,
+		cc.Cdc.Marshaler,
+		cc.KeyringOptions...,
+	)
 	if err != nil {
 		return err
 	}
@@ -297,7 +301,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient, err := NewRPCClient(cc.PCfg.RPCAddr, timeout)
+	c, err := client.NewClient(cc.PCfg.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
@@ -307,23 +311,11 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	legacyRPCClient, err := NewLegacyRPCClient(cc.PCfg.RPCAddr, timeout)
-	if err != nil {
-		return err
-	}
+	rpcClient := cwrapper.NewRPCClient(c)
 
 	cc.RPCClient = rpcClient
-	cc.LegacyRPCClient = legacyRPCClient
 	cc.LightProvider = lightprovider
 	cc.Keybase = keybase
-
-	status, err := cc.QueryStatus(ctx)
-	if err != nil {
-		// Operations can occur before the node URL is added to the config, so noop here.
-		return nil
-	}
-
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
 
 	return nil
 }
@@ -374,19 +366,6 @@ func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, 
 	}
 }
 
-func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
-	cc.cometLegacyBlockResults = cc.legacyBlockResults(version)
-}
-
-func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, cometEncodingThreshold) < 0
-}
-
-func (cc *CosmosProvider) legacyBlockResults(version string) bool {
-	return semver.Compare("v"+version, cometBlockResultsThreshold) < 0
-}
-
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
 func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
@@ -404,61 +383,4 @@ func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 		return nil, err
 	}
 	return rpcClient, nil
-}
-
-// NewLegacyRPCClient initializes a new CometBFT RPC client, from our forked repo, connected to the specified address.
-func NewLegacyRPCClient(addr string, timeout time.Duration) (*legacyhttp.HTTP, error) {
-	httpClient, err := legacyjson.DefaultHTTPClient(addr)
-	if err != nil {
-		return nil, err
-	}
-	httpClient.Timeout = timeout
-	rpcClient, err := legacyhttp.NewWithClient(addr, "/websocket", httpClient)
-	if err != nil {
-		return nil, err
-	}
-	return rpcClient, nil
-}
-
-// BlockResults uses the appropriate CometBFT RPC client to fetch the block results at a specific height,
-// it then parses the tx results and block events into our generalized types.
-func (cc *CosmosProvider) BlockResults(ctx context.Context, height *int64) (*chains.Results, error) {
-	var results *chains.Results
-
-	switch {
-	case cc.cometLegacyBlockResults:
-		legacyRes, err := cc.LegacyRPCClient.BlockResults(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-
-		var events []abci.Event
-		events = append(events, chains.ConvertEvents(legacyRes.BeginBlockEvents)...)
-		events = append(events, chains.ConvertEvents(legacyRes.EndBlockEvents)...)
-
-		results = &chains.Results{
-			TxsResults: chains.ConvertTxResults(legacyRes.TxsResults),
-			Events:     events,
-		}
-	default:
-		res, err := cc.RPCClient.BlockResults(ctx, height)
-		if err != nil {
-			return nil, err
-		}
-
-		var txRes []*chains.TxResult
-		for _, tx := range res.TxsResults {
-			txRes = append(txRes, &chains.TxResult{
-				Code:   tx.Code,
-				Events: tx.Events,
-			})
-		}
-
-		results = &chains.Results{
-			TxsResults: txRes,
-			Events:     res.FinalizeBlockEvents,
-		}
-	}
-
-	return results, nil
 }

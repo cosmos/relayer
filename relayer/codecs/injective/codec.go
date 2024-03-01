@@ -3,6 +3,7 @@ package injective
 import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -20,10 +21,10 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*cryptotypes.PubKey)(nil), &PubKey{})
 	registry.RegisterImplementations((*cryptotypes.PrivKey)(nil), &PrivKey{})
 
-	registry.RegisterInterface("injective.types.v1beta1.EthAccount", (*authtypes.AccountI)(nil))
+	registry.RegisterInterface("injective.types.v1beta1.EthAccount", (*types.AccountI)(nil))
 
 	registry.RegisterImplementations(
-		(*authtypes.AccountI)(nil),
+		(*types.AccountI)(nil),
 		&EthAccount{},
 	)
 

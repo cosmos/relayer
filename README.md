@@ -200,8 +200,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
 ## Security Notice
 
-If you would like to report a security critical bug related to the relayer repo,
-please reach out @jackzampolin or @Ethereal0ne on telegram.
+If you would like to report a security bug related to the relayer repo,
+please follow the instructions in [SECURITY.md](SECURITY.md).
 
 ## Code of Conduct
 

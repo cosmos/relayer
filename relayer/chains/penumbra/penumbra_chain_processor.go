@@ -8,13 +8,13 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-
-	"github.com/cosmos/relayer/v2/relayer/chains"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -325,19 +325,26 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 	chainID := pcp.chainProvider.ChainId()
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
-		var eg errgroup.Group
-		var blockRes *chains.Results
-		var ibcHeader provider.IBCHeader
+		var (
+			eg        errgroup.Group
+			blockRes  *coretypes.ResultBlockResults
+			ibcHeader provider.IBCHeader
+		)
+
 		i := i
+
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = pcp.chainProvider.BlockResults(queryCtx, &i)
+
+			blockRes, err = pcp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
 		})
+
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
+
 			ibcHeader, err = pcp.chainProvider.QueryIBCHeader(queryCtx, i)
 			return err
 		})
@@ -359,7 +366,8 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.Events, heightUint64, pcp.chainProvider.cometLegacyEncoding)
+		blockMsgs := chains.IbcMessagesFromEvents(pcp.log, blockRes.FinalizeBlockEvents, chainID, heightUint64)
+
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}
@@ -369,7 +377,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 				// tx was not successful
 				continue
 			}
-			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64, pcp.chainProvider.cometLegacyEncoding)
+			messages := chains.IbcMessagesFromEvents(pcp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
 				pcp.handleMessage(m, ibcMessagesCache)

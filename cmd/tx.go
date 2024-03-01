@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
@@ -79,6 +80,16 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
+			if err != nil {
+				return err
+			}
+
+			customClientTrustingPeriodPercentage, err := cmd.Flags().GetInt64(flagClientTrustingPeriodPercentage)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -106,6 +117,8 @@ func createClientsCmd(a *appState) *cobra.Command {
 				allowUpdateAfterMisbehaviour,
 				override,
 				customClientTrustingPeriod,
+				maxClockDrift,
+				customClientTrustingPeriodPercentage,
 				a.config.memo(cmd),
 			)
 			if err != nil {
@@ -152,12 +165,22 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			customClientTrustingPeriodPercentage, err := cmd.Flags().GetInt64(flagClientTrustingPeriodPercentage)
+			if err != nil {
+				return err
+			}
+
 			overrideUnbondingPeriod, err := cmd.Flags().GetDuration(flagClientUnbondingPeriod)
 			if err != nil {
 				return err
 			}
 
 			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
 			if err != nil {
 				return err
 			}
@@ -240,6 +263,8 @@ func createClientCmd(a *appState) *cobra.Command {
 				override,
 				customClientTrustingPeriod,
 				overrideUnbondingPeriod,
+				maxClockDrift,
+				customClientTrustingPeriodPercentage,
 				a.config.memo(cmd),
 			)
 			if err != nil {
@@ -348,7 +373,7 @@ func createConnectionCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "connection path_name",
 		Aliases: []string{"conn"},
-		Short:   "create a connection between two configured chains with a configured path",
+		Short:   "create a connection between two configured chains with a configured path; if existing client does not exist, it will create one",
 		Long: strings.TrimSpace(`Create or repair a connection between two IBC-connected networks
 along a specific path.`,
 		),
@@ -374,6 +399,11 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
+			customClientTrustingPeriodPercentage, err := cmd.Flags().GetInt64(flagClientTrustingPeriodPercentage)
+			if err != nil {
+				return err
+			}
+
 			pathName := args[0]
 
 			c, src, dst, err := a.config.ChainsFromPath(pathName)
@@ -392,6 +422,11 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			override, err := cmd.Flags().GetBool(flagOverride)
+			if err != nil {
+				return err
+			}
+
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
 			if err != nil {
 				return err
 			}
@@ -420,6 +455,8 @@ $ %s tx conn demo-path --timeout 5s`,
 				allowUpdateAfterMisbehaviour,
 				override,
 				customClientTrustingPeriod,
+				maxClockDrift,
+				customClientTrustingPeriodPercentage,
 				memo,
 			)
 			if err != nil {
@@ -649,6 +686,11 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
+			customClientTrustingPeriodPercentage, err := cmd.Flags().GetInt64(flagClientTrustingPeriodPercentage)
+			if err != nil {
+				return err
+			}
+
 			pathName := args[0]
 
 			pth, err := a.config.Paths.Get(pathName)
@@ -700,6 +742,11 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				return err
 			}
 
+			maxClockDrift, err := cmd.Flags().GetDuration(flagMaxClockDrift)
+			if err != nil {
+				return err
+			}
+
 			// ensure that keys exist
 			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
 				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
@@ -724,6 +771,8 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				allowUpdateAfterMisbehaviour,
 				override,
 				customClientTrustingPeriod,
+				maxClockDrift,
+				customClientTrustingPeriodPercentage,
 				memo,
 			)
 			if err != nil {
@@ -909,6 +958,8 @@ $ %s tx flush demo-path channel-0`,
 				chains,
 				paths,
 				maxMsgLength,
+				a.config.Global.MaxReceiverSize,
+				a.config.Global.ICS20MemoLimit,
 				a.config.memo(cmd),
 				0,
 				0,

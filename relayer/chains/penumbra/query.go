@@ -47,7 +47,7 @@ func (cc *PenumbraProvider) QueryTx(ctx context.Context, hashHex string) (*provi
 		return nil, err
 	}
 
-	events := parseEventsFromResponseDeliverTx(resp.TxResult)
+	events := parseEventsFromResponseDeliverTx(resp.TxResult.Events)
 
 	return &provider.RelayerTxResponse{
 		Height: resp.Height,
@@ -81,7 +81,7 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 	// at most, one tx in the response. Because of this we don't want to initialize the slice with an initial size.
 	var txResps []*provider.RelayerTxResponse
 	for _, tx := range res.Txs {
-		relayerEvents := parseEventsFromResponseDeliverTx(tx.TxResult)
+		relayerEvents := parseEventsFromResponseDeliverTx(tx.TxResult.Events)
 		txResps = append(txResps, &provider.RelayerTxResponse{
 			Height: tx.Height,
 			TxHash: string(tx.Hash),
@@ -95,14 +95,15 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp abci.ExecTxResult) []provider.RelayerEvent {
+func parseEventsFromResponseDeliverTx(resp []abci.Event) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
-	for _, event := range resp.Events {
+	for _, event := range resp {
 		attributes := make(map[string]string)
 		for _, attribute := range event.Attributes {
-			attributes[string(attribute.Key)] = string(attribute.Value)
+			attributes[attribute.Key] = attribute.Value
 		}
+
 		events = append(events, provider.RelayerEvent{
 			EventType:  event.Type,
 			Attributes: attributes,
@@ -921,10 +922,11 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 	if err != nil {
 		return nil, err
 	}
+
 	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, cc.cometLegacyEncoding)...)
+		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0)...)
 	}
 
 	return ibcMsgs, nil

@@ -299,12 +299,302 @@ func (m *PrefixValueResponse) GetValue() []byte {
 	return nil
 }
 
+// Requests a stream of new key-value pairs that have been committed to the state.
+type WatchRequest struct {
+	// A regex for keys in the verifiable storage.
+	//
+	// Only key-value updates whose keys match this regex will be returned.
+	// Note that the empty string matches all keys.
+	// To exclude all keys, use the regex "$^", which matches no strings.
+	KeyRegex string `protobuf:"bytes,1,opt,name=key_regex,json=keyRegex,proto3" json:"key_regex,omitempty"`
+	// A regex for keys in the nonverifiable storage.
+	//
+	// Only key-value updates whose keys match this regex will be returned.
+	// Note that the empty string matches all keys.
+	// To exclude all keys, use the regex "$^", which matches no strings.
+	NvKeyRegex string `protobuf:"bytes,2,opt,name=nv_key_regex,json=nvKeyRegex,proto3" json:"nv_key_regex,omitempty"`
+}
+
+func (m *WatchRequest) Reset()         { *m = WatchRequest{} }
+func (m *WatchRequest) String() string { return proto.CompactTextString(m) }
+func (*WatchRequest) ProtoMessage()    {}
+func (*WatchRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a6006139f070ea05, []int{4}
+}
+func (m *WatchRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WatchRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WatchRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WatchRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WatchRequest.Merge(m, src)
+}
+func (m *WatchRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *WatchRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_WatchRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WatchRequest proto.InternalMessageInfo
+
+func (m *WatchRequest) GetKeyRegex() string {
+	if m != nil {
+		return m.KeyRegex
+	}
+	return ""
+}
+
+func (m *WatchRequest) GetNvKeyRegex() string {
+	if m != nil {
+		return m.NvKeyRegex
+	}
+	return ""
+}
+
+// A key-value pair that has been committed to the state.
+type WatchResponse struct {
+	// The state version the key-value pair was committed at.
+	Version uint64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// The entry that was committed.
+	//
+	// Types that are valid to be assigned to Entry:
+	//	*WatchResponse_Kv
+	//	*WatchResponse_NvKv
+	Entry isWatchResponse_Entry `protobuf_oneof:"entry"`
+}
+
+func (m *WatchResponse) Reset()         { *m = WatchResponse{} }
+func (m *WatchResponse) String() string { return proto.CompactTextString(m) }
+func (*WatchResponse) ProtoMessage()    {}
+func (*WatchResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a6006139f070ea05, []int{5}
+}
+func (m *WatchResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WatchResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WatchResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WatchResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WatchResponse.Merge(m, src)
+}
+func (m *WatchResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *WatchResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_WatchResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WatchResponse proto.InternalMessageInfo
+
+type isWatchResponse_Entry interface {
+	isWatchResponse_Entry()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type WatchResponse_Kv struct {
+	Kv *WatchResponse_KeyValue `protobuf:"bytes,5,opt,name=kv,proto3,oneof" json:"kv,omitempty"`
+}
+type WatchResponse_NvKv struct {
+	NvKv *WatchResponse_NvKeyValue `protobuf:"bytes,6,opt,name=nv_kv,json=nvKv,proto3,oneof" json:"nv_kv,omitempty"`
+}
+
+func (*WatchResponse_Kv) isWatchResponse_Entry()   {}
+func (*WatchResponse_NvKv) isWatchResponse_Entry() {}
+
+func (m *WatchResponse) GetEntry() isWatchResponse_Entry {
+	if m != nil {
+		return m.Entry
+	}
+	return nil
+}
+
+func (m *WatchResponse) GetVersion() uint64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+func (m *WatchResponse) GetKv() *WatchResponse_KeyValue {
+	if x, ok := m.GetEntry().(*WatchResponse_Kv); ok {
+		return x.Kv
+	}
+	return nil
+}
+
+func (m *WatchResponse) GetNvKv() *WatchResponse_NvKeyValue {
+	if x, ok := m.GetEntry().(*WatchResponse_NvKv); ok {
+		return x.NvKv
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*WatchResponse) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*WatchResponse_Kv)(nil),
+		(*WatchResponse_NvKv)(nil),
+	}
+}
+
+// Elements of the verifiable storage have string keys.
+type WatchResponse_KeyValue struct {
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	// If set to true, the key-value pair was deleted.
+	// This allows distinguishing a deleted key-value pair from a key-value pair whose value is empty.
+	Deleted bool `protobuf:"varint,3,opt,name=deleted,proto3" json:"deleted,omitempty"`
+}
+
+func (m *WatchResponse_KeyValue) Reset()         { *m = WatchResponse_KeyValue{} }
+func (m *WatchResponse_KeyValue) String() string { return proto.CompactTextString(m) }
+func (*WatchResponse_KeyValue) ProtoMessage()    {}
+func (*WatchResponse_KeyValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a6006139f070ea05, []int{5, 0}
+}
+func (m *WatchResponse_KeyValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WatchResponse_KeyValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WatchResponse_KeyValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WatchResponse_KeyValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WatchResponse_KeyValue.Merge(m, src)
+}
+func (m *WatchResponse_KeyValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *WatchResponse_KeyValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_WatchResponse_KeyValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WatchResponse_KeyValue proto.InternalMessageInfo
+
+func (m *WatchResponse_KeyValue) GetKey() string {
+	if m != nil {
+		return m.Key
+	}
+	return ""
+}
+
+func (m *WatchResponse_KeyValue) GetValue() []byte {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+func (m *WatchResponse_KeyValue) GetDeleted() bool {
+	if m != nil {
+		return m.Deleted
+	}
+	return false
+}
+
+// Elements of the nonverifiable storage have byte keys.
+type WatchResponse_NvKeyValue struct {
+	Key   []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	// If set to true, the key-value pair was deleted.
+	// This allows distinguishing a deleted key-value pair from a key-value pair whose value is empty.
+	Deleted bool `protobuf:"varint,3,opt,name=deleted,proto3" json:"deleted,omitempty"`
+}
+
+func (m *WatchResponse_NvKeyValue) Reset()         { *m = WatchResponse_NvKeyValue{} }
+func (m *WatchResponse_NvKeyValue) String() string { return proto.CompactTextString(m) }
+func (*WatchResponse_NvKeyValue) ProtoMessage()    {}
+func (*WatchResponse_NvKeyValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a6006139f070ea05, []int{5, 1}
+}
+func (m *WatchResponse_NvKeyValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WatchResponse_NvKeyValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WatchResponse_NvKeyValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WatchResponse_NvKeyValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WatchResponse_NvKeyValue.Merge(m, src)
+}
+func (m *WatchResponse_NvKeyValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *WatchResponse_NvKeyValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_WatchResponse_NvKeyValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WatchResponse_NvKeyValue proto.InternalMessageInfo
+
+func (m *WatchResponse_NvKeyValue) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *WatchResponse_NvKeyValue) GetValue() []byte {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+func (m *WatchResponse_NvKeyValue) GetDeleted() bool {
+	if m != nil {
+		return m.Deleted
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*KeyValueRequest)(nil), "penumbra.cnidarium.v1alpha1.KeyValueRequest")
 	proto.RegisterType((*KeyValueResponse)(nil), "penumbra.cnidarium.v1alpha1.KeyValueResponse")
 	proto.RegisterType((*KeyValueResponse_Value)(nil), "penumbra.cnidarium.v1alpha1.KeyValueResponse.Value")
 	proto.RegisterType((*PrefixValueRequest)(nil), "penumbra.cnidarium.v1alpha1.PrefixValueRequest")
 	proto.RegisterType((*PrefixValueResponse)(nil), "penumbra.cnidarium.v1alpha1.PrefixValueResponse")
+	proto.RegisterType((*WatchRequest)(nil), "penumbra.cnidarium.v1alpha1.WatchRequest")
+	proto.RegisterType((*WatchResponse)(nil), "penumbra.cnidarium.v1alpha1.WatchResponse")
+	proto.RegisterType((*WatchResponse_KeyValue)(nil), "penumbra.cnidarium.v1alpha1.WatchResponse.KeyValue")
+	proto.RegisterType((*WatchResponse_NvKeyValue)(nil), "penumbra.cnidarium.v1alpha1.WatchResponse.NvKeyValue")
 }
 
 func init() {
@@ -312,39 +602,48 @@ func init() {
 }
 
 var fileDescriptor_a6006139f070ea05 = []byte{
-	// 497 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0xcb, 0x6e, 0xd3, 0x40,
-	0x14, 0xcd, 0x38, 0x4a, 0x09, 0xd3, 0x0a, 0xaa, 0x01, 0xa1, 0x90, 0xaa, 0xa6, 0x0a, 0x8b, 0x56,
-	0x02, 0x66, 0x9a, 0x74, 0x45, 0x10, 0x9b, 0x74, 0x51, 0x55, 0xa8, 0x92, 0x09, 0xa8, 0x02, 0x14,
-	0x09, 0x8d, 0x9d, 0xdb, 0x66, 0xd4, 0xd8, 0x63, 0xc6, 0x0f, 0x91, 0xbf, 0xe0, 0x1b, 0x58, 0xb2,
-	0x64, 0xc3, 0x2f, 0x20, 0x56, 0x5d, 0xb2, 0x44, 0xc9, 0x0e, 0x7e, 0x02, 0xf9, 0x31, 0x76, 0x0a,
-	0x92, 0x95, 0xee, 0x7c, 0xcf, 0x3d, 0xf7, 0xcc, 0xb9, 0xc7, 0x33, 0xf8, 0x91, 0x0f, 0x5e, 0xe4,
-	0xda, 0x8a, 0x33, 0xc7, 0x13, 0x63, 0xae, 0x44, 0xe4, 0xb2, 0xb8, 0xcb, 0xa7, 0xfe, 0x84, 0x77,
-	0x4b, 0x88, 0xfa, 0x4a, 0x86, 0x92, 0x6c, 0x69, 0x32, 0x2d, 0x3b, 0x9a, 0xdc, 0xde, 0x15, 0xb6,
-	0xc3, 0x1c, 0xa9, 0x80, 0x39, 0xd2, 0x75, 0x45, 0xe8, 0x82, 0x17, 0xb2, 0xb8, 0xbb, 0x54, 0x65,
-	0x2a, 0x9d, 0xd7, 0xf8, 0xf6, 0x0b, 0x98, 0x9d, 0xf2, 0x69, 0x04, 0x43, 0xf8, 0x10, 0x41, 0x10,
-	0x92, 0xfb, 0xb8, 0xe9, 0x4c, 0xb8, 0xf0, 0xde, 0x8b, 0x71, 0x0b, 0xed, 0xa0, 0xbd, 0x9b, 0xc3,
-	0x1b, 0x69, 0x7d, 0x3c, 0x26, 0x9b, 0xb8, 0x7e, 0x01, 0xb3, 0x96, 0x91, 0xa2, 0xc9, 0x27, 0xb9,
-	0x8b, 0x1b, 0xbe, 0x92, 0xf2, 0xac, 0x55, 0xdf, 0x41, 0x7b, 0xcd, 0x61, 0x56, 0x74, 0xbe, 0x21,
-	0xbc, 0x59, 0xca, 0x06, 0xbe, 0xf4, 0x02, 0x20, 0xc7, 0xb8, 0x11, 0x27, 0x40, 0x2a, 0xba, 0xde,
-	0x3b, 0xa0, 0x15, 0x0b, 0xd0, 0x7f, 0xa7, 0x69, 0x56, 0x65, 0x0a, 0xe4, 0xa9, 0x3e, 0xd5, 0x48,
-	0xa5, 0x1e, 0x52, 0x61, 0x3b, 0x34, 0x59, 0x97, 0x2e, 0x2d, 0x18, 0x77, 0xe9, 0x09, 0xa8, 0x8b,
-	0x29, 0x58, 0x09, 0x35, 0xb7, 0xd6, 0xde, 0xc6, 0x8d, 0x54, 0x2a, 0x71, 0x5e, 0xda, 0xd9, 0xc8,
-	0x95, 0x3b, 0x47, 0x98, 0x58, 0x0a, 0xce, 0xc4, 0xc7, 0x55, 0x23, 0xb9, 0x87, 0xd7, 0xfc, 0x74,
-	0x20, 0x4f, 0x25, 0xaf, 0x3a, 0xcf, 0xf1, 0x9d, 0x2b, 0x42, 0x79, 0x08, 0x79, 0x82, 0xe8, 0x4a,
-	0x82, 0x99, 0x0f, 0x63, 0xc9, 0x47, 0xef, 0x0f, 0xc2, 0x1b, 0x2f, 0x23, 0x50, 0xb3, 0x57, 0xa0,
-	0x62, 0xe1, 0x00, 0x39, 0xc7, 0x4d, 0x9d, 0x09, 0x79, 0xbc, 0x62, 0x74, 0xa9, 0xf9, 0xf6, 0x93,
-	0x6b, 0x05, 0x4d, 0x14, 0x5e, 0x5f, 0x32, 0x4e, 0x58, 0xe5, 0xf4, 0xff, 0x59, 0xb5, 0xf7, 0x57,
-	0x1f, 0xc8, 0x4e, 0xdc, 0x47, 0x83, 0xaf, 0xc6, 0xf7, 0xb9, 0x89, 0x2e, 0xe7, 0x26, 0xfa, 0x35,
-	0x37, 0xd1, 0xa7, 0x85, 0x59, 0xbb, 0x5c, 0x98, 0xb5, 0x9f, 0x0b, 0xb3, 0x86, 0x1f, 0x38, 0xd2,
-	0xad, 0x52, 0x1c, 0xdc, 0x3a, 0xd4, 0x98, 0x95, 0xdc, 0x68, 0x0b, 0xbd, 0x7b, 0x7b, 0x2e, 0xc2,
-	0x49, 0x64, 0x27, 0x77, 0x81, 0x39, 0x32, 0x70, 0x65, 0xc0, 0x14, 0x4c, 0xf9, 0x0c, 0x14, 0x8b,
-	0x7b, 0xc5, 0x67, 0xfa, 0x03, 0x03, 0x56, 0xf1, 0xe4, 0x9e, 0x15, 0x90, 0x46, 0x3e, 0x1b, 0x75,
-	0xeb, 0xf0, 0xcd, 0x17, 0x63, 0xcb, 0xd2, 0x86, 0x8a, 0xc3, 0xe9, 0x69, 0xce, 0xf9, 0x51, 0x76,
-	0x47, 0x45, 0x77, 0xa4, 0xbb, 0x73, 0x63, 0xb7, 0xa2, 0x3b, 0x3a, 0xb2, 0x06, 0x27, 0x10, 0xf2,
-	0x31, 0x0f, 0xf9, 0x6f, 0x63, 0x5b, 0x33, 0xfb, 0xfd, 0x82, 0xda, 0xef, 0x6b, 0xae, 0xbd, 0x96,
-	0xbe, 0xe0, 0x83, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff, 0xd0, 0x61, 0x0d, 0xb7, 0x36, 0x04, 0x00,
-	0x00,
+	// 655 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0xcb, 0x6e, 0xd3, 0x4c,
+	0x14, 0xc7, 0x63, 0xb7, 0x6e, 0xd3, 0xd3, 0x7c, 0x1f, 0xd5, 0x80, 0x50, 0x48, 0xd5, 0x50, 0x85,
+	0x45, 0xcb, 0xcd, 0x6e, 0x5a, 0xb1, 0x20, 0x88, 0x4d, 0x2a, 0x54, 0xaa, 0x5e, 0x64, 0x02, 0x2a,
+	0x17, 0x55, 0x2a, 0x8e, 0x73, 0xda, 0x58, 0x89, 0xed, 0x30, 0x76, 0x46, 0xf5, 0x5b, 0xf0, 0x0c,
+	0x2c, 0x59, 0xb2, 0xe1, 0x15, 0x10, 0x12, 0x52, 0x97, 0x2c, 0x51, 0x2a, 0x36, 0x3c, 0x05, 0xf2,
+	0x78, 0x26, 0x76, 0x41, 0x8a, 0x5c, 0x76, 0x3e, 0x97, 0xf9, 0x9d, 0xff, 0x9c, 0x73, 0x3c, 0x70,
+	0x77, 0x80, 0xde, 0xd0, 0x6d, 0x53, 0xcb, 0xb0, 0x3d, 0xa7, 0x63, 0x51, 0x67, 0xe8, 0x1a, 0xac,
+	0x6e, 0xf5, 0x07, 0x5d, 0xab, 0x9e, 0xba, 0xf4, 0x01, 0xf5, 0x43, 0x9f, 0x2c, 0xca, 0x64, 0x3d,
+	0x8d, 0xc8, 0xe4, 0xca, 0x8a, 0xd3, 0xb6, 0x0d, 0xdb, 0xa7, 0x68, 0xd8, 0xbe, 0xeb, 0x3a, 0xa1,
+	0x8b, 0x5e, 0x68, 0xb0, 0x7a, 0xc6, 0x4a, 0x28, 0xb5, 0x17, 0x70, 0x65, 0x07, 0xa3, 0x03, 0xab,
+	0x3f, 0xc4, 0x16, 0xbe, 0x1b, 0x62, 0x10, 0x92, 0x1b, 0x50, 0xb4, 0xbb, 0x96, 0xe3, 0x1d, 0x39,
+	0x9d, 0xb2, 0xb2, 0xac, 0xac, 0xce, 0xb5, 0x66, 0xb9, 0xbd, 0xdd, 0x21, 0x0b, 0x30, 0xd5, 0xc3,
+	0xa8, 0xac, 0x72, 0x6f, 0xfc, 0x49, 0xae, 0x81, 0x36, 0xa0, 0xbe, 0x7f, 0x5c, 0x9e, 0x5a, 0x56,
+	0x56, 0x8b, 0xad, 0xc4, 0xa8, 0x7d, 0x56, 0x60, 0x21, 0xc5, 0x06, 0x03, 0xdf, 0x0b, 0x90, 0x6c,
+	0x83, 0xc6, 0x62, 0x07, 0x87, 0xce, 0xaf, 0x6f, 0xe8, 0x13, 0x2e, 0xa0, 0xff, 0x79, 0x5a, 0x4f,
+	0xac, 0x84, 0x40, 0x1e, 0xca, 0xaa, 0x2a, 0x47, 0xdd, 0xd2, 0x9d, 0xb6, 0xad, 0xc7, 0xd7, 0xd5,
+	0x33, 0x17, 0x64, 0x75, 0x7d, 0x0f, 0x69, 0xaf, 0x8f, 0x66, 0x9c, 0x2a, 0xa4, 0x55, 0x96, 0x40,
+	0xe3, 0xa8, 0x58, 0x79, 0x2a, 0xa7, 0x24, 0xc8, 0xb5, 0x2d, 0x20, 0x26, 0xc5, 0x63, 0xe7, 0x34,
+	0x6f, 0x4b, 0xae, 0xc3, 0xcc, 0x80, 0x1f, 0x10, 0x5d, 0x11, 0x56, 0xed, 0x31, 0x5c, 0xbd, 0x00,
+	0x12, 0x4d, 0x10, 0x1d, 0x54, 0x2e, 0x74, 0x30, 0xd1, 0xa1, 0x66, 0x75, 0xec, 0x41, 0xe9, 0xa5,
+	0x15, 0xda, 0x5d, 0xa9, 0x60, 0x11, 0xe6, 0x7a, 0x18, 0x1d, 0x51, 0x3c, 0xc1, 0x53, 0x71, 0xba,
+	0xd8, 0xc3, 0xa8, 0x15, 0xdb, 0x64, 0x19, 0x4a, 0x1e, 0x3b, 0x4a, 0xe3, 0x89, 0x12, 0xf0, 0xd8,
+	0x8e, 0xc8, 0xa8, 0xfd, 0x54, 0xe1, 0x3f, 0xc1, 0x13, 0x42, 0xca, 0x30, 0xcb, 0x90, 0x06, 0x8e,
+	0xef, 0x71, 0xdc, 0x74, 0x4b, 0x9a, 0xe4, 0x09, 0xa8, 0x3d, 0x56, 0xd6, 0x72, 0x0c, 0xe9, 0x02,
+	0x71, 0x3c, 0xb2, 0xa7, 0x85, 0x96, 0xda, 0x63, 0x64, 0x17, 0xb4, 0x58, 0x14, 0x2b, 0xcf, 0x70,
+	0xd2, 0x83, 0x4b, 0x90, 0xf6, 0x59, 0x86, 0x35, 0xed, 0xb1, 0x1d, 0x56, 0xd9, 0x85, 0xa2, 0xf4,
+	0xe5, 0xed, 0x61, 0x7c, 0xc5, 0x0e, 0xf6, 0x31, 0xc4, 0x8e, 0xd8, 0x4e, 0x69, 0x56, 0xf6, 0x01,
+	0xd2, 0x1a, 0x59, 0x5e, 0xe9, 0x9f, 0x78, 0xcd, 0x59, 0xd0, 0xd0, 0x0b, 0x69, 0xb4, 0xfe, 0x4d,
+	0x85, 0xd2, 0xb3, 0x21, 0xd2, 0xe8, 0x39, 0x52, 0xe6, 0xd8, 0x48, 0x4e, 0x32, 0xba, 0xef, 0xe5,
+	0xdc, 0x78, 0x3e, 0xf1, 0xca, 0xfd, 0x4b, 0xfd, 0x1f, 0x84, 0xc2, 0x7c, 0x66, 0xdf, 0x88, 0x31,
+	0xf1, 0xf4, 0xdf, 0x2b, 0x5e, 0x59, 0xcb, 0x7f, 0x20, 0xa9, 0xb8, 0xa6, 0x90, 0xb7, 0xa0, 0xf1,
+	0xc1, 0x91, 0xdb, 0x79, 0x86, 0x9b, 0xd4, 0xb9, 0x93, 0x7f, 0x0f, 0xd6, 0x94, 0xe6, 0x27, 0xf5,
+	0xcb, 0xa8, 0xaa, 0x9c, 0x8d, 0xaa, 0xca, 0x8f, 0x51, 0x55, 0x79, 0x7f, 0x5e, 0x2d, 0x9c, 0x9d,
+	0x57, 0x0b, 0xdf, 0xcf, 0xab, 0x05, 0xb8, 0x69, 0xfb, 0xee, 0x24, 0x56, 0xf3, 0xff, 0x4d, 0xe9,
+	0x33, 0xe3, 0xa7, 0xce, 0x54, 0xde, 0xbc, 0x3e, 0x71, 0xc2, 0xee, 0xb0, 0x1d, 0x3f, 0x12, 0x86,
+	0xed, 0x07, 0xae, 0x1f, 0x18, 0x14, 0xfb, 0x56, 0x84, 0xd4, 0x60, 0xeb, 0xe3, 0x4f, 0xfe, 0x67,
+	0x07, 0xc6, 0x84, 0xb7, 0xf8, 0xd1, 0xd8, 0x25, 0x3d, 0x1f, 0xd4, 0x29, 0x73, 0xf3, 0xd5, 0x47,
+	0x75, 0xd1, 0x94, 0x82, 0xc6, 0xc5, 0xf5, 0x03, 0x91, 0xf3, 0x35, 0x8d, 0x1e, 0x8e, 0xa3, 0x87,
+	0x32, 0x3a, 0x52, 0x57, 0x26, 0x44, 0x0f, 0xb7, 0xcc, 0xe6, 0x1e, 0x86, 0x56, 0xc7, 0x0a, 0xad,
+	0x5f, 0xea, 0x92, 0xcc, 0x6c, 0x34, 0xc6, 0xa9, 0x8d, 0x86, 0xcc, 0x6d, 0xcf, 0xf0, 0xa7, 0x7d,
+	0xe3, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x11, 0xdf, 0xd8, 0x86, 0x4f, 0x06, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -364,8 +663,9 @@ type QueryServiceClient interface {
 	KeyValue(ctx context.Context, in *KeyValueRequest, opts ...grpc.CallOption) (*KeyValueResponse, error)
 	// General-purpose prefixed key-value state query API, that can be used to query
 	// arbitrary prefixes in the JMT storage.
-	// Returns a stream of `PrefixValueResponse`s.
 	PrefixValue(ctx context.Context, in *PrefixValueRequest, opts ...grpc.CallOption) (QueryService_PrefixValueClient, error)
+	// Subscribes to a stream of key-value updates, with regex filtering on keys.
+	Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (QueryService_WatchClient, error)
 }
 
 type queryServiceClient struct {
@@ -417,6 +717,38 @@ func (x *queryServicePrefixValueClient) Recv() (*PrefixValueResponse, error) {
 	return m, nil
 }
 
+func (c *queryServiceClient) Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (QueryService_WatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_QueryService_serviceDesc.Streams[1], "/penumbra.cnidarium.v1alpha1.QueryService/Watch", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &queryServiceWatchClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type QueryService_WatchClient interface {
+	Recv() (*WatchResponse, error)
+	grpc.ClientStream
+}
+
+type queryServiceWatchClient struct {
+	grpc.ClientStream
+}
+
+func (x *queryServiceWatchClient) Recv() (*WatchResponse, error) {
+	m := new(WatchResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // QueryServiceServer is the server API for QueryService service.
 type QueryServiceServer interface {
 	// General-purpose key-value state query API, that can be used to query
@@ -424,8 +756,9 @@ type QueryServiceServer interface {
 	KeyValue(context.Context, *KeyValueRequest) (*KeyValueResponse, error)
 	// General-purpose prefixed key-value state query API, that can be used to query
 	// arbitrary prefixes in the JMT storage.
-	// Returns a stream of `PrefixValueResponse`s.
 	PrefixValue(*PrefixValueRequest, QueryService_PrefixValueServer) error
+	// Subscribes to a stream of key-value updates, with regex filtering on keys.
+	Watch(*WatchRequest, QueryService_WatchServer) error
 }
 
 // UnimplementedQueryServiceServer can be embedded to have forward compatible implementations.
@@ -437,6 +770,9 @@ func (*UnimplementedQueryServiceServer) KeyValue(ctx context.Context, req *KeyVa
 }
 func (*UnimplementedQueryServiceServer) PrefixValue(req *PrefixValueRequest, srv QueryService_PrefixValueServer) error {
 	return status.Errorf(codes.Unimplemented, "method PrefixValue not implemented")
+}
+func (*UnimplementedQueryServiceServer) Watch(req *WatchRequest, srv QueryService_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 
 func RegisterQueryServiceServer(s grpc1.Server, srv QueryServiceServer) {
@@ -482,6 +818,27 @@ func (x *queryServicePrefixValueServer) Send(m *PrefixValueResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _QueryService_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(QueryServiceServer).Watch(m, &queryServiceWatchServer{stream})
+}
+
+type QueryService_WatchServer interface {
+	Send(*WatchResponse) error
+	grpc.ServerStream
+}
+
+type queryServiceWatchServer struct {
+	grpc.ServerStream
+}
+
+func (x *queryServiceWatchServer) Send(m *WatchResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _QueryService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "penumbra.cnidarium.v1alpha1.QueryService",
 	HandlerType: (*QueryServiceServer)(nil),
@@ -495,6 +852,11 @@ var _QueryService_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "PrefixValue",
 			Handler:       _QueryService_PrefixValue_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Watch",
+			Handler:       _QueryService_Watch_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -699,6 +1061,216 @@ func (m *PrefixValueResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *WatchRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WatchRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WatchRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.NvKeyRegex) > 0 {
+		i -= len(m.NvKeyRegex)
+		copy(dAtA[i:], m.NvKeyRegex)
+		i = encodeVarintCnidarium(dAtA, i, uint64(len(m.NvKeyRegex)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.KeyRegex) > 0 {
+		i -= len(m.KeyRegex)
+		copy(dAtA[i:], m.KeyRegex)
+		i = encodeVarintCnidarium(dAtA, i, uint64(len(m.KeyRegex)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *WatchResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WatchResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WatchResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Entry != nil {
+		{
+			size := m.Entry.Size()
+			i -= size
+			if _, err := m.Entry.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	if m.Version != 0 {
+		i = encodeVarintCnidarium(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *WatchResponse_Kv) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WatchResponse_Kv) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Kv != nil {
+		{
+			size, err := m.Kv.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCnidarium(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *WatchResponse_NvKv) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WatchResponse_NvKv) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.NvKv != nil {
+		{
+			size, err := m.NvKv.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCnidarium(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	return len(dAtA) - i, nil
+}
+func (m *WatchResponse_KeyValue) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WatchResponse_KeyValue) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WatchResponse_KeyValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Deleted {
+		i--
+		if m.Deleted {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Value) > 0 {
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
+		i = encodeVarintCnidarium(dAtA, i, uint64(len(m.Value)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Key) > 0 {
+		i -= len(m.Key)
+		copy(dAtA[i:], m.Key)
+		i = encodeVarintCnidarium(dAtA, i, uint64(len(m.Key)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *WatchResponse_NvKeyValue) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WatchResponse_NvKeyValue) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WatchResponse_NvKeyValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Deleted {
+		i--
+		if m.Deleted {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Value) > 0 {
+		i -= len(m.Value)
+		copy(dAtA[i:], m.Value)
+		i = encodeVarintCnidarium(dAtA, i, uint64(len(m.Value)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Key) > 0 {
+		i -= len(m.Key)
+		copy(dAtA[i:], m.Key)
+		i = encodeVarintCnidarium(dAtA, i, uint64(len(m.Key)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintCnidarium(dAtA []byte, offset int, v uint64) int {
 	offset -= sovCnidarium(v)
 	base := offset
@@ -790,6 +1362,102 @@ func (m *PrefixValueResponse) Size() (n int) {
 	l = len(m.Value)
 	if l > 0 {
 		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	return n
+}
+
+func (m *WatchRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.KeyRegex)
+	if l > 0 {
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	l = len(m.NvKeyRegex)
+	if l > 0 {
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	return n
+}
+
+func (m *WatchResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Version != 0 {
+		n += 1 + sovCnidarium(uint64(m.Version))
+	}
+	if m.Entry != nil {
+		n += m.Entry.Size()
+	}
+	return n
+}
+
+func (m *WatchResponse_Kv) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Kv != nil {
+		l = m.Kv.Size()
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	return n
+}
+func (m *WatchResponse_NvKv) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.NvKv != nil {
+		l = m.NvKv.Size()
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	return n
+}
+func (m *WatchResponse_KeyValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Key)
+	if l > 0 {
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	l = len(m.Value)
+	if l > 0 {
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	if m.Deleted {
+		n += 2
+	}
+	return n
+}
+
+func (m *WatchResponse_NvKeyValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Key)
+	if l > 0 {
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	l = len(m.Value)
+	if l > 0 {
+		n += 1 + l + sovCnidarium(uint64(l))
+	}
+	if m.Deleted {
+		n += 2
 	}
 	return n
 }
@@ -1349,6 +2017,533 @@ func (m *PrefixValueResponse) Unmarshal(dAtA []byte) error {
 				m.Value = []byte{}
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCnidarium(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WatchRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCnidarium
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WatchRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WatchRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeyRegex", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.KeyRegex = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NvKeyRegex", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NvKeyRegex = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCnidarium(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WatchResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCnidarium
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WatchResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WatchResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			m.Version = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Version |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Kv", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &WatchResponse_KeyValue{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Entry = &WatchResponse_Kv{v}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NvKv", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &WatchResponse_NvKeyValue{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Entry = &WatchResponse_NvKv{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCnidarium(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WatchResponse_KeyValue) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCnidarium
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: KeyValue: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: KeyValue: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Key = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Value = append(m.Value[:0], dAtA[iNdEx:postIndex]...)
+			if m.Value == nil {
+				m.Value = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Deleted", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Deleted = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCnidarium(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WatchResponse_NvKeyValue) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCnidarium
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: NvKeyValue: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: NvKeyValue: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Key = append(m.Key[:0], dAtA[iNdEx:postIndex]...)
+			if m.Key == nil {
+				m.Key = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCnidarium
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Value = append(m.Value[:0], dAtA[iNdEx:postIndex]...)
+			if m.Value == nil {
+				m.Value = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Deleted", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCnidarium
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Deleted = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCnidarium(dAtA[iNdEx:])

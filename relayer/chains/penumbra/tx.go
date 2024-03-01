@@ -16,7 +16,7 @@ import (
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
 	tmcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	"github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -35,8 +35,9 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbrafee "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/fee/v1alpha1"
 	penumbraibctypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/ibc/v1alpha1"
-	penumbranum "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1alpha1"
+	penumbraasset "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1alpha1"
 	penumbratypes "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
+	penumbrardsa "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/decaf377_rdsa/v1alpha1"
 	penumbracrypto "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1alpha1"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -190,7 +191,12 @@ func msgToPenumbraAction(msg sdk.Msg) (*penumbratypes.Action, error) {
 				RawAction: anyMsg,
 			}},
 		}, nil
-
+	case *chantypes.MsgTimeout:
+		return &penumbratypes.Action{
+			Action: &penumbratypes.Action_IbcRelayAction{IbcRelayAction: &penumbraibctypes.IbcRelay{
+				RawAction: anyMsg,
+			}},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown message type: %T", msg)
 	}
@@ -302,10 +308,14 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 	// will have a signing protocol for this.
 
 	txBody := penumbratypes.TransactionBody{
-		Actions:               make([]*penumbratypes.Action, 0),
-		Fee:                   &penumbrafee.Fee{Amount: &penumbranum.Amount{Lo: 0, Hi: 0}},
-		MemoData:              &penumbratypes.MemoData{},
-		TransactionParameters: &penumbratypes.TransactionParameters{},
+		Actions: make([]*penumbratypes.Action, 0),
+		TransactionParameters: &penumbratypes.TransactionParameters{
+			Fee: &penumbrafee.Fee{
+				Amount: &penumbraasset.Amount{Lo: 0, Hi: 0},
+			},
+		},
+		DetectionData: &penumbratypes.DetectionData{},
+		Memo:          nil,
 	}
 
 	for _, msg := range PenumbraMsgs(msgs...) {
@@ -323,7 +333,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 
 	tx := &penumbratypes.Transaction{
 		Body:       &txBody,
-		BindingSig: make([]byte, 64), // use the Cool Signature
+		BindingSig: &penumbrardsa.BindingSignature{Inner: make([]byte, 64)},
 		Anchor:     anchor,
 	}
 
@@ -2017,7 +2027,8 @@ func (cc *PenumbraProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
 	dstTrustingPeriod,
-	dstUbdPeriod time.Duration,
+	dstUbdPeriod,
+	maxClockDrift time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
@@ -2029,7 +2040,7 @@ func (cc *PenumbraProvider) NewClientState(
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
 		UnbondingPeriod: dstUbdPeriod,
-		MaxClockDrift:   time.Minute * 10,
+		MaxClockDrift:   maxClockDrift,
 		FrozenHeight:    clienttypes.ZeroHeight(),
 		LatestHeight: clienttypes.Height{
 			RevisionNumber: revisionNumber,
@@ -2061,10 +2072,11 @@ func (cc *PenumbraProvider) QueryIBCHeader(ctx context.Context, h int64) (provid
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
 func (cc *PenumbraProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (abci.ResponseQuery, error) {
-	opts := rpcclient.ABCIQueryOptions{
+	opts := client.ABCIQueryOptions{
 		Height: req.Height,
 		Prove:  req.Prove,
 	}
+
 	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
 		return abci.ResponseQuery{}, err
@@ -2255,10 +2267,12 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 	if err != nil {
 		return nil, err
 	}
+
 	p, ok := txbz.(intoAny)
 	if !ok {
 		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
 	}
+
 	any := p.AsAny()
 	return sdk.NewResponseResultTx(resTx, any, ""), nil
 }

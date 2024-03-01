@@ -39,6 +39,8 @@ func StartRelayer(
 	chains map[string]*Chain,
 	paths []NamedPath,
 	maxMsgLength uint64,
+	maxReceiverSize,
+	memoLimit int,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
@@ -99,6 +101,8 @@ func StartRelayer(
 			ePaths,
 			initialBlockHistory,
 			maxMsgLength,
+			maxReceiverSize,
+			memoLimit,
 			memo,
 			messageLifecycle,
 			clientUpdateThresholdTime,
@@ -154,6 +158,8 @@ func relayerStartEventProcessor(
 	paths []path,
 	initialBlockHistory uint64,
 	maxMsgLength uint64,
+	maxReceiverSize,
+	memoLimit int,
 	memo string,
 	messageLifecycle processor.MessageLifecycle,
 	clientUpdateThresholdTime time.Duration,
@@ -179,6 +185,8 @@ func relayerStartEventProcessor(
 				clientUpdateThresholdTime,
 				flushInterval,
 				maxMsgLength,
+				memoLimit,
+				maxReceiverSize,
 			))
 	}
 
@@ -194,7 +202,15 @@ func relayerStartEventProcessor(
 }
 
 // relayerStartLegacy is the main loop of the relayer.
-func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
+func relayerStartLegacy(
+	ctx context.Context,
+	log *zap.Logger,
+	src, dst *Chain,
+	filter ChannelFilter,
+	maxTxSize, maxMsgLength uint64,
+	memo string,
+	errCh chan<- error,
+) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.
