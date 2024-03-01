@@ -32,11 +32,6 @@ var (
 	_ provider.ProviderConfig = &CosmosProviderConfig{}
 )
 
-const (
-	cometEncodingThreshold     = "v0.37.0-alpha"
-	cometBlockResultsThreshold = "v0.38.0-alpha"
-)
-
 type CosmosProviderConfig struct {
 	KeyDirectory     string                     `json:"key-directory" yaml:"key-directory"`
 	Key              string                     `json:"key" yaml:"key"`
@@ -45,6 +40,7 @@ type CosmosProviderConfig struct {
 	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
 	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend   string                     `json:"keyring-backend" yaml:"keyring-backend"`
+	DynamicGasPrice  bool                       `json:"dynamic-gas-price" yaml:"dynamic-gas-price"`
 	GasAdjustment    float64                    `json:"gas-adjustment" yaml:"gas-adjustment"`
 	GasPrices        string                     `json:"gas-prices" yaml:"gas-prices"`
 	MinGasAmount     uint64                     `json:"min-gas-amount" yaml:"min-gas-amount"`

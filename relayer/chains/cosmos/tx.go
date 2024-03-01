@@ -172,7 +172,19 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	sequenceGuard.Mu.Lock()
 	defer sequenceGuard.Mu.Unlock()
 
-	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo, 0, txSignerKey, feegranterKeyOrAddr, sequenceGuard)
+	dynamicFee := cc.DynamicFee(ctx)
+
+	txBytes, sequence, fees, err := cc.buildMessages(
+		ctx,
+		msgs,
+		memo,
+		0,
+		txSignerKey,
+		feegranterKeyOrAddr,
+		sequenceGuard,
+		dynamicFee,
+	)
+
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
 		if strings.Contains(err.Error(), legacyerrors.ErrWrongSequence.Error()) {
@@ -182,7 +194,18 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 		return err
 	}
 
-	if err := cc.broadcastTx(ctx, txBytes, msgs, fees, asyncCtx, defaultBroadcastWaitTimeout, asyncCallbacks); err != nil {
+	err = cc.broadcastTx(
+		ctx,
+		txBytes,
+		msgs,
+		fees,
+		asyncCtx,
+		defaultBroadcastWaitTimeout,
+		asyncCallbacks,
+		dynamicFee,
+	)
+
+	if err != nil {
 		if strings.Contains(err.Error(), legacyerrors.ErrWrongSequence.Error()) {
 			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
 		}
@@ -253,7 +276,9 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	rand.Seed(time.Now().UnixNano())
 	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
 
-	txf, err := cc.PrepareFactory(cc.TxFactory(), signingKey)
+	dynamicFee := cc.DynamicFee(ctx)
+
+	txf, err := cc.PrepareFactory(cc.TxFactory(dynamicFee), signingKey)
 	if err != nil {
 		return nil, err
 	}
@@ -359,6 +384,7 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallbacks []func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+	dynamicFee string,
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
 	isErr := err != nil
@@ -389,7 +415,7 @@ func (cc *CosmosProvider) broadcastTx(
 		return fmt.Errorf("failed to get relayer bech32 wallet address: %w", err)
 
 	}
-	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
+	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees, dynamicFee)
 
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
@@ -596,6 +622,7 @@ func (cc *CosmosProvider) buildMessages(
 	txSignerKey string,
 	feegranterKeyOrAddr string,
 	sequenceGuard *WalletState,
+	dynamicFee string,
 ) (
 	txBytes []byte,
 	sequence uint64,
@@ -607,7 +634,7 @@ func (cc *CosmosProvider) buildMessages(
 
 	cMsgs := CosmosMsgs(msgs...)
 
-	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey)
+	txf, err := cc.PrepareFactory(cc.TxFactory(dynamicFee), txSignerKey)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
@@ -1594,7 +1621,7 @@ func (cc *CosmosProvider) NewClientState(
 	}, nil
 }
 
-func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.Coins) {
+func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.Coins, dynamicFee string) {
 	// Don't set the metrics in testing
 	if cc.metrics == nil {
 		return
@@ -1604,10 +1631,15 @@ func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.C
 	cc.TotalFees = cc.TotalFees.Add(fees...)
 	cc.totalFeesMu.Unlock()
 
+	gasPrice := cc.PCfg.GasPrices
+	if dynamicFee != "" {
+		gasPrice = dynamicFee
+	}
+
 	for _, fee := range cc.TotalFees {
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(fee.Amount.BigInt()).Float64()
-		cc.metrics.SetFeesSpent(chain, cc.PCfg.GasPrices, key, address, fee.GetDenom(), f)
+		cc.metrics.SetFeesSpent(chain, gasPrice, key, address, fee.GetDenom(), f)
 	}
 }
 
@@ -1780,13 +1812,19 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 }
 
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.
-func (cc *CosmosProvider) TxFactory() tx.Factory {
+func (cc *CosmosProvider) TxFactory(dynamicFee string) tx.Factory {
+	gasPrice := cc.PCfg.GasPrices
+
+	if dynamicFee != "" {
+		gasPrice = dynamicFee
+	}
+
 	return tx.Factory{}.
 		WithAccountRetriever(cc).
 		WithChainID(cc.PCfg.ChainID).
 		WithTxConfig(cc.Cdc.TxConfig).
 		WithGasAdjustment(cc.PCfg.GasAdjustment).
-		WithGasPrices(cc.PCfg.GasPrices).
+		WithGasPrices(gasPrice).
 		WithKeybase(cc.Keybase).
 		WithSignMode(cc.PCfg.SignMode())
 }

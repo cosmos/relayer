@@ -549,8 +549,15 @@ func (ccp *CosmosChainProcessor) CurrentBlockHeight(ctx context.Context, persist
 
 func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	// memoize the current gas prices to only show metrics for "interesting" denoms
+	gasPrice := ccp.chainProvider.PCfg.GasPrices
+
 	if ccp.parsedGasPrices == nil {
-		gp, err := sdk.ParseDecCoins(ccp.chainProvider.PCfg.GasPrices)
+		dynamicFee := ccp.chainProvider.DynamicFee(ctx)
+		if dynamicFee != "" {
+			gasPrice = dynamicFee
+		}
+
+		gp, err := sdk.ParseDecCoins(gasPrice)
 		if err != nil {
 			ccp.log.Error(
 				"Failed to parse gas prices",
@@ -575,11 +582,13 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 			zap.Error(err),
 		)
 	}
+
 	// Print the relevant gas prices
 	for _, gasDenom := range *ccp.parsedGasPrices {
 		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
+
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
-		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.PCfg.GasPrices, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), gasPrice, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }
