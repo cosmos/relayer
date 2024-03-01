@@ -1,7 +1,18 @@
 # Troubleshooting
 
+- [Generic Troubleshooting](#generic-troubleshoot)
+- [Inspect Go Runtime Debug Data](#inspect-go-runtime-debug-data)
+- [Specific Errors](#specific-errors)
 
-**Ensure `rly` package is properly installed**
+<br>
+
+---
+
+<br>
+
+## Generic Troubleshooting
+
+### **Ensure `rly` package is properly installed**
 
    Run: 
    ```shell
@@ -10,9 +21,8 @@
 
    If this returns an error, make sure you have Go installed and your Go environment is setup. Then redo [Step 1](#basic-usage---relaying-packets-across-chains).
 
----
 
-## **Verify valid `chain`, `client`, and `connection`**
+### **Verify valid `keys`, `balance`, and `path`**
 
 ```shell
 $ rly chains list
@@ -23,7 +33,7 @@ Output should show all checkboxes:
 -> type(cosmos) key(✔) bal(✔) path(✔)
 ```
 
-## **Verify valid `chain`, `client`, and `connection`**
+### **Verify valid `chain`, `client`, and `connection`**
 
 ```shell
 $ rly paths list
@@ -33,7 +43,7 @@ If output:
 ```shell
 -> chns(✘) clnts(✘) conn(✘)
 ```
-Verify that you have a healthy RPC address. 
+Verify that you have a healthy RPC address. This means the relayer was unable to query the latest height of one or both the chains.
 
 If:
 ```shell
@@ -41,9 +51,19 @@ If:
 ```
 Your client is the culprit here. Your client may be invalid or expired.
 
+### **Ensure Client is not `expired`**
+
+```shell
+$ rly query clients-expiration <PATH-NAME>
+```
+
+<br>
+
 ---
 
-## **Inspect Go runtime debug data**
+<br>
+
+## Inspect Go runtime debug data
 
 If you started `rly` with the default `--debug-addr` argument,
 you can open `http://localhost:7597` in your browser to explore details from the Go runtime.
@@ -51,10 +71,18 @@ you can open `http://localhost:7597` in your browser to explore details from the
 If you need active assistance from the Relayer development team regarding an unresponsive Relayer instance,
 it will be helpful to provide the output from `http://localhost:7597/debug/pprof/goroutine?debug=2` at a minimum.
 
+<br>
+
 ---
 
-**Error querying blockdata**
+<br>
 
+## Specific Errors
+
+<details>
+<summary>error querying block data</summary>
+
+<br>
 The relayer looks back in time at historical transactions and needs to have an index of them.
 
 Specifically check `~/.<node_data_dir>/config/config.toml` has the following fields set:
@@ -62,10 +90,14 @@ Specifically check `~/.<node_data_dir>/config/config.toml` has the following fie
 indexer = "kv"
 index_all_tags = true
 ```
----
 
-**Error building or broadcasting transaction**
+</details>
 
+
+<details>
+<summary>error building or broadcasting transaction</summary>
+
+<br>
 When preparing a transaction for relaying, the amount of gas that the transaction will consume is unknown.  To compute how much gas the transaction will need, the transaction is prepared with 0 gas and delivered as a `/cosmos.tx.v1beta1.Service/Simulate` query to the RPC endpoint.  Recently chains have been creating AnteHandlers in which 0 gas triggers an error case:
 
 ```
@@ -91,4 +123,28 @@ A workaround is available in which the `min-gas-amount` may be set in the chain'
             output-format: json
             sign-mode: direct
 ```
+
+</details>
+
+
+<details>
+<summary>invalid header: new header has a time from the future</summary>
+
+<br>
+This is most likely an rpc issue. 
+The latest block time on the source and destination chain have likely drifted apart.
+
+You can confirm by this by checking the latest block time on each chain:
+
+```shell
+grpcurl -plaintext <GRP-URL:PORT> cosmos.base.tendermint.v1beta1.Service.GetLatestBlock | grep '"time":'
+```
+
+The solution here is to either use a different RPC endpoint OR if you are in control of the RPC, try restarting the node.
+
+</details>
+
+<br>
+<br>
+
 [<-- Create Path Across Chains](create-path-across-chain.md) - [Features -->](./features.md)

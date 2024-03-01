@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
@@ -20,9 +21,13 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/codecs/artela"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	legacyclient "github.com/strangelove-ventures/cometbft/rpc/client"
+	legacyhttp "github.com/strangelove-ventures/cometbft/rpc/client/http"
+	legacyjson "github.com/strangelove-ventures/cometbft/rpc/jsonrpc/client"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
 )
@@ -33,7 +38,10 @@ var (
 	_ provider.ProviderConfig = &CosmosProviderConfig{}
 )
 
-const cometEncodingThreshold = "v0.37.0-alpha"
+const (
+	cometEncodingThreshold     = "v0.37.0-alpha"
+	cometBlockResultsThreshold = "v0.38.0-alpha"
+)
 
 type CosmosProviderConfig struct {
 	KeyDirectory     string                     `json:"key-directory" yaml:"key-directory"`
@@ -122,14 +130,15 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg           CosmosProviderConfig
-	Keybase        keyring.Keyring
-	KeyringOptions []keyring.Option
-	RPCClient      rpcclient.Client
-	LightProvider  provtypes.Provider
-	Input          io.Reader
-	Output         io.Writer
-	Cdc            Codec
+	PCfg            CosmosProviderConfig
+	Keybase         keyring.Keyring
+	KeyringOptions  []keyring.Option
+	RPCClient       rpcclient.Client
+	LegacyRPCClient legacyclient.Client
+	LightProvider   provtypes.Provider
+	Input           io.Reader
+	Output          io.Writer
+	Cdc             Codec
 	// TODO: GRPC Client type?
 
 	//nextAccountSeq uint64
@@ -148,6 +157,9 @@ type CosmosProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+
+	// for comet < v0.38, use legacy RPC client for ResultsBlockResults
+	cometLegacyBlockResults bool
 }
 
 type WalletState struct {
@@ -226,20 +238,15 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 	return
 }
 
-func (cc *CosmosProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	res, err := cc.QueryStakingParams(ctx)
+func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
 
-	var unbondingTime time.Duration
-	if err != nil {
-		// Attempt ICS query
-		consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
-		if consumerErr != nil {
-			return 0,
-				fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+	unbondingTime := overrideUnbondingPeriod
+	var err error
+	if unbondingTime == 0 {
+		unbondingTime, err = cc.QueryUnbondingPeriod(ctx)
+		if err != nil {
+			return 0, err
 		}
-		unbondingTime = consumerUnbondingPeriod
-	} else {
-		unbondingTime = res.UnbondingTime
 	}
 
 	// We want the trusting period to be 85% of the unbonding time.
@@ -268,6 +275,13 @@ func (cc *CosmosProvider) Sprint(toPrint proto.Message) (string, error) {
 	return string(out), nil
 }
 
+// SetPCAddr sets the rpc-addr for the chain.
+// It will fail if the rpcAddr is invalid(not a url).
+func (cc *CosmosProvider) SetRpcAddr(rpcAddr string) error {
+	cc.PCfg.RPCAddr = rpcAddr
+	return nil
+}
+
 // Init initializes the keystore, RPC client, amd light client provider.
 // Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
 // NOTE: Init must be called after creating a new instance of CosmosProvider.
@@ -293,7 +307,13 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 		return err
 	}
 
+	legacyRPCClient, err := NewLegacyRPCClient(cc.PCfg.RPCAddr, timeout)
+	if err != nil {
+		return err
+	}
+
 	cc.RPCClient = rpcClient
+	cc.LegacyRPCClient = legacyRPCClient
 	cc.LightProvider = lightprovider
 	cc.Keybase = keybase
 
@@ -356,10 +376,15 @@ func (cc *CosmosProvider) updateNextAccountSequence(sequenceGuard *WalletState, 
 
 func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
 	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
+	cc.cometLegacyBlockResults = cc.legacyBlockResults(version)
 }
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
+}
+
+func (cc *CosmosProvider) legacyBlockResults(version string) bool {
+	return semver.Compare("v"+version, cometBlockResultsThreshold) < 0
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
@@ -379,4 +404,61 @@ func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 		return nil, err
 	}
 	return rpcClient, nil
+}
+
+// NewLegacyRPCClient initializes a new CometBFT RPC client, from our forked repo, connected to the specified address.
+func NewLegacyRPCClient(addr string, timeout time.Duration) (*legacyhttp.HTTP, error) {
+	httpClient, err := legacyjson.DefaultHTTPClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	httpClient.Timeout = timeout
+	rpcClient, err := legacyhttp.NewWithClient(addr, "/websocket", httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return rpcClient, nil
+}
+
+// BlockResults uses the appropriate CometBFT RPC client to fetch the block results at a specific height,
+// it then parses the tx results and block events into our generalized types.
+func (cc *CosmosProvider) BlockResults(ctx context.Context, height *int64) (*chains.Results, error) {
+	var results *chains.Results
+
+	switch {
+	case cc.cometLegacyBlockResults:
+		legacyRes, err := cc.LegacyRPCClient.BlockResults(ctx, height)
+		if err != nil {
+			return nil, err
+		}
+
+		var events []abci.Event
+		events = append(events, chains.ConvertEvents(legacyRes.BeginBlockEvents)...)
+		events = append(events, chains.ConvertEvents(legacyRes.EndBlockEvents)...)
+
+		results = &chains.Results{
+			TxsResults: chains.ConvertTxResults(legacyRes.TxsResults),
+			Events:     events,
+		}
+	default:
+		res, err := cc.RPCClient.BlockResults(ctx, height)
+		if err != nil {
+			return nil, err
+		}
+
+		var txRes []*chains.TxResult
+		for _, tx := range res.TxsResults {
+			txRes = append(txRes, &chains.TxResult{
+				Code:   tx.Code,
+				Events: tx.Events,
+			})
+		}
+
+		results = &chains.Results{
+			TxsResults: txRes,
+			Events:     res.FinalizeBlockEvents,
+		}
+	}
+
+	return results, nil
 }

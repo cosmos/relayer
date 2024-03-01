@@ -7,9 +7,9 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -55,12 +55,15 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return "", "", err
 	}
 
+	// overriding the unbonding period should only be possible when creating single clients at a time (CreateClient)
+	var overrideUnbondingPeriod = time.Duration(0)
+
 	var clientSrc, clientDst string
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -70,7 +73,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -102,6 +105,7 @@ func CreateClient(
 	allowUpdateAfterMisbehaviour bool,
 	override bool,
 	customClientTrustingPeriod time.Duration,
+	overrideUnbondingPeriod time.Duration,
 	memo string) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
@@ -122,7 +126,7 @@ func CreateClient(
 	if tp == 0 {
 		if err := retry.Do(func() error {
 			var err error
-			tp, err = dst.GetTrustingPeriod(ctx)
+			tp, err = dst.GetTrustingPeriod(ctx, overrideUnbondingPeriod)
 			if err != nil {
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
@@ -143,17 +147,19 @@ func CreateClient(
 		zap.Duration("trust_period", tp),
 	)
 
-	// Query the unbonding period for dst and retry if the query fails
-	var ubdPeriod time.Duration
-	if err := retry.Do(func() error {
-		var err error
-		ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
+	ubdPeriod := overrideUnbondingPeriod
+	if ubdPeriod == 0 {
+		// Query the unbonding period for dst and retry if the query fails
+		if err := retry.Do(func() error {
+			var err error
+			ubdPeriod, err = dst.ChainProvider.QueryUnbondingPeriod(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to query unbonding period for chain{%s}: %w", dst.ChainID(), err)
+			}
+			return nil
+		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
+			return "", err
 		}
-		return nil
-	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
-		return "", err
 	}
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
@@ -526,6 +532,7 @@ type ClientStateInfo struct {
 	ChainID        string
 	TrustingPeriod time.Duration
 	LatestHeight   ibcexported.Height
+	UnbondingTime  time.Duration
 }
 
 func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, error) {
@@ -540,6 +547,7 @@ func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, er
 			ChainID:        t.ChainId,
 			TrustingPeriod: t.TrustingPeriod,
 			LatestHeight:   t.LatestHeight,
+			UnbondingTime:  t.UnbondingPeriod,
 		}, nil
 	default:
 		return ClientStateInfo{}, fmt.Errorf("unhandled client state type: (%T)", clientState)

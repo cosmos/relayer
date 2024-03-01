@@ -9,7 +9,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"go.uber.org/zap"
 )
 
@@ -73,7 +73,7 @@ type queryCyclePersistence struct {
 	latestQueriedBlock int64
 }
 
-func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint64, _ *processor.StuckPacket) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
 		// would be query of latest height, mocking 20

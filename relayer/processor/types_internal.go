@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
@@ -72,14 +72,6 @@ func (msg packetIBCMessage) assemble(
 		}
 
 		assembleMessage = dst.chainProvider.MsgTimeout
-	case chantypes.EventTypeTimeoutPacketOnClose:
-		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			packetProof = src.chainProvider.NextSeqRecv
-		} else {
-			packetProof = src.chainProvider.PacketReceipt
-		}
-
-		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
 	}
@@ -399,7 +391,6 @@ type pathEndPacketFlowMessages struct {
 	DstMsgRecvPacket      PacketSequenceCache
 	SrcMsgAcknowledgement PacketSequenceCache
 	SrcMsgTimeout         PacketSequenceCache
-	SrcMsgTimeoutOnClose  PacketSequenceCache
 }
 
 type pathEndConnectionHandshakeMessages struct {

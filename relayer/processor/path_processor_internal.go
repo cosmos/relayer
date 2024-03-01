@@ -8,8 +8,8 @@ import (
 	"sort"
 	"sync"
 
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -233,16 +233,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		toDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(toDeleteSrc[chantypes.EventTypeAcknowledgePacket], seq)
 	}
 
-	for seq, info := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
-		// we have observed a timeout-on-close on chain for this packet, so packet flow is complete
-		// remove all retention of this sequence number
-		deletePreInitIfMatches(info)
-		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
-		toDeleteDst[chantypes.EventTypeRecvPacket] = append(toDeleteDst[chantypes.EventTypeRecvPacket], seq)
-		toDeleteDst[chantypes.EventTypeWriteAck] = append(toDeleteDst[chantypes.EventTypeWriteAck], seq)
-		toDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(toDeleteSrc[chantypes.EventTypeAcknowledgePacket], seq)
-	}
-
 	for seq, info := range pathEndPacketFlowMessages.SrcMsgTimeout {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
@@ -291,7 +281,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		if err := pathEndPacketFlowMessages.Dst.chainProvider.ValidatePacket(info, pathEndPacketFlowMessages.Dst.latestBlock); err != nil {
 			var timeoutHeightErr *provider.TimeoutHeightError
 			var timeoutTimestampErr *provider.TimeoutTimestampError
-			var timeoutOnCloseErr *provider.TimeoutOnCloseError
 
 			switch {
 			case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
@@ -300,12 +289,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 					info:      info,
 				}
 				msgs = append(msgs, timeoutMsg)
-			case errors.As(err, &timeoutOnCloseErr):
-				timeoutOnCloseMsg := packetIBCMessage{
-					eventType: chantypes.EventTypeTimeoutPacketOnClose,
-					info:      info,
-				}
-				msgs = append(msgs, timeoutOnCloseMsg)
 			default:
 				pp.log.Error("Packet is invalid",
 					zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
@@ -645,6 +628,10 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 			msgCloseConfirm, pathEndChannelCloseMessages.Src,
 		) {
 			res.DstMessages = append(res.DstMessages, msgCloseConfirm)
+			toDeleteSrc[chantypes.EventTypeChannelCloseInit] = append(
+				toDeleteSrc[chantypes.EventTypeChannelCloseInit],
+				chanKey,
+			)
 		}
 
 		// TODO: confirm chankey does not need modification
@@ -1002,7 +989,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			DstMsgRecvPacket:      pathEnd1DstMsgRecvPacket,
 			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 		}
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                   pp.pathEnd2,
@@ -1013,7 +999,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			DstMsgRecvPacket:      pathEnd2DstMsgRecvPacket,
 			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 		}
 
 		pathEnd1ProcessRes[i] = pp.unrelayedPacketFlowMessages(ctx, pathEnd1PacketFlowMessages)
@@ -1219,6 +1204,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+		if pp.metrics != nil {
+			pp.metrics.SetUnrelayedPackets(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, 0)
+			pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, 0)
+		}
 		return nil, nil
 	}
 
@@ -1227,6 +1216,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 	if err != nil {
 		return nil, err
+	}
+
+	if pp.metrics != nil {
+		pp.metrics.SetUnrelayedPackets(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unrecv))
 	}
 
 	dstHeight := int64(dst.latestBlock.Height)
@@ -1342,6 +1335,10 @@ SeqLoop:
 		unacked = append(unacked, seq)
 	}
 
+	if pp.metrics != nil {
+		pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unacked))
+	}
+
 	for i, seq := range unacked {
 		dstMu.Lock()
 		ck := k.Counterparty()
@@ -1424,7 +1421,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		if !cs.Open {
 			continue
 		}
-		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
+		if !pp.pathEnd1.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pp.pathEnd1.info.ChainID,
 			CounterpartyChainID: pp.pathEnd2.info.ChainID,
 			ChannelKey:          k,
@@ -1437,7 +1434,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		if !cs.Open {
 			continue
 		}
-		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
+		if !pp.pathEnd2.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pp.pathEnd2.info.ChainID,
 			CounterpartyChainID: pp.pathEnd1.info.ChainID,
 			ChannelKey:          k,

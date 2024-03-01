@@ -110,7 +110,12 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			} else {
 				ln, err := net.Listen("tcp", debugAddr)
 				if err != nil {
-					a.log.Error("Failed to listen on debug address. If you have another relayer process open, use --" + flagDebugAddr + " to pick a different address.")
+					a.log.Error(
+						"Failed to listen on debug address. If you have another relayer process open, use --" +
+							flagDebugAddr +
+							" to pick a different address.",
+					)
+
 					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
 				}
 				log := a.log.With(zap.String("sys", "debughttp"))
@@ -128,6 +133,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			if err != nil {
 				return err
 			}
+
 			initialBlockHistory, err := cmd.Flags().GetUint64(flagInitialBlockHistory)
 			if err != nil {
 				return err
@@ -139,6 +145,11 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			}
 
 			flushInterval, err := cmd.Flags().GetDuration(flagFlushInterval)
+			if err != nil {
+				return err
+			}
+
+			stuckPacket, err := parseStuckPacketFromFlags(cmd)
 			if err != nil {
 				return err
 			}
@@ -156,6 +167,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				processorType,
 				initialBlockHistory,
 				prometheusMetrics,
+				stuckPacket,
 			)
 
 			// Block until the error channel sends a message.
@@ -179,5 +191,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = stuckPacketFlags(a.viper, cmd)
 	return cmd
 }

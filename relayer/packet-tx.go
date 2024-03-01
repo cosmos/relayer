@@ -6,19 +6,26 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
 
 const defaultTimeoutOffset = 1000
 
-// SendTransferMsg initiates an ics20 transfer from src to dst with the specified args
-//
-//nolint:lll
-func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain, amount sdk.Coin, dstAddr string, toHeightOffset uint64, toTimeOffset time.Duration, srcChannel *chantypes.IdentifiedChannel) error {
+// SendTransferMsg initiates an ics20 transfer from src to dst with the specified args.
+func (c *Chain) SendTransferMsg(
+	ctx context.Context,
+	log *zap.Logger,
+	dst *Chain,
+	amount sdk.Coin,
+	dstAddr, memo string,
+	toHeightOffset uint64,
+	toTimeOffset time.Duration,
+	srcChannel *chantypes.IdentifiedChannel,
+) error {
 	var (
 		timeoutHeight    uint64
 		timeoutTimestamp uint64
@@ -41,21 +48,29 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		if err != nil {
 			return fmt.Errorf("failed to query the client state response: %w", err)
 		}
+
 		clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 		if err != nil {
 			return fmt.Errorf("failed to unpack client state: %w", err)
 		}
-		consensusStateRes, err := dst.ChainProvider.QueryClientConsensusState(ctx, dsth, dst.ClientID(), clientState.GetLatestHeight())
+
+		consensusStateRes, err := dst.ChainProvider.QueryClientConsensusState(
+			ctx,
+			dsth,
+			dst.ClientID(),
+			clientState.GetLatestHeight(),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to query client consensus state: %w", err)
 		}
+
 		consensusState, err = clienttypes.UnpackConsensusState(consensusStateRes.ConsensusState)
 		if err != nil {
 			return fmt.Errorf("failed to unpack consensus state: %w", err)
 		}
 
 		// use local clock time as reference time if it is later than the
-		// consensus state timestamp of the counter party chain, otherwise
+		// consensus state timestamp of the counterparty chain, otherwise
 		// still use consensus state timestamp as reference.
 		// see https://github.com/cosmos/ibc-go/blob/ccc4cb804843f1a80acfb0d4dbf106d1ff2178bb/modules/apps/transfer/client/cli/tx.go#L94-L110
 		tmpNow := time.Now().UnixNano()
@@ -93,6 +108,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		},
 		TimeoutTimestamp: timeoutTimestamp,
 	}
+
 	msg, err := c.ChainProvider.MsgTransfer(dstAddr, amount, pi)
 	if err != nil {
 		return err
@@ -102,7 +118,7 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 		Src: []provider.RelayerMessage{msg},
 	}
 
-	result := txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst), "")
+	result := txs.Send(ctx, log, AsRelayMsgSender(c), AsRelayMsgSender(dst), memo)
 	if err := result.Error(); err != nil {
 		if result.PartiallySent() {
 			c.log.Info(
@@ -113,15 +129,14 @@ func (c *Chain) SendTransferMsg(ctx context.Context, log *zap.Logger, dst *Chain
 			)
 		}
 		return err
-	} else {
-		if result.SuccessfullySent() {
-			c.log.Info(
-				"Successfully sent a transfer",
-				zap.String("src_chain_id", c.ChainID()),
-				zap.String("dst_chain_id", dst.ChainID()),
-				zap.Object("send_result", result),
-			)
-		}
+	} else if result.SuccessfullySent() {
+		c.log.Info(
+			"Successfully sent a transfer",
+			zap.String("src_chain_id", c.ChainID()),
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.Object("send_result", result),
+		)
 	}
+
 	return nil
 }

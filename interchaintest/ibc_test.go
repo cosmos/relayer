@@ -6,11 +6,11 @@ import (
 
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/conformance"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/conformance"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -48,10 +48,11 @@ func TestRelayerInProcess(t *testing.T) {
 func TestRelayerDockerEventProcessor(t *testing.T) {
 	t.Parallel()
 
+	image := relayerinterchaintest.BuildRelayerImage(t)
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
@@ -64,12 +65,12 @@ func TestRelayerDockerEventProcessor(t *testing.T) {
 // Relayer runs using the legacy processor.
 func TestRelayerDockerLegacyProcessor(t *testing.T) {
 	t.Parallel()
-	relayerinterchaintest.BuildRelayerImage(t)
+	image := relayerinterchaintest.BuildRelayerImage(t)
 
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(relayerinterchaintest.RelayerImageName, "latest", "100:1000"),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
 		interchaintestrelayer.ImagePull(false),
 		interchaintestrelayer.StartupFlags("--processor", "legacy"),
 	)

@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -30,6 +30,7 @@ type pathEndRuntime struct {
 	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
+	channelStateCacheMu  sync.RWMutex
 	channelOrderCache    map[string]chantypes.Order
 	latestHeader         provider.IBCHeader
 	ibcHeaderCache       IBCHeaderCache
@@ -107,7 +108,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 	clientICQMessages := make(ClientICQMessagesCache)
 
 	for ch, pmc := range messageCache.PacketFlow {
-		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
+		if pathEnd.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
 			if inSync && pathEnd.metrics != nil {
 				for eventType, pCache := range pmc {
 					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
@@ -403,7 +404,10 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	}
 
 	pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
-	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
+
+	pathEnd.channelStateCacheMu.Lock()
+	pathEnd.channelStateCache = d.ChannelStateCache // Update latest channel open state for chain
+	pathEnd.channelStateCacheMu.Unlock()
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
@@ -428,7 +432,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	pathEndForHeight := counterparty
-	if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
+	if eventType == chantypes.EventTypeTimeoutPacket {
 		pathEndForHeight = pathEnd
 	}
 
@@ -510,7 +514,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	case chantypes.EventTypeRecvPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
 		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
@@ -873,4 +877,45 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
 		Ordering:    info.Order,
 		Version:     info.Version,
 	}, nil
+}
+
+// ShouldRelayChannel determines whether a chain channel (and optionally a port), should be relayed
+// by this path end.
+//
+// It first checks if the channel matches any rule in the path end's filter list. If the channel matches a channel
+// in an allowed list, it returns true. If the channel matches any blocked channel it returns false. Otherwise, it returns true.
+//
+// If no filter rule matches, it checks if the channel or its counterparty is present in the path end's
+// channel state cache. This cache only holds channels relevant to the client for this path end, ensuring
+// the channel belongs to a client connected to this path end.
+//
+// Note that this function only determines whether the channel should be relayed based on the path end's
+// configuration. It does not guarantee that the channel is actually relayable, as other checks
+// (e.g., expired client) may still be necessary.
+func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKey) bool {
+	pe := pathEnd.info
+	if pe.Rule == RuleAllowList {
+		for _, allowedChannel := range pe.FilterList {
+			if pe.shouldRelayChannelSingle(chainChannelKey, allowedChannel, true) {
+				return true
+			}
+		}
+		return false
+	} else if pe.Rule == RuleDenyList {
+		for _, blockedChannel := range pe.FilterList {
+			if !pe.shouldRelayChannelSingle(chainChannelKey, blockedChannel, false) {
+				return false
+			}
+		}
+		return true
+	}
+
+	pathEnd.channelStateCacheMu.RLock()
+	defer pathEnd.channelStateCacheMu.RUnlock()
+
+	// if no filter rule, check if the channel or counterparty channel is in the channelStateCache.
+	// Because channelStateCache only holds channels relevant to the client, we can ensure that the
+	// channel is built on top of a client for this pathEnd
+	_, exists := pathEnd.channelStateCache[chainChannelKey.ChannelKey]
+	return exists
 }

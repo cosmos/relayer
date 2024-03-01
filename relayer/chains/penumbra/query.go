@@ -9,24 +9,25 @@ import (
 	"strings"
 	"time"
 
+	sdkerrors "cosmossdk.io/errors"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -94,7 +95,7 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+func parseEventsFromResponseDeliverTx(resp abci.ExecTxResult) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
 	for _, event := range resp.Events {
@@ -172,6 +173,8 @@ func (cc *PenumbraProvider) QueryTendermintProof(ctx context.Context, height int
 	if height != 0 {
 		height--
 	}
+
+	key = append([]byte("ibc-data/"), key...)
 
 	cc.log.Debug("Querying K/V", zap.String("ChainId", cc.ChainId()), zap.Int64("Height", height), zap.String("Key", string(key)))
 	req := abci.RequestQuery{
@@ -901,7 +904,7 @@ func (cc *PenumbraProvider) QueryConsensusStateABCI(ctx context.Context, clientI
 }
 
 // queryIBCMessages returns an array of IBC messages given a tag
-func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]ibcMessage, error) {
+func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logger, page, limit int, query string) ([]chains.IbcMessage, error) {
 	if query == "" {
 		return nil, errors.New("query string must be provided")
 	}
@@ -918,10 +921,10 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 	if err != nil {
 		return nil, err
 	}
-	var ibcMsgs []ibcMessage
+	var ibcMsgs []chains.IbcMessage
 	chainID := cc.ChainId()
 	for _, tx := range res.Txs {
-		ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, true)...)
+		ibcMsgs = append(ibcMsgs, chains.IbcMessagesFromEvents(log, tx.TxResult.Events, chainID, 0, cc.cometLegacyEncoding)...)
 	}
 
 	return ibcMsgs, nil
@@ -948,10 +951,10 @@ func (cc *PenumbraProvider) QuerySendPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeSendPacket {
+		if msg.EventType != chantypes.EventTypeSendPacket {
 			continue
 		}
-		if pi, ok := msg.info.(*packetInfo); ok {
+		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.SourceChannel == srcChanID && pi.SourcePort == srcPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
@@ -981,10 +984,10 @@ func (cc *PenumbraProvider) QueryRecvPacket(
 		return provider.PacketInfo{}, err
 	}
 	for _, msg := range ibcMsgs {
-		if msg.eventType != chantypes.EventTypeWriteAck {
+		if msg.EventType != chantypes.EventTypeWriteAck {
 			continue
 		}
-		if pi, ok := msg.info.(*packetInfo); ok {
+		if pi, ok := msg.Info.(*chains.PacketInfo); ok {
 			if pi.DestChannel == dstChanID && pi.DestPort == dstPortID && pi.Sequence == sequence {
 				return provider.PacketInfo(*pi), nil
 			}
