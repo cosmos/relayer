@@ -32,6 +32,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/chains/namada"
 	"github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
@@ -377,6 +378,7 @@ func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 	customTypes := map[string]reflect.Type{
 		"cosmos":   reflect.TypeOf(cosmos.CosmosProviderConfig{}),
 		"penumbra": reflect.TypeOf(penumbra.PenumbraProviderConfig{}),
+		"namada":   reflect.TypeOf(namada.NamadaProviderConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
 	if err != nil {
@@ -435,6 +437,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 		iw.Value = new(cosmos.CosmosProviderConfig)
 	case "penumbra":
 		iw.Value = new(penumbra.PenumbraProviderConfig)
+	case "namada":
+		iw.Value = new(penumbra.NamadaProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}
