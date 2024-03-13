@@ -147,15 +147,20 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
 
-    - name: Generate matrix
-      id: set-matrix
-      run: |
-        # Run the command and convert its output to a JSON array
-        TESTS=$(cd interchaintest && go test -list ^TestScenario ./... | grep -v "^ok " | jq -R -s -c 'split("\n")[:-1]')
-        echo "matrix=${TESTS}" >> $GITHUB_OUTPUT
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate matrix
+        id: set-matrix
+        run: |
+          # Run the command and convert its output to a JSON array
+          TESTS=$(cd interchaintest && go test -list ^TestScenario ./... | grep -v "^ok " | grep -v "proto: duplicate proto type registered" | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=${TESTS}" >> $GITHUB_OUTPUT
   
   # Note : This job will not start until prepare-scenario-matrix completes sucessfully
   scenarios:

@@ -7,13 +7,13 @@ import (
 
 	"github.com/cosmos/relayer/v2/cmd"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
-	interchaintestrly "github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	interchaintestrly "github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -43,12 +43,12 @@ func TestClientOverrideFlag(t *testing.T) {
 		{
 			Name:      "gaia",
 			ChainName: "gaia",
-			Version:   "v7.0.3",
+			Version:   "v14.1.0",
 		},
 		{
 			Name:      "osmosis",
 			ChainName: "osmosis",
-			Version:   "v11.0.1",
+			Version:   "v22.0.0",
 		},
 	})
 

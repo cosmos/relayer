@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/mock"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -63,7 +63,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	flushInterval := 6 * time.Hour
 
 	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics, "",
-		clientUpdateThresholdTime, flushInterval, relayer.DefaultMaxMsgLength)
+		clientUpdateThresholdTime, flushInterval, relayer.DefaultMaxMsgLength, 0, 1)
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
@@ -96,8 +96,10 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 
 	// at most 3 msg transfer could still be stuck in queue since chain processor was shut down, so msgrecvpacket would never be "received" by counterparty
 	require.LessOrEqual(t, len(pathEnd1LeftoverMsgTransfer), 3)
+
 	// at most 2 msgrecvpacket could still be stuck in the queue
 	require.LessOrEqual(t, len(pathEnd1LeftoverMsgRecvPacket), 2)
+
 	// at most 1 msgAcknowledgement could still be stuck in the queue
 	require.LessOrEqual(t, len(pathEnd1LeftoverMsgAcknowledgement), 1)
 
@@ -142,7 +144,9 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 	if int64(*mockSequence)-int64(*mockSequenceCounterparty) > 0 {
 		return []mock.TransactionMessage{}
 	}
+
 	*mockSequence++
+
 	mockMessages := []mock.TransactionMessage{
 		{
 			EventType: chantypes.EventTypeSendPacket,
@@ -159,6 +163,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 			},
 		},
 	}
+
 	if *mockSequenceCounterparty > 1 && *lastSentMockMsgRecvCounterparty != *mockSequenceCounterparty {
 		*lastSentMockMsgRecvCounterparty = *mockSequenceCounterparty
 		mockMessages = append(mockMessages, mock.TransactionMessage{
@@ -176,6 +181,7 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 			},
 		})
 	}
+
 	if *mockSequence > 2 {
 		mockMessages = append(mockMessages, mock.TransactionMessage{
 			EventType: chantypes.EventTypeAcknowledgePacket,
@@ -189,5 +195,6 @@ func getMockMessages(channelKey processor.ChannelKey, mockSequence, mockSequence
 			},
 		})
 	}
+
 	return mockMessages
 }

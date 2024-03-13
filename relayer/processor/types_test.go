@@ -3,7 +3,8 @@ package processor_test
 import (
 	"testing"
 
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/stretchr/testify/require"
 )
@@ -40,4 +41,35 @@ func TestIBCHeaderCachePrune(t *testing.T) {
 	cache.Prune(5)
 	require.Len(t, cache, 5)
 	require.NotNil(t, cache[uint64(15)], cache[uint64(16)], cache[uint64(17)], cache[uint64(18)], cache[uint64(19)])
+}
+
+func TestPacketSequenceStateCachePrune(t *testing.T) {
+	cache := make(processor.PacketSequenceStateCache)
+
+	for i := uint64(0); i < 50; i++ {
+		cache[i] = chantypes.EventTypeSendPacket
+	}
+
+	cache.Prune(100)
+
+	require.Len(t, cache, 50)
+
+	cache.Prune(25)
+
+	require.Len(t, cache, 25)
+
+	min := uint64(1000)
+	max := uint64(0)
+
+	for seq := range cache {
+		if seq < min {
+			min = seq
+		}
+		if seq > max {
+			max = seq
+		}
+	}
+
+	require.Equal(t, uint64(25), min)
+	require.Equal(t, uint64(49), max)
 }

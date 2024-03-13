@@ -15,9 +15,9 @@ import (
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
+	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -33,7 +33,7 @@ type Relayer struct {
 	cancel context.CancelFunc
 }
 
-// Build returns a relayer interface
+// NewRelayer returns a relayer interface
 func NewRelayer(
 	t *testing.T,
 	config RelayerConfig,
@@ -47,7 +47,7 @@ func NewRelayer(
 		config: config,
 	}
 
-	res := r.sys().Run(zaptest.NewLogger(t), "config", "init", "--memo", config.Memo)
+	res := r.Sys().Run(zaptest.NewLogger(t), "config", "init", "--memo", config.Memo)
 	if res.Err != nil {
 		t.Fatalf("failed to rly config init: %v", res.Err)
 	}
@@ -55,7 +55,7 @@ func NewRelayer(
 	return r
 }
 
-func (r *Relayer) sys() *relayertest.System {
+func (r *Relayer) Sys() *relayertest.System {
 	return &relayertest.System{HomeDir: r.home}
 }
 
@@ -63,7 +63,7 @@ func (r *Relayer) log() *zap.Logger {
 	return zaptest.NewLogger(r.t)
 }
 
-func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, grpcAddr string) error {
+func (r *Relayer) AddChainConfiguration(_ context.Context, _ ibc.RelayerExecReporter, chainConfig ibc.ChainConfig, keyName, rpcAddr, _ string) error {
 	sys := &relayertest.System{HomeDir: r.home}
 	sys.MustAddChain(r.t, chainConfig.ChainID, cmd.ProviderConfigWrapper{
 		Type: "cosmos",
@@ -89,7 +89,7 @@ func (r *Relayer) AddChainConfiguration(ctx context.Context, _ ibc.RelayerExecRe
 }
 
 func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType string) (ibc.Wallet, error) {
-	res := r.sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
+	res := r.Sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -103,7 +103,7 @@ func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID
 }
 
 func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, cfg ibc.ChainConfig, keyName, mnemonic string) error {
-	res := r.sys().RunC(ctx, r.log(), "keys", "restore", cfg.ChainID, keyName, mnemonic, "--coin-type", cfg.CoinType)
+	res := r.Sys().RunC(ctx, r.log(), "keys", "restore", cfg.ChainID, keyName, mnemonic, "--coin-type", cfg.CoinType)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -111,7 +111,7 @@ func (r *Relayer) RestoreKey(ctx context.Context, _ ibc.RelayerExecReporter, cfg
 }
 
 func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, srcChainID, dstChainID, pathName string) error {
-	res := r.sys().RunC(ctx, r.log(), "paths", "new", srcChainID, dstChainID, pathName)
+	res := r.Sys().RunC(ctx, r.log(), "paths", "new", srcChainID, dstChainID, pathName)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -119,7 +119,7 @@ func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, s
 }
 
 func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, filter ibc.ChannelFilter) error {
-	res := r.sys().RunC(ctx, r.log(), "paths", "update", pathName,
+	res := r.Sys().RunC(ctx, r.log(), "paths", "update", pathName,
 		"--filter-rule", filter.Rule,
 		"--filter-channels", strings.Join(filter.ChannelList, ","),
 	)
@@ -130,7 +130,7 @@ func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pat
 }
 
 func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) ([]ibc.ChannelOutput, error) {
-	res := r.sys().RunC(ctx, r.log(), "q", "channels", chainID)
+	res := r.Sys().RunC(ctx, r.log(), "q", "channels", chainID)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -151,7 +151,7 @@ func (r *Relayer) GetChannels(ctx context.Context, _ ibc.RelayerExecReporter, ch
 }
 
 func (r *Relayer) GetClients(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) (ibc.ClientOutputs, error) {
-	res := r.sys().RunC(ctx, r.log(), "q", "clients", chainID)
+	res := r.Sys().RunC(ctx, r.log(), "q", "clients", chainID)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -172,7 +172,7 @@ func (r *Relayer) GetClients(ctx context.Context, _ ibc.RelayerExecReporter, cha
 }
 
 func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, chanOpts ibc.CreateChannelOptions, clientOpts ibc.CreateClientOptions) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "link", pathName,
+	res := r.Sys().RunC(ctx, r.log(), "tx", "link", pathName,
 		"--src-port", chanOpts.SourcePortName,
 		"--dst-port", chanOpts.DestPortName,
 		"--order", chanOpts.Order.String(),
@@ -186,7 +186,7 @@ func (r *Relayer) LinkPath(ctx context.Context, _ ibc.RelayerExecReporter, pathN
 }
 
 func (r *Relayer) GetConnections(ctx context.Context, _ ibc.RelayerExecReporter, chainID string) (ibc.ConnectionOutputs, error) {
-	res := r.sys().RunC(ctx, r.log(), "q", "connections", chainID)
+	res := r.Sys().RunC(ctx, r.log(), "q", "connections", chainID)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -214,7 +214,7 @@ func (r *Relayer) GetConnections(ctx context.Context, _ ibc.RelayerExecReporter,
 }
 
 func (r *Relayer) CreateChannel(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, opts ibc.CreateChannelOptions) error {
-	res := r.sys().RunC(
+	res := r.Sys().RunC(
 		ctx, r.log(),
 		"tx", "channel", pathName,
 		"--src-port", opts.SourcePortName,
@@ -229,7 +229,7 @@ func (r *Relayer) CreateChannel(ctx context.Context, _ ibc.RelayerExecReporter, 
 }
 
 func (r *Relayer) CreateConnections(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "connection", pathName)
+	res := r.Sys().RunC(ctx, r.log(), "tx", "connection", pathName)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -237,7 +237,7 @@ func (r *Relayer) CreateConnections(ctx context.Context, _ ibc.RelayerExecReport
 }
 
 func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, clientOpts ibc.CreateClientOptions) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "clients", pathName, "--client-tp", clientOpts.TrustingPeriod)
+	res := r.Sys().RunC(ctx, r.log(), "tx", "clients", pathName, "--client-tp", clientOpts.TrustingPeriod)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -245,7 +245,7 @@ func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, 
 }
 
 func (r *Relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string) error {
-	res := r.sys().RunC(ctx, r.log(), "tx", "update-clients", pathName)
+	res := r.Sys().RunC(ctx, r.log(), "tx", "update-clients", pathName)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -290,7 +290,7 @@ func (r *Relayer) start(ctx context.Context, remainingArgs ...string) {
 	// It won't be reachable without introspecting the output,
 	// but this will allow catching any possible data races around the debug server.
 	args := append([]string{"start", "--debug-addr", "localhost:0"}, remainingArgs...)
-	res := r.sys().RunC(ctx, r.log(), args...)
+	res := r.Sys().RunC(ctx, r.log(), args...)
 	if res.Err != nil {
 		r.errCh <- res.Err
 		return
@@ -300,11 +300,11 @@ func (r *Relayer) start(ctx context.Context, remainingArgs ...string) {
 
 func (r *Relayer) UseDockerNetwork() bool { return false }
 
-func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, env []string) ibc.RelayerExecResult {
+func (r *Relayer) Exec(ctx context.Context, _ ibc.RelayerExecReporter, cmd, _ []string) ibc.RelayerExecResult {
 	// TODO: env would be ignored for now.
 	// We may want to modify the call to sys() to accept environment overrides,
 	// so this relayer can continue to be used in parallel without environment cross-contamination.
-	res := r.sys().RunC(ctx, r.log(), cmd...)
+	res := r.Sys().RunC(ctx, r.log(), cmd...)
 
 	exitCode := 0
 	if res.Err != nil {
@@ -327,7 +327,7 @@ func (r *Relayer) Flush(ctx context.Context, _ ibc.RelayerExecReporter, pathName
 			cmd = append(cmd, channelID)
 		}
 	}
-	res := r.sys().RunC(ctx, r.log(), cmd...)
+	res := r.Sys().RunC(ctx, r.log(), cmd...)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -335,14 +335,14 @@ func (r *Relayer) Flush(ctx context.Context, _ ibc.RelayerExecReporter, pathName
 }
 
 func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
-	res := r.sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
+	res := r.Sys().RunC(context.Background(), r.log(), "keys", "show", chainID)
 	if res.Err != nil {
 		return &interchaintestcosmos.CosmosWallet{}, false
 	}
 	address := strings.TrimSpace(res.Stdout.String())
 
 	var keyName string
-	config := r.sys().MustGetConfig(r.t)
+	config := r.Sys().MustGetConfig(r.t)
 	for _, v := range config.ProviderConfigs {
 		if c, ok := v.Value.(cosmos.CosmosProviderConfig); ok {
 			if c.ChainID == chainID {
@@ -356,6 +356,16 @@ func (r *Relayer) GetWallet(chainID string) (ibc.Wallet, bool) {
 // SetClientContractHash sets the wasm client contract hash in the chain's config if the counterparty chain in a path used 08-wasm
 // to instantiate the client.
 func (r *Relayer) SetClientContractHash(ctx context.Context, rep ibc.RelayerExecReporter, cfg ibc.ChainConfig, hash string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Relayer) PauseRelayer(ctx context.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Relayer) ResumeRelayer(ctx context.Context) error {
 	//TODO implement me
 	panic("implement me")
 }

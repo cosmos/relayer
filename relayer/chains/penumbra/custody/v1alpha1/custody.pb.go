@@ -8,7 +8,7 @@ import (
 	fmt "fmt"
 	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
-	v1alpha11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/crypto/v1alpha1"
+	v1alpha11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/keys/v1alpha1"
 	v1alpha1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1alpha1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -32,9 +32,9 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type AuthorizeRequest struct {
 	// The transaction plan to authorize.
 	Plan *v1alpha1.TransactionPlan `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
-	// Identifies the FVK (and hence the spend authorization key) to use for signing.
-	AccountGroupId *v1alpha11.AccountGroupId `protobuf:"bytes,2,opt,name=account_group_id,json=accountGroupId,proto3" json:"account_group_id,omitempty"`
 	// Optionally, pre-authorization data, if required by the custodian.
+	//
+	// Pre-authorization data is backend-specific, and backends are free to ignore it.
 	//
 	// Multiple `PreAuthorization` packets can be included in a single request,
 	// to support multi-party pre-authorizations.
@@ -77,13 +77,6 @@ var xxx_messageInfo_AuthorizeRequest proto.InternalMessageInfo
 func (m *AuthorizeRequest) GetPlan() *v1alpha1.TransactionPlan {
 	if m != nil {
 		return m.Plan
-	}
-	return nil
-}
-
-func (m *AuthorizeRequest) GetAccountGroupId() *v1alpha11.AccountGroupId {
-	if m != nil {
-		return m.AccountGroupId
 	}
 	return nil
 }
@@ -271,11 +264,184 @@ func (m *PreAuthorization_Ed25519) GetSig() []byte {
 	return nil
 }
 
+type ExportFullViewingKeyRequest struct {
+}
+
+func (m *ExportFullViewingKeyRequest) Reset()         { *m = ExportFullViewingKeyRequest{} }
+func (m *ExportFullViewingKeyRequest) String() string { return proto.CompactTextString(m) }
+func (*ExportFullViewingKeyRequest) ProtoMessage()    {}
+func (*ExportFullViewingKeyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8c8c99775232419d, []int{3}
+}
+func (m *ExportFullViewingKeyRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ExportFullViewingKeyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ExportFullViewingKeyRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ExportFullViewingKeyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExportFullViewingKeyRequest.Merge(m, src)
+}
+func (m *ExportFullViewingKeyRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ExportFullViewingKeyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExportFullViewingKeyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ExportFullViewingKeyRequest proto.InternalMessageInfo
+
+type ExportFullViewingKeyResponse struct {
+	// The full viewing key.
+	FullViewingKey *v1alpha11.FullViewingKey `protobuf:"bytes,1,opt,name=full_viewing_key,json=fullViewingKey,proto3" json:"full_viewing_key,omitempty"`
+}
+
+func (m *ExportFullViewingKeyResponse) Reset()         { *m = ExportFullViewingKeyResponse{} }
+func (m *ExportFullViewingKeyResponse) String() string { return proto.CompactTextString(m) }
+func (*ExportFullViewingKeyResponse) ProtoMessage()    {}
+func (*ExportFullViewingKeyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8c8c99775232419d, []int{4}
+}
+func (m *ExportFullViewingKeyResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ExportFullViewingKeyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ExportFullViewingKeyResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ExportFullViewingKeyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExportFullViewingKeyResponse.Merge(m, src)
+}
+func (m *ExportFullViewingKeyResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ExportFullViewingKeyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExportFullViewingKeyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ExportFullViewingKeyResponse proto.InternalMessageInfo
+
+func (m *ExportFullViewingKeyResponse) GetFullViewingKey() *v1alpha11.FullViewingKey {
+	if m != nil {
+		return m.FullViewingKey
+	}
+	return nil
+}
+
+type ConfirmAddressRequest struct {
+	AddressIndex *v1alpha11.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+}
+
+func (m *ConfirmAddressRequest) Reset()         { *m = ConfirmAddressRequest{} }
+func (m *ConfirmAddressRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfirmAddressRequest) ProtoMessage()    {}
+func (*ConfirmAddressRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8c8c99775232419d, []int{5}
+}
+func (m *ConfirmAddressRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfirmAddressRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfirmAddressRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConfirmAddressRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfirmAddressRequest.Merge(m, src)
+}
+func (m *ConfirmAddressRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfirmAddressRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfirmAddressRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfirmAddressRequest proto.InternalMessageInfo
+
+func (m *ConfirmAddressRequest) GetAddressIndex() *v1alpha11.AddressIndex {
+	if m != nil {
+		return m.AddressIndex
+	}
+	return nil
+}
+
+type ConfirmAddressResponse struct {
+	Address *v1alpha11.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *ConfirmAddressResponse) Reset()         { *m = ConfirmAddressResponse{} }
+func (m *ConfirmAddressResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfirmAddressResponse) ProtoMessage()    {}
+func (*ConfirmAddressResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8c8c99775232419d, []int{6}
+}
+func (m *ConfirmAddressResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfirmAddressResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfirmAddressResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConfirmAddressResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfirmAddressResponse.Merge(m, src)
+}
+func (m *ConfirmAddressResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfirmAddressResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfirmAddressResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfirmAddressResponse proto.InternalMessageInfo
+
+func (m *ConfirmAddressResponse) GetAddress() *v1alpha11.Address {
+	if m != nil {
+		return m.Address
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*AuthorizeRequest)(nil), "penumbra.custody.v1alpha1.AuthorizeRequest")
 	proto.RegisterType((*AuthorizeResponse)(nil), "penumbra.custody.v1alpha1.AuthorizeResponse")
 	proto.RegisterType((*PreAuthorization)(nil), "penumbra.custody.v1alpha1.PreAuthorization")
 	proto.RegisterType((*PreAuthorization_Ed25519)(nil), "penumbra.custody.v1alpha1.PreAuthorization.Ed25519")
+	proto.RegisterType((*ExportFullViewingKeyRequest)(nil), "penumbra.custody.v1alpha1.ExportFullViewingKeyRequest")
+	proto.RegisterType((*ExportFullViewingKeyResponse)(nil), "penumbra.custody.v1alpha1.ExportFullViewingKeyResponse")
+	proto.RegisterType((*ConfirmAddressRequest)(nil), "penumbra.custody.v1alpha1.ConfirmAddressRequest")
+	proto.RegisterType((*ConfirmAddressResponse)(nil), "penumbra.custody.v1alpha1.ConfirmAddressResponse")
 }
 
 func init() {
@@ -283,41 +449,49 @@ func init() {
 }
 
 var fileDescriptor_8c8c99775232419d = []byte{
-	// 534 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0x4f, 0x6f, 0xd3, 0x30,
-	0x18, 0xc6, 0x9b, 0x74, 0x62, 0xc2, 0xab, 0xa6, 0xd6, 0x48, 0xa8, 0x2b, 0x22, 0x9a, 0x2a, 0x21,
-	0x26, 0x06, 0x8e, 0xda, 0xd1, 0x03, 0xe5, 0xd4, 0x0e, 0x54, 0x76, 0x40, 0x44, 0xe1, 0xaf, 0xa6,
-	0x8a, 0xca, 0x75, 0x4d, 0x1b, 0x2d, 0x8d, 0x83, 0xed, 0x44, 0x2a, 0x27, 0x3e, 0xc2, 0x3e, 0xc3,
-	0x24, 0x2e, 0x7c, 0x12, 0xc4, 0x69, 0x47, 0x8e, 0xa8, 0xbd, 0xf1, 0x29, 0x50, 0xfe, 0xb8, 0x49,
-	0x0b, 0x85, 0xdd, 0xe2, 0xe7, 0x7d, 0xde, 0x9f, 0x5f, 0x3f, 0xb1, 0xc1, 0x5d, 0x9f, 0x7a, 0xc1,
-	0x74, 0xc8, 0xb1, 0x49, 0x02, 0x21, 0xd9, 0x68, 0x66, 0x86, 0x0d, 0xec, 0xfa, 0x13, 0xdc, 0x50,
-	0x02, 0xf2, 0x39, 0x93, 0x0c, 0xee, 0x29, 0x23, 0x52, 0xba, 0x32, 0xd6, 0xee, 0x65, 0x0c, 0xc6,
-	0xa9, 0x49, 0xf8, 0xcc, 0x97, 0x2c, 0xc7, 0x89, 0xd7, 0x09, 0xa6, 0xf6, 0x70, 0xd5, 0x2b, 0x39,
-	0xf6, 0x04, 0x26, 0xd2, 0x61, 0x5e, 0xd6, 0x90, 0x13, 0x93, 0xae, 0xfa, 0xb9, 0x0e, 0xca, 0x9d,
-	0x40, 0x4e, 0x18, 0x77, 0x3e, 0x51, 0x9b, 0x7e, 0x0c, 0xa8, 0x90, 0xb0, 0x07, 0xb6, 0x7c, 0x17,
-	0x7b, 0x55, 0x6d, 0x5f, 0x3b, 0xd8, 0x69, 0x1e, 0xa1, 0x6c, 0x40, 0xc6, 0x29, 0xca, 0x43, 0x14,
-	0x19, 0xbd, 0xca, 0x44, 0xcb, 0xc5, 0x9e, 0x1d, 0x03, 0xe0, 0x5b, 0x50, 0xc6, 0x84, 0xb0, 0xc0,
-	0x93, 0x83, 0x31, 0x67, 0x81, 0x3f, 0x70, 0x46, 0x55, 0x3d, 0x86, 0x3e, 0x58, 0x83, 0xa6, 0x47,
-	0x59, 0xf2, 0x3a, 0x49, 0x5b, 0x2f, 0xea, 0x3a, 0x19, 0xd9, 0xbb, 0x78, 0x65, 0x0d, 0x4f, 0x01,
-	0xf4, 0x39, 0x1d, 0xe0, 0x74, 0x72, 0x1c, 0xed, 0x2b, 0xaa, 0xc5, 0xfd, 0xe2, 0xc1, 0x4e, 0xf3,
-	0x10, 0x6d, 0x0c, 0x14, 0x59, 0x9c, 0x76, 0xf2, 0x3d, 0x76, 0xc5, 0x5f, 0x53, 0x44, 0xfd, 0x3d,
-	0xa8, 0xe4, 0x12, 0x11, 0x3e, 0xf3, 0x04, 0x85, 0x27, 0x60, 0x6b, 0x84, 0x25, 0x4e, 0x23, 0x69,
-	0x5d, 0x25, 0x92, 0x15, 0xec, 0x13, 0x2c, 0xb1, 0x1d, 0x23, 0xea, 0x5f, 0x34, 0x50, 0x5e, 0x9f,
-	0x03, 0xbe, 0x00, 0xdb, 0x74, 0xd4, 0x6c, 0xb5, 0x1a, 0x8f, 0xfe, 0x92, 0xfa, 0xff, 0x4e, 0x81,
-	0x9e, 0x26, 0xad, 0xcf, 0x0a, 0xb6, 0xa2, 0xd4, 0x0e, 0xc1, 0x76, 0xaa, 0xc2, 0x5d, 0xa0, 0x87,
-	0x67, 0x31, 0xb6, 0x64, 0xeb, 0xe1, 0x19, 0x2c, 0x83, 0xa2, 0x70, 0xc6, 0xf1, 0x8f, 0x28, 0xd9,
-	0xd1, 0x67, 0xf7, 0x06, 0xa8, 0xfc, 0x11, 0x67, 0xf3, 0xb3, 0x06, 0x6e, 0x1e, 0x27, 0x5b, 0x5b,
-	0xd1, 0x5d, 0x21, 0xcc, 0x7d, 0x49, 0x79, 0xe8, 0x10, 0x0a, 0x3f, 0x80, 0xeb, 0xcb, 0x88, 0xe0,
-	0xbf, 0xf2, 0x5e, 0xbf, 0x5a, 0xb5, 0xfb, 0x57, 0x33, 0x27, 0xa9, 0x77, 0x2f, 0xf4, 0x6f, 0x73,
-	0x43, 0xbb, 0x9c, 0x1b, 0xda, 0xcf, 0xb9, 0xa1, 0x9d, 0x2f, 0x8c, 0xc2, 0xe5, 0xc2, 0x28, 0xfc,
-	0x58, 0x18, 0x05, 0x70, 0x9b, 0xb0, 0xe9, 0x66, 0x56, 0xb7, 0x94, 0x9f, 0xdc, 0xd2, 0x4e, 0x5f,
-	0x8f, 0x1d, 0x39, 0x09, 0x86, 0x88, 0xb0, 0xa9, 0x49, 0x98, 0x98, 0x32, 0x61, 0x72, 0xea, 0xe2,
-	0x19, 0xe5, 0x66, 0xd8, 0x5c, 0x7e, 0x92, 0x09, 0x76, 0x3c, 0x61, 0x6e, 0x7c, 0xb9, 0x8f, 0x53,
-	0x41, 0xad, 0x2f, 0xf4, 0xa2, 0x75, 0xfc, 0xee, 0xab, 0xbe, 0x67, 0xa9, 0x41, 0xd2, 0x6d, 0xd1,
-	0x9b, 0xd4, 0xf1, 0x3d, 0xab, 0xf5, 0xd3, 0x5a, 0x5f, 0xd5, 0xe6, 0xfa, 0x9d, 0x8d, 0xb5, 0x7e,
-	0xcf, 0xea, 0x3e, 0xa7, 0x12, 0x47, 0x37, 0xe6, 0x97, 0x7e, 0x4b, 0xf9, 0xda, 0xed, 0xd4, 0xd8,
-	0x6e, 0x2b, 0xe7, 0xf0, 0x5a, 0xfc, 0x92, 0x8f, 0x7e, 0x07, 0x00, 0x00, 0xff, 0xff, 0x40, 0xae,
-	0xeb, 0xca, 0x71, 0x04, 0x00, 0x00,
+	// 657 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0xcd, 0x6e, 0xd3, 0x4c,
+	0x14, 0x8d, 0x9d, 0xea, 0xab, 0xbe, 0xdb, 0x52, 0xa5, 0x03, 0x54, 0x6d, 0x4a, 0xa3, 0xca, 0xe2,
+	0xa7, 0xa8, 0xc8, 0x26, 0x29, 0x05, 0x11, 0x24, 0xa4, 0xa6, 0x94, 0x52, 0x21, 0xc0, 0x32, 0xb4,
+	0xaa, 0xaa, 0x8a, 0x68, 0xea, 0x4c, 0x12, 0x2b, 0x8e, 0xc7, 0xcc, 0xd8, 0xa1, 0x61, 0xc7, 0x8a,
+	0x2d, 0xcf, 0x50, 0x89, 0x0d, 0x2f, 0xc0, 0x2b, 0x20, 0x56, 0x5d, 0xb2, 0x44, 0xe9, 0x8e, 0xa7,
+	0x40, 0x89, 0x67, 0x9a, 0xc4, 0x24, 0x21, 0xdd, 0xf9, 0x9e, 0x7b, 0xee, 0xb9, 0xbf, 0x1e, 0xb8,
+	0xe5, 0x13, 0x2f, 0xac, 0x1f, 0x31, 0x6c, 0xd8, 0x21, 0x0f, 0x68, 0xa9, 0x69, 0x34, 0xb2, 0xd8,
+	0xf5, 0xab, 0x38, 0x2b, 0x01, 0xdd, 0x67, 0x34, 0xa0, 0x68, 0x41, 0x12, 0x75, 0x89, 0x4b, 0x62,
+	0xfa, 0x66, 0x57, 0x83, 0x32, 0x62, 0xd4, 0x48, 0x93, 0x77, 0x55, 0xda, 0x56, 0x24, 0x91, 0xbe,
+	0xd7, 0xcf, 0x0b, 0x18, 0xf6, 0x38, 0xb6, 0x03, 0x87, 0x7a, 0x5d, 0x7a, 0x0f, 0x18, 0x45, 0x69,
+	0xdf, 0x14, 0x48, 0x6d, 0x84, 0x41, 0x95, 0x32, 0xe7, 0x03, 0xb1, 0xc8, 0xbb, 0x90, 0xf0, 0x00,
+	0x6d, 0xc3, 0x84, 0xef, 0x62, 0x6f, 0x5e, 0x59, 0x56, 0x56, 0xa6, 0x72, 0x6b, 0x7a, 0xb7, 0x38,
+	0xca, 0x88, 0xde, 0x2b, 0x22, 0x95, 0xf5, 0x37, 0x5d, 0xd0, 0x74, 0xb1, 0x67, 0x75, 0x04, 0xd0,
+	0x01, 0x20, 0x9f, 0x91, 0x22, 0x16, 0x09, 0x70, 0xdb, 0xcd, 0xe7, 0x93, 0xcb, 0xc9, 0x95, 0xa9,
+	0xdc, 0xaa, 0x3e, 0xb4, 0x67, 0xdd, 0x64, 0x64, 0xa3, 0x37, 0xc6, 0x9a, 0xf5, 0x63, 0x08, 0xd7,
+	0xde, 0xc2, 0x6c, 0x4f, 0xe1, 0xdc, 0xa7, 0x1e, 0x27, 0x68, 0x07, 0x26, 0x4a, 0x38, 0xc0, 0xa2,
+	0xf2, 0xf5, 0x71, 0x2a, 0xef, 0x93, 0x7d, 0x82, 0x03, 0x6c, 0x75, 0x24, 0xb4, 0x2f, 0x0a, 0xa4,
+	0xe2, 0x75, 0xa0, 0x57, 0x30, 0x49, 0x4a, 0xb9, 0xf5, 0xf5, 0xec, 0xc3, 0x01, 0xc3, 0xf9, 0x57,
+	0x17, 0xfa, 0x56, 0x14, 0xfa, 0x2c, 0x61, 0x49, 0x95, 0xf4, 0x2a, 0x4c, 0x0a, 0x14, 0xcd, 0x80,
+	0xda, 0xa8, 0x75, 0x64, 0xa7, 0x2d, 0xb5, 0x51, 0x43, 0x29, 0x48, 0x72, 0xa7, 0x32, 0xaf, 0x76,
+	0x80, 0xf6, 0x67, 0xe1, 0x32, 0xcc, 0xfe, 0x35, 0x4e, 0x6d, 0x09, 0x16, 0xb7, 0x8e, 0x7d, 0xca,
+	0x82, 0xa7, 0xa1, 0xeb, 0xee, 0x39, 0xe4, 0xbd, 0xe3, 0x55, 0x9e, 0x93, 0xa6, 0xd8, 0xa5, 0x16,
+	0xc2, 0xb5, 0xc1, 0x6e, 0x31, 0xb1, 0x5d, 0x48, 0x95, 0x43, 0xd7, 0x2d, 0x36, 0x22, 0x57, 0xb1,
+	0x46, 0x9a, 0xa2, 0xb5, 0xd5, 0xd8, 0xf4, 0x3a, 0xb7, 0x76, 0xde, 0x5c, 0x4c, 0x6e, 0xa6, 0xdc,
+	0x67, 0x6b, 0x15, 0xb8, 0xba, 0x49, 0xbd, 0xb2, 0xc3, 0xea, 0x1b, 0xa5, 0x12, 0x23, 0x9c, 0xcb,
+	0xdb, 0x7a, 0x09, 0x97, 0x70, 0x84, 0x14, 0x1d, 0xaf, 0x44, 0x8e, 0x45, 0xb2, 0xdb, 0x23, 0x93,
+	0x09, 0x8d, 0x9d, 0x76, 0x80, 0x35, 0x8d, 0x7b, 0x2c, 0x6d, 0x1f, 0xe6, 0xe2, 0x89, 0x44, 0x67,
+	0x8f, 0x61, 0x52, 0x30, 0x45, 0x8e, 0xeb, 0xe3, 0xe4, 0xb0, 0x64, 0x50, 0xee, 0x63, 0x12, 0xe6,
+	0x36, 0xa3, 0x9d, 0x9a, 0xed, 0x7f, 0xc5, 0xa6, 0xee, 0x6b, 0xc2, 0x1a, 0x8e, 0x4d, 0x50, 0x19,
+	0xfe, 0x3f, 0xbf, 0x3d, 0x34, 0xea, 0x90, 0xe3, 0xbf, 0x56, 0xfa, 0xce, 0x78, 0x64, 0xd1, 0xc2,
+	0x27, 0x05, 0xae, 0x0c, 0xda, 0x1e, 0xba, 0x3f, 0x42, 0x66, 0xc4, 0x35, 0xa4, 0x1f, 0x5c, 0x38,
+	0x4e, 0x54, 0x12, 0xc2, 0x4c, 0xff, 0x98, 0xd1, 0xdd, 0x11, 0x52, 0x03, 0x57, 0x9f, 0xce, 0x5e,
+	0x20, 0x22, 0x4a, 0x5b, 0x38, 0x51, 0xbf, 0xb7, 0x32, 0xca, 0x69, 0x2b, 0xa3, 0xfc, 0x6a, 0x65,
+	0x94, 0xcf, 0x67, 0x99, 0xc4, 0xe9, 0x59, 0x26, 0xf1, 0xf3, 0x2c, 0x93, 0x80, 0x25, 0x9b, 0xd6,
+	0x87, 0x0b, 0x16, 0xa6, 0x7b, 0x57, 0x67, 0x2a, 0x07, 0xbb, 0x15, 0x27, 0xa8, 0x86, 0x47, 0xba,
+	0x4d, 0xeb, 0x86, 0x4d, 0x79, 0x9d, 0x72, 0x83, 0x11, 0x17, 0x37, 0x09, 0x33, 0x1a, 0xb9, 0xf3,
+	0x4f, 0xbb, 0x8a, 0x1d, 0x8f, 0x1b, 0x43, 0x9f, 0xed, 0x47, 0x02, 0x90, 0xf6, 0x89, 0x9a, 0x34,
+	0x37, 0xf7, 0xbf, 0xaa, 0x0b, 0xa6, 0x2c, 0x44, 0xa4, 0xd5, 0xf7, 0x04, 0xe3, 0x47, 0xd7, 0x77,
+	0x28, 0x7c, 0x87, 0xd2, 0xd7, 0x52, 0x6f, 0x0c, 0xf5, 0x1d, 0x6e, 0x9b, 0x85, 0x17, 0x24, 0xc0,
+	0xed, 0xb7, 0xe8, 0xb7, 0xba, 0x28, 0x79, 0xf9, 0xbc, 0x20, 0xe6, 0xf3, 0x92, 0x79, 0xf4, 0x5f,
+	0xe7, 0x29, 0x5f, 0xfb, 0x13, 0x00, 0x00, 0xff, 0xff, 0x2c, 0xdf, 0x4c, 0xa2, 0x6e, 0x06, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -334,6 +508,18 @@ const _ = grpc.SupportPackageIsVersion4
 type CustodyProtocolServiceClient interface {
 	// Requests authorization of the transaction with the given description.
 	Authorize(ctx context.Context, in *AuthorizeRequest, opts ...grpc.CallOption) (*AuthorizeResponse, error)
+	// Requests the full viewing key from the custodian.
+	//
+	// Custody backends should decide whether to honor this request, and how to
+	// control access to it.
+	ExportFullViewingKey(ctx context.Context, in *ExportFullViewingKeyRequest, opts ...grpc.CallOption) (*ExportFullViewingKeyResponse, error)
+	// Displays an address to a user for confirmation.
+	//
+	// Custody backends with user interaction should present the address to the
+	// user and wait for explicit confirmation before returning.
+	//
+	// Non-interactive custody backends may return immediately.
+	ConfirmAddress(ctx context.Context, in *ConfirmAddressRequest, opts ...grpc.CallOption) (*ConfirmAddressResponse, error)
 }
 
 type custodyProtocolServiceClient struct {
@@ -353,10 +539,40 @@ func (c *custodyProtocolServiceClient) Authorize(ctx context.Context, in *Author
 	return out, nil
 }
 
+func (c *custodyProtocolServiceClient) ExportFullViewingKey(ctx context.Context, in *ExportFullViewingKeyRequest, opts ...grpc.CallOption) (*ExportFullViewingKeyResponse, error) {
+	out := new(ExportFullViewingKeyResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.custody.v1alpha1.CustodyProtocolService/ExportFullViewingKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *custodyProtocolServiceClient) ConfirmAddress(ctx context.Context, in *ConfirmAddressRequest, opts ...grpc.CallOption) (*ConfirmAddressResponse, error) {
+	out := new(ConfirmAddressResponse)
+	err := c.cc.Invoke(ctx, "/penumbra.custody.v1alpha1.CustodyProtocolService/ConfirmAddress", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CustodyProtocolServiceServer is the server API for CustodyProtocolService service.
 type CustodyProtocolServiceServer interface {
 	// Requests authorization of the transaction with the given description.
 	Authorize(context.Context, *AuthorizeRequest) (*AuthorizeResponse, error)
+	// Requests the full viewing key from the custodian.
+	//
+	// Custody backends should decide whether to honor this request, and how to
+	// control access to it.
+	ExportFullViewingKey(context.Context, *ExportFullViewingKeyRequest) (*ExportFullViewingKeyResponse, error)
+	// Displays an address to a user for confirmation.
+	//
+	// Custody backends with user interaction should present the address to the
+	// user and wait for explicit confirmation before returning.
+	//
+	// Non-interactive custody backends may return immediately.
+	ConfirmAddress(context.Context, *ConfirmAddressRequest) (*ConfirmAddressResponse, error)
 }
 
 // UnimplementedCustodyProtocolServiceServer can be embedded to have forward compatible implementations.
@@ -365,6 +581,12 @@ type UnimplementedCustodyProtocolServiceServer struct {
 
 func (*UnimplementedCustodyProtocolServiceServer) Authorize(ctx context.Context, req *AuthorizeRequest) (*AuthorizeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Authorize not implemented")
+}
+func (*UnimplementedCustodyProtocolServiceServer) ExportFullViewingKey(ctx context.Context, req *ExportFullViewingKeyRequest) (*ExportFullViewingKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExportFullViewingKey not implemented")
+}
+func (*UnimplementedCustodyProtocolServiceServer) ConfirmAddress(ctx context.Context, req *ConfirmAddressRequest) (*ConfirmAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfirmAddress not implemented")
 }
 
 func RegisterCustodyProtocolServiceServer(s grpc1.Server, srv CustodyProtocolServiceServer) {
@@ -389,6 +611,42 @@ func _CustodyProtocolService_Authorize_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CustodyProtocolService_ExportFullViewingKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportFullViewingKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CustodyProtocolServiceServer).ExportFullViewingKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.custody.v1alpha1.CustodyProtocolService/ExportFullViewingKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CustodyProtocolServiceServer).ExportFullViewingKey(ctx, req.(*ExportFullViewingKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CustodyProtocolService_ConfirmAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmAddressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CustodyProtocolServiceServer).ConfirmAddress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/penumbra.custody.v1alpha1.CustodyProtocolService/ConfirmAddress",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CustodyProtocolServiceServer).ConfirmAddress(ctx, req.(*ConfirmAddressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _CustodyProtocolService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "penumbra.custody.v1alpha1.CustodyProtocolService",
 	HandlerType: (*CustodyProtocolServiceServer)(nil),
@@ -396,6 +654,14 @@ var _CustodyProtocolService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Authorize",
 			Handler:    _CustodyProtocolService_Authorize_Handler,
+		},
+		{
+			MethodName: "ExportFullViewingKey",
+			Handler:    _CustodyProtocolService_ExportFullViewingKey_Handler,
+		},
+		{
+			MethodName: "ConfirmAddress",
+			Handler:    _CustodyProtocolService_ConfirmAddress_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -435,18 +701,6 @@ func (m *AuthorizeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i--
 			dAtA[i] = 0x1a
 		}
-	}
-	if m.AccountGroupId != nil {
-		{
-			size, err := m.AccountGroupId.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintCustody(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
 	}
 	if m.Plan != nil {
 		{
@@ -588,6 +842,134 @@ func (m *PreAuthorization_Ed25519) MarshalToSizedBuffer(dAtA []byte) (int, error
 	return len(dAtA) - i, nil
 }
 
+func (m *ExportFullViewingKeyRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ExportFullViewingKeyRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ExportFullViewingKeyRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *ExportFullViewingKeyResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ExportFullViewingKeyResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ExportFullViewingKeyResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.FullViewingKey != nil {
+		{
+			size, err := m.FullViewingKey.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCustody(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConfirmAddressRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfirmAddressRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfirmAddressRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AddressIndex != nil {
+		{
+			size, err := m.AddressIndex.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCustody(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConfirmAddressResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfirmAddressResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfirmAddressResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Address != nil {
+		{
+			size, err := m.Address.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintCustody(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintCustody(dAtA []byte, offset int, v uint64) int {
 	offset -= sovCustody(v)
 	base := offset
@@ -607,10 +989,6 @@ func (m *AuthorizeRequest) Size() (n int) {
 	_ = l
 	if m.Plan != nil {
 		l = m.Plan.Size()
-		n += 1 + l + sovCustody(uint64(l))
-	}
-	if m.AccountGroupId != nil {
-		l = m.AccountGroupId.Size()
 		n += 1 + l + sovCustody(uint64(l))
 	}
 	if len(m.PreAuthorizations) > 0 {
@@ -671,6 +1049,54 @@ func (m *PreAuthorization_Ed25519) Size() (n int) {
 	}
 	l = len(m.Sig)
 	if l > 0 {
+		n += 1 + l + sovCustody(uint64(l))
+	}
+	return n
+}
+
+func (m *ExportFullViewingKeyRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *ExportFullViewingKeyResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.FullViewingKey != nil {
+		l = m.FullViewingKey.Size()
+		n += 1 + l + sovCustody(uint64(l))
+	}
+	return n
+}
+
+func (m *ConfirmAddressRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AddressIndex != nil {
+		l = m.AddressIndex.Size()
+		n += 1 + l + sovCustody(uint64(l))
+	}
+	return n
+}
+
+func (m *ConfirmAddressResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Address != nil {
+		l = m.Address.Size()
 		n += 1 + l + sovCustody(uint64(l))
 	}
 	return n
@@ -744,42 +1170,6 @@ func (m *AuthorizeRequest) Unmarshal(dAtA []byte) error {
 				m.Plan = &v1alpha1.TransactionPlan{}
 			}
 			if err := m.Plan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountGroupId", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowCustody
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthCustody
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthCustody
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.AccountGroupId == nil {
-				m.AccountGroupId = &v1alpha11.AccountGroupId{}
-			}
-			if err := m.AccountGroupId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1104,6 +1494,314 @@ func (m *PreAuthorization_Ed25519) Unmarshal(dAtA []byte) error {
 			m.Sig = append(m.Sig[:0], dAtA[iNdEx:postIndex]...)
 			if m.Sig == nil {
 				m.Sig = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCustody(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ExportFullViewingKeyRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCustody
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ExportFullViewingKeyRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ExportFullViewingKeyRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCustody(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ExportFullViewingKeyResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCustody
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ExportFullViewingKeyResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ExportFullViewingKeyResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FullViewingKey", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCustody
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCustody
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.FullViewingKey == nil {
+				m.FullViewingKey = &v1alpha11.FullViewingKey{}
+			}
+			if err := m.FullViewingKey.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCustody(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConfirmAddressRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCustody
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfirmAddressRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfirmAddressRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AddressIndex", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCustody
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCustody
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AddressIndex == nil {
+				m.AddressIndex = &v1alpha11.AddressIndex{}
+			}
+			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCustody(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConfirmAddressResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCustody
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfirmAddressResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfirmAddressResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCustody
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCustody
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCustody
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Address == nil {
+				m.Address = &v1alpha11.Address{}
+			}
+			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:

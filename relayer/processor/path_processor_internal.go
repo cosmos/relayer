@@ -8,8 +8,8 @@ import (
 	"sort"
 	"sync"
 
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -233,16 +233,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		toDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(toDeleteSrc[chantypes.EventTypeAcknowledgePacket], seq)
 	}
 
-	for seq, info := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
-		// we have observed a timeout-on-close on chain for this packet, so packet flow is complete
-		// remove all retention of this sequence number
-		deletePreInitIfMatches(info)
-		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
-		toDeleteDst[chantypes.EventTypeRecvPacket] = append(toDeleteDst[chantypes.EventTypeRecvPacket], seq)
-		toDeleteDst[chantypes.EventTypeWriteAck] = append(toDeleteDst[chantypes.EventTypeWriteAck], seq)
-		toDeleteSrc[chantypes.EventTypeAcknowledgePacket] = append(toDeleteSrc[chantypes.EventTypeAcknowledgePacket], seq)
-	}
-
 	for seq, info := range pathEndPacketFlowMessages.SrcMsgTimeout {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
@@ -291,7 +281,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		if err := pathEndPacketFlowMessages.Dst.chainProvider.ValidatePacket(info, pathEndPacketFlowMessages.Dst.latestBlock); err != nil {
 			var timeoutHeightErr *provider.TimeoutHeightError
 			var timeoutTimestampErr *provider.TimeoutTimestampError
-			var timeoutOnCloseErr *provider.TimeoutOnCloseError
 
 			switch {
 			case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
@@ -300,12 +289,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 					info:      info,
 				}
 				msgs = append(msgs, timeoutMsg)
-			case errors.As(err, &timeoutOnCloseErr):
-				timeoutOnCloseMsg := packetIBCMessage{
-					eventType: chantypes.EventTypeTimeoutPacketOnClose,
-					info:      info,
-				}
-				msgs = append(msgs, timeoutOnCloseMsg)
 			default:
 				pp.log.Error("Packet is invalid",
 					zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
@@ -645,6 +628,10 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 			msgCloseConfirm, pathEndChannelCloseMessages.Src,
 		) {
 			res.DstMessages = append(res.DstMessages, msgCloseConfirm)
+			toDeleteSrc[chantypes.EventTypeChannelCloseInit] = append(
+				toDeleteSrc[chantypes.EventTypeChannelCloseInit],
+				chanKey,
+			)
 		}
 
 		// TODO: confirm chankey does not need modification
@@ -670,13 +657,14 @@ func (pp *PathProcessor) unrelayedChannelCloseMessages(
 }
 
 func (pp *PathProcessor) getUnrelayedClientICQMessages(pathEnd *pathEndRuntime, queryMessages, responseMessages ClientICQMessageCache) (res []clientICQMessage) {
+	var doneQueryIDs []provider.ClientICQQueryID
+
 ClientICQLoop:
 	for queryID, queryMsg := range queryMessages {
 		for resQueryID := range responseMessages {
 			if queryID == resQueryID {
 				// done with this query, remove all retention.
-				pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
-				delete(pathEnd.clientICQProcessing, queryID)
+				doneQueryIDs = append(doneQueryIDs, queryID)
 				continue ClientICQLoop
 			}
 		}
@@ -688,11 +676,16 @@ ClientICQLoop:
 		}
 	}
 
-	// now iterate through completion message and remove any leftover messages.
+	// remove all retention for queries that have been responded to.
 	for queryID := range responseMessages {
-		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
-		delete(pathEnd.clientICQProcessing, queryID)
+		doneQueryIDs = append(doneQueryIDs, queryID)
 	}
+
+	pathEnd.clientICQProcessing.deleteMessages(doneQueryIDs...)
+	pathEnd.messageCache.ClientICQ.DeleteMessages(doneQueryIDs...)
+
+	// now iterate through completion message and remove any leftover messages.
+
 	return res
 }
 
@@ -1002,7 +995,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			DstMsgRecvPacket:      pathEnd1DstMsgRecvPacket,
 			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 		}
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                   pp.pathEnd2,
@@ -1013,7 +1005,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			DstMsgRecvPacket:      pathEnd2DstMsgRecvPacket,
 			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 		}
 
 		pathEnd1ProcessRes[i] = pp.unrelayedPacketFlowMessages(ctx, pathEnd1PacketFlowMessages)
@@ -1219,6 +1210,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+		if pp.metrics != nil {
+			pp.metrics.SetUnrelayedPackets(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, 0)
+			pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, 0)
+		}
 		return nil, nil
 	}
 
@@ -1227,6 +1222,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 	if err != nil {
 		return nil, err
+	}
+
+	if pp.metrics != nil {
+		pp.metrics.SetUnrelayedPackets(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unrecv))
 	}
 
 	dstHeight := int64(dst.latestBlock.Height)
@@ -1268,6 +1267,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	var skipped *skippedPackets
 
 	for i, seq := range unrecv {
+		if state, ok := dst.messageCache.PacketState.State(k, seq); ok && stateValue(state) >= stateValue(chantypes.EventTypeRecvPacket) {
+			continue // already recv'd by path processor
+		}
+
 		srcMu.Lock()
 		if srcCache.IsCached(chantypes.EventTypeSendPacket, k, seq) {
 			continue // already cached
@@ -1342,9 +1345,18 @@ SeqLoop:
 		unacked = append(unacked, seq)
 	}
 
+	if pp.metrics != nil {
+		pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unacked))
+	}
+
 	for i, seq := range unacked {
-		dstMu.Lock()
 		ck := k.Counterparty()
+
+		if state, ok := dst.messageCache.PacketState.State(ck, seq); ok && stateValue(state) >= stateValue(chantypes.EventTypeAcknowledgePacket) {
+			continue // already acked by path processor
+		}
+
+		dstMu.Lock()
 		if dstCache.IsCached(chantypes.EventTypeRecvPacket, ck, seq) &&
 			dstCache.IsCached(chantypes.EventTypeWriteAck, ck, seq) {
 			continue // already cached
@@ -1424,7 +1436,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		if !cs.Open {
 			continue
 		}
-		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
+		if !pp.pathEnd1.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pp.pathEnd1.info.ChainID,
 			CounterpartyChainID: pp.pathEnd2.info.ChainID,
 			ChannelKey:          k,
@@ -1437,7 +1449,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		if !cs.Open {
 			continue
 		}
-		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
+		if !pp.pathEnd2.ShouldRelayChannel(ChainChannelKey{
 			ChainID:             pp.pathEnd2.info.ChainID,
 			CounterpartyChainID: pp.pathEnd1.info.ChainID,
 			ChannelKey:          k,
@@ -1477,17 +1489,32 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	for k, seqs := range commitments2 {
 		k := k
 		seqs := seqs
+
 		eg.Go(func() error {
-			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
+			s, err := pp.queuePendingRecvAndAcks(
+				ctx,
+				pp.pathEnd2,
+				pp.pathEnd1,
+				k,
+				seqs,
+				pathEnd2Cache.PacketFlow,
+				pathEnd1Cache.PacketFlow,
+				&pathEnd2CacheMu,
+				&pathEnd1CacheMu,
+			)
+
 			if err != nil {
 				return err
 			}
+
 			if s != nil {
 				if _, ok := skipped[pp.pathEnd2.info.ChainID]; !ok {
 					skipped[pp.pathEnd2.info.ChainID] = make(map[ChannelKey]skippedPackets)
 				}
+
 				skipped[pp.pathEnd2.info.ChainID][k] = *s
 			}
+
 			return nil
 		})
 	}
@@ -1496,8 +1523,8 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
 	}
 
-	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync)
-	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync)
+	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.memoLimit, pp.maxReceiverSize)
+	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.memoLimit, pp.maxReceiverSize)
 
 	if len(skipped) > 0 {
 		skippedPacketsString := ""

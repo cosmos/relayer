@@ -8,16 +8,15 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-
-	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	"github.com/cosmos/relayer/v2/relayer/chains"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -150,7 +149,7 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 
 // nodeStatusWithRetry will query for the latest node status, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *ctypes.ResultStatus, err error) {
+func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *coretypes.ResultStatus, err error) {
 	return status, retry.Do(func() error {
 		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
 		defer cancelLatestHeightQueryCtx()
@@ -241,7 +240,6 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			continue
 		}
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 		break
 	}
 
@@ -309,12 +307,14 @@ func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) 
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
 func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, queryStateTimeout)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)
 	}
+
 	for _, ch := range channels {
 		if len(ch.ConnectionHops) != 1 {
 			ccp.log.Error("Found channel using multiple connection hops. Not currently supported, ignoring.",
@@ -324,6 +324,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			)
 			continue
 		}
+
 		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
 		k := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
@@ -331,8 +332,10 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
 		}
+
 		ccp.channelStateCache.SetOpen(k, ch.State == chantypes.OPEN, ch.Ordering)
 	}
+
 	return nil
 }
 
@@ -349,7 +352,6 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	}
 
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
 	// This debug log is very noisy, but is helpful when debugging new chains.
 	// ccp.log.Debug("Queried latest height",
@@ -389,26 +391,35 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	chainID := ccp.chainProvider.ChainId()
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
-		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
-		var ibcHeader provider.IBCHeader
+		var (
+			eg        errgroup.Group
+			blockRes  *coretypes.ResultBlockResults
+			ibcHeader provider.IBCHeader
+		)
+
 		sI := i
+
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
+
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
+
 			return err
 		})
+
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
+
 			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, sI)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "IBC Header")
 			}
+
 			return err
 		})
 
@@ -451,15 +462,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := ccp.chainProvider.cometLegacyEncoding
+		messages := chains.IbcMessagesFromEvents(ccp.log, blockRes.FinalizeBlockEvents, chainID, heightUint64)
 
-		blockMsgs := ccp.ibcMessagesFromBlockEvents(
-			blockRes.BeginBlockEvents,
-			blockRes.EndBlockEvents,
-			heightUint64,
-			base64Encoded,
-		)
-		for _, m := range blockMsgs {
+		for _, m := range messages {
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
 
@@ -468,7 +473,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 				// tx was not successful
 				continue
 			}
-			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, base64Encoded)
+
+			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
@@ -543,8 +549,15 @@ func (ccp *CosmosChainProcessor) CurrentBlockHeight(ctx context.Context, persist
 
 func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	// memoize the current gas prices to only show metrics for "interesting" denoms
+	gasPrice := ccp.chainProvider.PCfg.GasPrices
+
 	if ccp.parsedGasPrices == nil {
-		gp, err := sdk.ParseDecCoins(ccp.chainProvider.PCfg.GasPrices)
+		dynamicFee := ccp.chainProvider.DynamicFee(ctx)
+		if dynamicFee != "" {
+			gasPrice = dynamicFee
+		}
+
+		gp, err := sdk.ParseDecCoins(gasPrice)
 		if err != nil {
 			ccp.log.Error(
 				"Failed to parse gas prices",
@@ -569,11 +582,13 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 			zap.Error(err),
 		)
 	}
+
 	// Print the relevant gas prices
 	for _, gasDenom := range *ccp.parsedGasPrices {
 		bal := relayerWalletBalances.AmountOf(gasDenom.Denom)
+
 		// Convert to a big float to get a float64 for metrics
 		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
-		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), ccp.chainProvider.PCfg.GasPrices, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
+		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), gasPrice, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
 }

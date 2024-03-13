@@ -4,14 +4,14 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
-	feetypes "github.com/cosmos/ibc-go/v7/modules/apps/29-fee/types"
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	feetypes "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/types"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -101,12 +101,13 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
 
 	// Extract fees and fee_payer if present
-	ir := types.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
+
 	var m sdk.Msg
-	if err := ir.UnpackAny(res.Tx, &m); err == nil {
+	if err := cc.Cdc.InterfaceRegistry.UnpackAny(res.Tx, &m); err == nil {
 		if tx, ok := m.(*typestx.Tx); ok {
 			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
-			if feePayer := getFeePayer(tx); feePayer != "" {
+			if feePayer := getFeePayer(cc.log, cdc, tx); feePayer != "" {
 				fields = append(fields, zap.String("fee_payer", feePayer))
 			}
 		} else {
@@ -144,7 +145,7 @@ func msgTypesField(msgs []provider.RelayerMessage) zap.Field {
 // getFeePayer returns the bech32 address of the fee payer of a transaction.
 // This uses the fee payer field if set,
 // otherwise falls back to the address of whoever signed the first message.
-func getFeePayer(tx *typestx.Tx) string {
+func getFeePayer(log *zap.Logger, cdc *codec.ProtoCodec, tx *typestx.Tx) string {
 	payer := tx.AuthInfo.Fee.Payer
 	if payer != "" {
 		return payer
@@ -178,6 +179,12 @@ func getFeePayer(tx *typestx.Tx) string {
 	case *feetypes.MsgPayPacketFeeAsync:
 		return firstMsg.PacketFee.RefundAddress
 	default:
-		return firstMsg.GetSigners()[0].String()
+		signers, _, err := cdc.GetMsgV1Signers(firstMsg)
+		if err != nil {
+			log.Info("Could not get signers for msg when attempting to get the fee payer", zap.Error(err))
+			return ""
+		}
+
+		return string(signers[0])
 	}
 }

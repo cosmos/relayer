@@ -25,7 +25,7 @@ func (cc *CosmosProvider) GetAccount(clientCtx client.Context, addr sdk.AccAddre
 // GetAccountWithHeight queries for an account given an address. Returns the
 // height of the query with the account. An error is returned if the query
 // or decoding fails.
-func (cc *CosmosProvider) GetAccountWithHeight(clientCtx client.Context, addr sdk.AccAddress) (client.Account, int64, error) {
+func (cc *CosmosProvider) GetAccountWithHeight(_ client.Context, addr sdk.AccAddress) (client.Account, int64, error) {
 	var header metadata.MD
 	address, err := cc.EncodeBech32AccAddr(addr)
 	if err != nil {

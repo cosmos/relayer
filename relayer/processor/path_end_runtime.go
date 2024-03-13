@@ -2,13 +2,15 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -30,6 +32,7 @@ type pathEndRuntime struct {
 	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
+	channelStateCacheMu  sync.RWMutex
 	channelOrderCache    map[string]chantypes.Order
 	latestHeader         provider.IBCHeader
 	ibcHeaderCache       IBCHeaderCache
@@ -42,7 +45,7 @@ type pathEndRuntime struct {
 	packetProcessing    packetProcessingCache
 	connProcessing      connectionProcessingCache
 	channelProcessing   channelProcessingCache
-	clientICQProcessing clientICQProcessingCache
+	clientICQProcessing *clientICQProcessingCache
 
 	// Message subscriber callbacks
 	connSubscribers map[string][]func(provider.ConnectionInfo)
@@ -54,6 +57,8 @@ type pathEndRuntime struct {
 	lastClientUpdateHeightMu sync.Mutex
 
 	metrics *PrometheusMetrics
+
+	finishedProcessing chan messageToTrack
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -65,6 +70,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		),
 		info:                 pathEnd,
 		incomingCacheData:    make(chan ChainProcessorCacheData, 100),
+		finishedProcessing:   make(chan messageToTrack, 1000),
 		connectionStateCache: make(ConnectionStateCache),
 		channelStateCache:    make(ChannelStateCache),
 		messageCache:         NewIBCMessagesCache(),
@@ -73,7 +79,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		connProcessing:       make(connectionProcessingCache),
 		channelProcessing:    make(channelProcessingCache),
 		channelOrderCache:    make(map[string]chantypes.Order),
-		clientICQProcessing:  make(clientICQProcessingCache),
+		clientICQProcessing:  newClientICQProcessingCache(),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
 	}
@@ -97,25 +103,111 @@ func (pathEnd *pathEndRuntime) isRelevantChannel(channelID string) bool {
 	return false
 }
 
+// checkMemoLimit returns an error if the packet memo exceeds the configured limit.
+func checkMemoLimit(packetData []byte, memoLimit int) error {
+	if memoLimit <= 0 {
+		// no limit
+		return nil
+	}
+
+	var packet transfertypes.FungibleTokenPacketData
+	if err := transfertypes.ModuleCdc.UnmarshalJSON(packetData, &packet); err != nil {
+		// not an ICS-20 packet
+		return nil
+	}
+
+	if len(packet.Memo) > memoLimit {
+		return fmt.Errorf("packet memo size: %d exceeds limit: %d", len(packet.Memo), memoLimit)
+	}
+
+	return nil
+}
+
+// checkMaxReceiverSize returns an error if the receiver field size exceeds the configured limit.
+func checkMaxReceiverSize(packetData []byte, maxReceiverSize int) error {
+	if maxReceiverSize <= 0 {
+		// no limit
+		return nil
+	}
+
+	var packet transfertypes.FungibleTokenPacketData
+	if err := transfertypes.ModuleCdc.UnmarshalJSON(packetData, &packet); err != nil {
+		// not an ICS-20 packet
+		return nil
+	}
+
+	if len(packet.Receiver) > maxReceiverSize {
+		return fmt.Errorf("packet receiver size: %d exceeds limit: %d", len(packet.Receiver), maxReceiverSize)
+	}
+
+	return nil
+}
+
 // mergeMessageCache merges relevant IBC messages for packet flows, connection handshakes, and channel handshakes.
 // inSync indicates whether both involved ChainProcessors are in sync or not. When true, the observed packets
 // metrics will be counted so that observed vs relayed packets can be compared.
-func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, counterpartyChainID string, inSync bool) {
+func (pathEnd *pathEndRuntime) mergeMessageCache(
+	messageCache IBCMessagesCache,
+	counterpartyChainID string,
+	inSync bool,
+	memoLimit, maxReceiverSize int,
+) {
 	packetMessages := make(ChannelPacketMessagesCache)
 	connectionHandshakeMessages := make(ConnectionMessagesCache)
 	channelHandshakeMessages := make(ChannelMessagesCache)
 	clientICQMessages := make(ClientICQMessagesCache)
 
+	messageCache.PacketState.Prune(100) // Only keep most recent 100 packet states per channel
+
 	for ch, pmc := range messageCache.PacketFlow {
-		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
-			if inSync && pathEnd.metrics != nil {
-				for eventType, pCache := range pmc {
-					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
+		if pathEnd.ShouldRelayChannel(ChainChannelKey{
+			ChainID:             pathEnd.info.ChainID,
+			CounterpartyChainID: counterpartyChainID,
+			ChannelKey:          ch,
+		}) {
+			newPmc := make(PacketMessagesCache)
+			for eventType, pCache := range pmc {
+				if inSync && pathEnd.metrics != nil {
+					pathEnd.metrics.AddPacketsObserved(
+						pathEnd.info.PathName,
+						pathEnd.info.ChainID,
+						ch.ChannelID,
+						ch.PortID,
+						eventType,
+						len(pCache),
+					)
+				}
+
+				newPc := make(PacketSequenceCache)
+				for seq, p := range pCache {
+					if err := checkMemoLimit(p.Data, memoLimit); err != nil {
+						pathEnd.log.Warn("Ignoring packet", zap.Error(err))
+						continue
+					}
+
+					if err := checkMaxReceiverSize(p.Data, maxReceiverSize); err != nil {
+						pathEnd.log.Warn("Ignoring packet", zap.Error(err))
+						continue
+					}
+
+					newPc[seq] = p
+				}
+
+				if len(newPc) > 0 {
+					newPmc[eventType] = newPc
 				}
 			}
-			packetMessages[ch] = pmc
+
+			packetMessages[ch] = newPmc
+
+			for eventType, pCache := range newPmc {
+				for seq := range pCache {
+					pathEnd.messageCache.PacketState.UpdateState(ch, seq, eventType)
+				}
+			}
 		}
 	}
+
 	pathEnd.messageCache.PacketFlow.Merge(packetMessages)
 
 	for eventType, cmc := range messageCache.ConnectionHandshake {
@@ -369,7 +461,16 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 	return true, nil
 }
 
-func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func(), d ChainProcessorCacheData, counterpartyChainID string, counterpartyInSync bool, messageLifecycle MessageLifecycle, counterParty *pathEndRuntime) {
+func (pathEnd *pathEndRuntime) mergeCacheData(
+	ctx context.Context,
+	cancel func(),
+	d ChainProcessorCacheData,
+	counterpartyChainID string,
+	counterpartyInSync bool,
+	messageLifecycle MessageLifecycle,
+	counterParty *pathEndRuntime,
+	memoLimit, maxReceiverSize int,
+) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.lastClientUpdateHeightMu.Unlock()
@@ -403,9 +504,19 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	}
 
 	pathEnd.connectionStateCache = d.ConnectionStateCache // Update latest connection open state for chain
-	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
 
-	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
+	pathEnd.channelStateCacheMu.Lock()
+	pathEnd.channelStateCache = d.ChannelStateCache // Update latest channel open state for chain
+	pathEnd.channelStateCacheMu.Unlock()
+
+	// Merge incoming packet IBC messages into the backlog
+	pathEnd.mergeMessageCache(
+		d.IBCMessagesCache,
+		counterpartyChainID,
+		pathEnd.inSync && counterpartyInSync,
+		memoLimit,
+		maxReceiverSize,
+	)
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
@@ -428,7 +539,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	pathEndForHeight := counterparty
-	if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
+	if eventType == chantypes.EventTypeTimeoutPacket {
 		pathEndForHeight = pathEnd
 	}
 
@@ -462,23 +573,21 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		// in progress cache does not exist for this eventType, so can send
 		return true
 	}
-	inProgress, ok := channelProcessingCache[sequence]
-	if !ok {
+	inProgress := channelProcessingCache.get(sequence)
+	if inProgress == nil {
 		// in progress cache does not exist for this sequence, so can send.
 		return true
 	}
-	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
-	if inProgress.assembled {
-		if blocksSinceLastProcessed < blocksToRetrySendAfter {
-			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
-			return false
-		}
-	} else {
-		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
-			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
-			return false
-		}
+	if inProgress.isProcessing() {
+		// this message is currently being processed (broadcasting), do not attempt to send again yet.
+		return false
 	}
+	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
+	}
+
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending packet message after max retries",
 			zap.String("event_type", eventType),
@@ -509,19 +618,26 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 		toDelete[preInitKey] = []uint64{sequence}
 	case chantypes.EventTypeRecvPacket:
 		toDelete[eventType] = []uint64{sequence}
+		toDelete[chantypes.EventTypeWriteAck] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeAcknowledgePacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
+		toDeleteCounterparty[chantypes.EventTypeWriteAck] = []uint64{sequence}
+		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
+	case chantypes.EventTypeTimeoutPacket:
+		toDelete[eventType] = []uint64{sequence}
 		toDelete[chantypes.EventTypeSendPacket] = []uint64{sequence}
 	}
+
 	// delete in progress send for this specific message
 	pathEnd.packetProcessing[k].deleteMessages(map[string][]uint64{
 		eventType: {sequence},
 	})
+
 	// delete all packet flow retention history for this sequence
 	pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
-	counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
+	counterparty.messageCache.PacketFlow[k.Counterparty()].DeleteMessages(toDeleteCounterparty)
 }
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
@@ -544,22 +660,19 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		// in progress cache does not exist for this eventType, so can send.
 		return true
 	}
-	inProgress, ok := msgProcessCache[k]
-	if !ok {
+	inProgress := msgProcessCache.get(k)
+	if inProgress == nil {
 		// in progress cache does not exist for this connection, so can send.
 		return true
 	}
+	if inProgress.isProcessing() {
+		// this message is currently being processed (broadcasting), do not attempt to send again yet.
+		return false
+	}
 	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
-	if inProgress.assembled {
-		if blocksSinceLastProcessed < blocksToRetrySendAfter {
-			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
-			return false
-		}
-	} else {
-		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
-			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
-			return false
-		}
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending connection message after max retries",
@@ -626,22 +739,19 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		// in progress cache does not exist for this eventType, so can send.
 		return true
 	}
-	inProgress, ok := msgProcessCache[channelKey]
-	if !ok {
+	inProgress := msgProcessCache.get(channelKey)
+	if inProgress == nil {
 		// in progress cache does not exist for this channel, so can send.
 		return true
 	}
+	if inProgress.isProcessing() {
+		// this message is currently being processed (broadcasting), do not attempt to send again yet.
+		return false
+	}
 	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
-	if inProgress.assembled {
-		if blocksSinceLastProcessed < blocksToRetrySendAfter {
-			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
-			return false
-		}
-	} else {
-		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
-			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
-			return false
-		}
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending channel message after max retries",
@@ -720,22 +830,19 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.ClientICQInfo) bool {
 	queryID := message.QueryID
-	inProgress, ok := pathEnd.clientICQProcessing[queryID]
-	if !ok {
+	inProgress := pathEnd.clientICQProcessing.get(queryID)
+	if inProgress == nil {
 		// in progress cache does not exist for this query ID, so can send.
 		return true
 	}
+	if inProgress.isProcessing() {
+		// this message is currently being processed (broadcasting), do not attempt to send again yet.
+		return false
+	}
 	blocksSinceLastProcessed := pathEnd.latestBlock.Height - inProgress.lastProcessedHeight
-	if inProgress.assembled {
-		if blocksSinceLastProcessed < blocksToRetrySendAfter {
-			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
-			return false
-		}
-	} else {
-		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
-			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
-			return false
-		}
+	if inProgress.assembled && blocksSinceLastProcessed < blocksToRetrySendAfter {
+		// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
+		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
 		pathEnd.log.Error("Giving up on sending client ICQ message after max retries",
@@ -745,9 +852,7 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 		// giving up on this query
 		// remove all retention of this client interchain query flow in pathEnd.messagesCache.ClientICQ
 		pathEnd.messageCache.ClientICQ.DeleteMessages(queryID)
-
-		// delete in progress query for this specific ID
-		delete(pathEnd.clientICQProcessing, queryID)
+		pathEnd.clientICQProcessing.deleteMessages(queryID)
 
 		return false
 	}
@@ -779,18 +884,16 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		}
 		channelProcessingCache, ok := msgProcessCache[eventType]
 		if !ok {
-			channelProcessingCache = make(packetMessageSendCache)
+			channelProcessingCache = newPacketMessageSendCache()
 			msgProcessCache[eventType] = channelProcessingCache
 		}
 
-		if inProgress, ok := channelProcessingCache[sequence]; ok {
-			retryCount = inProgress.retryCount + 1
-		}
+		inProgress := channelProcessingCache.get(sequence)
 
-		channelProcessingCache[sequence] = processingMessage{
-			lastProcessedHeight: pathEnd.latestBlock.Height,
-			retryCount:          retryCount,
-			assembled:           t.assembled != nil,
+		if inProgress == nil {
+			channelProcessingCache.set(sequence, pathEnd.latestBlock.Height, t.assembled != nil)
+		} else {
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	case channelMessageToTrack:
 		eventType := t.msg.eventType
@@ -800,18 +903,15 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		}
 		msgProcessCache, ok := pathEnd.channelProcessing[eventType]
 		if !ok {
-			msgProcessCache = make(channelKeySendCache)
+			msgProcessCache = newChannelKeySendCache()
 			pathEnd.channelProcessing[eventType] = msgProcessCache
 		}
 
-		if inProgress, ok := msgProcessCache[channelKey]; ok {
-			retryCount = inProgress.retryCount + 1
-		}
-
-		msgProcessCache[channelKey] = processingMessage{
-			lastProcessedHeight: pathEnd.latestBlock.Height,
-			retryCount:          retryCount,
-			assembled:           t.assembled != nil,
+		inProgress := msgProcessCache.get(channelKey)
+		if inProgress == nil {
+			msgProcessCache.set(channelKey, pathEnd.latestBlock.Height, t.assembled != nil)
+		} else {
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	case connectionMessageToTrack:
 		eventType := t.msg.eventType
@@ -821,34 +921,90 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		}
 		msgProcessCache, ok := pathEnd.connProcessing[eventType]
 		if !ok {
-			msgProcessCache = make(connectionKeySendCache)
+			msgProcessCache = newConnectionKeySendCache()
 			pathEnd.connProcessing[eventType] = msgProcessCache
 		}
 
-		if inProgress, ok := msgProcessCache[connectionKey]; ok {
-			retryCount = inProgress.retryCount + 1
-		}
-
-		msgProcessCache[connectionKey] = processingMessage{
-			lastProcessedHeight: pathEnd.latestBlock.Height,
-			retryCount:          retryCount,
-			assembled:           t.assembled != nil,
+		inProgress := msgProcessCache.get(connectionKey)
+		if inProgress == nil {
+			msgProcessCache.set(connectionKey, pathEnd.latestBlock.Height, t.assembled != nil)
+		} else {
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	case clientICQMessageToTrack:
 		queryID := t.msg.info.QueryID
 
-		if inProgress, ok := pathEnd.clientICQProcessing[queryID]; ok {
-			retryCount = inProgress.retryCount + 1
-		}
-
-		pathEnd.clientICQProcessing[queryID] = processingMessage{
-			lastProcessedHeight: pathEnd.latestBlock.Height,
-			retryCount:          retryCount,
-			assembled:           t.assembled != nil,
+		inProgress := pathEnd.clientICQProcessing.get(queryID)
+		if inProgress == nil {
+			pathEnd.clientICQProcessing.set(queryID, pathEnd.latestBlock.Height, t.assembled != nil)
+		} else {
+			inProgress.setProcessing(t.assembled != nil, inProgress.retryCount+1)
 		}
 	}
 
 	return retryCount
+}
+
+func (pathEnd *pathEndRuntime) trackFinishedProcessingMessage(tracker messageToTrack) {
+	switch t := tracker.(type) {
+	case packetMessageToTrack:
+		eventType := t.msg.eventType
+		sequence := t.msg.info.Sequence
+		channelKey, err := t.msg.channelKey()
+		if err != nil {
+			return
+		}
+		msgProcessCache, ok := pathEnd.packetProcessing[channelKey]
+		if !ok {
+			return
+		}
+		channelProcessingCache, ok := msgProcessCache[eventType]
+		if !ok {
+			return
+		}
+
+		inProgress := channelProcessingCache.get(sequence)
+		if inProgress != nil {
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
+		}
+	case channelMessageToTrack:
+		eventType := t.msg.eventType
+		channelKey := ChannelInfoChannelKey(t.msg.info)
+		if eventType != chantypes.EventTypeChannelOpenInit {
+			channelKey = channelKey.Counterparty()
+		}
+		msgProcessCache, ok := pathEnd.channelProcessing[eventType]
+		if !ok {
+			return
+		}
+
+		inProgress := msgProcessCache.get(channelKey)
+		if inProgress != nil {
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
+		}
+	case connectionMessageToTrack:
+		eventType := t.msg.eventType
+		connectionKey := ConnectionInfoConnectionKey(t.msg.info)
+		if eventType != conntypes.EventTypeConnectionOpenInit {
+			connectionKey = connectionKey.Counterparty()
+		}
+		msgProcessCache, ok := pathEnd.connProcessing[eventType]
+		if !ok {
+			return
+		}
+
+		inProgress := msgProcessCache.get(connectionKey)
+		if inProgress != nil {
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
+		}
+	case clientICQMessageToTrack:
+		queryID := t.msg.info.QueryID
+
+		inProgress := pathEnd.clientICQProcessing.get(queryID)
+		if inProgress != nil {
+			inProgress.setFinishedProcessing(pathEnd.latestBlock.Height)
+		}
+	}
 }
 
 func (pathEnd *pathEndRuntime) localhostSentinelProofPacket(
@@ -873,4 +1029,45 @@ func (pathEnd *pathEndRuntime) localhostSentinelProofChannel(
 		Ordering:    info.Order,
 		Version:     info.Version,
 	}, nil
+}
+
+// ShouldRelayChannel determines whether a chain channel (and optionally a port), should be relayed
+// by this path end.
+//
+// It first checks if the channel matches any rule in the path end's filter list. If the channel matches a channel
+// in an allowed list, it returns true. If the channel matches any blocked channel it returns false. Otherwise, it returns true.
+//
+// If no filter rule matches, it checks if the channel or its counterparty is present in the path end's
+// channel state cache. This cache only holds channels relevant to the client for this path end, ensuring
+// the channel belongs to a client connected to this path end.
+//
+// Note that this function only determines whether the channel should be relayed based on the path end's
+// configuration. It does not guarantee that the channel is actually relayable, as other checks
+// (e.g., expired client) may still be necessary.
+func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKey) bool {
+	pe := pathEnd.info
+	if pe.Rule == RuleAllowList {
+		for _, allowedChannel := range pe.FilterList {
+			if pe.shouldRelayChannelSingle(chainChannelKey, allowedChannel, true) {
+				return true
+			}
+		}
+		return false
+	} else if pe.Rule == RuleDenyList {
+		for _, blockedChannel := range pe.FilterList {
+			if !pe.shouldRelayChannelSingle(chainChannelKey, blockedChannel, false) {
+				return false
+			}
+		}
+		return true
+	}
+
+	pathEnd.channelStateCacheMu.RLock()
+	defer pathEnd.channelStateCacheMu.RUnlock()
+
+	// if no filter rule, check if the channel or counterparty channel is in the channelStateCache.
+	// Because channelStateCache only holds channels relevant to the client, we can ensure that the
+	// channel is built on top of a client for this pathEnd
+	_, exists := pathEnd.channelStateCache[chainChannelKey.ChannelKey]
+	return exists
 }

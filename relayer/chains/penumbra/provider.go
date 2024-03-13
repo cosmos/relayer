@@ -10,7 +10,6 @@ import (
 
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	prov "github.com/cometbft/cometbft/light/provider/http"
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	jsonrpcclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
@@ -18,14 +17,15 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	cwrapper "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
-	"golang.org/x/mod/semver"
 )
 
 var (
@@ -34,7 +34,10 @@ var (
 	_ provider.ProviderConfig = &PenumbraProviderConfig{}
 )
 
-const cometEncodingThreshold = "v0.37.0-alpha"
+const (
+	cometEncodingThreshold     = "v0.37.0-alpha"
+	cometBlockResultsThreshold = "v0.38.0-alpha"
+)
 
 type PenumbraProviderConfig struct {
 	KeyDirectory     string                     `json:"key-directory" yaml:"key-directory"`
@@ -137,15 +140,12 @@ type PenumbraProvider struct {
 	PCfg           PenumbraProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	RPCClient      rpcclient.Client
+	RPCClient      cwrapper.RPCClient
 	LightProvider  provtypes.Provider
 	Input          io.Reader
 	Output         io.Writer
 	Codec          Codec
 	RPCCaller      jsonrpcclient.Caller
-
-	// for comet < v0.37, decode tm events as base64
-	cometLegacyEncoding bool
 }
 
 func (cc *PenumbraProvider) ProviderConfig() provider.ProviderConfig {
@@ -173,7 +173,7 @@ func (cc *PenumbraProvider) Timeout() string {
 }
 
 func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
+	return commitmenttypes.NewMerklePrefix([]byte("ibc-data"))
 }
 
 // Address returns the chains configured address as a string
@@ -196,7 +196,7 @@ func (cc *PenumbraProvider) Address() (string, error) {
 	return out, err
 }
 
-func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration) (time.Duration, error) {
+func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error) {
 	// TODO
 	return time.Hour * 2, nil
 	/*
@@ -211,7 +211,7 @@ func (cc *PenumbraProvider) TrustingPeriod(ctx context.Context, overrideUnbondin
 		// by converting int64 to float64.
 		// Use integer math the whole time, first reducing by a factor of 100
 		// and then re-growing by 85x.
-		tp := res.UnbondingTime / 100 * 85
+		tp := res.UnbondingTime / 100 * 85 // TODO: replace with percentage
 
 		// And we only want the trusting period to be whole hours.
 		return tp.Truncate(time.Hour), nil
@@ -249,27 +249,19 @@ func (cc *PenumbraProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient, err := newRPCClient(cc.PCfg.RPCAddr, timeout)
-	if err != nil {
-		return err
-	}
-
 	lightprovider, err := prov.New(cc.PCfg.ChainID, cc.PCfg.RPCAddr)
 	if err != nil {
 		return err
 	}
 
-	cc.RPCClient = rpcClient
-	cc.LightProvider = lightprovider
-	cc.Keybase = keybase
-
-	status, err := cc.QueryStatus(ctx)
+	c, err := client.NewClient(cc.PCfg.RPCAddr, timeout)
 	if err != nil {
-		// Operations can occur before the node URL is added to the config, so noop here.
-		return nil
+		return err
 	}
 
-	cc.setCometVersion(cc.log, status.NodeInfo.Version)
+	cc.RPCClient = cwrapper.NewRPCClient(c)
+	cc.LightProvider = lightprovider
+	cc.Keybase = keybase
 
 	return nil
 }
@@ -321,14 +313,6 @@ func toPenumbraPacket(pi provider.PacketInfo) chantypes.Packet {
 		TimeoutHeight:      pi.TimeoutHeight,
 		TimeoutTimestamp:   pi.TimeoutTimestamp,
 	}
-}
-
-func (cc *PenumbraProvider) setCometVersion(log *zap.Logger, version string) {
-	cc.cometLegacyEncoding = cc.legacyEncodedEvents(log, version)
-}
-
-func (cc *PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
-	return semver.Compare("v"+version, cometEncodingThreshold) < 0
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

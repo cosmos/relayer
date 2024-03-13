@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
@@ -91,6 +91,7 @@ func (t *ChannelCloseLifecycle) messageLifecycler() {}
 // which will retain relevant messages for each PathProcessor.
 type IBCMessagesCache struct {
 	PacketFlow          ChannelPacketMessagesCache
+	PacketState         ChannelPacketStateCache
 	ConnectionHandshake ConnectionMessagesCache
 	ChannelHandshake    ChannelMessagesCache
 	ClientICQ           ClientICQMessagesCache
@@ -115,6 +116,7 @@ func (c IBCMessagesCache) Clone() IBCMessagesCache {
 func NewIBCMessagesCache() IBCMessagesCache {
 	return IBCMessagesCache{
 		PacketFlow:          make(ChannelPacketMessagesCache),
+		PacketState:         make(ChannelPacketStateCache),
 		ConnectionHandshake: make(ConnectionMessagesCache),
 		ChannelHandshake:    make(ChannelMessagesCache),
 		ClientICQ:           make(ClientICQMessagesCache),
@@ -124,11 +126,17 @@ func NewIBCMessagesCache() IBCMessagesCache {
 // ChannelPacketMessagesCache is used for caching a PacketMessagesCache for a given IBC channel.
 type ChannelPacketMessagesCache map[ChannelKey]PacketMessagesCache
 
+// ChannelPacketStateCache is used for caching a PacketSequenceStateCache for a given IBC channel.
+type ChannelPacketStateCache map[ChannelKey]PacketSequenceStateCache
+
 // PacketMessagesCache is used for caching a PacketSequenceCache for a given IBC message type.
 type PacketMessagesCache map[string]PacketSequenceCache
 
 // PacketSequenceCache is used for caching an IBC message for a given packet sequence.
 type PacketSequenceCache map[uint64]provider.PacketInfo
+
+// PacketSequenceStateCache is used for caching the state of a packet sequence.
+type PacketSequenceStateCache map[uint64]string
 
 // ChannelMessagesCache is used for caching a ChannelMessageCache for a given IBC message type.
 type ChannelMessagesCache map[string]ChannelMessageCache
@@ -344,6 +352,76 @@ func (c PacketMessagesCache) DeleteMessages(toDelete ...map[string][]uint64) {
 	}
 }
 
+func stateValue(state string) int {
+	switch state {
+	case chantypes.EventTypeSendPacket:
+		return 1
+	case chantypes.EventTypeRecvPacket:
+		return 2
+	case chantypes.EventTypeWriteAck:
+		return 3
+	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
+		return 4
+	}
+	panic(fmt.Errorf("unexpected state: %s", state))
+}
+
+func (c ChannelPacketStateCache) UpdateState(k ChannelKey, sequence uint64, state string) {
+	minState := 0
+	if sequenceCache, ok := c[k]; ok {
+		if currentState, ok := sequenceCache[sequence]; ok {
+			minState = stateValue(currentState)
+		}
+	} else {
+		c[k] = make(PacketSequenceStateCache)
+	}
+
+	if stateValue(state) <= minState {
+		// can't downgrade state
+		return
+	}
+
+	c[k][sequence] = state
+}
+
+func (c ChannelPacketStateCache) State(k ChannelKey, sequence uint64) (string, bool) {
+	sequenceCache, ok := c[k]
+	if !ok {
+		return "", false
+	}
+
+	state, ok := sequenceCache[sequence]
+	if !ok {
+		return "", false
+	}
+
+	return state, true
+}
+
+// Prune deletes all map entries except for the most recent (keep) for all channels.
+func (c ChannelPacketStateCache) Prune(keep int) {
+	for _, pssc := range c {
+		pssc.Prune(keep)
+	}
+}
+
+// Prune deletes all map entries except for the most recent (keep).
+func (c PacketSequenceStateCache) Prune(keep int) {
+	if len(c) <= keep {
+		return
+	}
+	seqs := make([]uint64, 0, len(c))
+	for seq := range c {
+		seqs = append(seqs, seq)
+	}
+	sort.Slice(seqs, func(i, j int) bool { return seqs[i] < seqs[j] })
+
+	// only keep recent packet states
+	for _, seq := range seqs[:len(seqs)-keep] {
+		delete(c, seq)
+	}
+}
+
 // IsCached returns true if a sequence for a channel key and event type is already cached.
 func (c ChannelPacketMessagesCache) IsCached(eventType string, k ChannelKey, sequence uint64) bool {
 	if _, ok := c[k]; !ok {
@@ -535,9 +613,11 @@ func (c ClientICQMessageCache) Merge(other ClientICQMessageCache) {
 }
 
 // DeleteMessages deletes cached messages for the provided query ID.
-func (c ClientICQMessagesCache) DeleteMessages(queryID provider.ClientICQQueryID) {
-	for _, cm := range c {
-		delete(cm, queryID)
+func (c ClientICQMessagesCache) DeleteMessages(queryID ...provider.ClientICQQueryID) {
+	for _, qID := range queryID {
+		for _, cm := range c {
+			delete(cm, qID)
+		}
 	}
 }
 
@@ -580,7 +660,7 @@ func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKe
 	switch eventType {
 	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck:
 		return packetInfoChannelKey(info).Counterparty(), nil
-	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		return packetInfoChannelKey(info), nil
 	}
 	return ChannelKey{}, fmt.Errorf("eventType not expected for packetIBCMessage channelKey: %s", eventType)

@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -256,7 +257,7 @@ func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms 
 
 	var out sdk.Coins
 	for _, c := range coins {
-		if c.Amount.Equal(sdk.NewInt(0)) {
+		if c.Amount.Equal(sdkmath.NewInt(0)) {
 			continue
 		}
 
@@ -316,8 +317,9 @@ func SPrintClientExpiration(chain *Chain, expiration time.Time, clientInfo Clien
 		TIME:                %s (%s)
 		LAST UPDATE HEIGHT:  %d
 		TRUSTING PERIOD:     %s
+		UNBONDING PERIOD:    %s
 	`,
-		chain.ClientID(), chain.ChainID(), status, expirationFormatted, remainingTime.Round(time.Second), clientInfo.LatestHeight.GetRevisionHeight(), clientInfo.TrustingPeriod.String())
+		chain.ClientID(), chain.ChainID(), status, expirationFormatted, remainingTime.Round(time.Second), clientInfo.LatestHeight.GetRevisionHeight(), clientInfo.TrustingPeriod.String(), clientInfo.UnbondingTime.Round(time.Second))
 
 	return legacyOutput
 
@@ -342,6 +344,7 @@ func SPrintClientExpirationJson(chain *Chain, expiration time.Time, clientInfo C
 		"TIME":               fmt.Sprintf("%s (%s)", expirationFormatted, remainingTime.Round(time.Second)),
 		"LAST UPDATE HEIGHT": strconv.FormatUint(clientInfo.LatestHeight.GetRevisionHeight(), 10),
 		"TRUSTING PERIOD":    clientInfo.TrustingPeriod.String(),
+		"UNBONDING PERIOD":   clientInfo.UnbondingTime.Round(time.Second).String(),
 	}
 
 	jsonOutput, err := json.Marshal(data)

@@ -7,16 +7,24 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (string, string, error) {
+func (c *Chain) CreateClients(ctx context.Context,
+	dst *Chain,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour,
+	override bool,
+	customClientTrustingPeriod,
+	maxClockDrift time.Duration,
+	customClientTrustingPeriodPercentage int64,
+	memo string) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -63,7 +71,12 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, memo)
+		clientSrc, err = CreateClient(egCtx, c, dst,
+			srcUpdateHeader, dstUpdateHeader,
+			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
+			override, customClientTrustingPeriod,
+			overrideUnbondingPeriod, maxClockDrift,
+			customClientTrustingPeriodPercentage, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -73,7 +86,12 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, overrideUnbondingPeriod, memo)
+		clientDst, err = CreateClient(egCtx, dst, c,
+			dstUpdateHeader, srcUpdateHeader,
+			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
+			override, customClientTrustingPeriod,
+			overrideUnbondingPeriod, maxClockDrift,
+			customClientTrustingPeriodPercentage, memo)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -101,11 +119,13 @@ func CreateClient(
 	ctx context.Context,
 	src, dst *Chain,
 	srcUpdateHeader, dstUpdateHeader provider.IBCHeader,
-	allowUpdateAfterExpiry bool,
-	allowUpdateAfterMisbehaviour bool,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour,
 	override bool,
-	customClientTrustingPeriod time.Duration,
-	overrideUnbondingPeriod time.Duration,
+	customClientTrustingPeriod,
+	overrideUnbondingPeriod,
+	maxClockDrift time.Duration,
+	customClientTrustingPeriodPercentage int64,
 	memo string) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
@@ -126,7 +146,7 @@ func CreateClient(
 	if tp == 0 {
 		if err := retry.Do(func() error {
 			var err error
-			tp, err = dst.GetTrustingPeriod(ctx, overrideUnbondingPeriod)
+			tp, err = dst.GetTrustingPeriod(ctx, overrideUnbondingPeriod, customClientTrustingPeriodPercentage)
 			if err != nil {
 				return fmt.Errorf("failed to get trusting period for chain{%s}: %w", dst.ChainID(), err)
 			}
@@ -164,7 +184,7 @@ func CreateClient(
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
-	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, maxClockDrift, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
@@ -215,6 +235,7 @@ func CreateClient(
 	if err := retry.Do(func() error {
 		var success bool
 		var err error
+
 		res, success, err = src.ChainProvider.SendMessages(ctx, msgs, memo)
 		if err != nil {
 			src.LogFailedTx(res, err, msgs)
@@ -525,6 +546,7 @@ func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 			}
 		}
 	}
+
 	return "", fmt.Errorf("client identifier event attribute not found")
 }
 
@@ -532,6 +554,7 @@ type ClientStateInfo struct {
 	ChainID        string
 	TrustingPeriod time.Duration
 	LatestHeight   ibcexported.Height
+	UnbondingTime  time.Duration
 }
 
 func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, error) {
@@ -546,6 +569,7 @@ func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, er
 			ChainID:        t.ChainId,
 			TrustingPeriod: t.TrustingPeriod,
 			LatestHeight:   t.LatestHeight,
+			UnbondingTime:  t.UnbondingPeriod,
 		}, nil
 	default:
 		return ClientStateInfo{}, fmt.Errorf("unhandled client state type: (%T)", clientState)

@@ -25,6 +25,11 @@
 * [\#1231](https://github.com/cosmos/relayer/pull/1231) Reduce get bech32 prefix when get signer.
 * [\#1302](https://github.com/cosmos/relayer/pull/1302) Avoid packet get relayed when estimated gas is higher than max gas.
 * [\#1303](https://github.com/cosmos/relayer/pull/1303) Add missing max gas amount on txf to avoid estimate less gas when simualte runTx.
+* [\#1324](https://github.com/cosmos/relayer/pull/1324) Add log-level in global config.
+* [\#1325](https://github.com/cosmos/relayer/pull/1325) Ignore only file not exist error when loadConfigFile.
+* [\#1326](https://github.com/cosmos/relayer/pull/1326) Avoid sending channel close confirm message after channel get closed successfully.
+* [\#1364](https://github.com/cosmos/relayer/pull/1364) Include feegrant message when calculate gas.
+* [\#1390](https://github.com/cosmos/relayer/pull/1390) Avoid no concrete type registered for type URL error of EthAccount.
 
 ## v0.9.3
 

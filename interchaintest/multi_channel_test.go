@@ -4,15 +4,16 @@ import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	sdkmath "cosmossdk.io/math"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
-	interchaintestrly "github.com/strangelove-ventures/interchaintest/v7/relayer/rly"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	interchaintestrly "github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -33,13 +34,13 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 		{
 			Name:        "gaia",
 			ChainName:   "gaia",
-			Version:     "v7.0.3",
+			Version:     "v14.1.0",
 			ChainConfig: ibc.ChainConfig{GasPrices: "0.00atom"},
 		},
 		{
 			Name:        "osmosis",
 			ChainName:   "osmosis",
-			Version:     "v11.0.1",
+			Version:     "v22.0.0",
 			ChainConfig: ibc.ChainConfig{GasPrices: "0.00osmo"},
 		},
 	})
@@ -79,8 +80,8 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	})
 
 	// Create user accounts on both chains
-	const initFunds = int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "user-key", initFunds, gaia, osmosis)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "user-key", initBal, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0], users[1]
 
@@ -122,7 +123,7 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	require.Equal(t, 3, len(channels))
 
 	// Send an IBC transfer across all three channels
-	const transferAmount = int64(1000)
+	transferAmount := sdkmath.NewInt(1000)
 	transfer := ibc.WalletAmount{
 		Address: osmosisUser.FormattedAddress(),
 		Denom:   gaia.Config().Denom,
@@ -146,15 +147,16 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	ibcDenoms[2] = transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(channels[2].Counterparty.PortID, channels[2].Counterparty.ChannelID, gaia.Config().Denom))
 
 	// Assert that the transfers are all successful out of the src chain account
+	expectedBal := initBal.Sub(transferAmount.MulRaw(3))
 	nativeGaiaBal, err := gaia.GetBalance(ctx, gaiaUser.FormattedAddress(), gaia.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, initFunds-transferAmount*3, nativeGaiaBal)
+	require.True(t, expectedBal.Equal(nativeGaiaBal))
 
 	// Assert that the transfers are all successful on the dst chain account
 	for _, denom := range ibcDenoms {
 		balance, err := osmosis.GetBalance(ctx, osmosisUser.FormattedAddress(), denom.IBCDenom())
 		require.NoError(t, err)
-		require.Equal(t, transferAmount, balance)
+		require.True(t, transferAmount.Equal(balance))
 	}
 
 	// Send the funds back to the original source chain
@@ -176,13 +178,13 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	// Assert that the transfers are all successful back on the original src chain account
 	nativeGaiaBal, err = gaia.GetBalance(ctx, gaiaUser.FormattedAddress(), gaia.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, initFunds, nativeGaiaBal)
+	require.True(t, nativeGaiaBal.Equal(initBal))
 
 	// Assert that the transfers are all successfully sent back to the original src chain account
 	for _, denom := range ibcDenoms {
 		balance, err := osmosis.GetBalance(ctx, osmosisUser.FormattedAddress(), denom.IBCDenom())
 		require.NoError(t, err)
-		require.Equal(t, int64(0), balance)
+		require.True(t, sdkmath.ZeroInt().Equal(balance))
 	}
 
 }
