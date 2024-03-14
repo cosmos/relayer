@@ -284,8 +284,9 @@ func MsgUpdateClient(
 		dstClientState, err = dst.ChainProvider.QueryClientState(ctx, dsth, dst.ClientID())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		dst.log.Info(
+		dst.log.Error(
 			"Failed to query client state when updating clients",
+			zap.String("chain_id", dst.ChainID()),
 			zap.String("client_id", dst.ClientID()),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", RtyAttNum),
@@ -301,12 +302,20 @@ func MsgUpdateClient(
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
+			src.log.Debug(
+				"Query IBC header",
+				zap.String("chain_id", src.ChainID()),
+				zap.String("client_id", src.ClientID()),
+				zap.Int64("height", srch),
+			)
 			srcHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, srch)
 			return err
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Info(
+			src.log.Error(
 				"Failed to query IBC header when building update client message",
-				zap.String("client_id", dst.ClientID()),
+				zap.String("chain_id", src.ChainID()),
+				zap.String("client_id", src.ClientID()),
+				zap.Int64("height", srch),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
@@ -316,12 +325,20 @@ func MsgUpdateClient(
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
+			src.log.Debug(
+				"Query IBC header",
+				zap.String("chain_id", src.ChainID()),
+				zap.String("client_id", src.ClientID()),
+				zap.Int64("height", int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1),
+			)
 			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
 			return err
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Info(
+			src.log.Error(
 				"Failed to query IBC header when building update client message",
-				zap.String("client_id", dst.ClientID()),
+				zap.String("chain_id", src.ChainID()),
+				zap.String("client_id", src.ClientID()),
+				zap.Int64("height", int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
