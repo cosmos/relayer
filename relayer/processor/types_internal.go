@@ -74,7 +74,7 @@ func (msg packetIBCMessage) assemble(
 
 		assembleMessage = dst.chainProvider.MsgTimeout
 	default:
-		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
+		return nil, fmt.Errorf("unexpected packet message eventType for message assembly: %s", msg.eventType)
 	}
 	if src.clientState.ClientID == ibcexported.LocalhostClientID {
 		packetProof = src.localhostSentinelProofPacket
@@ -166,7 +166,7 @@ func (msg channelIBCMessage) assemble(
 		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelCloseConfirm
 	default:
-		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
+		return nil, fmt.Errorf("unexpected channel message eventType for message assembly: %s", msg.eventType)
 	}
 	if src.clientState.ClientID == ibcexported.LocalhostClientID {
 		chanProof = src.localhostSentinelProofChannel
@@ -242,7 +242,7 @@ func (msg connectionIBCMessage) assemble(
 		connProof = src.chainProvider.ConnectionProof
 		assembleMessage = dst.chainProvider.MsgConnectionOpenConfirm
 	default:
-		return nil, fmt.Errorf("unexepected connection message eventType for message assembly: %s", msg.eventType)
+		return nil, fmt.Errorf("unexpected connection message eventType for message assembly: %s", msg.eventType)
 	}
 
 	var proof provider.ConnectionProof

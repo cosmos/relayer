@@ -115,7 +115,7 @@ get-gaia:
 	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
 
 build-gaia:
-	@[ -d $(GAIA_REPO) ] || { echo "Repositry for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
+	@[ -d $(GAIA_REPO) ] || { echo "Repository for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
 	@cd $(GAIA_REPO) && \
 	make install &> /dev/null
 	@gaiad version --long

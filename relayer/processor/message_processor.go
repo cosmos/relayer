@@ -34,7 +34,7 @@ type messageProcessor struct {
 	isLocalhost bool
 }
 
-// catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
+// categories of tx errors for a Prometheus counter. If the error doesn't fall into one of the below categories, it is labeled as "Tx Failure"
 var promErrorCatagories = []error{
 	chantypes.ErrRedundantTx,
 	legacyerrors.ErrInsufficientFunds,

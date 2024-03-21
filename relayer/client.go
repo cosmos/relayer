@@ -494,7 +494,7 @@ func UpgradeClient(
 	return nil
 }
 
-// MustGetHeight takes the height inteface and returns the actual height
+// MustGetHeight takes the height interface and returns the actual height
 func MustGetHeight(h ibcexported.Height) clienttypes.Height {
 	height, ok := h.(clienttypes.Height)
 	if !ok {

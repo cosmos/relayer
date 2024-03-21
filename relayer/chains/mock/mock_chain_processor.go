@@ -153,7 +153,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 		// iterate through ibc messages and call specific handler for each
 		// will do things like mutate chainprocessor state and add relevant messages to foundMessages
-		// this can be parralelized also
+		// this can be parallelized also
 		for _, m := range messages {
 			if handler, ok := messageHandlers[m.EventType]; ok {
 				handler(msgHandlerParams{

@@ -578,7 +578,7 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	address, err := ccp.chainProvider.Address()
 	if err != nil {
 		ccp.log.Error(
-			"Failed to get relayer bech32 wallet addresss",
+			"Failed to get relayer bech32 wallet address",
 			zap.Error(err),
 		)
 	}
