@@ -1,0 +1,5 @@
+[codespell]
+skip = *.pulsar.go,*.pb.go,*.pb.gw.go,*.json,*.git,*.bin,*.sum,*.mod
+ignore-words-list = usera
+count =
+quiet-level = 3
