@@ -14,7 +14,7 @@ const (
 	testChannel1 = "test-channel-1"
 	testChannel2 = "test-channel-2"
 
-	testPort  = "trasnfer"
+	testPort  = "transfer"
 	testPort2 = "ica-XXX"
 )
 
@@ -64,8 +64,8 @@ func TestNoChannelFilter(t *testing.T) {
 		},
 	}
 
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
-	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChanne2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path section of the config")
+	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChanne2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path section of the config")
 
 }
 

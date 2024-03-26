@@ -101,7 +101,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		}, walletLabels),
 		TxFailureError: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_tx_errors_total",
-			Help: "The total number of tx failures broken up into categories. See https://github.com/cosmos/relayer/blob/main/docs/advanced_usage.md#monitoring for list of catagories. 'Tx Failure' is the catch-all category",
+			Help: "The total number of tx failures broken up into categories. See https://github.com/cosmos/relayer/blob/main/docs/advanced_usage.md#monitoring for list of categories. 'Tx Failure' is the catch-all category",
 		}, txFailureLabels),
 		BlockQueryFailure: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "cosmos_relayer_block_query_errors_total",
