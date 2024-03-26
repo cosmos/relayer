@@ -577,7 +577,6 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) erro
 	address, err := ccp.chainProvider.Address()
 	if err != nil {
 		return fmt.Errorf("failed to get relayer bech32 address: %w", err)
-
 	}
 
 	// Print the relevant gas prices

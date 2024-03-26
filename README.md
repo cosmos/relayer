@@ -9,12 +9,12 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/cosmos/relayer)](https://goreportcard.com/report/github.com/cosmos/relayer)
 [![License: Apache-2.0](https://img.shields.io/github/license/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/blob/main/LICENSE)
 [![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
-[![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/latest)
+[![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/releases/latest)
 </div>
 
-In IBC, blockchains do not directly pass messages to each other over the network. This is where `relayer` comes in. 
+In IBC, blockchains do not directly pass messages to each other over the network. This is where `relayer` comes in.
 A relayer process monitors for updates on opens paths between sets of [IBC](https://ibcprotocol.org/) enabled chains.
-The relayer submits these updates in the form of specific message types to the counterparty chain. Clients are then used to 
+The relayer submits these updates in the form of specific message types to the counterparty chain. Clients are then used to
 track and verify the consensus state.
 
 In addition to relaying packets, this relayer can open paths across chains, thus creating clients, connections and channels.
@@ -24,7 +24,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 ---
 
 ## Table Of Contents
-- [Basic Usage - Relaying Across Chains](#Basic-Usage---Relaying-Packets-Across-Chains)
+- [Basic Usage - Relaying Across Chains](#basic-usage---relaying-packets-across-chains)
 - [Create Path Across Chains](./docs/create-path-across-chain.md)
 - [Advanced Usage](./docs/advanced_usage.md)
 - [Troubleshooting](./docs/troubleshooting.md)
@@ -35,6 +35,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 - [Demo/Dev-Environment](./examples/README.md)
 
 ---
+
 ## Basic Usage - Relaying Packets Across Chains
 
 > The `-h` (help) flag tailing any `rly` command will be your best friend. USE THIS IN YOUR RELAYING JOURNEY.
@@ -52,7 +53,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
     ```
 
 2. **Initialize the relayer's configuration directory/file.**
-   
+
    ```shell
    $ rly config init
    ```
@@ -66,26 +67,26 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    $ rly config init --memo "My custom memo"
    ```
 
-   Custom memos will have `rly(VERSION)` appended. For example, a memo of `My custom memo` running on relayer version `v2.5.2` would result in a transaction memo of `My custom memo | rly(v2.5.2)`. 
-   
+   Custom memos will have `rly(VERSION)` appended. For example, a memo of `My custom memo` running on relayer version `v2.5.2` would result in a transaction memo of `My custom memo | rly(v2.5.2)`.
+
    The `--memo` flag is also available for other `rly` commands also that involve sending transactions such as `rly tx link` and `rly start`. It can be passed there to override the `config.yaml` value if desired.
 
    To omit the memo entirely, including the default value of `rly(VERSION)`, use `-` for the memo.
 
 3. **Configure the chains you want to relay between.**
-   
-   In our example, we will configure the relayer to operate on the canonical path between the Cosmos Hub and Osmosis.  
+
+   In our example, we will configure the relayer to operate on the canonical path between the Cosmos Hub and Osmosis.
    <br>
    The `rly chains add` command fetches chain meta-data from the [chain-registry](https://github.com/cosmos/chain-registry) and adds it to your config file.
-   
+
    ```shell
    $ rly chains add cosmoshub osmosis
    ```
-       
-   Adding chains from the chain-registry randomly selects an RPC address from the registry entry.  
-   If you are running your own node, manually go into the config and adjust the `rpc-addr` setting.  
 
-   > NOTE: `rly chains add` will check the liveliness of the available RPC endpoints for that chain in the chain-registry.   
+   Adding chains from the chain-registry randomly selects an RPC address from the registry entry.
+   If you are running your own node, manually go into the config and adjust the `rpc-addr` setting.
+
+   > NOTE: `rly chains add` will check the liveliness of the available RPC endpoints for that chain in the chain-registry.
    > It is possible that the command will fail if none of these RPC endpoints are available. In this case, you will want to manually add the chain config.
 
    To add the chain config files manually, example config files have been included [here](https://github.com/cosmos/relayer/tree/main/docs/example-configs/)
@@ -93,18 +94,18 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/cosmoshub-4.json cosmoshub
    $ rly chains add --url https://raw.githubusercontent.com/cosmos/relayer/main/docs/example-configs/osmosis-1.json osmosis
    ```
-   
+
 4. **Import OR create new keys for the relayer to use when signing and relaying transactions.**
 
-   >`key-name` is an identifier of your choosing.    
+   >`key-name` is an identifier of your choosing.
 
    If you need to generate a new private key you can use the `add` subcommand.
 
     ```shell
-    $ rly keys add cosmoshub [key-name]  
-    $ rly keys add osmosis [key-name]  
+    $ rly keys add cosmoshub [key-name]
+    $ rly keys add osmosis [key-name]
     ```
-  
+
    If you already have a private key and want to restore it from your mnemonic you can use the `restore` subcommand.
 
    ```shell
@@ -115,18 +116,18 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 5. **Use the `key-name` created above.**
 
    >This step is necessary if you chose a `key-name` other than "default"
-   
+
     ```shell
-    $ rly keys use cosmoshub [key-name]  
-    $ rly keys use osmosis [key-name]  
+    $ rly keys use cosmoshub [key-name]
+    $ rly keys use osmosis [key-name]
     ```
 
 6. **Ensure the keys associated with the configured chains are funded.**
 
-   >Your configured addresses will need to contain some of the respective native tokens for paying relayer fees.  
-   
+   >Your configured addresses will need to contain some of the respective native tokens for paying relayer fees.
+
    <br>
-   You can query the balance of each configured key by running:  
+   You can query the balance of each configured key by running:
 
    ```shell
    $ rly q balance cosmoshub
@@ -135,7 +136,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 
 7. **Configure path meta-data in config file.**
    <br>
-   We have the chain meta-data configured, now we need path meta-data. For more info on `path` terminology visit [here](docs/troubleshooting.md).  
+   We have the chain meta-data configured, now we need path meta-data. For more info on `path` terminology visit [here](docs/troubleshooting.md).
    >NOTE: Thinking of chains in the config as "source" and "destination" can be confusing. Be aware that most path are bi-directional.
 
    <br>
@@ -145,22 +146,22 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
      ```shell
      $ rly paths fetch
      ```
-   > **NOTE:** Don't see the path metadata for paths you want to relay on?   
+   > **NOTE:** Don't see the path metadata for paths you want to relay on?
    > Please open a PR to add this metadata to the GitHub repo!
 
 8. #### **Configure the channel filter.**
-   
-   By default, the relayer will relay packets over all channels on a given connection.  
+
+   By default, the relayer will relay packets over all channels on a given connection.
    <br>
-   Each path has a `src-channel-filter` which you can utilize to specify which channels you would like to relay on.   
+   Each path has a `src-channel-filter` which you can utilize to specify which channels you would like to relay on.
    <br>
-   The `rule` can be one of three values:  
+   The `rule` can be one of three values:
    - `allowlist` which tells the relayer to relay on _ONLY_ the channels in `channel-list`
    - `denylist` which tells the relayer to relay on all channels _BESIDES_ the channels in `channel-list`
-   - empty value, which is the default setting, and tells the relayer to relay on all channels    
+   - empty value, which is the default setting, and tells the relayer to relay on all channels
    <br>
-   
-   Since we are only worried about the canonical channel between the Cosmos Hub and Osmosis our filter settings would look like the following.  
+
+   Since we are only worried about the canonical channel between the Cosmos Hub and Osmosis our filter settings would look like the following.
    <br>
    Example:
    ```yaml
@@ -175,9 +176,9 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
           connection-id: connection-1
       src-channel-filter:
               rule: allowlist
-              channel-list: [channel-141]  
+              channel-list: [channel-141]
    ```
-   
+
    >Because two channels between chains are tightly coupled, there is no need to specify the dst channels.
    >If you only know the "dst" channel-ID you can query the "src" channel-ID by running: `rly q channel <dst_chain_name> <dst_channel_id> <port> | jq '.channel.counterparty.channel_id'`
 
@@ -189,9 +190,9 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
      $ rly paths list
      $ rly start [path]
      # Optionally you can omit the `path` argument to start all configured paths
-     $ rly start 
+     $ rly start
      ```
-   
+
     >When running multiple instances of `rly start`, you will need to use the `--debug-addr` flag and provide an address:port. You can also pass an empty string `''`  to turn off this feature or pass `localhost:0` to randomly select a port.
 
     ---

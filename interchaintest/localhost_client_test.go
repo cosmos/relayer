@@ -202,7 +202,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 		func() {
 			err := r.StopRelayer(ctx, eRep)
 			if err != nil {
-				panic(fmt.Errorf("an error occured while stopping the relayer: %s", err))
+				panic(fmt.Errorf("an error occurred while stopping the relayer: %s", err))
 			}
 		},
 	)
@@ -399,7 +399,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		func() {
 			err := r.StopRelayer(ctx, eRep)
 			if err != nil {
-				panic(fmt.Errorf("an error occured while stopping the relayer: %s", err))
+				panic(fmt.Errorf("an error occurred while stopping the relayer: %s", err))
 			}
 		},
 	)
@@ -449,7 +449,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	icaAddr := parseInterchainAccountField(stdout)
 	require.NotEmpty(t, icaAddr)
 
-	// asser the ICA balance, send some funds to the ICA, then re-assert balances
+	// assert the ICA balance, send some funds to the ICA, then re-assert balances
 	icaBal, err := chainA.GetBalance(ctx, icaAddr, chainA.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, sdkmath.ZeroInt().Equal(icaBal))
