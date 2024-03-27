@@ -538,7 +538,12 @@ func (ccp *CosmosChainProcessor) CollectMetrics(ctx context.Context, persistence
 
 	// Wait a while before updating the balance
 	if time.Since(persistence.lastBalanceUpdate) > persistence.balanceUpdateWaitDuration {
-		ccp.CurrentRelayerBalance(ctx)
+		err := ccp.CurrentRelayerBalance(ctx)
+		if err != nil {
+			ccp.log.Error(fmt.Sprintf("Failed to update wallet balance metric. Will retry in %v.", persistence.balanceUpdateWaitDuration),
+				zap.Error(err))
+			return
+		}
 		persistence.lastBalanceUpdate = time.Now()
 	}
 }
@@ -547,7 +552,7 @@ func (ccp *CosmosChainProcessor) CurrentBlockHeight(ctx context.Context, persist
 	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
 }
 
-func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
+func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) error {
 	// memoize the current gas prices to only show metrics for "interesting" denoms
 	gasPrice := ccp.chainProvider.PCfg.GasPrices
 
@@ -559,10 +564,7 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 
 		gp, err := sdk.ParseDecCoins(gasPrice)
 		if err != nil {
-			ccp.log.Error(
-				"Failed to parse gas prices",
-				zap.Error(err),
-			)
+			return fmt.Errorf("failed to parse gas prices: %w", err)
 		}
 		ccp.parsedGasPrices = &gp
 	}
@@ -570,17 +572,11 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	// Get the balance for the chain provider's key
 	relayerWalletBalances, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
 	if err != nil {
-		ccp.log.Error(
-			"Failed to query relayer balance",
-			zap.Error(err),
-		)
+		return fmt.Errorf("failed to query relayer balance: %w", err)
 	}
 	address, err := ccp.chainProvider.Address()
 	if err != nil {
-		ccp.log.Error(
-			"Failed to get relayer bech32 wallet addresss",
-			zap.Error(err),
-		)
+		return fmt.Errorf("failed to get relayer bech32 address: %w", err)
 	}
 
 	// Print the relevant gas prices
@@ -591,4 +587,5 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 		f, _ := big.NewFloat(0.0).SetInt(bal.BigInt()).Float64()
 		ccp.metrics.SetWalletBalance(ccp.chainProvider.ChainId(), gasPrice, ccp.chainProvider.Key(), address, gasDenom.Denom, f)
 	}
+	return nil
 }

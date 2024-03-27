@@ -1,0 +1,35 @@
+name: chores
+
+on:
+  pull_request:
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gaurav-nelson/github-action-markdown-link-check@1.0.15
+
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run codespell
+        continue-on-error: true
+        run: |
+          # .codespellrc is used
+          sudo apt-get install codespell -y
+          codespell -w --config .codespellrc
+          exit $?
+
+  pr-title-format:
+    name: Lint PR Title
+    permissions:
+      pull-requests: read
+      statuses: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5.4.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

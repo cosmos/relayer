@@ -124,7 +124,7 @@ func (r SendMsgsResult) PartiallySent() bool {
 		(r.SrcSendError != nil || r.DstSendError != nil)
 }
 
-// Error returns any accumulated erors that occurred while sending messages.
+// Error returns any accumulated errors that occurred while sending messages.
 func (r SendMsgsResult) Error() error {
 	return multierr.Append(r.SrcSendError, r.DstSendError)
 }

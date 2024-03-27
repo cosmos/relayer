@@ -118,7 +118,7 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 		func() {
 			err := r.StopRelayer(ctx, eRep)
 			if err != nil {
-				panic(fmt.Errorf("an error occured while stopping the relayer: %s", err))
+				panic(fmt.Errorf("an error occurred while stopping the relayer: %s", err))
 			}
 		},
 	)

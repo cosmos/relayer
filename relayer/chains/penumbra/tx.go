@@ -935,7 +935,7 @@ func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour 
 	return NewPenumbraMessage(msg), nil
 }
 
-// mustGetHeight takes the height inteface and returns the actual height
+// mustGetHeight takes the height interface and returns the actual height
 func mustGetHeight(h ibcexported.Height) clienttypes.Height {
 	height, ok := h.(clienttypes.Height)
 	if !ok {

@@ -379,7 +379,7 @@ func (cc *CosmosProvider) QueryTendermintProof(ctx context.Context, height int64
 	// ABCI queries at heights 1, 2 or less than or equal to 0 are not supported.
 	// Base app does not support queries for height less than or equal to 1.
 	// Therefore, a query at height 2 would be equivalent to a query at height 3.
-	// A height of 0 will query with the lastest state.
+	// A height of 0 will query with the latest state.
 	if height != 0 && height <= 2 {
 		return nil, nil, clienttypes.Height{}, fmt.Errorf("proof queries at height <= 2 are not supported")
 	}

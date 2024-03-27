@@ -1,6 +1,6 @@
 # Troubleshooting
 
-- [Generic Troubleshooting](#generic-troubleshoot)
+- [Generic Troubleshooting](#generic-troubleshooting)
 - [Inspect Go Runtime Debug Data](#inspect-go-runtime-debug-data)
 - [Specific Errors](#specific-errors)
 
@@ -14,12 +14,12 @@
 
 ### **Ensure `rly` package is properly installed**
 
-   Run: 
+   Run:
    ```shell
    $ rly version
    ```
 
-   If this returns an error, make sure you have Go installed and your Go environment is setup. Then redo [Step 1](#basic-usage---relaying-packets-across-chains).
+   If this returns an error, make sure you have Go installed and your Go environment is setup. Then redo [Step 1](../README.md#basic-usage---relaying-packets-across-chains).
 
 
 ### **Verify valid `keys`, `balance`, and `path`**
@@ -131,7 +131,7 @@ A workaround is available in which the `min-gas-amount` may be set in the chain'
 <summary>invalid header: new header has a time from the future</summary>
 
 <br>
-This is most likely an rpc issue. 
+This is most likely an rpc issue.
 The latest block time on the source and destination chain have likely drifted apart.
 
 You can confirm by this by checking the latest block time on each chain:

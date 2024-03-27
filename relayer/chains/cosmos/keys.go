@@ -226,7 +226,7 @@ func CreateMnemonic() (string, error) {
 }
 
 // EncodeBech32AccAddr returns the string bech32 representation for the specified account address.
-// It returns an empty sting if the byte slice is 0-length.
+// It returns an empty string if the byte slice is 0-length.
 // It returns an error if the bech32 conversion fails or the prefix is empty.
 func (cc *CosmosProvider) EncodeBech32AccAddr(addr sdk.AccAddress) (string, error) {
 	return sdk.Bech32ifyAddressBytes(cc.PCfg.AccountPrefix, addr)
