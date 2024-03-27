@@ -324,7 +324,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 
 	err = func() error {
 		//done := cc.SetSDKContext()
-		// ensure that we allways call done, even in case of an error or panic
+		// ensure that we always call done, even in case of an error or panic
 		//defer done()
 
 		if err = tx.Sign(ctx, txf, signingKey, txb, false); err != nil {
@@ -439,7 +439,7 @@ func (cc *CosmosProvider) waitForTx(
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-				//Call each callback in order since waitForTx is already invoked asyncronously
+				//Call each callback in order since waitForTx is already invoked asynchronously
 				cb(nil, err)
 			}
 		}
@@ -467,7 +467,7 @@ func (cc *CosmosProvider) waitForTx(
 		}
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-				//Call each callback in order since waitForTx is already invoked asyncronously
+				//Call each callback in order since waitForTx is already invoked asynchronously
 				cb(nil, err)
 			}
 		}
@@ -477,7 +477,7 @@ func (cc *CosmosProvider) waitForTx(
 
 	if len(callbacks) > 0 {
 		for _, cb := range callbacks {
-			//Call each callback in order since waitForTx is already invoked asyncronously
+			//Call each callback in order since waitForTx is already invoked asynchronously
 			cb(rlyResp, nil)
 		}
 	}

@@ -22,7 +22,7 @@ Exported metrics:
 | cosmos_relayer_client_expiration_seconds      	| Seconds until the client expires                                                                                                                                                                                             	|   Gauge 	|
 | cosmos_relayer_client_trusting_period_seconds 	| The trusting period (in seconds) of the client                                                                                                                                                                               	|   Gauge   |
 | cosmos_relayer_unrelayed_packets                  | Current number of unrelayed packet sequences on a specific path and channel. This is updated after each flush (default is  5 min)                                                                                             |   Gauge   |
-| cosmos_relayer_unrelayed_acks                     | Current number of unrelayed acknoledgment sequences on a specific path and channel. This is updated after each flush (default is 5 min)                                                                                       |   Gauge   |
+| cosmos_relayer_unrelayed_acks                     | Current number of unrelayed acknowledgment sequences on a specific path and channel. This is updated after each flush (default is 5 min)                                                                                       |   Gauge   |
 
 
 
@@ -31,7 +31,7 @@ Exported metrics:
 
 ## Auto Update Light Client
 
-By default, the Relayer will automatically update clients (`MsgUpdateClient`) if the client has <= 1/3 of its trusting period left. 
+By default, the Relayer will automatically update clients (`MsgUpdateClient`) if the client has <= 1/3 of its trusting period left.
 
 > NOTE: The trusting period of the corresponding client is restored with each transaction a relayer relays. In other words, every time a relayer relays a message, it also sends a `MsgUpdateClient` message restarting the time to the clients expiration.*
 
@@ -49,8 +49,8 @@ Example:
 Selecting a time-threshold that is greater than 2/3 of the client trusting period will deem itself useless.
 
 Use cases for configuring the `--time-threshold` flag:
-- The underlying chain node that the relayer is using as an endpoint has restrictive pruning. Client updates are needed more frequently since states 2/3 trusting period ago would not be available due to pruning.  
-- Mitiage relayer operational errors allowing more frequent updates incase a relayer node goes down for > the client trusting period.
+- The underlying chain node that the relayer is using as an endpoint has restrictive pruning. Client updates are needed more frequently since states 2/3 trusting period ago would not be available due to pruning.
+- Mitiage relayer operational errors allowing more frequent updates in case a relayer node goes down for > the client trusting period.
 
 \* It is not mandatory for relayers to include the `MsgUpdateClient` when relaying packets, however most, if not all relayers currently do.
 

@@ -17,11 +17,11 @@ cd examples/demo/
 ./dev-env
 ```
 
-This script creates a folder called "data": `examples/demo/data/`. 
+This script creates a folder called "data": `examples/demo/data/`.
 Logs and config info for each chain can be found here.
 
 
-Note: After running, two `gaiad` instances will be running on your machine. 
+Note: After running, two `gaiad` instances will be running on your machine.
 To kill ALL `gaiad` instances run:
 ```bash
 killall gaiad
@@ -40,4 +40,4 @@ This is an example of a config file with:
 
 ---
 
-[<-- Pruning Settings](../node_pruning.md)
+[<-- Pruning Settings](../docs/node_pruning.md)

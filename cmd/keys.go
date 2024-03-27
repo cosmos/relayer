@@ -73,7 +73,7 @@ $ %s keys use ibc-0 key_name`, appName)),
 	return cmd
 }
 
-// keysAddCmd respresents the `keys add` command
+// keysAddCmd represents the `keys add` command
 func keysAddCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add chain_name key_name",
@@ -143,7 +143,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 	return cmd
 }
 
-// keysRestoreCmd respresents the `keys add` command
+// keysRestoreCmd represents the `keys add` command
 func keysRestoreCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "restore chain_name key_name mnemonic",
@@ -265,7 +265,7 @@ $ %s k r demo-key "[mnemonic-words]" --restore-all`, appName, appName, appName))
 	return cmd
 }
 
-// keysDeleteCmd respresents the `keys delete` command
+// keysDeleteCmd represents the `keys delete` command
 func keysDeleteCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete chain_name key_name",
@@ -326,7 +326,7 @@ func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 	}
 }
 
-// keysListCmd respresents the `keys list` command
+// keysListCmd represents the `keys list` command
 func keysListCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list chain_name",
@@ -364,7 +364,7 @@ $ %s k l ibc-1`, appName, appName)),
 	return cmd
 }
 
-// keysExportCmd respresents the `keys export` command
+// keysExportCmd represents the `keys export` command
 func keysExportCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "export chain_name key_name",
@@ -425,7 +425,7 @@ func (a *appState) showAddressByChainAndKey(cmd *cobra.Command, args []string) e
 	return nil
 }
 
-// keysShowCmd respresents the `keys show` command
+// keysShowCmd represents the `keys show` command
 func keysShowCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show chain_name [key_name]",
