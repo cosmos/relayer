@@ -53,6 +53,7 @@ func queryCmd(a *appState) *cobra.Command {
 		queryIBCDenoms(a),
 		queryBaseDenomFromIBCDenom(a),
 		feegrantQueryCmd(a),
+		queryIBCDenomHash(a),
 	)
 
 	return cmd
@@ -123,7 +124,37 @@ $ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D9
 			if !ok {
 				return errChainNotFound(args[0])
 			}
+
 			res, err := c.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), res)
+			return nil
+		},
+	}
+	cmd = addOutputFlag(a.viper, cmd)
+	return cmd
+}
+
+func queryIBCDenomHash(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "denom-hash chain_id trace",
+		Short: "query the denom hash info from a given denom trace",
+		Args:  withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query denom-hash osmosis transfer/channel-0/uatom
+$ %s q denom-hash osmosis transfer/channel-0/uatom`,
+			appName, appName,
+		)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+
+			res, err := c.ChainProvider.QueryDenomHash(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}

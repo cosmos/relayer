@@ -1215,6 +1215,7 @@ func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*t
 	if err != nil {
 		return nil, err
 	}
+
 	return transfers.DenomTrace, nil
 }
 
@@ -1243,6 +1244,21 @@ func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit ui
 		p.Key = next
 	}
 	return transfers, nil
+}
+
+func (cc *CosmosProvider) QueryDenomHash(ctx context.Context, trace string) (string, error) {
+	qc := transfertypes.NewQueryClient(cc)
+
+	req := &transfertypes.QueryDenomHashRequest{
+		Trace: trace,
+	}
+
+	resp, err := qc.DenomHash(ctx, req, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Hash, nil
 }
 
 func (cc *CosmosProvider) QueryStakingParams(ctx context.Context) (*stakingtypes.Params, error) {
