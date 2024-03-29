@@ -506,10 +506,14 @@ func (m *FundingStream_ToCommunityPool) GetRateBps() uint32 {
 
 // Describes the reward and exchange rates and voting power for a validator in some epoch.
 type RateData struct {
-	IdentityKey           *v1.IdentityKey `protobuf:"bytes,1,opt,name=identity_key,json=identityKey,proto3" json:"identity_key,omitempty"`
-	EpochIndex            uint64          `protobuf:"varint,2,opt,name=epoch_index,json=epochIndex,proto3" json:"epoch_index,omitempty"` // Deprecated: Do not use.
-	ValidatorRewardRate   *v11.Amount     `protobuf:"bytes,4,opt,name=validator_reward_rate,json=validatorRewardRate,proto3" json:"validator_reward_rate,omitempty"`
-	ValidatorExchangeRate *v11.Amount     `protobuf:"bytes,5,opt,name=validator_exchange_rate,json=validatorExchangeRate,proto3" json:"validator_exchange_rate,omitempty"`
+	IdentityKey         *v1.IdentityKey `protobuf:"bytes,1,opt,name=identity_key,json=identityKey,proto3" json:"identity_key,omitempty"`
+	EpochIndex          uint64          `protobuf:"varint,2,opt,name=epoch_index,json=epochIndex,proto3" json:"epoch_index,omitempty"` // Deprecated: Do not use.
+	ValidatorRewardRate *v11.Amount     `protobuf:"bytes,4,opt,name=validator_reward_rate,json=validatorRewardRate,proto3" json:"validator_reward_rate,omitempty"`
+	// The validator exchange rate between delegation tokens and staking tokens.
+	// The rate is expressed in fixed-point representation with a scaling factor
+	// of 10^8. For example, a decimal rate of `1.234` will be represented as
+	// `123400000`
+	ValidatorExchangeRate *v11.Amount `protobuf:"bytes,5,opt,name=validator_exchange_rate,json=validatorExchangeRate,proto3" json:"validator_exchange_rate,omitempty"`
 }
 
 func (m *RateData) Reset()         { *m = RateData{} }
