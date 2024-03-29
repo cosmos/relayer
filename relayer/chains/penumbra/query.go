@@ -854,6 +854,10 @@ func (cc *PenumbraProvider) QueryDenomTraces(ctx context.Context, offset, limit 
 	return transfers.DenomTraces, nil
 }
 
+func (cc *PenumbraProvider) QueryDenomHash(ctx context.Context, trace string) (string, error) {
+	panic("not implemented")
+}
+
 func (cc *PenumbraProvider) QueryStakingParams(ctx context.Context) (*stakingtypes.Params, error) {
 	res, err := stakingtypes.NewQueryClient(cc).Params(ctx, &stakingtypes.QueryParamsRequest{})
 	if err != nil {
