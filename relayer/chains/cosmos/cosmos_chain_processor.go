@@ -488,6 +488,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
 			i = persistence.latestHeight
 			ccp.log.Debug("Parsed stuck packet height, skipping to current")
+			newLatestQueriedBlock, err = ccp.latestHeightWithRetry(ctx)
+			if err != nil {
+				ccp.log.Error("Failed to query node height after max attempts. Consider checking endpoint and retyring for stuck packets")
+				return err
+			}
 		}
 	}
 
