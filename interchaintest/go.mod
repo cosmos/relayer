@@ -13,7 +13,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.12
 	github.com/cosmos/ibc-go/modules/capability v1.0.0
-	github.com/cosmos/ibc-go/v8 v8.1.1
+	github.com/cosmos/ibc-go/v8 v8.2.0
 	github.com/cosmos/relayer/v2 v2.0.0
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/google/uuid v1.6.0
