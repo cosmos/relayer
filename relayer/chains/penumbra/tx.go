@@ -261,7 +261,7 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	}
 
 	// TODO: this will need to be replaced with an RPC call to the SCT query service once it exists
-	path := fmt.Sprintf("sct/tree/anchor/%d", height)
+	path := fmt.Sprintf("sct/tree/anchor_by_height/%d", height)
 
 	req := abci.RequestQuery{
 		Path:   "state/key",
