@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -315,7 +316,11 @@ func (cc *CosmosProvider) QueryBalanceWithAddress(ctx context.Context, address s
 	return coins, nil
 }
 
-func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace string, key string) (time.Duration, error) {
+func (cc *CosmosProvider) queryParamsSubspaceTime(
+	ctx context.Context,
+	subspace string,
+	key string,
+) (time.Duration, error) {
 	queryClient := proposal.NewQueryClient(cc)
 
 	params := proposal.QueryParamsRequest{Subspace: subspace, Key: key}
@@ -335,6 +340,14 @@ func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace 
 		return 0, fmt.Errorf("failed to parse %s from %s param: %w", key, subspace, err)
 	}
 
+	if unbondingValue > math.MaxInt64 {
+		return 0, fmt.Errorf("value %d is too large to be converted to time.Duration", unbondingValue)
+	}
+
+	if unbondingValue <= 0 {
+		return 0, fmt.Errorf("value %d cannot be less than or equal to zero, unbonding period must be a positive value ", unbondingValue)
+	}
+
 	return time.Duration(unbondingValue), nil
 }
 
@@ -347,7 +360,7 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 		return consumerUnbondingPeriod, nil
 	}
 
-	//Attempt Staking query.
+	// Attempt Staking query.
 	unbondingPeriod, stakingParamsErr := cc.queryParamsSubspaceTime(ctx, "staking", "UnbondingTime")
 	if stakingParamsErr == nil {
 		return unbondingPeriod, nil
