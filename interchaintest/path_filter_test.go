@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	sdkmath "cosmossdk.io/math"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -28,8 +29,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
-		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "gaia", Version: "v14.1.0", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "osmosis", Version: "v22.0.0", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -84,8 +85,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	})
 
 	// Create and Fund User Wallets
-	fundAmount := int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", initBal, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
@@ -100,7 +101,7 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	)
 
 	// Send Transaction
-	amountToSend := int64(1_000_000)
+	amountToSend := sdkmath.NewInt(1_000_000)
 	gaiaDstAddress := gaiaUser.FormattedAddressWithPrefix(osmosis.Config().Bech32Prefix)
 	osmosisDstAddress := osmosisUser.FormattedAddressWithPrefix(gaia.Config().Bech32Prefix)
 
@@ -159,11 +160,11 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	// Test destination wallets have increased funds
 	gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
 	require.NoError(t, err)
-	require.Equal(t, amountToSend, gaiaIBCBalance)
+	require.True(t, amountToSend.Equal(gaiaIBCBalance))
 
 	osmosisIBCBalance, err := gaia.GetBalance(ctx, osmosisDstAddress, osmosisIbcDenom)
 	require.NoError(t, err)
-	require.Equal(t, amountToSend, osmosisIBCBalance)
+	require.True(t, amountToSend.Equal(osmosisIBCBalance))
 }
 
 // TestScenarioPathFilterDeny tests the channel denylist
@@ -175,8 +176,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
-		{Name: "osmosis", Version: "v11.0.1", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "gaia", Version: "v14.1.0", NumValidators: &nv, NumFullNodes: &nf},
+		{Name: "osmosis", Version: "v22.0.0", NumValidators: &nv, NumFullNodes: &nf},
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -230,8 +231,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	})
 
 	// Create and Fund User Wallets
-	fundAmount := int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", int64(fundAmount), gaia, osmosis)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, "default", initBal, gaia, osmosis)
 
 	gaiaUser, osmosisUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet)
 
@@ -246,7 +247,7 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	)
 
 	// Send Transaction
-	amountToSend := int64(1_000_000)
+	amountToSend := sdkmath.NewInt(1_000_000)
 	gaiaDstAddress := gaiaUser.FormattedAddressWithPrefix(osmosis.Config().Bech32Prefix)
 	osmosisDstAddress := osmosisUser.FormattedAddressWithPrefix(gaia.Config().Bech32Prefix)
 
@@ -317,9 +318,9 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	// Test destination wallets do not have increased funds
 	gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
 	require.NoError(t, err)
-	require.Equal(t, int64(0), gaiaIBCBalance)
+	require.True(t, sdkmath.ZeroInt().Equal(gaiaIBCBalance))
 
 	osmosisIBCBalance, err := gaia.GetBalance(ctx, osmosisDstAddress, osmosisIbcDenom)
 	require.NoError(t, err)
-	require.Equal(t, int64(0), osmosisIBCBalance)
+	require.True(t, sdkmath.ZeroInt().Equal(osmosisIBCBalance))
 }

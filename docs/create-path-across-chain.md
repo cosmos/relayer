@@ -32,7 +32,9 @@ In our "Relaying Packets Across Chains" example, we set up the relayer to relay 
     - `rly transact connection`
     - `rly transact channel`
 
-    <br>
+   <br>
+   
+    One can add the ` --version "{\"fee_version\":\"ics29-1\",\"app_version\":\"ics20-1\"}" ` flag to the `link` transaction in order to create a channel that supports the [ICS-29](https://github.com/cosmos/ibc/tree/main/spec/app/ics-029-fee-payment) fee protocol standard.
 
     All the above commands will update your config with the new path meta-data EXCEPT the new channel-id, which will be printed in stdout. 
 

@@ -3,6 +3,7 @@ global:
     timeout: 10s
     memo: ""
     light-cache-size: 20
+    log-level: "info"
 chains:
     cosmoshub:
         type: cosmos

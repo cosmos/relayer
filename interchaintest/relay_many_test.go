@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	sdkmath "cosmossdk.io/math"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -34,14 +35,14 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
-			Version:       "v7.0.3",
+			Version:       "v14.1.0",
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
 		{
 			Name:          "osmosis",
 			ChainName:     "osmosis",
-			Version:       "v11.0.1",
+			Version:       "v22.0.0",
 			NumValidators: &nv,
 			NumFullNodes:  &nf,
 		},
@@ -112,8 +113,8 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	)
 
 	// Fund user accounts, so we can query balances and make assertions.
-	const userFunds = int64(10_000_000)
-	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), userFunds, gaia, osmosis, juno)
+	initBal := sdkmath.NewInt(10_000_000)
+	users := interchaintest.GetAndFundTestUsers(t, ctx, t.Name(), initBal, gaia, osmosis, juno)
 	gaiaUser, osmosisUser, junoUser := users[0].(*cosmos.CosmosWallet), users[1].(*cosmos.CosmosWallet), users[2].(*cosmos.CosmosWallet)
 
 	// Wait a few blocks for user accounts to be created on chain.
@@ -141,7 +142,7 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 
 	var eg errgroup.Group
 
-	const transferAmount = int64(1_000_000)
+	transferAmount := sdkmath.NewInt(1_000_000)
 
 	eg.Go(func() error {
 		osmosisHeight, err := osmosis.Height(ctx)
@@ -183,11 +184,9 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 
 	osmosisOnGaiaBalance, err := gaia.GetBalance(ctx, gaiaAddress, osmosisIBCDenom)
 	require.NoError(t, err)
-
-	require.Equal(t, transferAmount, osmosisOnGaiaBalance)
+	require.True(t, transferAmount.Equal(osmosisOnGaiaBalance))
 
 	junoOnGaiaBalance, err := gaia.GetBalance(ctx, gaiaAddress, junoIBCDenom)
 	require.NoError(t, err)
-
-	require.Equal(t, transferAmount, junoOnGaiaBalance)
+	require.True(t, transferAmount.Equal(junoOnGaiaBalance))
 }

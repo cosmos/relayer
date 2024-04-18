@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"testing"
 
+	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -33,8 +35,22 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		// Two otherwise identical chains that only differ by ChainName and ChainID.
-		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
-		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
+		{
+			Name:          "gaia",
+			ChainName:     "g0",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g0ChainId},
+		},
+		{
+			Name:          "gaia",
+			ChainName:     "g1",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g1ChainId},
+		},
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -118,22 +134,42 @@ func TestScenarioClientThresholdUpdate(t *testing.T) {
 
 	g1ClientID := g1Conns[0].ClientID
 
+	updateFound := func(found *clienttypes.MsgUpdateClient) bool {
+		return found != nil
+	}
+
 	var eg errgroup.Group
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g0, g0Height, g0Height+heightOffset)
+		msg, err := cosmos.PollForMessage(
+			ctx,
+			g0.(*cosmos.CosmosChain),
+			g0.Config().EncodingConfig.InterfaceRegistry,
+			g0Height,
+			g0Height+heightOffset,
+			updateFound,
+		)
 		if err != nil {
-			return fmt.Errorf("first chain: %w", err)
+			return fmt.Errorf("MsgUpdateClient not found for chain %s", g0.Config().ChainID)
 		}
+
 		if msg.ClientId != g0ClientID {
 			return fmt.Errorf("first chain: unexpected client id, want %s, got %s", g0ClientID, msg.ClientId)
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		msg, err := pollForUpdateClient(ctx, g1, g1Height, g1Height+heightOffset)
+		msg, err := cosmos.PollForMessage(
+			ctx,
+			g1.(*cosmos.CosmosChain),
+			g1.Config().EncodingConfig.InterfaceRegistry,
+			g1Height,
+			g1Height+heightOffset,
+			updateFound,
+		)
 		if err != nil {
-			return fmt.Errorf("second chain: %w", err)
+			return fmt.Errorf("MsgUpdateClient not found for chain %s", g1.Config().ChainID)
 		}
+
 		if msg.ClientId != g1ClientID {
 			return fmt.Errorf("second chain: unexpected client id, want %s, got %s", g1ClientID, msg.ClientId)
 		}
@@ -155,8 +191,22 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	// Chain Factory
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		// Two otherwise identical chains that only differ by ChainID.
-		{Name: "gaia", ChainName: "g0", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g0ChainId}},
-		{Name: "gaia", ChainName: "g1", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: g1ChainId}},
+		{
+			Name:          "gaia",
+			ChainName:     "g0",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g0ChainId},
+		},
+		{
+			Name:          "gaia",
+			ChainName:     "g1",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: g1ChainId},
+		},
 	})
 
 	chains, err := cf.Chains(t.Name())
@@ -242,19 +292,32 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 
 	g1ClientID := g1Conns[0].ClientID
 
+	updateFound := func(found *clienttypes.MsgUpdateClient) bool {
+		return found != nil
+	}
+
 	var eg errgroup.Group
 	eg.Go(func() error {
 		updatedG0Height, err := g0.Height(g0Ctx)
 		require.NoError(t, err)
 		logger.Info("G0 Chain height (2)", zap.String("g0 chainID", g0.Config().ChainID), zap.Uint64("g0 height", updatedG0Height))
 
-		msg, err := pollForUpdateClient(g0Ctx, g0, updatedG0Height, updatedG0Height+heightOffset)
+		msg, err := cosmos.PollForMessage(
+			ctx,
+			g0.(*cosmos.CosmosChain),
+			g0.Config().EncodingConfig.InterfaceRegistry,
+			updatedG0Height,
+			updatedG0Height+heightOffset,
+			updateFound,
+		)
 		if err != nil {
-			return fmt.Errorf("first chain: %w", err)
+			return fmt.Errorf("MsgUpdateClient not found for chain %s", g0.Config().ChainID)
 		}
+
 		if msg.ClientId != g0ClientID {
 			return fmt.Errorf("first chain: unexpected client id, want %s, got %s", g0ClientID, msg.ClientId)
 		}
+
 		return nil
 	})
 	eg.Go(func() error {
@@ -262,10 +325,18 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 		require.NoError(t, err)
 		logger.Info("G1 Chain height (2)", zap.String("g1 chainID", g1.Config().ChainID), zap.Uint64("g1 height", updatedG1Height))
 
-		msg, err := pollForUpdateClient(g1Ctx, g1, updatedG1Height, updatedG1Height+heightOffset)
+		msg, err := cosmos.PollForMessage(
+			ctx,
+			g1.(*cosmos.CosmosChain),
+			g1.Config().EncodingConfig.InterfaceRegistry,
+			updatedG1Height,
+			updatedG1Height+heightOffset,
+			updateFound,
+		)
 		if err != nil {
-			return fmt.Errorf("second chain: %w", err)
+			return fmt.Errorf("MsgUpdateClient not found for chain %s", g1.Config().ChainID)
 		}
+
 		if msg.ClientId != g1ClientID {
 			return fmt.Errorf("second chain: unexpected client id, want %s, got %s", g1ClientID, msg.ClientId)
 		}

@@ -5,27 +5,17 @@ import (
 	"math"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
+	authTx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
 )
-
-type mockAccountSequenceMismatchError struct {
-	Expected uint64
-	Actual   uint64
-}
-
-// func TestHandleAccountSequenceMismatchError(t *testing.T) {
-// 	p := &CosmosProvider{}
-// 	ws := &WalletState{}
-// 	p.handleAccountSequenceMismatchError(ws, mockAccountSequenceMismatchError{Actual: 9, Expected: 10})
-// 	require.Equal(t, ws.NextAccountSequence, uint64(10))
-// }
 
 func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 	testCases := []struct {
@@ -95,19 +85,51 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 	}
 }
 
-func (err mockAccountSequenceMismatchError) Error() string {
-	return fmt.Sprintf("account sequence mismatch, expected %d, got %d: incorrect account sequence", err.Expected, err.Actual)
+func TestSetWithExtensionOptions(t *testing.T) {
+	cc := &CosmosProvider{PCfg: CosmosProviderConfig{
+		ExtensionOptions: []provider.ExtensionOption{
+			{Value: "1000000000"},
+			{Value: "2000000000"},
+		},
+	}}
+
+	cfg := makeMockTxConfig()
+	txf := tx.Factory{}.
+		WithChainID("chainID").
+		WithTxConfig(cfg)
+	updatedTxf, err := cc.SetWithExtensionOptions(txf)
+	require.NoError(t, err)
+	txb, err := updatedTxf.BuildUnsignedTx()
+	require.NoError(t, err)
+	extOptions := txb.(*mockTxBuilder).extOptions
+	actualNumExtOptions := len(extOptions)
+	expectedNumExtOptions := len(cc.PCfg.ExtensionOptions)
+	require.Equal(t, expectedNumExtOptions, actualNumExtOptions)
+	// Check that each extension option was added with the correct type URL and value
+	for i, opt := range cc.PCfg.ExtensionOptions {
+		expectedTypeURL := "/ethermint.types.v1.ExtensionOptionDynamicFeeTx"
+		max, ok := sdkmath.NewIntFromString(opt.Value)
+		require.True(t, ok)
+		expectedValue, err := (&ethermint.ExtensionOptionDynamicFeeTx{
+			MaxPriorityPrice: max,
+		}).Marshal()
+		require.NoError(t, err)
+		actualTypeURL := extOptions[i].TypeUrl
+		actualValue := extOptions[i].Value
+		require.Equal(t, expectedTypeURL, actualTypeURL)
+		require.Equal(t, expectedValue, actualValue)
+	}
 }
 
 type mockTxConfig struct {
-	legacytx.StdTxConfig
+	client.TxConfig
 	txBuilder *mockTxBuilder
 }
 
 func (cfg mockTxConfig) NewTxBuilder() client.TxBuilder {
 	if cfg.txBuilder == nil {
 		cfg.txBuilder = &mockTxBuilder{
-			TxBuilder: cfg.StdTxConfig.NewTxBuilder(),
+			TxBuilder: cfg.TxConfig.NewTxBuilder(),
 		}
 	}
 	return cfg.txBuilder
@@ -122,36 +144,14 @@ func (b *mockTxBuilder) SetExtensionOptions(extOpts ...*types.Any) {
 	b.extOptions = extOpts
 }
 
-func TestSetWithExtensionOptions(t *testing.T) {
-	cc := &CosmosProvider{PCfg: CosmosProviderConfig{
-		ExtensionOptions: []provider.ExtensionOption{
-			{Value: "1000000000"},
-			{Value: "2000000000"},
-		},
-	}}
-	txf := tx.Factory{}.
-		WithChainID("chainID").
-		WithTxConfig(mockTxConfig{})
-	updatedTxf, err := cc.SetWithExtensionOptions(txf)
-	require.NoError(t, err)
-	txb, err := updatedTxf.BuildUnsignedTx()
-	require.NoError(t, err)
-	extOptions := txb.(*mockTxBuilder).extOptions
-	actualNumExtOptions := len(extOptions)
-	expectedNumExtOptions := len(cc.PCfg.ExtensionOptions)
-	require.Equal(t, expectedNumExtOptions, actualNumExtOptions)
-	// Check that each extension option was added with the correct type URL and value
-	for i, opt := range cc.PCfg.ExtensionOptions {
-		expectedTypeURL := "/ethermint.types.v1.ExtensionOptionDynamicFeeTx"
-		max, ok := sdk.NewIntFromString(opt.Value)
-		require.True(t, ok)
-		expectedValue, err := (&ethermint.ExtensionOptionDynamicFeeTx{
-			MaxPriorityPrice: max,
-		}).Marshal()
-		require.NoError(t, err)
-		actualTypeURL := extOptions[i].TypeUrl
-		actualValue := extOptions[i].Value
-		require.Equal(t, expectedTypeURL, actualTypeURL)
-		require.Equal(t, expectedValue, actualValue)
+func makeTxConfig() client.TxConfig {
+	interfaceRegistry := testutil.CodecOptions{}.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(interfaceRegistry)
+	return authTx.NewTxConfig(cdc, authTx.DefaultSignModes)
+}
+
+func makeMockTxConfig() mockTxConfig {
+	return mockTxConfig{
+		TxConfig: makeTxConfig(),
 	}
 }

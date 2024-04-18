@@ -6,11 +6,11 @@ import (
 
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
-	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/conformance"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v7/relayer"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/conformance"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -22,10 +22,26 @@ import (
 //
 // The canonical set of test chains are defined in the interchaintest repository.
 func interchaintestConformance(t *testing.T, rf interchaintest.RelayerFactory) {
+	nf := 1
+	nv := 1
+
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
-		{Name: "gaia", Version: "v7.0.1", ChainConfig: ibc.ChainConfig{ChainID: "cosmoshub-1004"}},
-		{Name: "osmosis", Version: "v7.2.0", ChainConfig: ibc.ChainConfig{ChainID: "osmosis-1001"}},
+		{
+			Name:          "gaia",
+			Version:       "v14.1.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: "cosmoshub-1004"},
+		},
+		{
+			Name:          "osmosis",
+			Version:       "v22.0.0",
+			NumValidators: &nv,
+			NumFullNodes:  &nf,
+			ChainConfig:   ibc.ChainConfig{ChainID: "osmosis-1001"},
+		},
 	})
+
 	conformance.Test(
 		t,
 		context.Background(),

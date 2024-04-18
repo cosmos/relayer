@@ -4,20 +4,68 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	sdkmath "cosmossdk.io/math"
+	"cosmossdk.io/x/upgrade"
+	sdktest "github.com/cosmos/cosmos-sdk/types/module/testutil"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/cosmos-sdk/x/bank"
+	"github.com/cosmos/cosmos-sdk/x/consensus"
+	distr "github.com/cosmos/cosmos-sdk/x/distribution"
+	"github.com/cosmos/cosmos-sdk/x/genutil"
+	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	"github.com/cosmos/cosmos-sdk/x/gov"
+	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
+	"github.com/cosmos/cosmos-sdk/x/mint"
+	"github.com/cosmos/cosmos-sdk/x/params"
+	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
+	"github.com/cosmos/cosmos-sdk/x/slashing"
+	"github.com/cosmos/cosmos-sdk/x/staking"
+	"github.com/cosmos/ibc-go/modules/capability"
+	ica "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts"
+	icatypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/types"
+	"github.com/cosmos/ibc-go/v8/modules/apps/transfer"
+	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	ibccore "github.com/cosmos/ibc-go/v8/modules/core"
+	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v7"
-	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v7/ibc"
-	"github.com/strangelove-ventures/interchaintest/v7/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v7/testutil"
+	"github.com/strangelove-ventures/interchaintest/v8"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	ibcwasm "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos/08-wasm-types"
+	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
+
+func DefaultEncoding() sdktest.TestEncodingConfig {
+	return sdktest.MakeTestEncodingConfig(
+		auth.AppModuleBasic{},
+		genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
+		bank.AppModuleBasic{},
+		capability.AppModuleBasic{},
+		staking.AppModuleBasic{},
+		mint.AppModuleBasic{},
+		distr.AppModuleBasic{},
+		gov.NewAppModuleBasic(
+			[]govclient.ProposalHandler{
+				paramsclient.ProposalHandler,
+			},
+		),
+		params.AppModuleBasic{},
+		slashing.AppModuleBasic{},
+		upgrade.AppModuleBasic{},
+		consensus.AppModuleBasic{},
+		ica.AppModuleBasic{},
+		transfer.AppModuleBasic{},
+		ibccore.AppModuleBasic{},
+		ibctm.AppModuleBasic{},
+		ibcwasm.AppModuleBasic{},
+	)
+}
 
 func TestLocalhost_TokenTransfers(t *testing.T) {
 	if testing.Short() {
@@ -30,10 +78,10 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	numFullNodes := 0
 	image := ibc.DockerImage{
 		Repository: "ghcr.io/cosmos/ibc-go-simd",
-		Version:    "v7.1.0-rc0",
-		UidGid:     "",
+		Version:    "v8.0.0",
+		UidGid:     "100:1000",
 	}
-	cdc := cosmos.DefaultEncoding()
+	cdc := DefaultEncoding()
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
 			Name:          "ibc-go-simd",
@@ -42,18 +90,17 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 			NumValidators: &numVals,
 			NumFullNodes:  &numFullNodes,
 			ChainConfig: ibc.ChainConfig{
-				Type:                   "cosmos",
-				Name:                   "simd",
-				ChainID:                "chain-a",
-				Images:                 []ibc.DockerImage{image},
-				Bin:                    "simd",
-				Bech32Prefix:           "cosmos",
-				Denom:                  "stake",
-				CoinType:               "118",
-				GasPrices:              "0.0stake",
-				GasAdjustment:          1.1,
-				EncodingConfig:         &cdc,
-				UsingNewGenesisCommand: true,
+				Type:           "cosmos",
+				Name:           "simd",
+				ChainID:        "chain-a",
+				Images:         []ibc.DockerImage{image},
+				Bin:            "simd",
+				Bech32Prefix:   "cosmos",
+				Denom:          "stake",
+				CoinType:       "118",
+				GasPrices:      "0.0stake",
+				GasAdjustment:  1.1,
+				EncodingConfig: &cdc,
 			}}},
 	)
 
@@ -92,7 +139,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	const mnemonic = "all unit ordinary card sword document left illegal frog chuckle assume gift south settle can explain wagon beef story praise gorilla arch close good"
 
 	// initialize a new acc for the relayer along with a couple user accs
-	initBal := int64(10_000_000)
+	initBal := sdkmath.NewInt(10_000_000)
 	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initBal, chainA)
 	require.NoError(t, err)
 
@@ -105,11 +152,11 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	// assert initial balances are correct
 	userABal, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, initBal, userABal)
+	require.True(t, initBal.Equal(userABal))
 
 	userBBal, err := chainA.GetBalance(ctx, userB.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, initBal, userBBal)
+	require.True(t, initBal.Equal(userBBal))
 
 	// configure the relayer for a localhost connection
 	err = r.AddChainConfiguration(ctx, eRep, chainA.Config(), relayerKey, chainA.GetHostRPCAddress(), chainA.GetHostGRPCAddress())
@@ -161,7 +208,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	)
 
 	// compose and send a localhost IBC transfer which should be successful
-	const transferAmount = int64(1_000)
+	transferAmount := sdkmath.NewInt(1_000)
 	transfer := ibc.WalletAmount{
 		Address: userB.FormattedAddress(),
 		Denom:   chainA.Config().Denom,
@@ -172,7 +219,7 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
 		channel.ChannelID,
 		transfer.Address,
-		fmt.Sprintf("%d%s", transfer.Amount, transfer.Denom),
+		fmt.Sprintf("%s%s", transfer.Amount.String(), transfer.Denom),
 		"--from", userA.FormattedAddress(),
 		"--gas-prices", "0.0stake",
 		"--gas-adjustment", "1.2",
@@ -194,18 +241,18 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	// assert that the updated balances are correct
 	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, userABal-transferAmount, newBalA)
+	require.True(t, userABal.Sub(transferAmount).Equal(newBalA))
 
 	newBalB, err := chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
-	require.Equal(t, transferAmount, newBalB)
+	require.True(t, transferAmount.Equal(newBalB))
 
 	// compose and send another localhost IBC transfer which should succeed
 	cmd = []string{
 		chainA.Config().Bin, "tx", "ibc-transfer", "transfer", "transfer",
 		channel.ChannelID,
 		transfer.Address,
-		fmt.Sprintf("%d%s", transfer.Amount, transfer.Denom),
+		fmt.Sprintf("%s%s", transfer.Amount.String(), transfer.Denom),
 		"--from", userA.FormattedAddress(),
 		"--gas-prices", "0.0stake",
 		"--gas-adjustment", "1.2",
@@ -228,12 +275,12 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 	tmpBalA := newBalA
 	newBalA, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, tmpBalA-transferAmount, newBalA)
+	require.True(t, tmpBalA.Sub(transferAmount).Equal(newBalA))
 
 	tmpBalB := newBalB
 	newBalB, err = chainA.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
 	require.NoError(t, err)
-	require.Equal(t, tmpBalB+transferAmount, newBalB)
+	require.True(t, tmpBalB.Add(transferAmount).Equal(newBalB))
 }
 
 func TestLocalhost_InterchainAccounts(t *testing.T) {
@@ -247,8 +294,8 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	numFullNodes := 0
 	image := ibc.DockerImage{
 		Repository: "ghcr.io/cosmos/ibc-go-simd",
-		Version:    "v7.1.0-rc0",
-		UidGid:     "",
+		Version:    "v8.0.0-beta.1",
+		UidGid:     "100:1000",
 	}
 	cdc := cosmos.DefaultEncoding()
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
@@ -259,18 +306,17 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 			NumValidators: &numVals,
 			NumFullNodes:  &numFullNodes,
 			ChainConfig: ibc.ChainConfig{
-				Type:                   "cosmos",
-				Name:                   "simd",
-				ChainID:                "chain-a",
-				Images:                 []ibc.DockerImage{image},
-				Bin:                    "simd",
-				Bech32Prefix:           "cosmos",
-				Denom:                  "stake",
-				CoinType:               "118",
-				GasPrices:              "0.0stake",
-				GasAdjustment:          1.1,
-				EncodingConfig:         &cdc,
-				UsingNewGenesisCommand: true,
+				Type:           "cosmos",
+				Name:           "simd",
+				ChainID:        "chain-a",
+				Images:         []ibc.DockerImage{image},
+				Bin:            "simd",
+				Bech32Prefix:   "cosmos",
+				Denom:          "stake",
+				CoinType:       "118",
+				GasPrices:      "0.0stake",
+				GasAdjustment:  1.1,
+				EncodingConfig: &cdc,
 			}}},
 	)
 
@@ -311,7 +357,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	)
 
 	// initialize a new acc for the relayer along with a new user acc
-	const initBal = int64(10_000_000)
+	initBal := sdkmath.NewInt(10_000_000)
 	_, err = interchaintest.GetAndFundTestUserWithMnemonic(ctx, relayerKey, mnemonic, initBal, chainA)
 	require.NoError(t, err)
 
@@ -324,7 +370,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	// assert initial balance is correct
 	userABal, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, initBal, userABal)
+	require.True(t, initBal.Equal(userABal))
 
 	// configure the relayer for a localhost connection
 	err = r.AddChainConfiguration(ctx, eRep, chainA.Config(), relayerKey, chainA.GetHostRPCAddress(), chainA.GetHostGRPCAddress())
@@ -358,7 +404,14 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		},
 	)
 
+	// wait for the relayer to start up
+	err = testutil.WaitForBlocks(ctx, 10, chainA)
+	require.NoError(t, err)
+
 	// register a new interchain account
+	metadata := icatypes.NewDefaultMetadata(ibcexported.LocalhostConnectionID, ibcexported.LocalhostConnectionID)
+	bz, err := json.Marshal(metadata)
+	require.NoError(t, err)
 	registerCmd := []string{
 		chainA.Config().Bin, "tx", "interchain-accounts", "controller", "register", ibcexported.LocalhostConnectionID,
 		"--from", userA.FormattedAddress(),
@@ -370,12 +423,13 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		"--home", chainA.HomeDir(),
 		"--node", chainA.GetRPCAddress(),
 		"--chain-id", chainA.Config().ChainID,
+		"--version", string(bz),
 	}
 
 	_, _, err = chainA.Exec(ctx, registerCmd, nil)
 	require.NoError(t, err)
 
-	err = testutil.WaitForBlocks(ctx, 10, chainA)
+	err = testutil.WaitForBlocks(ctx, 20, chainA)
 	require.NoError(t, err)
 
 	channels, err := r.GetChannels(ctx, eRep, chainA.Config().ChainID)
@@ -388,7 +442,6 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		userA.FormattedAddress(), ibcexported.LocalhostConnectionID,
 		"--home", chainA.HomeDir(),
 		"--node", chainA.GetRPCAddress(),
-		"--chain-id", chainA.Config().ChainID,
 	}
 	stdout, _, err := chainA.Exec(ctx, queryCmd, nil)
 	require.NoError(t, err)
@@ -399,9 +452,9 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	// asser the ICA balance, send some funds to the ICA, then re-assert balances
 	icaBal, err := chainA.GetBalance(ctx, icaAddr, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, int64(0), icaBal)
+	require.True(t, sdkmath.ZeroInt().Equal(icaBal))
 
-	const transferAmount = 1000
+	transferAmount := sdkmath.NewInt(1000)
 	transfer := ibc.WalletAmount{
 		Address: icaAddr,
 		Denom:   chainA.Config().Denom,
@@ -415,11 +468,11 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 
 	newBalICA, err := chainA.GetBalance(ctx, icaAddr, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, int64(transferAmount), newBalICA)
+	require.True(t, transferAmount.Equal(newBalICA))
 
 	newBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, userABal-transferAmount, newBalA)
+	require.True(t, userABal.Sub(transferAmount).Equal(newBalA))
 
 	// compose msg to send to ICA
 	rawMsg, err := json.Marshal(map[string]any{
@@ -429,7 +482,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 		"amount": []map[string]any{
 			{
 				"denom":  chainA.Config().Denom,
-				"amount": strconv.Itoa(transferAmount),
+				"amount": transferAmount.String(),
 			},
 		},
 	})
@@ -437,6 +490,7 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 
 	generateCmd := []string{
 		chainA.Config().Bin, "tx", "interchain-accounts", "host", "generate-packet-data", string(rawMsg),
+		"--encoding", "proto3",
 	}
 	msgBz, _, err := chainA.Exec(ctx, generateCmd, nil)
 	require.NoError(t, err)
@@ -464,9 +518,9 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 	// assert updated balances are correct
 	finalBalICA, err := chainA.GetBalance(ctx, icaAddr, chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, newBalICA-transferAmount, finalBalICA)
+	require.True(t, newBalICA.Sub(transferAmount).Equal(finalBalICA))
 
 	finalBalA, err := chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
-	require.Equal(t, newBalA+int64(transferAmount), finalBalA)
+	require.True(t, newBalA.Add(transferAmount).Equal(finalBalA))
 }

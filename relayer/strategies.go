@@ -8,10 +8,9 @@ import (
 	"sync"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/avast/retry-go/v4"
-	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -40,6 +39,8 @@ func StartRelayer(
 	chains map[string]*Chain,
 	paths []NamedPath,
 	maxMsgLength uint64,
+	maxReceiverSize,
+	memoLimit int,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
@@ -49,7 +50,7 @@ func StartRelayer(
 	metrics *processor.PrometheusMetrics,
 	stuckPacket *processor.StuckPacket,
 ) chan error {
-	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+	// prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	sdk.SetAddrCacheEnabled(false)
 	errorChan := make(chan error, 1)
 
@@ -70,8 +71,20 @@ func StartRelayer(
 			var filterSrc, filterDst []processor.ChainChannelKey
 
 			for _, ch := range filter.ChannelList {
-				ruleSrc := processor.ChainChannelKey{ChainID: p.Src.ChainID, ChannelKey: processor.ChannelKey{ChannelID: ch}}
-				ruleDst := processor.ChainChannelKey{CounterpartyChainID: p.Src.ChainID, ChannelKey: processor.ChannelKey{CounterpartyChannelID: ch}}
+				ruleSrc := processor.ChainChannelKey{
+					ChainID: p.Src.ChainID,
+					ChannelKey: processor.ChannelKey{
+						ChannelID: ch,
+					},
+				}
+
+				ruleDst := processor.ChainChannelKey{
+					CounterpartyChainID: p.Src.ChainID,
+					ChannelKey: processor.ChannelKey{
+						CounterpartyChannelID: ch,
+					},
+				}
+
 				filterSrc = append(filterSrc, ruleSrc)
 				filterDst = append(filterDst, ruleDst)
 			}
@@ -88,6 +101,8 @@ func StartRelayer(
 			ePaths,
 			initialBlockHistory,
 			maxMsgLength,
+			maxReceiverSize,
+			memoLimit,
 			memo,
 			messageLifecycle,
 			clientUpdateThresholdTime,
@@ -120,18 +135,18 @@ type path struct {
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
-func (chain *Chain) chainProcessor(
+func (c *Chain) chainProcessor(
 	log *zap.Logger,
 	metrics *processor.PrometheusMetrics,
 ) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
-	switch p := chain.ChainProvider.(type) {
+	switch p := c.ChainProvider.(type) {
 	case *penumbraprocessor.PenumbraProvider:
 		return penumbraprocessor.NewPenumbraChainProcessor(log, p)
 	case *cosmos.CosmosProvider:
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	default:
-		panic(fmt.Errorf("unsupported chain provider type: %T", chain.ChainProvider))
+		panic(fmt.Errorf("unsupported chain provider type: %T", c.ChainProvider))
 	}
 }
 
@@ -143,6 +158,8 @@ func relayerStartEventProcessor(
 	paths []path,
 	initialBlockHistory uint64,
 	maxMsgLength uint64,
+	maxReceiverSize,
+	memoLimit int,
 	memo string,
 	messageLifecycle processor.MessageLifecycle,
 	clientUpdateThresholdTime time.Duration,
@@ -168,6 +185,8 @@ func relayerStartEventProcessor(
 				clientUpdateThresholdTime,
 				flushInterval,
 				maxMsgLength,
+				memoLimit,
+				maxReceiverSize,
 			))
 	}
 
@@ -183,7 +202,15 @@ func relayerStartEventProcessor(
 }
 
 // relayerStartLegacy is the main loop of the relayer.
-func relayerStartLegacy(ctx context.Context, log *zap.Logger, src, dst *Chain, filter ChannelFilter, maxTxSize, maxMsgLength uint64, memo string, errCh chan<- error) {
+func relayerStartLegacy(
+	ctx context.Context,
+	log *zap.Logger,
+	src, dst *Chain,
+	filter ChannelFilter,
+	maxTxSize, maxMsgLength uint64,
+	memo string,
+	errCh chan<- error,
+) {
 	defer close(errCh)
 
 	// Query the list of channels on the src connection.

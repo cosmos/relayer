@@ -44,7 +44,7 @@ After this, before the main poll loop or subscriber begins, two `ChainProcessor`
 
 These caches are aliased types to `map[ConnectionKey]bool` and `map[ChannelKey]bool` respectively. The `PathProcessor` needs to know which connections are open and which channels are open. A value of `true` for the specific `ConnectionKey` or `ChannelKey` will inform the `PathProcessor` that the connection or channel is open later on once these caches are shared with the `PathProcessor`.
 
-During the initalization of these caches, separate mappings should also be built for which connections belong to which clients and which channels belong to which connections. The example of these in the `CosmosChainProcessor` are:
+During the initialization of these caches, separate mappings should also be built for which connections belong to which clients and which channels belong to which connections. The example of these in the `CosmosChainProcessor` are:
 
 ```go
 	// map of connection ID to client ID
