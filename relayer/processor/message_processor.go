@@ -91,6 +91,7 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
+	mp.log.Debug("process messages")
 	var needsClientUpdate bool
 
 	// Localhost IBC does not permit client updates
@@ -159,6 +160,19 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
 			zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
 			zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
+		)
+	} else {
+		mp.log.Info("Client update threshold condition not met",
+			zap.String("path_name", src.info.PathName),
+			zap.String("chain_id", dst.info.ChainID),
+			zap.String("client_id", dst.info.ClientID),
+			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
+			zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
+			zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
+			zap.Bool("should update client now", shouldUpdateClientNow),
+			zap.Bool("enough blocks passed", enoughBlocksPassed),
+			zap.Bool("past two thirds trusting", pastTwoThirdsTrustingPeriod),
+			zap.Bool("past configured client update threshold", pastConfiguredClientUpdateThreshold),
 		)
 	}
 
@@ -344,6 +358,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 		return nil
 	}
 
+	mp.log.Debug("need client update", zap.Bool("needs_client_update", needsClientUpdate), zap.String("chain_id", dst.info.ChainID))
 	if needsClientUpdate {
 		go mp.sendClientUpdate(ctx, src, dst)
 		return nil
@@ -358,6 +373,8 @@ func (mp *messageProcessor) sendClientUpdate(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 ) {
+	mp.log.Debug("send client update", zap.String("dst", dst.info.ChainID))
+
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
@@ -458,7 +475,7 @@ func (mp *messageProcessor) sendBatchMessages(
 	}
 	callbacks := []func(rtr *provider.RelayerTxResponse, err error){callback}
 
-	//During testing, this adds a callback so our test case can inspect the TX results
+	// During testing, this adds a callback so our test case can inspect the TX results
 	if PathProcMessageCollector != nil {
 		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
 			msgResult := &PathProcessorMessageResp{
@@ -545,7 +562,7 @@ func (mp *messageProcessor) sendSingleMessage(
 		callbacks = append(callbacks, callback)
 	}
 
-	//During testing, this adds a callback so our test case can inspect the TX results
+	// During testing, this adds a callback so our test case can inspect the TX results
 	if PathProcMessageCollector != nil {
 		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
 			msgResult := &PathProcessorMessageResp{

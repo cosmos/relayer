@@ -352,9 +352,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
 	// This debug log is very noisy, but is helpful when debugging new chains.
-	// ccp.log.Debug("Queried latest height",
-	// 	zap.Int64("latest_height", persistence.latestHeight),
-	// )
+	ccp.log.Debug("Queried latest height",
+		zap.Int64("latest_height", persistence.latestHeight),
+	)
 
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)

@@ -358,9 +358,11 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
+			pp.log.Debug("should flush: flushing")
 			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
+			pp.log.Debug("should not flush: terminating")
 			cancel()
 			return
 		}
