@@ -532,6 +532,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			continue
 		}
 
+		ccp.log.Debug("sending new data to the path processor", zap.Bool("inSync", ccp.inSync))
+
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,
 			LatestHeader:         latestHeader,

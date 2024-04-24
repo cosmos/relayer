@@ -406,6 +406,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
+		pp.log.Debug("path processor run: are the chains in sync? ", zap.Bool("pathEnd1", pp.pathEnd1.inSync), zap.Bool("pathEnd2", pp.pathEnd2.inSync))
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync { // TODO: check
 			continue
 		}
