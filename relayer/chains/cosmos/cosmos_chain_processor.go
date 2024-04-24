@@ -411,8 +411,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	chainID := ccp.chainProvider.ChainId()
 
 	firstHeightToQuery := persistence.latestQueriedBlock
+	// On the first ever update, we want to make sure we propagate the block info to the path processor
+	// Afterward, we only want to query new blocks
 	if ccp.firstEverUpdateIsAlreadyDone {
-		// TODO: explain
 		firstHeightToQuery++
 	}
 
