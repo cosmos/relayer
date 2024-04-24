@@ -391,7 +391,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	var retryTimer *time.Timer
 
-	pp.flushTimer = time.NewTimer(time.Hour)
+	pp.flushTimer = time.NewTimer(pp.flushInterval)
 
 	for {
 		// block until we have any signals to process
@@ -406,7 +406,8 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
-		if !pp.pathEnd1.inSync && !pp.pathEnd2.inSync {
+		pp.log.Debug("path processor run: are the chains in sync? ", zap.Bool("pathEnd1", pp.pathEnd1.inSync), zap.Bool("pathEnd2", pp.pathEnd2.inSync))
+		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 			continue
 		}
 
@@ -420,6 +421,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx, cancel); err != nil {
+			pp.log.Debug("error process latest messages", zap.Error(err))
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

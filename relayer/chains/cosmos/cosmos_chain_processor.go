@@ -82,7 +82,7 @@ const (
 
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
-	inSyncNumBlocksThreshold         = 2
+	defaultInSyncNumBlocksThreshold  = 2
 	blockMaxRetries                  = 5
 )
 
@@ -201,6 +201,7 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
+	// the latest known height of the chain
 	latestHeight                int64
 	latestQueriedBlock          int64
 	retriesAtLatestQueriedBlock int
@@ -366,7 +367,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	firstTimeInSync := false
 
 	if !ccp.inSync {
-		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
+		if (persistence.latestHeight - persistence.latestQueriedBlock) < int64(defaultInSyncNumBlocksThreshold) {
 			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("Chain is in sync")
@@ -390,7 +391,14 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	chainID := ccp.chainProvider.ChainId()
 
-	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
+	firstHeightToQuery := persistence.latestQueriedBlock
+	// On the first ever update, we want to make sure we propagate the block info to the path processor
+	// Afterward, we only want to query new blocks
+	if ccp.inSync && !firstTimeInSync {
+		firstHeightToQuery++
+	}
+
+	for i := firstHeightToQuery; i <= persistence.latestHeight; i++ {
 		var (
 			eg        errgroup.Group
 			blockRes  *coretypes.ResultBlockResults
@@ -491,7 +499,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
-	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+	if (ccp.inSync && !firstTimeInSync) && newLatestQueriedBlock == persistence.latestQueriedBlock {
 		return nil
 	}
 
@@ -515,6 +523,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			)
 			continue
 		}
+
+		ccp.log.Debug("sending new data to the path processor", zap.Bool("inSync", ccp.inSync))
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,

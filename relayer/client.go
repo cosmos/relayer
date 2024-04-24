@@ -24,7 +24,8 @@ func (c *Chain) CreateClients(ctx context.Context,
 	customClientTrustingPeriod,
 	maxClockDrift time.Duration,
 	customClientTrustingPeriodPercentage int64,
-	memo string) (string, string, error) {
+	memo string,
+) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -64,7 +65,7 @@ func (c *Chain) CreateClients(ctx context.Context,
 	}
 
 	// overriding the unbonding period should only be possible when creating single clients at a time (CreateClient)
-	var overrideUnbondingPeriod = time.Duration(0)
+	overrideUnbondingPeriod := time.Duration(0)
 
 	var clientSrc, clientDst string
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -126,7 +127,8 @@ func CreateClient(
 	overrideUnbondingPeriod,
 	maxClockDrift time.Duration,
 	customClientTrustingPeriodPercentage int64,
-	memo string) (string, error) {
+	memo string,
+) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
 		// TODO: check client is not expired
@@ -316,7 +318,7 @@ func MsgUpdateClient(
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
-			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(dstClientState.GetLatestHeight().GetRevisionHeight()))
+			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
 			return err
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Info(
@@ -518,7 +520,6 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 
 	for _, existingClientState := range clientsResp {
 		clientID, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
-
 		// If there is an error parsing/type asserting the client state in ClientsMatch this is going
 		// to make the entire find matching client logic fail.
 		// We should really never be encountering an error here and if we do it is probably a sign of a
