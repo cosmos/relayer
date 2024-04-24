@@ -472,6 +472,10 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 	memoLimit, maxReceiverSize int,
 ) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
+	var zero provider.LatestBlock
+	if d.LatestBlock == zero {
+		pathEnd.log.Error("received zero type latest block", zap.String("chain_id", pathEnd.info.ChainID))
+	}
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.lastClientUpdateHeightMu.Unlock()
 

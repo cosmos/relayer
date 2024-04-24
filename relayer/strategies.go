@@ -62,7 +62,8 @@ func StartRelayer(
 			var p processor.ChainProcessor
 			if chainID == paths[0].Path.Src.ChainID {
 				// Rollapp
-				p = chain.chainProcessor(log, metrics, cosmos.WithInSyncNumBlocksThreshold(1))
+				threshold := 2 // same as default
+				p = chain.chainProcessor(log, metrics, cosmos.WithInSyncNumBlocksThreshold(threshold))
 			} else {
 				p = chain.chainProcessor(log, metrics)
 			}
