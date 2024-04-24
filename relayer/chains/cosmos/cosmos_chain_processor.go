@@ -56,6 +56,8 @@ type CosmosChainProcessor struct {
 	parsedGasPrices *sdk.DecCoins
 
 	inSyncNumBlocksThreshold int
+
+	firstEverUpdateHasPassed bool
 }
 
 type Option func(*CosmosChainProcessor)
@@ -507,18 +509,21 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
-	if newLatestQueriedBlock == persistence.latestQueriedBlock && !firstTimeInSync {
-		return nil
-	}
-
-	if !ppChanged {
-		if firstTimeInSync {
-			for _, pp := range ccp.pathProcessors {
-				pp.ProcessBacklogIfReady()
-			}
+	if ccp.firstEverUpdateHasPassed {
+		if newLatestQueriedBlock == persistence.latestQueriedBlock {
+			ccp.log.Debug("didnt query anything new, not sending data to path processors")
+			return nil
 		}
 
-		return nil
+		if !ppChanged {
+			if firstTimeInSync {
+				for _, pp := range ccp.pathProcessors {
+					pp.ProcessBacklogIfReady()
+				}
+			}
+
+			return nil
+		}
 	}
 
 	for _, pp := range ccp.pathProcessors {
@@ -545,6 +550,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			IBCHeaderCache:       ibcHeaderCache.Clone(),
 		})
 	}
+
+	ccp.firstEverUpdateHasPassed = true
 
 	persistence.latestQueriedBlock = newLatestQueriedBlock
 
