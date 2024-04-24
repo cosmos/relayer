@@ -382,7 +382,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	firstTimeInSync := false
 
 	if !ccp.inSync {
-		if (persistence.latestHeight - persistence.latestQueriedBlock) < defaultInSyncNumBlocksThreshold {
+		// latest height < latest queried height + 2
+		if (persistence.latestHeight - persistence.latestQueriedBlock) < int64(ccp.inSyncNumBlocksThreshold) {
 			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("Chain is in sync")
