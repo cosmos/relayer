@@ -219,6 +219,7 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.
 type queryCyclePersistence struct {
+	// the latest known height of the chain
 	latestHeight                int64
 	latestQueriedBlock          int64
 	retriesAtLatestQueriedBlock int
@@ -262,13 +263,14 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	}
 
 	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
+	// TODO(danwt): I'm assuming initial block history is always zero right now
 	latestQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
 
 	if latestQueriedBlock < 0 {
 		latestQueriedBlock = 0
 	}
 
-	if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
+	if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID { // TODO(danwt): check if can use stuck packet
 		latestQueriedBlock = int64(stuckPacket.StartHeight)
 	}
 
@@ -408,7 +410,13 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 	chainID := ccp.chainProvider.ChainId()
 
-	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
+	firstHeightToQuery := persistence.latestQueriedBlock
+	if ccp.firstEverUpdateIsAlreadyDone {
+		// TODO: explain
+		firstHeightToQuery++
+	}
+
+	for i := firstHeightToQuery; i <= persistence.latestHeight; i++ {
 		var (
 			eg        errgroup.Group
 			blockRes  *coretypes.ResultBlockResults
@@ -509,23 +517,19 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
-	if ccp.firstEverUpdateIsAlreadyDone || !firstTimeInSync {
-		// after the first update, or if we are not in sync on the first update, we might want to avoid sending data to path processors if we didn't query anything new
+	if ccp.firstEverUpdateIsAlreadyDone && newLatestQueriedBlock == persistence.latestQueriedBlock {
+		ccp.log.Debug("didnt query anything new, not sending data to path processors")
+		return nil
+	}
 
-		if newLatestQueriedBlock == persistence.latestQueriedBlock {
-			ccp.log.Debug("didnt query anything new, not sending data to path processors")
-			return nil
-		}
-
-		if !ppChanged {
-			if firstTimeInSync {
-				for _, pp := range ccp.pathProcessors {
-					pp.ProcessBacklogIfReady()
-				}
+	if !ppChanged {
+		if firstTimeInSync {
+			for _, pp := range ccp.pathProcessors {
+				pp.ProcessBacklogIfReady()
 			}
-
-			return nil
 		}
+
+		return nil
 	}
 
 	for _, pp := range ccp.pathProcessors {
@@ -553,9 +557,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		})
 	}
 
-	ccp.firstEverUpdateIsAlreadyDone = true
-
 	persistence.latestQueriedBlock = newLatestQueriedBlock
+
+	ccp.firstEverUpdateIsAlreadyDone = true
 
 	return nil
 }
