@@ -1069,11 +1069,17 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	var eg errgroup.Group
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
-		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
+		if err := mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1); err != nil {
+			return fmt.Errorf("process path end 1 messages: %w", err)
+		}
+		return nil
 	})
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
-		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
+		if err := mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2); err != nil {
+			return fmt.Errorf("process path end 2 messages: %w", err)
+		}
+		return nil
 	})
 	return eg.Wait()
 }
@@ -1207,7 +1213,6 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	srcMu sync.Locker,
 	dstMu sync.Locker,
 ) (*skippedPackets, error) {
-
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
 		if pp.metrics != nil {
@@ -1502,7 +1507,6 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 				&pathEnd2CacheMu,
 				&pathEnd1CacheMu,
 			)
-
 			if err != nil {
 				return err
 			}

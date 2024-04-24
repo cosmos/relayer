@@ -104,17 +104,21 @@ func (mp *messageProcessor) processMessages(
 		var err error
 		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
 		if err != nil {
-			return err
+			return fmt.Errorf("should update client now: %w", err)
 		}
 
 		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-			return err
+			return fmt.Errorf("assemble message update client: %w", err)
 		}
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst)
 
-	return mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
+	if err := mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate); err != nil {
+		return fmt.Errorf("track and send messages: %w", err)
+	}
+
+	return nil
 }
 
 func isLocalhostClient(srcClientID, dstClientID string) bool {
@@ -136,7 +140,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	if dst.clientState.ConsensusTime.IsZero() {
 		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
 		if err != nil {
-			return false, fmt.Errorf("failed to get header height: %w", err)
+			return false, fmt.Errorf("query ibc header: %w", err)
 		}
 		consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
 	} else {
@@ -166,16 +170,18 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		mp.metrics.SetClientTrustingPeriod(src.info.PathName, dst.info.ChainID, dst.info.ClientID, time.Duration(dst.clientState.TrustingPeriod))
 	}
 
-	if shouldUpdateClientNow {
-		mp.log.Info("Client update threshold condition met",
-			zap.String("path_name", src.info.PathName),
-			zap.String("chain_id", dst.info.ChainID),
-			zap.String("client_id", dst.info.ClientID),
-			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
-			zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
-			zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
-		)
-	}
+	mp.log.Debug("should update client now?",
+		zap.String("path_name", src.info.PathName),
+		zap.String("chain_id", dst.info.ChainID),
+		zap.String("client_id", dst.info.ClientID),
+		zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
+		zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
+		zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
+		zap.Bool("enough_blocks_passed", enoughBlocksPassed),
+		zap.Bool("past_two_thirds_trusting_period", pastTwoThirdsTrustingPeriod),
+		zap.Bool("past_configured_client_update_threshold", pastConfiguredClientUpdateThreshold),
+		zap.Bool("should_update_client_now", shouldUpdateClientNow),
+	)
 
 	return shouldUpdateClientNow, nil
 }
@@ -317,12 +323,12 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		dst.clientTrustedState.IBCHeader,
 	)
 	if err != nil {
-		return fmt.Errorf("error assembling new client header: %w", err)
+		return fmt.Errorf("msg update client header: %w", err)
 	}
 
 	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
 	if err != nil {
-		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+		return fmt.Errorf("msg update client: %w", err)
 	}
 
 	mp.msgUpdateClient = msgUpdateClient
