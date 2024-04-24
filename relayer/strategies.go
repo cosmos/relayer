@@ -60,9 +60,9 @@ func StartRelayer(
 
 		for chainID, chain := range chains {
 			var p processor.ChainProcessor
-			if chainID == paths[0].Path.Src.ChainID {
+			if 0 < len(paths) && chainID == paths[0].Path.Src.ChainID {
 				// Rollapp
-				threshold := 2 // same as default
+				threshold := 2 // same as default, TODO(danwt): configure if necessary
 				p = chain.chainProcessor(log, metrics, cosmos.WithInSyncNumBlocksThreshold(threshold))
 			} else {
 				p = chain.chainProcessor(log, metrics)
