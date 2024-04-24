@@ -295,11 +295,15 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		trustedNextValidatorsHash = header.NextValidatorsHash()
 	}
 
-	// As we only require one chain to be in sync the src.latestHeader may be nil. In that case
-	// we want to skip it
-	if src.latestHeader == nil {
-		return fmt.Errorf("latest header is nil for chain_id: %s. Waiting for catching up", src.info.ChainID)
-	}
+	/*
+		// As we only require one chain to be in sync the src.latestHeader may be nil. In that case
+		// we want to skip it
+		if src.latestHeader == nil {
+			return fmt.Errorf("latest header is nil for chain_id: %s. Waiting for catching up", src.info.ChainID)
+		}
+		TODO: check
+	*/
+
 	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
 		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
@@ -475,7 +479,7 @@ func (mp *messageProcessor) sendBatchMessages(
 	}
 	callbacks := []func(rtr *provider.RelayerTxResponse, err error){callback}
 
-	//During testing, this adds a callback so our test case can inspect the TX results
+	// During testing, this adds a callback so our test case can inspect the TX results
 	if PathProcMessageCollector != nil {
 		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
 			msgResult := &PathProcessorMessageResp{
@@ -562,7 +566,7 @@ func (mp *messageProcessor) sendSingleMessage(
 
 	callbacks = append(callbacks, callback)
 
-	//During testing, this adds a callback so our test case can inspect the TX results
+	// During testing, this adds a callback so our test case can inspect the TX results
 	if PathProcMessageCollector != nil {
 		testCallback := func(rtr *provider.RelayerTxResponse, err error) {
 			msgResult := &PathProcessorMessageResp{
