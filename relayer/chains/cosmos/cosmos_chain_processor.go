@@ -54,23 +54,39 @@ type CosmosChainProcessor struct {
 
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
+
+	inSyncNumBlocksThreshold int
+}
+
+type Option func(*CosmosChainProcessor)
+
+func WithInSyncNumBlocksThreshold(inSyncNumBlocksThreshold int) Option {
+	return func(ccp *CosmosChainProcessor) {
+		ccp.inSyncNumBlocksThreshold = inSyncNumBlocksThreshold
+	}
 }
 
 func NewCosmosChainProcessor(
 	log *zap.Logger,
 	provider *CosmosProvider,
 	metrics *processor.PrometheusMetrics,
+	opts ...Option,
 ) *CosmosChainProcessor {
-	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
-		chainProvider:        provider,
-		latestClientState:    make(latestClientState),
-		connectionStateCache: make(processor.ConnectionStateCache),
-		channelStateCache:    make(processor.ChannelStateCache),
-		connectionClients:    make(map[string]string),
-		channelConnections:   make(map[string]string),
-		metrics:              metrics,
+	ret := &CosmosChainProcessor{
+		log:                      log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
+		chainProvider:            provider,
+		latestClientState:        make(latestClientState),
+		connectionStateCache:     make(processor.ConnectionStateCache),
+		channelStateCache:        make(processor.ChannelStateCache),
+		connectionClients:        make(map[string]string),
+		channelConnections:       make(map[string]string),
+		metrics:                  metrics,
+		inSyncNumBlocksThreshold: defaultInSyncNumBlocksThreshold,
 	}
+	for _, opt := range opts {
+		opt(ret)
+	}
+	return ret
 }
 
 const (
@@ -82,7 +98,7 @@ const (
 
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
-	inSyncNumBlocksThreshold         = 2
+	defaultInSyncNumBlocksThreshold  = 2
 	blockMaxRetries                  = 5
 )
 
@@ -366,7 +382,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	firstTimeInSync := false
 
 	if !ccp.inSync {
-		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
+		if (persistence.latestHeight - persistence.latestQueriedBlock) < defaultInSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
 			ccp.log.Info("Chain is in sync")
