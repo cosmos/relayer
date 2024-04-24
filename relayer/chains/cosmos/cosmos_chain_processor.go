@@ -507,7 +507,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		}
 	}
 
-	if newLatestQueriedBlock == persistence.latestQueriedBlock {
+	if newLatestQueriedBlock == persistence.latestQueriedBlock && !firstTimeInSync {
 		return nil
 	}
 
