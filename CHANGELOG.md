@@ -30,6 +30,7 @@
 * [\#1326](https://github.com/cosmos/relayer/pull/1326) Avoid sending channel close confirm message after channel get closed successfully.
 * [\#1364](https://github.com/cosmos/relayer/pull/1364) Include feegrant message when calculate gas.
 * [\#1390](https://github.com/cosmos/relayer/pull/1390) Avoid no concrete type registered for type URL error of EthAccount.
+* [\#1455](https://github.com/cosmos/relayer/pull/1455) Avoid counterparty recv packet message get removed before open channel.
 
 ## v0.9.3
 

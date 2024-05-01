@@ -637,7 +637,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 
 	// delete all packet flow retention history for this sequence
 	pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
-	counterparty.messageCache.PacketFlow[k.Counterparty()].DeleteMessages(toDeleteCounterparty)
+	counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
 }
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
