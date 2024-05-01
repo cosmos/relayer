@@ -59,6 +59,7 @@ type pathEndRuntime struct {
 	metrics *PrometheusMetrics
 
 	finishedProcessing chan messageToTrack
+	retryCount         uint64
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -560,8 +561,12 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
 		)
-		pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
-		return false
+		pathEnd.retryCount++
+		if pathEnd.retryCount >= maxMessageSendRetries {
+			pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
+			pathEnd.retryCount = 0
+			return false
+		}
 	}
 	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {
@@ -637,7 +642,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 
 	// delete all packet flow retention history for this sequence
 	pathEnd.messageCache.PacketFlow[k].DeleteMessages(toDelete)
-	counterparty.messageCache.PacketFlow[k].DeleteMessages(toDeleteCounterparty)
+	counterparty.messageCache.PacketFlow[k.Counterparty()].DeleteMessages(toDeleteCounterparty)
 }
 
 // shouldSendConnectionMessage determines if the connection handshake message should be sent now.
