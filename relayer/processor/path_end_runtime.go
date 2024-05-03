@@ -561,12 +561,12 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
 		)
-		pathEnd.retryCount++
-		if pathEnd.retryCount >= maxMessageSendRetries {
+		if pathEnd.retryCount >= maxMessageSendRetriesIfChannelNotOpen {
 			pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
 			pathEnd.retryCount = 0
 			return false
 		}
+		pathEnd.retryCount++
 	}
 	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {

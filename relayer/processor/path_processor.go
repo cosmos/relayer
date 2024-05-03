@@ -39,6 +39,9 @@ const (
 	// How many times to retry sending a message before giving up on it.
 	maxMessageSendRetries = 5
 
+	// How many times to retry sending a message if channel is not opened.
+	maxMessageSendRetriesIfChannelNotOpen = 1
+
 	// How many blocks of history to retain ibc headers in the cache for.
 	ibcHeadersToCache = 10
 
