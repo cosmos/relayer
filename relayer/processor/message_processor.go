@@ -501,6 +501,7 @@ func (mp *messageProcessor) sendBatchMessages(
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
+			zap.Any("num_messages", len(msgs)),
 		}
 
 		mp.metricParseTxFailureCatagory(err, src)

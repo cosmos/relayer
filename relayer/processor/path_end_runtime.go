@@ -1075,6 +1075,12 @@ func (pathEnd *pathEndRuntime) ShouldRelayChannel(chainChannelKey ChainChannelKe
 	// if no filter rule, check if the channel or counterparty channel is in the channelStateCache.
 	// Because channelStateCache only holds channels relevant to the client, we can ensure that the
 	// channel is built on top of a client for this pathEnd
+
+	pathEnd.log.Debug("Checking channel state cache", zap.Any("chainChannelKey", chainChannelKey), zap.Any("len cache", len(pathEnd.channelStateCache)))
+	for k := range pathEnd.channelStateCache {
+		pathEnd.log.Debug("Checking channel state cache", zap.Any("k", k))
+	}
+	fmt.Printf("pathEnd.channelStateCache: %v\n", pathEnd.channelStateCache)
 	_, exists := pathEnd.channelStateCache[chainChannelKey.ChannelKey]
 	return exists
 }
