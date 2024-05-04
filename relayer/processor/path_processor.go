@@ -430,6 +430,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 				retryTimer = time.AfterFunc(durationErrorRetry, pp.ProcessBacklogIfReady)
 			}
 		}
+
 	}
 }
 

@@ -251,6 +251,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		latestQueriedBlock = 0
 	}
 
+	afterUnstuck := latestQueriedBlock
 	if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
 		latestQueriedBlock = int64(stuckPacket.StartHeight)
 	}
@@ -274,7 +275,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 	defer ticker.Stop()
 
 	for {
-		if err := ccp.queryCycle(ctx, &persistence, stuckPacket); err != nil {
+		if err := ccp.queryCycle(ctx, &persistence, stuckPacket, afterUnstuck); err != nil {
 			return err
 		}
 		select {
@@ -340,7 +341,12 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 	return nil
 }
 
-func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence, stuckPacket *processor.StuckPacket) error {
+func (ccp *CosmosChainProcessor) queryCycle(
+	ctx context.Context,
+	persistence *queryCyclePersistence,
+	stuckPacket *processor.StuckPacket,
+	afterUnstuck int64,
+) error {
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
 		// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
@@ -370,7 +376,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < int64(defaultInSyncNumBlocksThreshold) {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("Chain is in sync")
+			ccp.log.Info("Chain is in sync", zap.Bool("first time", firstTimeInSync))
 		} else {
 			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
@@ -397,6 +403,8 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	if ccp.inSync && !firstTimeInSync {
 		firstHeightToQuery++
 	}
+
+	startTime := time.Now()
 
 	for i := firstHeightToQuery; i <= persistence.latestHeight; i++ {
 		var (
@@ -494,8 +502,17 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		if stuckPacket != nil &&
 			ccp.chainProvider.ChainId() == stuckPacket.ChainID &&
 			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
+
 			i = persistence.latestHeight
-			ccp.log.Debug("Parsed stuck packet height, skipping to current")
+
+			newLatestQueriedBlock = afterUnstuck
+			// newLatestQueriedBlock = persistence.latestHeight // this line fixes it, but why?
+			ccp.log.Info("Parsed stuck packet height, skipping to current", zap.Any("new latest queried block", persistence.latestHeight))
+		}
+
+		if i%100 == 0 {
+			elapsed := time.Since(startTime)
+			ccp.log.Info("Processed block", zap.Int64("height", i), zap.Duration("elapsed", elapsed), zap.Int64("latest", persistence.latestHeight))
 		}
 	}
 
@@ -524,7 +541,9 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			continue
 		}
 
-		ccp.log.Debug("sending new data to the path processor", zap.Bool("inSync", ccp.inSync))
+		if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
+			ccp.log.Info("sending new data to the path processor", zap.Bool("inSync", ccp.inSync))
+		}
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,

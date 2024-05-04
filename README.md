@@ -1,6 +1,12 @@
 <div align="center">
   <h1>Relayer</h1>
 
+<h2>A note on Dymension patches:</h2>
+
+- stuck packet search now syncs correctly
+- will no longer unnecessarily wait for a block to elapse before syncing (good for slow chains)
+- recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
+
 ![banner](./docs/images/comp.gif)
 
 [![Project Status: Initial Release](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
