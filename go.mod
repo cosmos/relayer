@@ -21,7 +21,7 @@ require (
 	github.com/cosmos/ibc-go/modules/capability v1.0.0
 	github.com/cosmos/ibc-go/v8 v8.2.0
 	github.com/cosmos/ics23/go v0.10.0
-	github.com/ethereum/go-ethereum v1.13.14
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/gofrs/flock v0.8.1
 	github.com/google/go-github/v43 v43.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
