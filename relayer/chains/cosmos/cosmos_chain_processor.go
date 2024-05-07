@@ -493,8 +493,16 @@ func (ccp *CosmosChainProcessor) queryCycle(
 			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
+				if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID && int64(stuckPacket.StartHeight) <= i && i <= int64(stuckPacket.EndHeight) {
+					switch t := m.Info.(type) {
+					case *chains.PacketInfo:
+						ccp.log.Info("found stuck packet message", zap.Any("seq", t.Sequence), zap.Any("height", t.Height))
+					}
+					ccp.log.Debug("found stuck message (all data)", zap.Any("msg", m))
+				}
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
+
 		}
 
 		newLatestQueriedBlock = i
