@@ -1465,7 +1465,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	}
 
 	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("failed to query packet commitments: %w", err)
+		return fmt.Errorf("query packet commitments: %w", err)
 	}
 
 	// From remaining packet commitments, determine if:
@@ -1479,7 +1479,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		eg.Go(func() error {
 			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd1, pp.pathEnd2, k, seqs, pathEnd1Cache.PacketFlow, pathEnd2Cache.PacketFlow, &pathEnd1CacheMu, &pathEnd2CacheMu)
 			if err != nil {
-				return err
+				return fmt.Errorf("queue pending recv and acks: commitments 1: %w", err)
 			}
 			if s != nil {
 				if _, ok := skipped[pp.pathEnd1.info.ChainID]; !ok {
@@ -1494,23 +1494,11 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	for k, seqs := range commitments2 {
 		k := k
 		seqs := seqs
-
 		eg.Go(func() error {
-			s, err := pp.queuePendingRecvAndAcks(
-				ctx,
-				pp.pathEnd2,
-				pp.pathEnd1,
-				k,
-				seqs,
-				pathEnd2Cache.PacketFlow,
-				pathEnd1Cache.PacketFlow,
-				&pathEnd2CacheMu,
-				&pathEnd1CacheMu,
-			)
+			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
 			if err != nil {
-				return err
+				return fmt.Errorf("queue pending recv and acks: commitments 2: %w", err)
 			}
-
 			if s != nil {
 				if _, ok := skipped[pp.pathEnd2.info.ChainID]; !ok {
 					skipped[pp.pathEnd2.info.ChainID] = make(map[ChannelKey]skippedPackets)
@@ -1524,7 +1512,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	}
 
 	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
+		return fmt.Errorf("enqueue pending messages for flush: %w", err)
 	}
 
 	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.memoLimit, pp.maxReceiverSize)
