@@ -1226,7 +1226,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 
 	unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query unreceived packets: %w", err)
 	}
 
 	if pp.metrics != nil {
@@ -1240,7 +1240,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	if len(unrecv) > 0 {
 		channel, err := dst.chainProvider.QueryChannel(ctx, dstHeight, dstChan, dstPort)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("query channel: %w", err)
 		}
 
 		order = channel.Channel.Ordering
@@ -1248,7 +1248,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 		if channel.Channel.Ordering == chantypes.ORDERED {
 			nextSeqRecv, err := dst.chainProvider.QueryNextSeqRecv(ctx, dstHeight, dstChan, dstPort)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("query next sequence receive: %w", err)
 			}
 
 			var newUnrecv []uint64
@@ -1301,7 +1301,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 		eg.Go(func() error {
 			sendPacket, err := src.chainProvider.QuerySendPacket(ctx, k.ChannelID, k.PortID, seq)
 			if err != nil {
-				return err
+				return fmt.Errorf("query send packet: %w", err)
 			}
 			sendPacket.ChannelOrder = order.String()
 			srcMu.Lock()
@@ -1321,7 +1321,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	}
 
 	if err := eg.Wait(); err != nil {
-		return skipped, err
+		return skipped, fmt.Errorf("eg wait 1: %w", err)
 	}
 
 	if len(unrecv) > 0 {
@@ -1387,7 +1387,7 @@ SeqLoop:
 		eg.Go(func() error {
 			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
 			if err != nil {
-				return err
+				return fmt.Errorf("query recv packet: seq: %d: %w", seq, err)
 			}
 
 			ck := k.Counterparty()
@@ -1402,7 +1402,7 @@ SeqLoop:
 	}
 
 	if err := eg.Wait(); err != nil {
-		return skipped, err
+		return skipped, fmt.Errorf("eg wait 2: %w", err)
 	}
 
 	if len(unacked) > 0 {
