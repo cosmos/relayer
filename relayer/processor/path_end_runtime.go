@@ -59,6 +59,7 @@ type pathEndRuntime struct {
 	metrics *PrometheusMetrics
 
 	finishedProcessing chan messageToTrack
+	retryCount         uint64
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -560,8 +561,12 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
 		)
-		pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
-		return false
+		if pathEnd.retryCount >= maxMessageSendRetriesIfChannelNotOpen {
+			pathEnd.removePacketRetention(counterparty, eventType, k, sequence)
+			pathEnd.retryCount = 0
+			return false
+		}
+		pathEnd.retryCount++
 	}
 	msgProcessCache, ok := pathEnd.packetProcessing[k]
 	if !ok {
