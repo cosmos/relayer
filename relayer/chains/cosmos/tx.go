@@ -163,6 +163,14 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	asyncCtx context.Context,
 	asyncCallbacks []func(*provider.RelayerTxResponse, error),
 ) error {
+	{
+		types := []string{}
+		for _, msg := range msgs {
+			types = append(types, msg.Type())
+		}
+		cc.log.Debug("Sending messages to mempool", zap.Any("types", types), zap.Any("chain", cc.PCfg.ChainID))
+	}
+
 	txSignerKey, feegranterKeyOrAddr, err := cc.buildSignerConfig(msgs)
 	if err != nil {
 		return err
@@ -189,6 +197,8 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 
 		return err
 	}
+
+	cc.log.Debug("Transaction successfully sent to mempool", zap.String("chain", cc.PCfg.ChainID))
 
 	// we had a successful tx broadcast with this sequence, so update it to the next
 	cc.updateNextAccountSequence(sequenceGuard, sequence+1)
@@ -265,7 +275,6 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		// TODO: This is related to GRPC client stuff?
 		// https://github.com/cosmos/cosmos-sdk/blob/5725659684fc93790a63981c653feee33ecf3225/client/tx/tx.go#L297
 		_, adjusted, err = cc.CalculateGas(ctx, txf, signingKey, msgs...)
-
 		if err != nil {
 			return nil, err
 		}
@@ -298,16 +307,15 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 	}
 
 	err = func() error {
-		//done := cc.SetSDKContext()
+		// done := cc.SetSDKContext()
 		// ensure that we allways call done, even in case of an error or panic
-		//defer done()
+		// defer done()
 
 		if err = tx.Sign(ctx, txf, signingKey, txb, false); err != nil {
 			return err
 		}
 		return nil
 	}()
-
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +395,6 @@ func (cc *CosmosProvider) broadcastTx(
 	address, err := cc.Address()
 	if err != nil {
 		return fmt.Errorf("failed to get relayer bech32 wallet address: %w", err)
-
 	}
 	cc.UpdateFeesSpent(cc.ChainId(), cc.Key(), address, fees)
 
@@ -413,7 +420,7 @@ func (cc *CosmosProvider) waitForTx(
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-				//Call each callback in order since waitForTx is already invoked asyncronously
+				// Call each callback in order since waitForTx is already invoked asyncronously
 				cb(nil, err)
 			}
 		}
@@ -441,7 +448,7 @@ func (cc *CosmosProvider) waitForTx(
 		}
 		if len(callbacks) > 0 {
 			for _, cb := range callbacks {
-				//Call each callback in order since waitForTx is already invoked asyncronously
+				// Call each callback in order since waitForTx is already invoked asyncronously
 				cb(nil, err)
 			}
 		}
@@ -451,7 +458,7 @@ func (cc *CosmosProvider) waitForTx(
 
 	if len(callbacks) > 0 {
 		for _, cb := range callbacks {
-			//Call each callback in order since waitForTx is already invoked asyncronously
+			// Call each callback in order since waitForTx is already invoked asyncronously
 			cb(rlyResp, nil)
 		}
 	}
@@ -645,7 +652,6 @@ func (cc *CosmosProvider) buildMessages(
 
 	if gas == 0 {
 		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
-
 		if err != nil {
 			return nil, 0, sdk.Coins{}, err
 		}
@@ -755,9 +761,11 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 		return nil, err
 	}
 
-	msgUpgradeClient := &clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	msgUpgradeClient := &clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}
 
 	return NewCosmosMessage(msgUpgradeClient, func(signer string) {
 		msgUpgradeClient.Signer = signer

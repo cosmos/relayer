@@ -416,6 +416,9 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
+			<-pp.pathEnd1.finishedProcessing
+			<-pp.pathEnd2.finishedProcessing
+
 			cancel()
 			return
 		}

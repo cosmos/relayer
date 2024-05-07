@@ -509,7 +509,7 @@ func (mp *messageProcessor) sendBatchMessages(
 			mp.log.Debug("Redundant message(s)", errFields...)
 			return
 		}
-		mp.log.Error("Error sending messages", errFields...)
+		mp.log.Error("Sending messages from batch", errFields...)
 		return
 	}
 	dst.log.Debug("Message broadcast completed", fields...)
