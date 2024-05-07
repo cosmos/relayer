@@ -62,7 +62,7 @@ func NewCosmosChainProcessor(
 	metrics *processor.PrometheusMetrics,
 ) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
+		log:                  log.With(zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
@@ -347,6 +347,10 @@ func (ccp *CosmosChainProcessor) queryCycle(
 	stuckPacket *processor.StuckPacket,
 	afterUnstuck int64,
 ) error {
+	if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
+		ccp.log.Debug("query cycle starting with stuck packet", zap.Any("stuck packet", *stuckPacket), zap.Any("afterUnstuck", afterUnstuck))
+	}
+
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
 		// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
@@ -506,8 +510,7 @@ func (ccp *CosmosChainProcessor) queryCycle(
 			i = persistence.latestHeight
 
 			newLatestQueriedBlock = afterUnstuck
-			// newLatestQueriedBlock = persistence.latestHeight // this line fixes it, but why?
-			ccp.log.Info("Parsed stuck packet height, skipping to current", zap.Any("new latest queried block", persistence.latestHeight))
+			ccp.log.Info("Parsed stuck packet height, skipping to current", zap.Any("new latest queried block", newLatestQueriedBlock))
 		}
 
 		if i%100 == 0 {
