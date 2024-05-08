@@ -32,8 +32,10 @@ import (
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/dymutils/gerr"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
@@ -321,7 +323,6 @@ func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace 
 	params := proposal.QueryParamsRequest{Subspace: subspace, Key: key}
 
 	res, err := queryClient.Params(ctx, &params)
-
 	if err != nil {
 		return 0, fmt.Errorf("failed to make %s params request: %w", subspace, err)
 	}
@@ -340,14 +341,13 @@ func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace 
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
-
 	// Attempt ICS query
 	consumerUnbondingPeriod, consumerErr := cc.queryParamsSubspaceTime(ctx, "ccvconsumer", "UnbondingPeriod")
 	if consumerErr == nil {
 		return consumerUnbondingPeriod, nil
 	}
 
-	//Attempt Staking query.
+	// Attempt Staking query.
 	unbondingPeriod, stakingParamsErr := cc.queryParamsSubspaceTime(ctx, "staking", "UnbondingTime")
 	if stakingParamsErr == nil {
 		return unbondingPeriod, nil
@@ -359,7 +359,6 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 	res, err := queryClient.Params(ctx, &req)
 	if err == nil {
 		return res.Params.UnbondingTime, nil
-
 	}
 
 	return 0,
@@ -1067,7 +1066,7 @@ func (cc *CosmosProvider) QueryRecvPacket(
 		}
 	}
 
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s: %w", q, gerr.ErrNotFound)
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks

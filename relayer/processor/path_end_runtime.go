@@ -481,7 +481,6 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 	pathEnd.lastClientUpdateHeightMu.Unlock()
 
 	pathEnd.inSync = d.InSync
-	pathEnd.log.Debug("set in sync", zap.Bool("in_sync", pathEnd.inSync), zap.String("chain_id", pathEnd.info.ChainID))
 
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState

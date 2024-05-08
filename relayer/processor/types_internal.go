@@ -14,10 +14,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ zapcore.ObjectMarshaler = packetIBCMessage{}
-var _ zapcore.ObjectMarshaler = channelIBCMessage{}
-var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
-var _ zapcore.ObjectMarshaler = clientICQMessage{}
+var (
+	_ zapcore.ObjectMarshaler = packetIBCMessage{}
+	_ zapcore.ObjectMarshaler = channelIBCMessage{}
+	_ zapcore.ObjectMarshaler = connectionIBCMessage{}
+	_ zapcore.ObjectMarshaler = clientICQMessage{}
+)
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -26,6 +28,37 @@ type pathEndMessages struct {
 	channelMessages    []channelIBCMessage
 	packetMessages     []packetIBCMessage
 	clientICQMessages  []clientICQMessage
+}
+
+func (m *pathEndMessages) size() int {
+	return len(m.connectionMessages) + len(m.channelMessages) + len(m.packetMessages) + len(m.clientICQMessages)
+}
+
+func (m *pathEndMessages) debugString() string {
+	type T struct {
+		ConnectionMessages            int
+		ChannelMessages               int
+		PacketMessages                int
+		ClientICQMessages             int
+		Total                         int
+		PacketSequences               []int
+		PacketSequencesIsJustAPreview bool
+	}
+	t := T{
+		ConnectionMessages: len(m.connectionMessages),
+		ChannelMessages:    len(m.channelMessages),
+		PacketMessages:     len(m.packetMessages),
+		ClientICQMessages:  len(m.clientICQMessages),
+		Total:              m.size(),
+	}
+	for _, msg := range m.packetMessages {
+		t.PacketSequences = append(t.PacketSequences, int(msg.info.Sequence))
+	}
+	if 5 < len(t.PacketSequences) { // dont want to show too many
+		t.PacketSequences = t.PacketSequences[:5]
+		t.PacketSequencesIsJustAPreview = true
+	}
+	return fmt.Sprintf("%+v", t)
 }
 
 type ibcMessage interface {
@@ -363,8 +396,10 @@ func (m *processingMessage) setFinishedProcessing(height uint64) {
 	m.processing = false
 }
 
-type packetProcessingCache map[ChannelKey]packetChannelMessageCache
-type packetChannelMessageCache map[string]*packetMessageSendCache
+type (
+	packetProcessingCache     map[ChannelKey]packetChannelMessageCache
+	packetChannelMessageCache map[string]*packetMessageSendCache
+)
 
 type packetMessageSendCache struct {
 	mu sync.Mutex
@@ -408,11 +443,13 @@ func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint6
 	}
 }
 
-type channelProcessingCache map[string]*channelKeySendCache
-type channelKeySendCache struct {
-	mu sync.Mutex
-	m  map[ChannelKey]*processingMessage
-}
+type (
+	channelProcessingCache map[string]*channelKeySendCache
+	channelKeySendCache    struct {
+		mu sync.Mutex
+		m  map[ChannelKey]*processingMessage
+	}
+)
 
 func newChannelKeySendCache() *channelKeySendCache {
 	return &channelKeySendCache{
@@ -451,11 +488,13 @@ func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelK
 	}
 }
 
-type connectionProcessingCache map[string]*connectionKeySendCache
-type connectionKeySendCache struct {
-	mu sync.Mutex
-	m  map[ConnectionKey]*processingMessage
-}
+type (
+	connectionProcessingCache map[string]*connectionKeySendCache
+	connectionKeySendCache    struct {
+		mu sync.Mutex
+		m  map[ConnectionKey]*processingMessage
+	}
+)
 
 func newConnectionKeySendCache() *connectionKeySendCache {
 	return &connectionKeySendCache{

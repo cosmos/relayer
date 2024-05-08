@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/cosmos/relayer/v2/dymutils/gerr"
+
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -1064,6 +1066,14 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		clientICQMessages:  pathEnd2ClientICQMessages,
 	}
 
+	if pathEnd1Messages.size() != 0 || pathEnd2Messages.size() != 0 {
+		pp.log.Debug("Processing some messages",
+			zap.Any("path1ChainID", pp.pathEnd1.info.ChainID),
+			zap.Any("pathEnd1Messages", pathEnd1Messages.debugString()),
+			zap.Any("path2ChainID", pp.pathEnd2.info.ChainID),
+			zap.Any("pathEnd2Messages", pathEnd2Messages.debugString()))
+	}
+
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
@@ -1226,7 +1236,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 
 	unrecv, err := dst.chainProvider.QueryUnreceivedPackets(ctx, dst.latestBlock.Height, dstChan, dstPort, seqs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query unreceived packets: %w", err)
 	}
 
 	if pp.metrics != nil {
@@ -1240,7 +1250,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	if len(unrecv) > 0 {
 		channel, err := dst.chainProvider.QueryChannel(ctx, dstHeight, dstChan, dstPort)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("query channel: %w", err)
 		}
 
 		order = channel.Channel.Ordering
@@ -1248,7 +1258,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 		if channel.Channel.Ordering == chantypes.ORDERED {
 			nextSeqRecv, err := dst.chainProvider.QueryNextSeqRecv(ctx, dstHeight, dstChan, dstPort)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("query next sequence receive: %w", err)
 			}
 
 			var newUnrecv []uint64
@@ -1301,7 +1311,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 		eg.Go(func() error {
 			sendPacket, err := src.chainProvider.QuerySendPacket(ctx, k.ChannelID, k.PortID, seq)
 			if err != nil {
-				return err
+				return fmt.Errorf("query send packet: %w", err)
 			}
 			sendPacket.ChannelOrder = order.String()
 			srcMu.Lock()
@@ -1321,7 +1331,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	}
 
 	if err := eg.Wait(); err != nil {
-		return skipped, err
+		return skipped, fmt.Errorf("eg wait 1: %w", err)
 	}
 
 	if len(unrecv) > 0 {
@@ -1346,13 +1356,24 @@ SeqLoop:
 				continue SeqLoop
 			}
 		}
-		// does not exist in unrecv, so this is an ack that must be written
+		/*
+			The packet is not in unrecv, meaning it has been received by the destination chain
+			The commitment on the src chain still exists
+			That means we need to send an ack to the src chain
+			HOWEVER
+			In the upstream relayer, they assume the ack is already available
+			For us, due to delayedack, it may not be available for some time
+			Thus, we adjust the code to make sure we gracefully handle this, and don't short circuit
+		*/
 		unacked = append(unacked, seq)
 	}
 
 	if pp.metrics != nil {
 		pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unacked))
 	}
+
+	var unackedAndWillAck []uint64
+	var unackedAndWillAckMu sync.Mutex
 
 	for i, seq := range unacked {
 		ck := k.Counterparty()
@@ -1387,7 +1408,13 @@ SeqLoop:
 		eg.Go(func() error {
 			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
 			if err != nil {
-				return err
+				if !errors.Is(err, gerr.ErrNotFound) {
+					return fmt.Errorf("query recv packet: seq: dst: %s: %d: %w", dst.info.ChainID, seq, err)
+				}
+				/*
+					It's possible that an acknowledgement event was not yet published on the dst chain
+				*/
+				return nil
 			}
 
 			ck := k.Counterparty()
@@ -1397,19 +1424,23 @@ SeqLoop:
 			dstCache.Cache(chantypes.EventTypeWriteAck, ck, seq, recvPacket)
 			dstMu.Unlock()
 
+			unackedAndWillAckMu.Lock()
+			unackedAndWillAck = append(unackedAndWillAck, seq)
+			unackedAndWillAckMu.Unlock()
+
 			return nil
 		})
 	}
 
 	if err := eg.Wait(); err != nil {
-		return skipped, err
+		return skipped, fmt.Errorf("eg wait 2: %w", err)
 	}
 
-	if len(unacked) > 0 {
+	if len(unackedAndWillAck) > 0 {
 		dst.log.Debug(
 			"Will flush MsgAcknowledgement",
 			zap.Object("channel", k),
-			zap.Uint64s("sequences", unacked),
+			zap.Uint64s("sequences", unackedAndWillAck),
 		)
 	} else {
 		dst.log.Debug(
@@ -1465,7 +1496,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	}
 
 	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("failed to query packet commitments: %w", err)
+		return fmt.Errorf("query packet commitments: %w", err)
 	}
 
 	// From remaining packet commitments, determine if:
@@ -1479,7 +1510,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 		eg.Go(func() error {
 			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd1, pp.pathEnd2, k, seqs, pathEnd1Cache.PacketFlow, pathEnd2Cache.PacketFlow, &pathEnd1CacheMu, &pathEnd2CacheMu)
 			if err != nil {
-				return err
+				return fmt.Errorf("queue pending recv and acks: commitments 1: %w", err)
 			}
 			if s != nil {
 				if _, ok := skipped[pp.pathEnd1.info.ChainID]; !ok {
@@ -1494,23 +1525,11 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	for k, seqs := range commitments2 {
 		k := k
 		seqs := seqs
-
 		eg.Go(func() error {
-			s, err := pp.queuePendingRecvAndAcks(
-				ctx,
-				pp.pathEnd2,
-				pp.pathEnd1,
-				k,
-				seqs,
-				pathEnd2Cache.PacketFlow,
-				pathEnd1Cache.PacketFlow,
-				&pathEnd2CacheMu,
-				&pathEnd1CacheMu,
-			)
+			s, err := pp.queuePendingRecvAndAcks(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
 			if err != nil {
-				return err
+				return fmt.Errorf("queue pending recv and acks: commitments 2: %w", err)
 			}
-
 			if s != nil {
 				if _, ok := skipped[pp.pathEnd2.info.ChainID]; !ok {
 					skipped[pp.pathEnd2.info.ChainID] = make(map[ChannelKey]skippedPackets)
@@ -1524,7 +1543,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	}
 
 	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
+		return fmt.Errorf("enqueue pending messages for flush: %w", err)
 	}
 
 	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync, pp.memoLimit, pp.maxReceiverSize)
