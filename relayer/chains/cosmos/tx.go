@@ -218,6 +218,53 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	return nil
 }
 
+// SendMessagesToMempool simulates and broadcasts a transaction with the given msgs and memo.
+// This method will return once the transaction has entered the mempool.
+// In an async goroutine, will wait for the tx to be included in the block unless asyncCtx exits.
+// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (cc *CosmosProvider) BuildTx(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
+) ([]byte, error) {
+	txSignerKey, feegranterKeyOrAddr, err := cc.buildSignerConfig(msgs)
+	if err != nil {
+		return nil, err
+	}
+
+	sequenceGuard := ensureSequenceGuard(cc, txSignerKey)
+	sequenceGuard.Mu.Lock()
+	defer sequenceGuard.Mu.Unlock()
+
+	dynamicFee := cc.DynamicFee(ctx)
+
+	txBytes, sequence, _, err := cc.buildMessages(
+		ctx,
+		msgs,
+		memo,
+		0,
+		txSignerKey,
+		feegranterKeyOrAddr,
+		sequenceGuard,
+		dynamicFee,
+	)
+
+	if err != nil {
+		// Account sequence mismatch errors can happen on the simulated transaction also.
+		if strings.Contains(err.Error(), legacyerrors.ErrWrongSequence.Error()) {
+			cc.handleAccountSequenceMismatchError(sequenceGuard, err)
+		}
+
+		return nil, err
+	}
+
+	// TODO we don't know if this tx will be successful or not, so we can't update the sequence yet
+	// we had a successful tx broadcast with this sequence, so update it to the next
+	cc.updateNextAccountSequence(sequenceGuard, sequence+1)
+
+	return txBytes, nil
+}
+
 func (cc *CosmosProvider) SubmitTxAwaitResponse(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKeyName string) (*txtypes.GetTxResponse, error) {
 	resp, err := cc.SendMsgsWith(ctx, msgs, memo, gas, signingKeyName, "")
 	if err != nil {

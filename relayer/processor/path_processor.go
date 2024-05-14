@@ -59,6 +59,9 @@ type PathProcessor struct {
 	pathEnd1 *pathEndRuntime
 	pathEnd2 *pathEndRuntime
 
+	pathEnd1MessageSender MessageSender
+	pathEnd2MessageSender MessageSender
+
 	memo string
 
 	clientUpdateThresholdTime time.Duration

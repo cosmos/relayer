@@ -1064,18 +1064,34 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		clientICQMessages:  pathEnd2ClientICQMessages,
 	}
 
+	pp.ensureMessageSenders()
+
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.pathEnd1MessageSender, pp.clientUpdateThresholdTime, pp.isLocalhost)
 		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
 	})
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.pathEnd2MessageSender, pp.clientUpdateThresholdTime, pp.isLocalhost)
 		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
 	})
 	return eg.Wait()
+}
+
+func (pp *PathProcessor) SetMessageSenders(pathEnd1MessageSender, pathEnd2MessageSender MessageSender) {
+	pp.pathEnd1MessageSender = pathEnd1MessageSender
+	pp.pathEnd2MessageSender = pathEnd2MessageSender
+}
+
+func (pp *PathProcessor) ensureMessageSenders() {
+	if pp.pathEnd1MessageSender == nil {
+		pp.pathEnd1MessageSender = NewMessageBroadcaster(pp.log, pp.metrics, pp.memo)
+	}
+	if pp.pathEnd2MessageSender == nil {
+		pp.pathEnd2MessageSender = NewMessageBroadcaster(pp.log, pp.metrics, pp.memo)
+	}
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
