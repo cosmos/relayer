@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -26,7 +27,8 @@ type CosmosChainProcessor struct {
 
 	chainProvider *CosmosProvider
 
-	pathProcessors processor.PathProcessors
+	pathProcessors   processor.PathProcessors
+	pathProcessorsMu sync.Mutex
 
 	// indicates whether queries are in sync with latest height of the chain
 	inSync bool
@@ -125,7 +127,15 @@ func (ccp *CosmosChainProcessor) Provider() provider.ChainProvider {
 // Set the PathProcessors that this ChainProcessor should publish relevant IBC events to.
 // ChainProcessors need reference to their PathProcessors and vice-versa, handled by EventProcessorBuilder.Build().
 func (ccp *CosmosChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {
+	ccp.pathProcessorsMu.Lock()
+	defer ccp.pathProcessorsMu.Unlock()
 	ccp.pathProcessors = pathProcessors
+}
+
+func (ccp *CosmosChainProcessor) getPathProcessors() processor.PathProcessors {
+	ccp.pathProcessorsMu.Lock()
+	defer ccp.pathProcessorsMu.Unlock()
+	return ccp.pathProcessors
 }
 
 // latestHeightWithRetry will query for the latest height, retrying in case of failure.
@@ -500,9 +510,11 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		return nil
 	}
 
+	pps := ccp.getPathProcessors()
+
 	if !ppChanged {
 		if firstTimeInSync {
-			for _, pp := range ccp.pathProcessors {
+			for _, pp := range pps {
 				pp.ProcessBacklogIfReady()
 			}
 		}
@@ -510,7 +522,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		return nil
 	}
 
-	for _, pp := range ccp.pathProcessors {
+	for _, pp := range pps {
 		clientID := pp.RelevantClientID(chainID)
 		clientState, err := ccp.clientState(ctx, clientID)
 		if err != nil {
