@@ -105,9 +105,6 @@ func MakeCodecConfig(accBech32Prefix, valBech32Prefix string) Codec {
 	}
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
 
-	done := SetSDKConfigContext(accBech32Prefix)
-	defer done()
-
 	return Codec{
 		InterfaceRegistry: interfaceRegistry,
 		Marshaler:         marshaler,

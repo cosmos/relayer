@@ -392,8 +392,6 @@ func TestRelayerFeeGrant(t *testing.T) {
 								continue
 							}
 
-							done := cProv.SetSDKContext()
-
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
 							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
@@ -465,7 +463,6 @@ func TestRelayerFeeGrant(t *testing.T) {
 								}
 								fmt.Printf("Chain: %s, msg type: %s, height: %d, signer: %s, granter: %s\n", chain, msgType, curr.Response.Height, actualGrantee, string(granter))
 							}
-							done()
 						}
 					}
 				default:
@@ -664,10 +661,6 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			gaiaGranterWallet, err := interchaintest.GetAndFundTestUserWithMnemonic(ctx, granterKeyPrefix, mnemonicAny, fundAmount, gaia)
 			require.NoError(t, err)
 
-			// Set SDK context to the right bech32 prefix
-			prefix := gaia.Config().Bech32Prefix
-			done := cosmos.SetSDKConfigContext(prefix)
-
 			// Feegrant each of the grantees
 			err = Feegrant(t, gaia.(*cosmosv8.CosmosChain), gaiaGranterWallet, gaiaGranterWallet.Address(), gaiaGranteeWallet.Address(), gaiaGranterWallet.FormattedAddress(), gaiaGranteeWallet.FormattedAddress())
 			require.NoError(t, err)
@@ -675,7 +668,6 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			require.NoError(t, err)
 			err = Feegrant(t, gaia.(*cosmosv8.CosmosChain), gaiaGranterWallet, gaiaGranterWallet.Address(), gaiaGrantee3Wallet.Address(), gaiaGranterWallet.FormattedAddress(), gaiaGrantee3Wallet.FormattedAddress())
 			require.NoError(t, err)
-			done()
 
 			mnemonic := gaiaGranterWallet.Mnemonic()
 			fmt.Printf("Wallet mnemonic: %s\n", mnemonic)
@@ -866,8 +858,6 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 								continue
 							}
 
-							done := cProv.SetSDKContext()
-
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
 							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
@@ -939,7 +929,6 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 								}
 								fmt.Printf("Chain: %s, msg type: %s, height: %d, signer: %s, granter: %s\n", chain, msgType, curr.Response.Height, actualGrantee, string(granter))
 							}
-							done()
 						}
 					}
 				default:

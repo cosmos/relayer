@@ -119,14 +119,10 @@ func (cc *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, signi
 		}
 	}
 
-	done := SetSDKConfigContext(cc.PCfg.AccountPrefix)
-
 	info, err := cc.Keybase.NewAccount(keyName, mnemonicStr, "", hd.CreateHDPath(coinType, 0, 0).String(), algo)
 	if err != nil {
 		return nil, err
 	}
-
-	done()
 
 	acc, err := info.GetAddress()
 	if err != nil {
@@ -255,9 +251,6 @@ func (cc *CosmosProvider) KeyFromKeyOrAddress(keyOrAddress string) (string, erro
 		if err != nil {
 			return "", err
 		}
-
-		done := SetSDKConfigContext(cc.PCfg.AccountPrefix)
-		defer done()
 
 		kr, err := cc.Keybase.KeyByAddress(acc)
 		if err != nil {

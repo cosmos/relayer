@@ -313,13 +313,6 @@ func (cc *CosmosProvider) AwaitTx(txHash bytes.HexBytes, timeout time.Duration) 
 //
 // feegranterKey - key name of the address set as the feegranter, empty string will not feegrant
 func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo string, gas uint64, signingKey string, feegranterKey string) (*coretypes.ResultBroadcastTx, error) {
-	sdkConfigMutex.Lock()
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(cc.PCfg.AccountPrefix, cc.PCfg.AccountPrefix+"pub")
-	sdkConf.SetBech32PrefixForValidator(cc.PCfg.AccountPrefix+"valoper", cc.PCfg.AccountPrefix+"valoperpub")
-	sdkConf.SetBech32PrefixForConsensusNode(cc.PCfg.AccountPrefix+"valcons", cc.PCfg.AccountPrefix+"valconspub")
-	defer sdkConfigMutex.Unlock()
-
 	rand.Seed(time.Now().UnixNano())
 	feegrantKeyAcc, _ := cc.GetKeyAddressForKey(feegranterKey)
 
@@ -676,9 +669,6 @@ func (cc *CosmosProvider) buildMessages(
 	fees sdk.Coins,
 	err error,
 ) {
-	done := cc.SetSDKContext()
-	defer done()
-
 	cMsgs := CosmosMsgs(msgs...)
 
 	txf, err := cc.PrepareFactory(cc.TxFactory(dynamicFee), txSignerKey)
@@ -1873,7 +1863,9 @@ func (cc *CosmosProvider) TxFactory(dynamicFee string) tx.Factory {
 		WithGasAdjustment(cc.PCfg.GasAdjustment).
 		WithGasPrices(gasPrice).
 		WithKeybase(cc.Keybase).
-		WithSignMode(cc.PCfg.SignMode())
+		WithSignMode(cc.PCfg.SignMode()).
+		WithBech32Prefix(cc.PCfg.AccountPrefix)
+
 }
 
 // SignMode returns the SDK sign mode type reflective of the specified sign mode in the config file.
