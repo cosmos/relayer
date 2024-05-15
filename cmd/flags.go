@@ -62,6 +62,8 @@ const (
 	flagStuckPacketChainID             = "stuck-packet-chain-id"
 	flagStuckPacketHeightStart         = "stuck-packet-height-start"
 	flagStuckPacketHeightEnd           = "stuck-packet-height-end"
+	flagHubChainID                     = "hub-chain-id"
+	flagFlushIgnoreHubAcks             = "flush-ignore-hub-acks"
 )
 
 const blankValue = "blank"
@@ -489,6 +491,18 @@ func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func addOutputFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().StringP(flagOutput, "o", "legacy", "Specify the console output format. Can be 'legacy' or 'json'.")
 	if err := v.BindPFlag(flagOutput, cmd.Flags().Lookup(flagOutput)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func addHubAckRetryFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagHubChainID, "", "hub chain id")
+	if err := v.BindPFlag(flagHubChainID, cmd.Flags().Lookup(flagHubChainID)); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Bool(flagFlushIgnoreHubAcks, false, "ignore missing acks on the hub when flushing")
+	if err := v.BindPFlag(flagFlushIgnoreHubAcks, cmd.Flags().Lookup(flagFlushIgnoreHubAcks)); err != nil {
 		panic(err)
 	}
 	return cmd

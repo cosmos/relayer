@@ -218,7 +218,7 @@ func createClientCmd(a *appState) *cobra.Command {
 			if err = retry.Do(func() error {
 				srch, dsth, err = relayer.QueryLatestHeights(cmd.Context(), src, dst)
 				if srch == 0 || dsth == 0 || err != nil {
-					return fmt.Errorf("failed to query latest heights: %w", err)
+					return fmt.Errorf("query latest heights: %w", err)
 				}
 				return err
 			}, retry.Context(cmd.Context()), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr); err != nil {
@@ -240,7 +240,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				relayer.RtyErr,
 				retry.OnRetry(func(n uint, err error) {
 					a.log.Info(
-						"Failed to get light signed header",
+						"Get light signed header.",
 						zap.String("src_chain_id", src.ChainID()),
 						zap.Int64("src_height", srch),
 						zap.String("dst_chain_id", dst.ChainID()),
@@ -776,7 +776,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				memo,
 			)
 			if err != nil {
-				return fmt.Errorf("error creating clients: %w", err)
+				return fmt.Errorf("creating clients: %w", err)
 			}
 
 			if clientSrc != "" || clientDst != "" {
@@ -796,7 +796,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				pathName,
 			)
 			if err != nil {
-				return fmt.Errorf("error creating connections: %w", err)
+				return fmt.Errorf("creating connections: %w", err)
 			}
 
 			if connectionSrc != "" || connectionDst != "" {
@@ -847,7 +847,7 @@ $ %s tx link-then-start demo-path --timeout 5s`, appName, appName)),
 			lCmd := linkCmd(a)
 
 			for err := lCmd.RunE(cmd, args); err != nil; err = lCmd.RunE(cmd, args) {
-				a.log.Info("Error running link; retrying", zap.Error(err))
+				a.log.Info("Running link; retrying.", zap.Error(err))
 				select {
 				case <-time.After(time.Second):
 					// Keep going.
@@ -968,6 +968,7 @@ $ %s tx flush demo-path channel-0`,
 				0,
 				nil,
 				stuckPacket,
+				nil,
 			)
 
 			// Block until the error channel sends a message.
@@ -975,8 +976,8 @@ $ %s tx flush demo-path channel-0`,
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
 			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
-				a.log.Warn(
-					"Relayer start error",
+				a.log.Error(
+					"Start relayer.",
 					zap.Error(err),
 				)
 				return err
@@ -1004,7 +1005,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			a.log.Warn("This command is deprecated. Please use 'tx flush' command instead")
+			a.log.Error("This command is deprecated. Please use 'tx flush' command instead.")
 			return flushCmd(a).RunE(cmd, args)
 		},
 	}
@@ -1026,7 +1027,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			a.log.Warn("This command is deprecated. Please use 'tx flush' command instead")
+			a.log.Error("This command is deprecated. Please use 'tx flush' command instead.")
 			return flushCmd(a).RunE(cmd, args)
 		},
 	}

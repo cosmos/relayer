@@ -88,7 +88,7 @@ func decodeAminoSignDoc(signDocBytes []byte) (apitypes.TypedData, error) {
 	for i, jsonMsg := range aminoDoc.Msgs {
 		var m sdk.Msg
 		if err := aminoCodec.UnmarshalJSON(jsonMsg, &m); err != nil {
-			return apitypes.TypedData{}, fmt.Errorf("failed to unmarshal sign doc message: %w", err)
+			return apitypes.TypedData{}, fmt.Errorf("unmarshal sign doc message: %w", err)
 		}
 		msgs[i] = m
 	}

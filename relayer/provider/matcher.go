@@ -187,7 +187,7 @@ func checkTendermintMisbehaviour(
 
 		tmHeader, ok := header.(TendermintIBCHeader)
 		if !ok {
-			return nil, fmt.Errorf("failed to check for misbehaviour, expected %T, got %T", (*TendermintIBCHeader)(nil), header)
+			return nil, fmt.Errorf("check for misbehaviour, expected %T, got %T", (*TendermintIBCHeader)(nil), header)
 		}
 
 		trustedHeader, err = tmHeader.TMHeader()

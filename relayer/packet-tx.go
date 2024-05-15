@@ -46,12 +46,12 @@ func (c *Chain) SendTransferMsg(
 	if toTimeOffset > 0 {
 		clientStateRes, err := dst.ChainProvider.QueryClientStateResponse(ctx, dsth, dst.ClientID())
 		if err != nil {
-			return fmt.Errorf("failed to query the client state response: %w", err)
+			return fmt.Errorf("query the client state response: %w", err)
 		}
 
 		clientState, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 		if err != nil {
-			return fmt.Errorf("failed to unpack client state: %w", err)
+			return fmt.Errorf("unpack client state: %w", err)
 		}
 
 		consensusStateRes, err := dst.ChainProvider.QueryClientConsensusState(
@@ -61,12 +61,12 @@ func (c *Chain) SendTransferMsg(
 			clientState.GetLatestHeight(),
 		)
 		if err != nil {
-			return fmt.Errorf("failed to query client consensus state: %w", err)
+			return fmt.Errorf("query client consensus state: %w", err)
 		}
 
 		consensusState, err = clienttypes.UnpackConsensusState(consensusStateRes.ConsensusState)
 		if err != nil {
-			return fmt.Errorf("failed to unpack consensus state: %w", err)
+			return fmt.Errorf("unpack consensus state: %w", err)
 		}
 
 		// use local clock time as reference time if it is later than the
@@ -122,7 +122,7 @@ func (c *Chain) SendTransferMsg(
 	if err := result.Error(); err != nil {
 		if result.PartiallySent() {
 			c.log.Info(
-				"Partial success when sending transfer",
+				"Partial success when sending transfer.",
 				zap.String("src_chain_id", c.ChainID()),
 				zap.String("dst_chain_id", dst.ChainID()),
 				zap.Object("send_result", result),
@@ -131,7 +131,7 @@ func (c *Chain) SendTransferMsg(
 		return err
 	} else if result.SuccessfullySent() {
 		c.log.Info(
-			"Successfully sent a transfer",
+			"Successfully sent a transfer.",
 			zap.String("src_chain_id", c.ChainID()),
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.Object("send_result", result),

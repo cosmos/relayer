@@ -49,6 +49,7 @@ func StartRelayer(
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
 	stuckPacket *processor.StuckPacket,
+	skippedPacketsHandlingCfg *processor.SkippedPacketsHandlingConfig,
 ) chan error {
 	// prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	sdk.SetAddrCacheEnabled(false)
@@ -110,6 +111,7 @@ func StartRelayer(
 			errorChan,
 			metrics,
 			stuckPacket,
+			skippedPacketsHandlingCfg,
 		)
 		return errorChan
 	case ProcessorLegacy:
@@ -167,6 +169,7 @@ func relayerStartEventProcessor(
 	errCh chan<- error,
 	metrics *processor.PrometheusMetrics,
 	stuckPacket *processor.StuckPacket,
+	skippedPacketsHandlingCfg *processor.SkippedPacketsHandlingConfig,
 ) {
 	defer close(errCh)
 
@@ -187,6 +190,7 @@ func relayerStartEventProcessor(
 				maxMsgLength,
 				memoLimit,
 				maxReceiverSize,
+				skippedPacketsHandlingCfg,
 			))
 	}
 
@@ -219,7 +223,7 @@ func relayerStartLegacy(
 		if errors.Is(err, context.Canceled) {
 			errCh <- err
 		} else {
-			errCh <- fmt.Errorf("error querying all channels on chain{%s}@connection{%s}: %w",
+			errCh <- fmt.Errorf("querying all channels on chain{%s}@connection{%s}: %w",
 				src.ChainID(), src.ConnectionID(), err)
 		}
 		return
@@ -281,8 +285,8 @@ func relayerStartLegacy(
 			}
 			return nil
 		}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-			src.log.Info(
-				"Failed to query channel for updated state",
+			src.log.Debug(
+				"Retrying query channel for updated state.",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", channel.channel.ChannelId),
 				zap.Uint("attempt", n+1),
@@ -298,7 +302,7 @@ func relayerStartLegacy(
 		if queryChannelResp.Channel.State != types.OPEN {
 			delete(srcOpenChannels, channel.channel.ChannelId)
 			src.log.Info(
-				"Channel is no longer in open state",
+				"Channel is no longer in open state.",
 				zap.String("chain_id", src.ChainID()),
 				zap.String("channel_id", channel.channel.ChannelId),
 				zap.String("channel_state", queryChannelResp.Channel.State.String()),
@@ -322,8 +326,8 @@ func queryChannelsOnConnection(ctx context.Context, src *Chain) ([]*types.Identi
 		srcChannels, err = src.ChainProvider.QueryConnectionChannels(ctx, srch, src.ConnectionID())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
-		src.log.Info(
-			"Failed to query connection channels",
+		src.log.Debug(
+			"Retrying query connection channels.",
 			zap.String("conn_id", src.ConnectionID()),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", RtyAttNum),
@@ -429,7 +433,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 
 	if len(sp.Src) > 0 {
 		src.log.Info(
-			"Unrelayed source packets",
+			"Unrelayed source packets.",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.Uint64s("seqs", sp.Src),
@@ -438,7 +442,7 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 
 	if len(sp.Dst) > 0 {
 		src.log.Info(
-			"Unrelayed destination packets",
+			"Unrelayed destination packets.",
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
 			zap.Uint64s("seqs", sp.Dst),
@@ -449,8 +453,8 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 		// If there was a context cancellation or deadline while attempting to relay packets,
 		// log that and indicate failure.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			log.Warn(
-				"Context finished while waiting for RelayPackets to complete",
+			log.Error(
+				"Context finished while waiting for RelayPackets to complete.",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
@@ -462,8 +466,8 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 
 		// If we encounter an error that suggest node configuration issues, log a more insightful error message.
 		if strings.Contains(err.Error(), "Internal error: transaction indexing is disabled") {
-			log.Warn(
-				"Remote server needs to enable transaction indexing",
+			log.Error(
+				"Remote server needs to enable transaction indexing.",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
@@ -474,8 +478,8 @@ func relayUnrelayedPackets(ctx context.Context, log *zap.Logger, src, dst *Chain
 		}
 
 		// Otherwise, not a context error, but an application-level error.
-		log.Warn(
-			"Relay packets error",
+		log.Error(
+			"Relay packets.",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.String("dst_chain_id", dst.ChainID()),
@@ -512,7 +516,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 
 	if len(ap.Src) > 0 {
 		log.Info(
-			"Unrelayed source acknowledgements",
+			"Unrelayed source acknowledgements.",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.Uint64s("acks", ap.Src),
@@ -521,7 +525,7 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 
 	if len(ap.Dst) > 0 {
 		log.Info(
-			"Unrelayed destination acknowledgements",
+			"Unrelayed destination acknowledgements.",
 			zap.String("dst_chain_id", dst.ChainID()),
 			zap.String("dst_channel_id", srcChannel.Counterparty.ChannelId),
 			zap.Uint64s("acks", ap.Dst),
@@ -532,8 +536,8 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 		// If there was a context cancellation or deadline while attempting to relay acknowledgements,
 		// log that and indicate failure.
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			log.Warn(
-				"Context finished while waiting for RelayAcknowledgements to complete",
+			log.Error(
+				"Context finished while waiting for RelayAcknowledgements to complete.",
 				zap.String("src_chain_id", src.ChainID()),
 				zap.String("src_channel_id", srcChannel.ChannelId),
 				zap.String("dst_chain_id", dst.ChainID()),
@@ -544,8 +548,8 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 		}
 
 		// Otherwise, not a context error, but an application-level error.
-		log.Warn(
-			"Relay acknowledgements error",
+		log.Error(
+			"Relay acknowledgements.",
 			zap.String("src_chain_id", src.ChainID()),
 			zap.String("src_channel_id", srcChannel.ChannelId),
 			zap.String("dst_chain_id", dst.ChainID()),

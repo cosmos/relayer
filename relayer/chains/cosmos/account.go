@@ -45,7 +45,7 @@ func (cc *CosmosProvider) GetAccountWithHeight(_ client.Context, addr sdk.AccAdd
 
 	nBlockHeight, err := strconv.Atoi(blockHeight[0])
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to parse block height: %w", err)
+		return nil, 0, fmt.Errorf("parse block height: %w", err)
 	}
 
 	var acc authtypes.AccountI

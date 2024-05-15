@@ -96,7 +96,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 	// 		GasAdjustment:  1.3,
 	// 	}}
 
-	var tests = [][]*interchaintest.ChainSpec{
+	tests := [][]*interchaintest.ChainSpec{
 		{
 			{Name: "gaia", ChainName: "gaia", Version: "v14.1.0", NumValidators: &nv, NumFullNodes: &nf},
 			{Name: "osmosis", ChainName: "osmosis", Version: "v14.0.1", NumValidators: &nv, NumFullNodes: &nf},
@@ -110,7 +110,6 @@ func TestRelayerFeeGrant(t *testing.T) {
 	for _, tt := range tests {
 		testname := fmt.Sprintf("%s,%s", tt[0].Name, tt[1].Name)
 		t.Run(testname, func(t *testing.T) {
-
 			// Chain Factory
 			cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), tt)
 
@@ -201,64 +200,64 @@ func TestRelayerFeeGrant(t *testing.T) {
 
 			rand.Seed(time.Now().UnixNano())
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				gaia.Config(),
 				gaiaGranterWallet.KeyName(),
 				gaiaGranterWallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				gaia.Config(),
 				gaiaGranteeWallet.KeyName(),
 				gaiaGranteeWallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				gaia.Config(),
 				gaiaGrantee2Wallet.KeyName(),
 				gaiaGrantee2Wallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				gaia.Config(),
 				gaiaGrantee3Wallet.KeyName(),
 				gaiaGrantee3Wallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				osmosis.Config(),
 				osmosisUser.KeyName(),
 				osmosisUser.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				osmosis.Config(),
 				gaiaUser.KeyName(),
 				gaiaUser.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
 			gaiaGranteeAddr := gaiaGranteeWallet.FormattedAddress()
@@ -268,20 +267,20 @@ func TestRelayerFeeGrant(t *testing.T) {
 
 			granteeCsv := gaiaGranteeWallet.KeyName() + "," + gaiaGrantee2Wallet.KeyName() + "," + gaiaGrantee3Wallet.KeyName()
 
-			//You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
-			//Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
+			// You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
+			// Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
 			localRelayer := r.(*Relayer)
 			res := localRelayer.Sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.KeyName(), "--grantees", granteeCsv, "--overwrite-granter")
 			if res.Err != nil {
 				fmt.Printf("configure feegrant results: %s\n", res.Stdout.String())
-				t.Fatalf("failed to rly config feegrants: %v", res.Err)
+				t.Fatalf("rly config feegrants: %v", res.Err)
 			}
 
-			//Map of feegranted chains and the feegrant info for the chain
+			// Map of feegranted chains and the feegrant info for the chain
 			feegrantedChains := map[string]*chainFeegrantInfo{}
 			feegrantedChains[gaia.Config().ChainID] = &chainFeegrantInfo{granter: gaiaGranterAddr, grantees: []string{gaiaGranteeAddr, gaiaGrantee2Addr, gaiaGrantee3Addr}}
 
-			time.Sleep(14 * time.Second) //commit a couple blocks
+			time.Sleep(14 * time.Second) // commit a couple blocks
 			r.StartRelayer(ctx, eRep, ibcPath)
 
 			// Send Transaction
@@ -375,7 +374,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, eg.Wait())
 
-			feegrantMsgSigners := map[string][]string{} //chain to list of signers
+			feegrantMsgSigners := map[string][]string{} // chain to list of signers
 
 			for len(processor.PathProcMessageCollector) > 0 {
 				select {
@@ -386,8 +385,8 @@ func TestRelayerFeeGrant(t *testing.T) {
 							chain := cProv.PCfg.ChainID
 							feegrantInfo, isFeegrantedChain := feegrantedChains[chain]
 							if isFeegrantedChain && !strings.Contains(cProv.PCfg.KeyDirectory, t.Name()) {
-								//This would indicate that a parallel test is inserting msgs into the queue.
-								//We can safely skip over any messages inserted by other test cases.
+								// This would indicate that a parallel test is inserting msgs into the queue.
+								// We can safely skip over any messages inserted by other test cases.
 								fmt.Println("Skipping PathProcessorMessageResp from unrelated Parallel test case")
 								continue
 							}
@@ -413,7 +412,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 							msgType := ""
 							for _, m := range fullTx.GetMsgs() {
 								msgType = types.MsgTypeURL(m)
-								//We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
+								// We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
 								if msgType == "/ibc.core.channel.v1.MsgRecvPacket" || msgType == "/ibc.core.channel.v1.MsgAcknowledgement" {
 									isFeegrantedMsg = true
 									msgs += msgType + ", "
@@ -422,7 +421,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 								}
 							}
 
-							//It's required that TXs be feegranted in a round robin fashion for this chain and message type
+							// It's required that TXs be feegranted in a round robin fashion for this chain and message type
 							if isFeegrantedChain && isFeegrantedMsg {
 								fmt.Printf("Msg types: %+v\n", msgs)
 
@@ -432,13 +431,13 @@ func TestRelayerFeeGrant(t *testing.T) {
 								require.Equal(t, len(signers), 1)
 								granter := fullTx.FeeGranter(cProv.Cdc.Marshaler)
 
-								//Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
+								// Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
 								require.Equal(t, feegrantInfo.granter, string(granter))
 								require.NotEmpty(t, granter)
 
 								for _, msg := range fullTx.GetMsgs() {
 									msgType = types.MsgTypeURL(msg)
-									//We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
+									// We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
 									if msgType == "/ibc.core.channel.v1.MsgRecvPacket" {
 										c := msg.(*chantypes.MsgRecvPacket)
 										appData := c.Packet.GetData()
@@ -452,9 +451,9 @@ func TestRelayerFeeGrant(t *testing.T) {
 									}
 								}
 
-								//Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
-								//In addition, the grantee must be used in round robin fashion
-								//expectedGrantee := nextGrantee(feegrantInfo)
+								// Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
+								// In addition, the grantee must be used in round robin fashion
+								// expectedGrantee := nextGrantee(feegrantInfo)
 								actualGrantee := string(signers[0])
 								signerList, ok := feegrantMsgSigners[chain]
 								if ok {
@@ -493,10 +492,10 @@ func TestRelayerFeeGrant(t *testing.T) {
 					}
 				}
 
-				//At least one feegranter must have signed a TX
+				// At least one feegranter must have signed a TX
 				require.GreaterOrEqual(t, highestCount, 1)
 
-				//All of the feegrantees must have signed at least one TX
+				// All of the feegrantees must have signed at least one TX
 				expectedFeegrantInfo := feegrantedChains[chain]
 				require.Equal(t, len(signerCountMap), len(expectedFeegrantInfo.grantees))
 
@@ -560,7 +559,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 	nv := 1
 	nf := 0
 
-	var tests = [][]*interchaintest.ChainSpec{
+	tests := [][]*interchaintest.ChainSpec{
 		{
 			{Name: "gaia", ChainName: "gaia", Version: "v7.0.3", NumValidators: &nv, NumFullNodes: &nf},
 			{Name: "osmosis", ChainName: "osmosis", Version: "v14.0.1", NumValidators: &nv, NumFullNodes: &nf},
@@ -574,7 +573,6 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 	for _, tt := range tests {
 		testname := fmt.Sprintf("%s,%s", tt[0].Name, tt[1].Name)
 		t.Run(testname, func(t *testing.T) {
-
 			// Chain Factory
 			cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), tt)
 
@@ -692,47 +690,47 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 				gaiaGranteeWallet.KeyName(),
 				gaiaGranteeWallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				gaia.Config(),
 				gaiaGrantee2Wallet.KeyName(),
 				gaiaGrantee2Wallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				gaia.Config(),
 				gaiaGrantee3Wallet.KeyName(),
 				gaiaGrantee3Wallet.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				osmosis.Config(),
 				osmosisUser.KeyName(),
 				osmosisUser.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", osmosis.Config().ChainID, err.Error())
 			}
 
-			//IBC chain config is unrelated to RELAYER config so this step is necessary
+			// IBC chain config is unrelated to RELAYER config so this step is necessary
 			if err := r.RestoreKey(ctx,
 				eRep,
 				osmosis.Config(),
 				gaiaUser.KeyName(),
 				gaiaUser.Mnemonic(),
 			); err != nil {
-				t.Fatalf("failed to restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
+				t.Fatalf("restore granter key to relayer for chain %s: %s", gaia.Config().ChainID, err.Error())
 			}
 
 			gaiaGranteeAddr := gaiaGranteeWallet.FormattedAddress()
@@ -742,20 +740,20 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 
 			granteeCsv := gaiaGranteeWallet.KeyName() + "," + gaiaGrantee2Wallet.KeyName() + "," + gaiaGrantee3Wallet.KeyName()
 
-			//You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
-			//Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
+			// You MUST run the configure feegrant command prior to starting the relayer, otherwise it'd be like you never set it up at all (within this test)
+			// Note that Gaia supports feegrants, but Osmosis does not (x/feegrant module, or any compatible module, is not included in Osmosis SDK app modules)
 			localRelayer := r.(*Relayer)
 			res := localRelayer.Sys().Run(logger, "chains", "configure", "feegrant", "basicallowance", gaia.Config().ChainID, gaiaGranterWallet.FormattedAddress(), "--grantees", granteeCsv, "--overwrite-granter")
 			if res.Err != nil {
 				fmt.Printf("configure feegrant results: %s\n", res.Stdout.String())
-				t.Fatalf("failed to rly config feegrants: %v", res.Err)
+				t.Fatalf("rly config feegrants: %v", res.Err)
 			}
 
-			//Map of feegranted chains and the feegrant info for the chain
+			// Map of feegranted chains and the feegrant info for the chain
 			feegrantedChains := map[string]*chainFeegrantInfo{}
 			feegrantedChains[gaia.Config().ChainID] = &chainFeegrantInfo{granter: gaiaGranterAddr, grantees: []string{gaiaGranteeAddr, gaiaGrantee2Addr, gaiaGrantee3Addr}}
 
-			time.Sleep(14 * time.Second) //commit a couple blocks
+			time.Sleep(14 * time.Second) // commit a couple blocks
 			r.StartRelayer(ctx, eRep, ibcPath)
 
 			// Send Transaction
@@ -849,7 +847,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, eg.Wait())
 
-			feegrantMsgSigners := map[string][]string{} //chain to list of signers
+			feegrantMsgSigners := map[string][]string{} // chain to list of signers
 
 			for len(processor.PathProcMessageCollector) > 0 {
 				select {
@@ -860,8 +858,8 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 							chain := cProv.PCfg.ChainID
 							feegrantInfo, isFeegrantedChain := feegrantedChains[chain]
 							if isFeegrantedChain && !strings.Contains(cProv.PCfg.KeyDirectory, t.Name()) {
-								//This would indicate that a parallel test is inserting msgs into the queue.
-								//We can safely skip over any messages inserted by other test cases.
+								// This would indicate that a parallel test is inserting msgs into the queue.
+								// We can safely skip over any messages inserted by other test cases.
 								fmt.Println("Skipping PathProcessorMessageResp from unrelated Parallel test case")
 								continue
 							}
@@ -887,7 +885,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 							msgType := ""
 							for _, m := range fullTx.GetMsgs() {
 								msgType = types.MsgTypeURL(m)
-								//We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
+								// We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
 								if msgType == "/ibc.core.channel.v1.MsgRecvPacket" || msgType == "/ibc.core.channel.v1.MsgAcknowledgement" {
 									isFeegrantedMsg = true
 									msgs += msgType + ", "
@@ -896,7 +894,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 								}
 							}
 
-							//It's required that TXs be feegranted in a round robin fashion for this chain and message type
+							// It's required that TXs be feegranted in a round robin fashion for this chain and message type
 							if isFeegrantedChain && isFeegrantedMsg {
 								fmt.Printf("Msg types: %+v\n", msgs)
 
@@ -906,13 +904,13 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 								require.Equal(t, len(signers), 1)
 								granter := fullTx.FeeGranter(cProv.Cdc.Marshaler)
 
-								//Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
+								// Feegranter for the TX that was signed on chain must be the relayer chain's configured feegranter
 								require.Equal(t, feegrantInfo.granter, string(granter))
 								require.NotEmpty(t, granter)
 
 								for _, msg := range fullTx.GetMsgs() {
 									msgType = types.MsgTypeURL(msg)
-									//We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
+									// We want all IBC transfers (on an open channel/connection) to be feegranted in round robin fashion
 									if msgType == "/ibc.core.channel.v1.MsgRecvPacket" {
 										c := msg.(*chantypes.MsgRecvPacket)
 										appData := c.Packet.GetData()
@@ -926,9 +924,9 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 									}
 								}
 
-								//Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
-								//In addition, the grantee must be used in round robin fashion
-								//expectedGrantee := nextGrantee(feegrantInfo)
+								// Grantee for the TX that was signed on chain must be a configured grantee in the relayer's chain feegrants.
+								// In addition, the grantee must be used in round robin fashion
+								// expectedGrantee := nextGrantee(feegrantInfo)
 								actualGrantee := string(signers[0])
 								signerList, ok := feegrantMsgSigners[chain]
 								if ok {
@@ -967,10 +965,10 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 					}
 				}
 
-				//At least one feegranter must have signed a TX
+				// At least one feegranter must have signed a TX
 				require.GreaterOrEqual(t, highestCount, 1)
 
-				//All of the feegrantees must have signed at least one TX
+				// All of the feegrantees must have signed at least one TX
 				expectedFeegrantInfo := feegrantedChains[chain]
 				require.Equal(t, len(signerCountMap), len(expectedFeegrantInfo.grantees))
 
@@ -1021,7 +1019,7 @@ func buildUserUnfunded(
 	keyName := fmt.Sprintf("%s-%s-%s", keyNamePrefix, chainCfg.ChainID, randLowerCaseLetterString(3))
 	user, err := chain.BuildWallet(ctx, keyName, mnemonic)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get source user wallet: %w", err)
+		return nil, fmt.Errorf("get source user wallet: %w", err)
 	}
 
 	return user, nil

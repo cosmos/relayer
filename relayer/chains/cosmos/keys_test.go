@@ -22,11 +22,11 @@ func testProviderWithKeystore(t *testing.T, accountPrefix string, extraCodecs []
 	}
 	p, err := cfg.NewProvider(zap.NewNop(), homePath, true, "test_chain")
 	if err != nil {
-		t.Fatalf("Error creating provider: %v", err)
+		t.Fatalf("creating provider: %v", err)
 	}
 	err = p.CreateKeystore(homePath)
 	if err != nil {
-		t.Fatalf("Error creating keystore: %v", err)
+		t.Fatalf("creating keystore: %v", err)
 	}
 	return p
 }

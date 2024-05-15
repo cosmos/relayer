@@ -324,7 +324,7 @@ func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace 
 
 	res, err := queryClient.Params(ctx, &params)
 	if err != nil {
-		return 0, fmt.Errorf("failed to make %s params request: %w", subspace, err)
+		return 0, fmt.Errorf("make %s params request: %w", subspace, err)
 	}
 
 	if res.Param.Value == "" {
@@ -333,7 +333,7 @@ func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace 
 
 	unbondingValue, err := strconv.ParseUint(strings.ReplaceAll(res.Param.Value, `"`, ""), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse %s from %s param: %w", key, subspace, err)
+		return 0, fmt.Errorf("parse %s from %s param: %w", key, subspace, err)
 	}
 
 	return time.Duration(unbondingValue), nil
@@ -362,7 +362,7 @@ func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Durati
 	}
 
 	return 0,
-		fmt.Errorf("failed to query unbonding period from ccvconsumer, staking & fallback : %w: %s : %s", consumerErr, stakingParamsErr.Error(), err.Error())
+		fmt.Errorf("query unbonding period from ccvconsumer, staking & fallback : %w: %s : %s", consumerErr, stakingParamsErr.Error(), err.Error())
 }
 
 // QueryTendermintProof performs an ABCI query with the given key and returns
@@ -1200,7 +1200,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
 	status, err := cc.RPCClient.Status(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query node status: %w", err)
+		return nil, fmt.Errorf("query node status: %w", err)
 	}
 	return status, nil
 }

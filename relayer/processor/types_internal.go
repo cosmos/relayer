@@ -120,7 +120,7 @@ func (msg packetIBCMessage) assemble(
 	var err error
 	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 	if err != nil {
-		return nil, fmt.Errorf("error querying packet proof: %w", err)
+		return nil, fmt.Errorf("querying packet proof: %w", err)
 	}
 	return assembleMessage(msg.info, proof)
 }
@@ -210,7 +210,7 @@ func (msg channelIBCMessage) assemble(
 	if chanProof != nil {
 		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
-			return nil, fmt.Errorf("error querying channel proof: %w", err)
+			return nil, fmt.Errorf("querying channel proof: %w", err)
 		}
 	}
 	return assembleMessage(msg.info, proof)
@@ -283,7 +283,7 @@ func (msg connectionIBCMessage) assemble(
 	if connProof != nil {
 		proof, err = connProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
-			return nil, fmt.Errorf("error querying connection proof: %w", err)
+			return nil, fmt.Errorf("querying connection proof: %w", err)
 		}
 	}
 
@@ -337,7 +337,7 @@ func (msg clientICQMessage) assemble(
 
 	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, src.latestBlock.Height-1)
 	if err != nil {
-		return nil, fmt.Errorf("error during interchain query: %w", err)
+		return nil, fmt.Errorf("during interchain query: %w", err)
 	}
 
 	return dst.chainProvider.MsgSubmitQueryResponse(msg.info.Chain, msg.info.QueryID, proof)

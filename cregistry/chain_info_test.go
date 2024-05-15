@@ -48,7 +48,7 @@ func TestGetAllRPCEndpoints(t *testing.T) {
 			expectedEndpoints: []string{"http://test.com:80/rpc"},
 			expectedError:     nil,
 		},
-		"unsupported or invalid url scheme error": {
+		"unsupported or invalid url scheme": {
 			chainInfo:         ChainInfoWithRPCEndpoint("ftp://test.com/rpc"),
 			expectedEndpoints: nil,
 			expectedError:     fmt.Errorf("invalid or unsupported url scheme: ftp"),

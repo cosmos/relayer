@@ -170,19 +170,6 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		mp.metrics.SetClientTrustingPeriod(src.info.PathName, dst.info.ChainID, dst.info.ClientID, time.Duration(dst.clientState.TrustingPeriod))
 	}
 
-	mp.log.Debug("should update client now?",
-		zap.String("path_name", src.info.PathName),
-		zap.String("chain_id", dst.info.ChainID),
-		zap.String("client_id", dst.info.ClientID),
-		zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
-		zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
-		zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
-		zap.Bool("enough_blocks_passed", enoughBlocksPassed),
-		zap.Bool("past_two_thirds_trusting_period", pastTwoThirdsTrustingPeriod),
-		zap.Bool("past_configured_client_update_threshold", pastConfiguredClientUpdateThreshold),
-		zap.Bool("should_update_client_now", shouldUpdateClientNow),
-	)
-
 	return shouldUpdateClientNow, nil
 }
 
@@ -246,13 +233,12 @@ func (mp *messageProcessor) assembleMessage(
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {
-		dst.log.Error(fmt.Sprintf("Error assembling message: %s", msg.msgType()),
+		dst.log.Error(fmt.Sprintf("Assemble message: %s.", msg.msgType()),
 			zap.Object("msg", msg),
 			zap.Error(err),
 		)
 		return
 	}
-	dst.log.Debug(fmt.Sprintf("Assembled message: %s", msg.msgType()), zap.Object("msg", msg))
 }
 
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
@@ -279,11 +265,11 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 
 		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 		if err != nil {
-			return fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w",
+			return fmt.Errorf("getting IBC header at height: %d for chain_id: %s, %w",
 				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
 
-		mp.log.Debug("Had to query for client trusted IBC header",
+		mp.log.Debug("Queried for client trusted IBC header.",
 			zap.String("path_name", src.info.PathName),
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
@@ -392,7 +378,7 @@ func (mp *messageProcessor) sendClientUpdate(
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
 
 	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
-		mp.log.Error("Error sending client update message",
+		mp.log.Error("Sending client update message.",
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
@@ -448,7 +434,7 @@ func (mp *messageProcessor) sendBatchMessages(
 		}
 	}
 
-	dst.log.Debug("Will relay messages", fields...)
+	dst.log.Debug("sendBatchMessages: will relay messages", fields...)
 
 	callback := func(_ *provider.RelayerTxResponse, err error) {
 		for _, t := range batch {
@@ -506,10 +492,9 @@ func (mp *messageProcessor) sendBatchMessages(
 		mp.metricParseTxFailureCatagory(err, src)
 
 		if errors.Is(err, chantypes.ErrRedundantTx) {
-			mp.log.Debug("Redundant message(s)", errFields...)
 			return
 		}
-		mp.log.Error("Sending messages from batch", errFields...)
+		mp.log.Error("Sending messages from batch.", errFields...)
 		return
 	}
 	dst.log.Debug("Message broadcast completed", fields...)
@@ -593,14 +578,13 @@ func (mp *messageProcessor) sendSingleMessage(
 		errFields = append(errFields, zap.Object("msg", tracker))
 		errFields = append(errFields, zap.Error(err))
 		if errors.Is(err, chantypes.ErrRedundantTx) {
-			mp.log.Debug(fmt.Sprintf("Redundant %s message", msgType), errFields...)
 			return
 		}
-		mp.log.Error(fmt.Sprintf("Error broadcasting %s message", msgType), errFields...)
+		mp.log.Error(fmt.Sprintf("Broadcasting message: %s.", msgType), errFields...)
 		return
 	}
 
-	dst.log.Debug(fmt.Sprintf("Successfully broadcasted %s message", msgType), zap.Object("msg", tracker))
+	dst.log.Debug(fmt.Sprintf("Successfully broadcasted message: %s.", msgType), zap.Object("msg", tracker))
 }
 
 func (mp *messageProcessor) metricParseTxFailureCatagory(err error, src *pathEndRuntime) {

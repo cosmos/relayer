@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/cosmos/relayer/v2/dymutils/gerr"
@@ -59,7 +60,7 @@ func (pp *PathProcessor) getMessagesToSend(
 				dstChan, dstPort := m.info.DestChannel, m.info.DestPort
 				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, dstChan, dstPort)
 				if err != nil {
-					dst.log.Error("Failed to query next sequence recv",
+					dst.log.Error("Query next sequence recv",
 						zap.String("channel_id", dstChan),
 						zap.String("port_id", dstPort),
 						zap.Error(err),
@@ -71,7 +72,7 @@ func (pp *PathProcessor) getMessagesToSend(
 				srcChan, srcPort := m.info.SourceChannel, m.info.SourcePort
 				res, err := src.chainProvider.QueryNextSeqAck(ctx, 0, srcChan, srcPort)
 				if err != nil {
-					src.log.Error("Failed to query next sequence ack",
+					src.log.Error("Query next sequence ack",
 						zap.String("channel_id", srcChan),
 						zap.String("port_id", srcPort),
 						zap.Error(err),
@@ -767,7 +768,7 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
-				"Failed to queue initial connection message, event type not handled",
+				"Queue initial connection message, event type not handled.",
 				zap.String("event_type", m.Initial.EventType),
 			)
 			cancel()
@@ -797,7 +798,7 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
-				"Failed to queue initial connection message, event type not handled",
+				"Queue initial connection message, event type not handled.",
 				zap.String("event_type", m.Initial.EventType),
 			)
 			cancel()
@@ -828,7 +829,7 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
-				"Failed to queue initial channel message, event type not handled",
+				"Queue initial channel message, event type not handled.",
 				zap.String("event_type", m.Initial.EventType),
 			)
 			cancel()
@@ -862,7 +863,7 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 					break
 				}
 				if counterpartyState, ok := pp.pathEnd2.channelStateCache[k.Counterparty()]; ok && !counterpartyState.Open {
-					pp.log.Info("Channel already closed on both sides")
+					pp.log.Info("Channel already closed on both sides.")
 					cancel()
 					return
 				}
@@ -888,7 +889,7 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 					break
 				}
 				if counterpartyChanState, ok := pp.pathEnd1.channelStateCache[k.Counterparty()]; ok && !counterpartyChanState.Open {
-					pp.log.Info("Channel already closed on both sides")
+					pp.log.Info("Channel already closed on both sides.")
 					cancel()
 					return
 				}
@@ -1067,7 +1068,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	}
 
 	if pathEnd1Messages.size() != 0 || pathEnd2Messages.size() != 0 {
-		pp.log.Debug("Processing some messages",
+		pp.log.Debug("Processing latest messages",
 			zap.Any("path1ChainID", pp.pathEnd1.info.ChainID),
 			zap.Any("pathEnd1Messages", pathEnd1Messages.debugString()),
 			zap.Any("path2ChainID", pp.pathEnd2.info.ChainID),
@@ -1080,14 +1081,14 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
 		if err := mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1); err != nil {
-			return fmt.Errorf("process path end 1 messages: %w", err)
+			return fmt.Errorf("process path end 1 messages: dst: %s: %w", pp.pathEnd1.info.ChainID, err)
 		}
 		return nil
 	})
 	eg.Go(func() error {
 		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
 		if err := mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2); err != nil {
-			return fmt.Errorf("process path end 2 messages: %w", err)
+			return fmt.Errorf("process path end 2 messages: dst: %s: %w", pp.pathEnd2.info.ChainID, err)
 		}
 		return nil
 	})
@@ -1187,8 +1188,6 @@ func queryPacketCommitments(
 	mu sync.Locker,
 ) func() error {
 	return func() error {
-		pathEnd.log.Debug("Flushing", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
-
 		c, err := pathEnd.chainProvider.QueryPacketCommitments(ctx, pathEnd.latestBlock.Height, k.ChannelID, k.PortID)
 		if err != nil {
 			return err
@@ -1210,6 +1209,29 @@ func queryPacketCommitments(
 type skippedPackets struct {
 	Recv uint64
 	Ack  uint64
+}
+
+type SkippedPacketsHandlingConfig struct {
+	HubChainID                string
+	IgnoreHubAcksWhenFlushing bool
+}
+
+type SkippedError struct {
+	// chain id -> channel -> skipped packets
+	packets map[string]map[ChannelKey]skippedPackets
+}
+
+func (s SkippedError) Error() string {
+	sb := strings.Builder{}
+	for chainID, chainSkipped := range s.packets {
+		for channelKey, skipped := range chainSkipped {
+			sb.WriteString(fmt.Sprintf(
+				"{ %s %s %s recv: %d, number of committed packets for which acks need to be relayed: %d } ",
+				chainID, channelKey.ChannelID, channelKey.PortID, skipped.Recv, skipped.Ack,
+			))
+		}
+	}
+	return sb.String()
 }
 
 // queuePendingRecvAndAcks returns the number of packets skipped during a flush (nil if none).
@@ -1399,18 +1421,25 @@ SeqLoop:
 
 		seq := seq
 
-		dst.log.Debug("Querying recv packet",
-			zap.String("channel", k.CounterpartyChannelID),
-			zap.String("port", k.CounterpartyPortID),
-			zap.Uint64("sequence", seq),
-		)
-
 		eg.Go(func() error {
 			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
-			if err != nil {
-				if !errors.Is(err, gerr.ErrNotFound) {
-					return fmt.Errorf("query recv packet: seq: dst: %s: %d: %w", dst.info.ChainID, seq, err)
-				}
+
+			if err != nil && !errors.Is(err, gerr.ErrNotFound) {
+				return fmt.Errorf("query recv packet: seq: dst: %s: %d: %w", dst.info.ChainID, seq, err)
+			}
+			ackFound := true
+			if errors.Is(err, gerr.ErrNotFound) {
+				ackFound = false
+			}
+			dst.log.Debug("Queried to see if ack exists on chain",
+				zap.String("chain", dst.info.ChainID),
+				zap.String("channel", k.CounterpartyChannelID),
+				zap.String("port", k.CounterpartyPortID),
+				zap.Uint64("sequence", seq),
+				zap.Bool("ack exists", ackFound),
+			)
+
+			if !ackFound {
 				/*
 					It's possible that an acknowledgement event was not yet published on the dst chain
 				*/
@@ -1438,15 +1467,9 @@ SeqLoop:
 
 	if len(unackedAndWillAck) > 0 {
 		dst.log.Debug(
-			"Will flush MsgAcknowledgement",
+			"Will flush an Ack.",
 			zap.Object("channel", k),
 			zap.Uint64s("sequences", unackedAndWillAck),
-		)
-	} else {
-		dst.log.Debug(
-			"No MsgAcknowledgement to flush",
-			zap.String("channel", k.CounterpartyChannelID),
-			zap.String("port", k.CounterpartyPortID),
 		)
 	}
 
@@ -1550,19 +1573,7 @@ func (pp *PathProcessor) flush(ctx context.Context) error {
 	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync, pp.memoLimit, pp.maxReceiverSize)
 
 	if len(skipped) > 0 {
-		skippedPacketsString := ""
-		for chainID, chainSkipped := range skipped {
-			for channelKey, skipped := range chainSkipped {
-				skippedPacketsString += fmt.Sprintf(
-					"{ %s %s %s recv: %d, ack: %d } ",
-					chainID, channelKey.ChannelID, channelKey.PortID, skipped.Recv, skipped.Ack,
-				)
-			}
-		}
-		return fmt.Errorf(
-			"flush was successful, but packets are still pending. %s",
-			skippedPacketsString,
-		)
+		return SkippedError{skipped}
 	}
 
 	return nil
@@ -1622,6 +1633,6 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 			}
 		}
 	}
-	pp.log.Info("Found termination condition for flush, all caches cleared")
+	pp.log.Info("Found termination condition for flush, all caches cleared.")
 	return true
 }

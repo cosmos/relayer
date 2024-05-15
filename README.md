@@ -6,6 +6,7 @@
 - stuck packet search now syncs correctly
 - will no longer unnecessarily wait for a block to elapse before syncing (good for slow chains)
 - recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
+- in the upstream version, the relayer will try to flush every 5 seconds if acks have not yet been produced by the hub. Get around this by setting `--hub-chain-id dymension_1100-1 --flush-ignore-hub-acks`
 
 ![banner](./docs/images/comp.gif)
 
