@@ -106,20 +106,20 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			}
 
 			if debugAddr == "" {
-				a.log.Info("Skipping debug server due to empty debug address flag.")
+				a.log.Info("Skipping debug server due to empty debug address flag")
 			} else {
 				ln, err := net.Listen("tcp", debugAddr)
 				if err != nil {
 					a.log.Error(
-						"Listen on debug address. If you have another relayer process open, use --" +
+						"Failed to listen on debug address. If you have another relayer process open, use --" +
 							flagDebugAddr +
 							" to pick a different address.",
 					)
 
-					return fmt.Errorf("listen on debug address %q: %w", debugAddr, err)
+					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
 				}
 				log := a.log.With(zap.String("sys", "debughttp"))
-				log.Info("Debug server listening.", zap.String("addr", debugAddr))
+				log.Info("Debug server listening", zap.String("addr", debugAddr))
 				prometheusMetrics = processor.NewPrometheusMetrics()
 				relaydebug.StartDebugServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
 				for _, chain := range chains {
@@ -154,26 +154,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			var skippedPacketsHandlingCfg *processor.SkippedPacketsHandlingConfig
-			{
-				ignoreAcks, err := cmd.Flags().GetBool(flagFlushIgnoreHubAcks)
-				if err != nil {
-					return err
-				}
-				hubChain, err := cmd.Flags().GetString(flagHubChainID)
-				if err != nil {
-					return err
-				}
-				if ignoreAcks && hubChain == "" {
-					return errors.New("must supply hub chain id if ignoring hub acks when flushing")
-				}
-
-				skippedPacketsHandlingCfg = &processor.SkippedPacketsHandlingConfig{
-					HubChainID:                hubChain,
-					IgnoreHubAcksWhenFlushing: ignoreAcks,
-				}
-			}
-
 			rlyErrCh := relayer.StartRelayer(
 				cmd.Context(),
 				a.log,
@@ -190,7 +170,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				initialBlockHistory,
 				prometheusMetrics,
 				stuckPacket,
-				skippedPacketsHandlingCfg,
 			)
 
 			// Block until the error channel sends a message.
@@ -198,8 +177,8 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			// so we don't want to separately monitor the ctx.Done channel,
 			// because we would risk returning before the relayer cleans up.
 			if err := <-rlyErrCh; err != nil && !errors.Is(err, context.Canceled) {
-				a.log.Error(
-					"Start relayer.",
+				a.log.Warn(
+					"Relayer start error",
 					zap.Error(err),
 				)
 				return err
@@ -215,6 +194,5 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	cmd = stuckPacketFlags(a.viper, cmd)
-	cmd = addHubAckRetryFlags(a.viper, cmd)
 	return cmd
 }

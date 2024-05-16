@@ -28,6 +28,7 @@ func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxRespons
 	if err != nil {
 		fields = append(fields, zap.Error(err))
 	}
+	log.Info("Failed sending transaction", fields...)
 
 	if res != nil && res.Code != 0 && res.Data != "" {
 		msgTypes := make([]string, len(msgs))
@@ -36,7 +37,7 @@ func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxRespons
 		}
 
 		log.Info(
-			"Sent transaction that resulted in non success code.",
+			"Sent transaction that resulted in error",
 			zap.String("chain_id", chainID),
 			zap.Int64("height", res.Height),
 			zap.Strings("msg_types", msgTypes),
@@ -46,7 +47,7 @@ func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxRespons
 	}
 
 	if res != nil {
-		log.Debug("Transaction response.", zap.Object("resp", res))
+		log.Debug("Transaction response", zap.Object("resp", res))
 	}
 }
 
@@ -72,7 +73,7 @@ func (c *Chain) errQueryUnrelayedPacketAcks() error {
 
 func (c *Chain) LogRetryGetIBCUpdateHeader(n uint, err error) {
 	c.log.Info(
-		"get IBC update headers",
+		"Failed to get IBC update headers",
 		zap.String("chain_id", c.ChainID()),
 		zap.Uint("attempt", n+1),
 		zap.Uint("max_attempts", RtyAttNum),

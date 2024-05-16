@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/avast/retry-go/v4"
 	"net/url"
 	"time"
-
-	"github.com/avast/retry-go/v4"
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -157,7 +156,7 @@ func (c *Chain) CreateTestKey() error {
 func (c *Chain) GetTimeout() (time.Duration, error) {
 	timeout, err := time.ParseDuration(c.ChainProvider.Timeout())
 	if err != nil {
-		return 0, fmt.Errorf("parse timeout (%s) for chain %s: %w", c.ChainProvider.Timeout(), c.ChainID(), err)
+		return 0, fmt.Errorf("failed to parse timeout (%s) for chain %s: %w", c.ChainProvider.Timeout(), c.ChainID(), err)
 	}
 	return timeout, nil
 }

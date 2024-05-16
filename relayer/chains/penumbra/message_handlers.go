@@ -26,7 +26,7 @@ func (pcp *PenumbraChainProcessor) handleMessage(m chains.IbcMessage, c processo
 func (pcp *PenumbraChainProcessor) handlePacketMessage(action string, pi provider.PacketInfo, c processor.IBCMessagesCache) {
 	channelKey, err := processor.PacketInfoChannelKey(action, pi)
 	if err != nil {
-		pcp.log.Error("Unexpected error handling packet message.",
+		pcp.log.Error("Unexpected error handling packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
 			zap.Any("channel", channelKey),
@@ -36,7 +36,7 @@ func (pcp *PenumbraChainProcessor) handlePacketMessage(action string, pi provide
 	}
 
 	if !c.PacketFlow.ShouldRetainSequence(pcp.pathProcessors, channelKey, pcp.chainProvider.ChainId(), action, pi.Sequence) {
-		pcp.log.Error("Not retaining packet message.",
+		pcp.log.Warn("Not retaining packet message",
 			zap.String("action", action),
 			zap.Uint64("sequence", pi.Sequence),
 			zap.Any("channel", channelKey),

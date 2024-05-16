@@ -55,7 +55,9 @@ var (
 	errUnknown                  = "unknown"
 )
 
-var defaultDelayPeriod = uint64(0)
+var (
+	defaultDelayPeriod = uint64(0)
+)
 
 // Strings for parsing events
 var (
@@ -299,6 +301,7 @@ func parseEventsFromABCIResponse(resp abci.ExecTxResult) []provider.RelayerEvent
 }
 
 func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provider.RelayerMessage, _memo string) (*coretypes.ResultBroadcastTx, error) {
+
 	// TODO: fee estimation, fee payments
 	// NOTE: we do not actually need to sign this tx currently, since there
 	// are no fees required on the testnet. future versions of penumbra
@@ -380,8 +383,8 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 		events = append(events, parseEventsFromABCIResponse(res.TxResult)...)
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		cc.log.Debug(
-			"Retrying building or broadcasting transaction.",
+		cc.log.Info(
+			"Error building or broadcasting transaction",
 			zap.String("chain_id", cc.PCfg.ChainID),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", rtyAttNum),
@@ -909,11 +912,9 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 		return nil, err
 	}
 
-	msgUpgradeClient := &clienttypes.MsgUpgradeClient{
-		ClientId: srcClientId, ClientState: clientRes.ClientState,
+	msgUpgradeClient := &clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
-	}
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}
 
 	return cosmos.NewCosmosMessage(msgUpgradeClient, func(signer string) {
 		msgUpgradeClient.Signer = signer
@@ -1215,7 +1216,7 @@ func (cc *PenumbraProvider) PacketCommitment(ctx context.Context, msgTransfer pr
 	key := host.PacketCommitmentKey(msgTransfer.SourcePort, msgTransfer.SourceChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("querying tendermint proof for packet commitment: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet commitment: %w", err)
 	}
 	return provider.PacketProof{
 		Proof:       proof,
@@ -1244,7 +1245,7 @@ func (cc *PenumbraProvider) PacketAcknowledgement(ctx context.Context, msgRecvPa
 	key := host.PacketAcknowledgementKey(msgRecvPacket.DestPort, msgRecvPacket.DestChannel, msgRecvPacket.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("querying tendermint proof for packet acknowledgement: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet acknowledgement: %w", err)
 	}
 	return provider.PacketProof{
 		Proof:       proof,
@@ -1274,7 +1275,7 @@ func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provi
 	key := host.PacketReceiptKey(msgTransfer.DestPort, msgTransfer.DestChannel, msgTransfer.Sequence)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("querying tendermint proof for packet receipt: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for packet receipt: %w", err)
 	}
 
 	return provider.PacketProof{
@@ -1444,7 +1445,7 @@ func (cc *PenumbraProvider) NextSeqRecv(
 	key := host.NextSequenceRecvKey(msgTransfer.DestPort, msgTransfer.DestChannel)
 	_, proof, proofHeight, err := cc.QueryTendermintProof(ctx, int64(height), key)
 	if err != nil {
-		return provider.PacketProof{}, fmt.Errorf("querying tendermint proof for next sequence receive: %w", err)
+		return provider.PacketProof{}, fmt.Errorf("error querying tendermint proof for next sequence receive: %w", err)
 	}
 
 	return provider.PacketProof{
@@ -1641,14 +1642,14 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(
 
 	trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
 	if err != nil {
-		return nil, fmt.Errorf("converting trusted validators to proto object: %w", err)
+		return nil, fmt.Errorf("error converting trusted validators to proto object: %w", err)
 	}
 
 	signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
 
 	validatorSetProto, err := latestCosmosHeader.ValidatorSet.ToProto()
 	if err != nil {
-		return nil, fmt.Errorf("converting validator set to proto object: %w", err)
+		return nil, fmt.Errorf("error converting validator set to proto object: %w", err)
 	}
 
 	return &tmclient.Header{
@@ -1762,17 +1763,13 @@ func (cc *PenumbraProvider) AcknowledgementFromSequence(ctx context.Context, dst
 }
 
 func rcvPacketQuery(channelID string, seq int) []string {
-	return []string{
-		fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq),
-	}
+	return []string{fmt.Sprintf("%s.packet_src_channel='%s'", spTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", spTag, seq)}
 }
 
 func ackPacketQuery(channelID string, seq int) []string {
-	return []string{
-		fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
-		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq),
-	}
+	return []string{fmt.Sprintf("%s.packet_dst_channel='%s'", waTag, channelID),
+		fmt.Sprintf("%s.packet_sequence='%d'", waTag, seq)}
 }
 
 // acknowledgementsFromResultTx looks through the events in a *ctypes.ResultTx and returns
@@ -1789,6 +1786,7 @@ EventLoop:
 		}
 
 		for attributeKey, attributeValue := range event.Attributes {
+
 			switch attributeKey {
 			case srcChanTag:
 				if attributeValue != srcChanId {
@@ -1813,7 +1811,7 @@ EventLoop:
 			case toHeightTag:
 				timeout, err := clienttypes.ParseHeight(attributeValue)
 				if err != nil {
-					cc.log.Error("Parsing height timeout.",
+					cc.log.Warn("error parsing height timeout",
 						zap.String("chain_id", cc.ChainId()),
 						zap.Uint64("sequence", rp.seq),
 						zap.Error(err),
@@ -1824,7 +1822,7 @@ EventLoop:
 			case toTSTag:
 				timeout, err := strconv.ParseUint(attributeValue, 10, 64)
 				if err != nil {
-					cc.log.Error("Parsing timestamp timeout.",
+					cc.log.Warn("error parsing timestamp timeout",
 						zap.String("chain_id", cc.ChainId()),
 						zap.Uint64("sequence", rp.seq),
 						zap.Error(err),
@@ -1835,7 +1833,7 @@ EventLoop:
 			case seqTag:
 				seq, err := strconv.ParseUint(attributeValue, 10, 64)
 				if err != nil {
-					cc.log.Error("Parsing packet sequence.",
+					cc.log.Warn("error parsing packet sequence",
 						zap.String("chain_id", cc.ChainId()),
 						zap.Error(err),
 					)
@@ -1960,7 +1958,7 @@ func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibce
 		return err
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
 		return nil, fmt.Errorf(
-			"get trusted header, please ensure header at the height %d has not been pruned by the connected node: %w",
+			"failed to get trusted header, please ensure header at the height %d has not been pruned by the connected node: %w",
 			h.TrustedHeight.RevisionHeight, err,
 		)
 	}
@@ -1992,7 +1990,7 @@ func castClientStateToTMType(cs *codectypes.Any) (*tmclient.ClientState, error) 
 	clientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
 		return &tmclient.ClientState{},
-			fmt.Errorf("when casting exported clientstate to tendermint type")
+			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
 
 	return clientState, nil
@@ -2134,7 +2132,7 @@ func isQueryStoreWithProof(path string) bool {
 func (cc *PenumbraProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "broadcasting transaction"))
+	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
@@ -2198,7 +2196,7 @@ func (cc *PenumbraProvider) waitForTx(
 ) {
 	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
 	if err != nil {
-		cc.log.Error("Wait for block inclusion.", zap.Error(err))
+		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if callback != nil {
 			callback(nil, err)
 		}
@@ -2280,7 +2278,7 @@ func (cc *PenumbraProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxRespon
 }
 
 func (cc *PenumbraProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	// TODO implement me
+	//TODO implement me
 	panic("implement me")
 }
 
@@ -2292,6 +2290,6 @@ func (cc *PenumbraProvider) SendMessagesToMempool(ctx context.Context, msgs []pr
 
 // MsgRegisterCounterpartyPayee creates an sdk.Msg to broadcast the counterparty address
 func (cc *PenumbraProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayee string) (provider.RelayerMessage, error) {
-	// TODO implement me
+	//TODO implement me
 	panic("implement me")
 }

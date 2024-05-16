@@ -97,7 +97,7 @@ func (s *System) MustRunWithInput(t *testing.T, in io.Reader, args ...string) Ru
 
 	res := s.RunWithInput(zaptest.NewLogger(t), in, args...)
 	if res.Err != nil {
-		t.Logf("executing %v: %v", args, res.Err)
+		t.Logf("Error executing %v: %v", args, res.Err)
 		t.Logf("Stdout: %q", res.Stdout.String())
 		t.Logf("Stderr: %q", res.Stderr.String())
 		t.FailNow()
@@ -131,17 +131,17 @@ func (s *System) MustGetConfig(t *testing.T) (config cmd.ConfigInputWrapper) {
 	t.Helper()
 
 	configBz, err := os.ReadFile(filepath.Join(s.HomeDir, "config", "config.yaml"))
-	require.NoError(t, err, "read config file")
+	require.NoError(t, err, "failed to read config file")
 
 	err = yaml.Unmarshal(configBz, &config)
-	require.NoError(t, err, "unmarshal config file")
+	require.NoError(t, err, "failed to unmarshal config file")
 
 	return config
 }
 
 func (s *System) WriteConfig(t *testing.T, contents []byte) error {
 	t.Helper()
-	return os.WriteFile(filepath.Join(s.HomeDir, "config", "config.yaml"), contents, 0o600)
+	return os.WriteFile(filepath.Join(s.HomeDir, "config", "config.yaml"), contents, 0600)
 }
 
 // A fixed mnemonic and its resulting cosmos address, helpful for tests that need a mnemonic.

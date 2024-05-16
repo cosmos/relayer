@@ -65,7 +65,7 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 		// Make a copy since we may continue to the warning
 		errorFields := append(fields, zap.Error(err))
 		cc.log.Error(
-			"Sending cosmos transaction.",
+			"Failed sending cosmos transaction",
 			errorFields...,
 		)
 
@@ -79,8 +79,8 @@ func (cc *CosmosProvider) LogFailedTx(res *provider.RelayerTxResponse, err error
 			fields = append(fields, zap.NamedError("sdk_error", sdkErr))
 		}
 		fields = append(fields, zap.Object("response", res))
-		cc.log.Error(
-			"Sent transaction but got non success code.",
+		cc.log.Warn(
+			"Sent transaction but received failure response",
 			fields...,
 		)
 	}
@@ -112,12 +112,12 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 			}
 		} else {
 			cc.log.Debug(
-				"convert message to Tx type",
+				"Failed to convert message to Tx type",
 				zap.Stringer("type", reflect.TypeOf(m)),
 			)
 		}
 	} else {
-		cc.log.Debug("unpack response Tx into sdk.Msg", zap.Error(err))
+		cc.log.Debug("Failed to unpack response Tx into sdk.Msg", zap.Error(err))
 	}
 
 	// Include the height, msgType, and tx_hash
@@ -129,7 +129,7 @@ func (cc *CosmosProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rela
 
 	// Log the successful transaction with fields
 	cc.log.Info(
-		"Transaction.",
+		"Successful transaction",
 		fields...,
 	)
 }
@@ -181,7 +181,7 @@ func getFeePayer(log *zap.Logger, cdc *codec.ProtoCodec, tx *typestx.Tx) string 
 	default:
 		signers, _, err := cdc.GetMsgV1Signers(firstMsg)
 		if err != nil {
-			log.Error("Could not get signers for msg when attempting to get the fee payer.", zap.Error(err))
+			log.Info("Could not get signers for msg when attempting to get the fee payer", zap.Error(err))
 			return ""
 		}
 

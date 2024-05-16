@@ -62,7 +62,7 @@ func NewCosmosChainProcessor(
 	metrics *processor.PrometheusMetrics,
 ) *CosmosChainProcessor {
 	return &CosmosChainProcessor{
-		log:                  log.With(zap.String("chain_id", provider.ChainId())),
+		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
 		latestClientState:    make(latestClientState),
 		connectionStateCache: make(processor.ConnectionStateCache),
@@ -103,7 +103,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo chains.ClientI
 		cs, err := ccp.chainProvider.queryTMClientState(ctx, 0, clientInfo.ClientID)
 		if err != nil {
 			ccp.log.Error(
-				"Query client state to get trusting period.",
+				"Failed to query client state to get trusting period",
 				zap.String("client_id", clientInfo.ClientID),
 				zap.Error(err),
 			)
@@ -138,8 +138,8 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 		latestHeight, err = ccp.chainProvider.QueryLatestHeight(latestHeightQueryCtx)
 		return err
 	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ccp.log.Debug(
-			"Retrying query latest height.",
+		ccp.log.Error(
+			"Failed to query latest height",
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", latestHeightQueryRetries),
 			zap.Error(err),
@@ -157,8 +157,8 @@ func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (statu
 		status, err = ccp.chainProvider.QueryStatus(latestHeightQueryCtx)
 		return err
 	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(latestHeightQueryRetryDelay), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ccp.log.Debug(
-			"Retrying query node status.",
+		ccp.log.Error(
+			"Failed to query node status",
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", latestHeightQueryRetries),
 			zap.Error(err),
@@ -231,7 +231,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		status, err := ccp.nodeStatusWithRetry(ctx)
 		if err != nil {
 			ccp.log.Error(
-				"Query latest height after max attempts",
+				"Failed to query latest height after max attempts",
 				zap.Uint("attempts", latestHeightQueryRetries),
 				zap.Error(err),
 			)
@@ -269,7 +269,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 		return err
 	}
 
-	ccp.log.Debug("Entering main query loop.")
+	ccp.log.Debug("Entering main query loop")
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
@@ -293,7 +293,7 @@ func (ccp *CosmosChainProcessor) initializeConnectionState(ctx context.Context) 
 	defer cancel()
 	connections, err := ccp.chainProvider.QueryConnections(ctx)
 	if err != nil {
-		return fmt.Errorf("querying connections: %w", err)
+		return fmt.Errorf("error querying connections: %w", err)
 	}
 	for _, c := range connections {
 		ccp.connectionClients[c.Id] = c.ClientId
@@ -314,7 +314,7 @@ func (ccp *CosmosChainProcessor) initializeChannelState(ctx context.Context) err
 
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
 	if err != nil {
-		return fmt.Errorf("querying channels: %w", err)
+		return fmt.Errorf("error querying channels: %w", err)
 	}
 
 	for _, ch := range channels {
@@ -351,7 +351,7 @@ func (ccp *CosmosChainProcessor) queryCycle(
 	if err != nil {
 		// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
 		ccp.log.Error(
-			"Query node status after max attempts.",
+			"Failed to query node status after max attempts",
 			zap.Uint("attempts", latestHeightQueryRetries),
 			zap.Error(err),
 		)
@@ -359,6 +359,11 @@ func (ccp *CosmosChainProcessor) queryCycle(
 	}
 
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+
+	// This debug log is very noisy, but is helpful when debugging new chains.
+	// ccp.log.Debug("Queried latest height",
+	// 	zap.Int64("latest_height", persistence.latestHeight),
+	// )
 
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
@@ -371,9 +376,9 @@ func (ccp *CosmosChainProcessor) queryCycle(
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < int64(defaultInSyncNumBlocksThreshold) {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("Chain in sync.", zap.Bool("first time", firstTimeInSync))
+			ccp.log.Info("Chain is in sync", zap.Bool("first time", firstTimeInSync))
 		} else {
-			ccp.log.Info("Chain not in sync.",
+			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
 				zap.Int64("latest_height", persistence.latestHeight),
 			)
@@ -398,6 +403,8 @@ func (ccp *CosmosChainProcessor) queryCycle(
 	if ccp.inSync && !firstTimeInSync {
 		firstHeightToQuery++
 	}
+
+	startTime := time.Now()
 
 	for i := firstHeightToQuery; i <= persistence.latestHeight; i++ {
 		var (
@@ -434,14 +441,14 @@ func (ccp *CosmosChainProcessor) queryCycle(
 
 		if err := eg.Wait(); err != nil {
 			ccp.log.Debug(
-				"querying block data",
+				"Error querying block data",
 				zap.Int64("height", i),
 				zap.Error(err),
 			)
 
 			persistence.retriesAtLatestQueriedBlock++
 			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
-				ccp.log.Error("Reached max retries querying for block, skipping", zap.Int64("height", i))
+				ccp.log.Warn("Reached max retries querying for block, skipping", zap.Int64("height", i))
 				// skip this block. now depends on flush to pickup anything missed in the block.
 				persistence.latestQueriedBlock = i
 				persistence.retriesAtLatestQueriedBlock = 0
@@ -449,6 +456,13 @@ func (ccp *CosmosChainProcessor) queryCycle(
 			}
 			break
 		}
+
+		ccp.log.Debug(
+			"Queried block",
+			zap.Int64("height", i),
+			zap.Int64("latest", persistence.latestHeight),
+			zap.Int64("delta", persistence.latestHeight-i),
+		)
 
 		persistence.retriesAtLatestQueriedBlock = 0
 
@@ -479,15 +493,8 @@ func (ccp *CosmosChainProcessor) queryCycle(
 			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
 
 			for _, m := range messages {
-				switch t := m.Info.(type) {
-				case *chains.PacketInfo:
-					if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID && int64(stuckPacket.StartHeight) <= i && i <= int64(stuckPacket.EndHeight) {
-						ccp.log.Info("Found stuck packet message.", zap.Any("seq", t.Sequence), zap.Any("height", t.Height))
-					}
-				}
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
-
 		}
 
 		newLatestQueriedBlock = i
@@ -499,7 +506,13 @@ func (ccp *CosmosChainProcessor) queryCycle(
 			i = persistence.latestHeight
 
 			newLatestQueriedBlock = afterUnstuck
-			ccp.log.Info("Parsed stuck packet height, skipping to current.", zap.Any("new latest queried block", newLatestQueriedBlock))
+			// newLatestQueriedBlock = persistence.latestHeight // this line fixes it, but why?
+			ccp.log.Info("Parsed stuck packet height, skipping to current", zap.Any("new latest queried block", persistence.latestHeight))
+		}
+
+		if i%100 == 0 {
+			elapsed := time.Since(startTime)
+			ccp.log.Info("Processed block", zap.Int64("height", i), zap.Duration("elapsed", elapsed), zap.Int64("latest", persistence.latestHeight))
 		}
 	}
 
@@ -521,11 +534,15 @@ func (ccp *CosmosChainProcessor) queryCycle(
 		clientID := pp.RelevantClientID(chainID)
 		clientState, err := ccp.clientState(ctx, clientID)
 		if err != nil {
-			ccp.log.Error("Fetching client state.",
+			ccp.log.Error("Error fetching client state",
 				zap.String("client_id", clientID),
 				zap.Error(err),
 			)
 			continue
+		}
+
+		if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID {
+			ccp.log.Info("sending new data to the path processor", zap.Bool("inSync", ccp.inSync))
 		}
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
@@ -565,7 +582,7 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 		gp, err := sdk.ParseDecCoins(ccp.chainProvider.PCfg.GasPrices)
 		if err != nil {
 			ccp.log.Error(
-				"Parse gas prices.",
+				"Failed to parse gas prices",
 				zap.Error(err),
 			)
 		}
@@ -576,14 +593,14 @@ func (ccp *CosmosChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 	relayerWalletBalances, err := ccp.chainProvider.QueryBalance(ctx, ccp.chainProvider.Key())
 	if err != nil {
 		ccp.log.Error(
-			"Query relayer balance.",
+			"Failed to query relayer balance",
 			zap.Error(err),
 		)
 	}
 	address, err := ccp.chainProvider.Address()
 	if err != nil {
 		ccp.log.Error(
-			"Get relayer bech32 wallet address.",
+			"Failed to get relayer bech32 wallet addresss",
 			zap.Error(err),
 		)
 	}

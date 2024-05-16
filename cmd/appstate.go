@@ -66,14 +66,14 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 	// read the config file bytes
 	file, err := os.ReadFile(cfgPath)
 	if err != nil {
-		return fmt.Errorf("reading file: %w", err)
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	// unmarshall them into the wrapper struct
 	cfgWrapper := &ConfigInputWrapper{}
 	err = yaml.Unmarshal(file, cfgWrapper)
 	if err != nil {
-		return fmt.Errorf("unmarshalling config: %w", err)
+		return fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
 	if a.log == nil {
@@ -88,7 +88,7 @@ func (a *appState) loadConfigFile(ctx context.Context) error {
 
 	// validate runtime configuration
 	if err := newCfg.validateConfig(); err != nil {
-		return fmt.Errorf("parsing chain config: %w", err)
+		return fmt.Errorf("error parsing chain config: %w", err)
 	}
 
 	// save runtime configuration in app state
@@ -201,11 +201,11 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 	fileLock := flock.New(lockFilePath)
 	_, err := fileLock.TryLock()
 	if err != nil {
-		return fmt.Errorf("acquire config lock: %w", err)
+		return fmt.Errorf("failed to acquire config lock: %w", err)
 	}
 	defer func() {
 		if err := fileLock.Unlock(); err != nil {
-			a.log.Error("Unlocking config file lock, please manually delete.",
+			a.log.Error("error unlocking config file lock, please manually delete",
 				zap.String("filepath", lockFilePath),
 			)
 		}
@@ -214,7 +214,7 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 	// load config from file and validate it. don't want to miss
 	// any changes that may have been made while unlocked.
 	if err := a.loadConfigFile(ctx); err != nil {
-		return fmt.Errorf("initialize config from file: %w", err)
+		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
 	// perform the operation that requires config flock.
@@ -224,7 +224,7 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 
 	// validate config after changes have been made.
 	if err := a.config.validateConfig(); err != nil {
-		return fmt.Errorf("parsing chain config: %w", err)
+		return fmt.Errorf("error parsing chain config: %w", err)
 	}
 
 	// marshal the new config
@@ -236,8 +236,8 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 	cfgPath := a.configPath()
 
 	// Overwrite the config file.
-	if err := os.WriteFile(cfgPath, out, 0o600); err != nil {
-		return fmt.Errorf("write config file at %s: %w", cfgPath, err)
+	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
 	}
 
 	return nil
@@ -277,6 +277,7 @@ func (a *appState) updatePathConfig(
 }
 
 func (a *appState) useKey(chainName, key string) error {
+
 	chain, exists := a.config.Chains[chainName]
 	if !exists {
 		return fmt.Errorf("chain %s not found in config", chainName)
@@ -307,6 +308,7 @@ func (a *appState) useKey(chainName, key string) error {
 }
 
 func (a *appState) useRpcAddr(chainName string, rpcAddr string) error {
+
 	_, exists := a.config.Chains[chainName]
 	if !exists {
 		return fmt.Errorf("chain %s not found in config", chainName)

@@ -58,6 +58,7 @@ func keysCmd(a *appState) *cobra.Command {
 }
 
 func keysUseCmd(a *appState) *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:     "use chain_name key_name",
 		Aliases: []string{"u"},
@@ -124,7 +125,7 @@ $ %s k a cosmoshub testkey`, appName, appName, appName)),
 
 			ko, err := chain.ChainProvider.AddKey(keyName, uint32(coinType), algo)
 			if err != nil {
-				return fmt.Errorf("add key: %w", err)
+				return fmt.Errorf("failed to add key: %w", err)
 			}
 
 			out, err := json.Marshal(&ko)
@@ -154,6 +155,7 @@ $ %s keys restore  ibc-0 testkey "[mnemonic-words]"
 $ %s k r  cosmoshub faucet-key "[mnemonic-words]"
 $ %s k r demo-key "[mnemonic-words]" --restore-all`, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+
 			cmdFlags := cmd.Flags()
 
 			restoreAll, err := cmdFlags.GetBool(flagRestoreAll)
@@ -310,7 +312,7 @@ func askForConfirmation(a *appState, stdin io.Reader, stderr io.Writer) bool {
 
 	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
-		a.log.Fatal("Fscanln.", zap.Error(err))
+		a.log.Fatal("Failed to read input", zap.Error(err))
 	}
 
 	switch strings.ToLower(response) {

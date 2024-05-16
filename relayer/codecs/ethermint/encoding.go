@@ -36,7 +36,7 @@ func WrapTxToTypedData(
 	txData := make(map[string]interface{})
 
 	if err := json.Unmarshal(data, &txData); err != nil {
-		return apitypes.TypedData{}, errorsmod.Wrap(legacyerrors.ErrJSONUnmarshal, "JSON unmarshal data")
+		return apitypes.TypedData{}, errorsmod.Wrap(legacyerrors.ErrJSONUnmarshal, "failed to JSON unmarshal data")
 	}
 
 	domain := apitypes.TypedDataDomain{
@@ -354,7 +354,7 @@ func unpackAny(cdc codectypes.AnyUnpacker, field reflect.Value) (reflect.Type, r
 	}
 
 	if err := cdc.UnpackAny(any, &anyWrapper.Value); err != nil {
-		return nil, reflect.Value{}, errorsmod.Wrap(err, "unpack Any in msg struct")
+		return nil, reflect.Value{}, errorsmod.Wrap(err, "failed to unpack Any in msg struct")
 	}
 
 	fieldType := reflect.TypeOf(anyWrapper)
@@ -465,7 +465,7 @@ func typToEth(typ reflect.Type) string {
 func doRecover(err *error) {
 	if r := recover(); r != nil {
 		if e, ok := r.(error); ok {
-			e = errorsmod.Wrap(e, "panicked")
+			e = errorsmod.Wrap(e, "panicked with error")
 			*err = e
 			return
 		}

@@ -147,7 +147,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 
 func TestRelayMsgs_Send_Errors(t *testing.T) {
 	t.Run("one batch and one error", func(t *testing.T) {
-		srcErr := fmt.Errorf("source ")
+		srcErr := fmt.Errorf("source error")
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
 			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -155,7 +155,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			},
 		}
 
-		dstErr := fmt.Errorf("dest ")
+		dstErr := fmt.Errorf("dest error")
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
 			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -233,7 +233,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 	})
 
 	t.Run("two batches with success then error", func(t *testing.T) {
-		srcErr := fmt.Errorf("source ")
+		srcErr := fmt.Errorf("source error")
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
@@ -250,7 +250,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			},
 		}
 
-		dstErr := fmt.Errorf("dest ")
+		dstErr := fmt.Errorf("dest error")
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",

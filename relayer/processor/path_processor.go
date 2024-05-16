@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -78,8 +77,7 @@ type PathProcessor struct {
 	maxMsgs                    uint64
 	memoLimit, maxReceiverSize int
 
-	metrics                      *PrometheusMetrics
-	SkippedPacketsHandlingConfig *SkippedPacketsHandlingConfig
+	metrics *PrometheusMetrics
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -104,24 +102,22 @@ func NewPathProcessor(
 	flushInterval time.Duration,
 	maxMsgs uint64,
 	memoLimit, maxReceiverSize int,
-	skippedPacketsHandlingCfg *SkippedPacketsHandlingConfig,
 ) *PathProcessor {
 	isLocalhost := pathEnd1.ClientID == ibcexported.LocalhostClientID
 
 	pp := &PathProcessor{
-		log:                          log,
-		pathEnd1:                     newPathEndRuntime(log, pathEnd1, metrics),
-		pathEnd2:                     newPathEndRuntime(log, pathEnd2, metrics),
-		retryProcess:                 make(chan struct{}, 2),
-		memo:                         memo,
-		clientUpdateThresholdTime:    clientUpdateThresholdTime,
-		flushInterval:                flushInterval,
-		metrics:                      metrics,
-		isLocalhost:                  isLocalhost,
-		maxMsgs:                      maxMsgs,
-		memoLimit:                    memoLimit,
-		maxReceiverSize:              maxReceiverSize,
-		SkippedPacketsHandlingConfig: skippedPacketsHandlingCfg,
+		log:                       log,
+		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
+		pathEnd2:                  newPathEndRuntime(log, pathEnd2, metrics),
+		retryProcess:              make(chan struct{}, 2),
+		memo:                      memo,
+		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		flushInterval:             flushInterval,
+		metrics:                   metrics,
+		isLocalhost:               isLocalhost,
+		maxMsgs:                   maxMsgs,
+		memoLimit:                 memoLimit,
+		maxReceiverSize:           maxReceiverSize,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
@@ -279,7 +275,7 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 	default:
 		// Log that the channel is saturated;
 		// something is wrong if we are retrying this quickly.
-		pp.log.Error("Enqueue path processor retry, retries already scheduled.")
+		pp.log.Error("Failed to enqueue path processor retry, retries already scheduled")
 	}
 }
 
@@ -300,39 +296,8 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 func (pp *PathProcessor) handleFlush(ctx context.Context) {
 	flushTimer := pp.flushInterval
 	if err := pp.flush(ctx); err != nil {
+		pp.log.Warn("Flush not complete", zap.Error(err))
 		flushTimer = flushFailureRetry
-		var se SkippedError
-		if errors.As(err, &se) && pp.SkippedPacketsHandlingConfig != nil {
-			/*
-				An error will have been returned if there are many outstanding packets on any chain which for which an ack has not yet been produced
-				This is normal if using rollups with delayed ack middleware, so we make sure to handle this gracefully:
-				instead of treating this as a failure and retrying after 5 seconds, we may configure to continue without retrying
-			*/
-			var counterPartyChain string
-			if pp.pathEnd1.info.ChainID == pp.SkippedPacketsHandlingConfig.HubChainID {
-				counterPartyChain = pp.pathEnd2.info.ChainID
-			}
-			if pp.pathEnd2.info.ChainID == pp.SkippedPacketsHandlingConfig.HubChainID {
-				counterPartyChain = pp.pathEnd1.info.ChainID
-			}
-
-			for chain, chanSkipped := range se.packets {
-				skippedPacketsOnCounterparty := chain == counterPartyChain
-				onlySkippedPacketsOnCounterparty := len(se.packets) == 1
-				if skippedPacketsOnCounterparty && onlySkippedPacketsOnCounterparty {
-					for _, skipped := range chanSkipped {
-						onlySkippedAcks := skipped.Recv == 0 && 0 < skipped.Ack
-						doNotComplainAboutSkippedAcks := pp.SkippedPacketsHandlingConfig.IgnoreHubAcksWhenFlushing
-						if onlySkippedAcks && doNotComplainAboutSkippedAcks {
-							flushTimer = pp.flushInterval // do not retry soon
-							pp.log.Debug("Flush: skipped some acks, but continuing as normal.")
-						}
-					}
-				}
-			}
-
-		}
-		pp.log.Error("Flush. Will try again later.", zap.Error(err), zap.Duration("until next attempt (seconds)", flushTimer))
 	}
 	pp.flushTimer.Stop()
 	pp.flushTimer = time.NewTimer(flushTimer)
@@ -416,7 +381,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 				pp.maxReceiverSize,
 			)
 		}
-		pp.log.Debug("Flushing due to timer firing.")
+		// Periodic flush to clear out any old packets
 		pp.handleFlush(ctx)
 	}
 	return false
@@ -441,29 +406,22 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
+		pp.log.Debug("path processor run: are the chains in sync? ", zap.Bool("pathEnd1", pp.pathEnd1.inSync), zap.Bool("pathEnd2", pp.pathEnd2.inSync))
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 			continue
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
-			pp.log.Debug("Flushing: should flush and initial flush is not yet complete.")
 			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
-
-			/*
-				NOTE: it is possible that there are still outstanding broadcasts
-				This cancel will cancel them
-				In the future, we may want to wait for them to finish (<-pp.pathEnd1.finishedProcessing etc)
-			*/
-
 			cancel()
 			return
 		}
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx, cancel); err != nil {
-			pp.log.Debug("ERROR process latest messages", zap.Error(err))
+			pp.log.Debug("error process latest messages", zap.Error(err))
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()
@@ -502,13 +460,13 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
 		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		if err != nil {
-			pp.log.Error("Parse channel ID int from string.", zap.Error(err))
+			pp.log.Error("Failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
 		chan2, err := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 		if err != nil {
-			pp.log.Error("Parse channel ID int from string.", zap.Error(err))
+			pp.log.Error("Failed to parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
@@ -550,7 +508,7 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 
 				pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
 			default:
-				pp.log.Error("Invalid IBC channel event type.", zap.String("event_type", eventType))
+				pp.log.Error("Invalid IBC channel event type", zap.String("event_type", eventType))
 			}
 		}
 	}

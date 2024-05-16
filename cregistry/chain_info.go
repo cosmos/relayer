@@ -162,14 +162,14 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 			if err != nil {
 				unhealthy += 1
 				c.log.Debug(
-					"Ignoring endpoint due to error.",
+					"Ignoring endpoint due to error",
 					zap.String("endpoint", endpoint),
 					zap.Error(err),
 				)
 				return nil
 			}
 			healthy += 1
-			c.log.Debug("Verified healthy endpoint.", zap.String("endpoint", endpoint))
+			c.log.Debug("Verified healthy endpoint", zap.String("endpoint", endpoint))
 			endpoints = append(endpoints, endpoint)
 			return nil
 		})
@@ -177,7 +177,7 @@ func (c ChainInfo) GetRPCEndpoints(ctx context.Context) (out []string, err error
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	c.log.Info("Queried endpoints.",
+	c.log.Info("Endpoints queried",
 		zap.String("chain_name", c.ChainName),
 		zap.Int("healthy", healthy),
 		zap.Int("unhealthy", unhealthy),
@@ -202,7 +202,7 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context, forceAdd bool) (str
 
 	randomGenerator := rand.New(rand.NewSource(time.Now().UnixNano()))
 	endpoint := rpcs[randomGenerator.Intn(len(rpcs))]
-	c.log.Info("Selected endpoint",
+	c.log.Info("Endpoint selected",
 		zap.String("chain_name", c.ChainName),
 		zap.String("endpoint", endpoint),
 	)
@@ -214,8 +214,10 @@ func (c ChainInfo) GetAssetList(ctx context.Context, testnet bool, name string) 
 	var chainRegURL string
 	if testnet {
 		chainRegURL = fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/testnets/%s/assetlist.json", name)
+
 	} else {
 		chainRegURL = fmt.Sprintf("https://raw.githubusercontent.com/cosmos/chain-registry/master/%s/assetlist.json", name)
+
 	}
 	res, err := http.Get(chainRegURL)
 	if err != nil {
@@ -239,6 +241,7 @@ func (c ChainInfo) GetAssetList(ctx context.Context, testnet bool, name string) 
 		return AssetList{}, err
 	}
 	return assetList, nil
+
 }
 
 // GetChainConfig returns a CosmosProviderConfig composed from the details found in the cosmos chain registry for

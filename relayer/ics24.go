@@ -65,5 +65,5 @@ func (c *Chain) ErrPathNotSet() error {
 
 // ErrCantSetPath returns an error if the path doesn't set properly
 func (c *Chain) ErrCantSetPath(err error) error {
-	return fmt.Errorf("path on chain %s set: %w", c.ChainID(), err)
+	return fmt.Errorf("path on chain %s failed to set: %w", c.ChainID(), err)
 }

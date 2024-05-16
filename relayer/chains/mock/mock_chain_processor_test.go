@@ -63,7 +63,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 	flushInterval := 6 * time.Hour
 
 	pathProcessor := processor.NewPathProcessor(log, pathEnd1, pathEnd2, metrics, "",
-		clientUpdateThresholdTime, flushInterval, relayer.DefaultMaxMsgLength, 0, 1, nil)
+		clientUpdateThresholdTime, flushInterval, relayer.DefaultMaxMsgLength, 0, 1)
 
 	eventProcessor := processor.NewEventProcessor().
 		WithChainProcessors(
@@ -75,7 +75,7 @@ func TestMockChainAndPathProcessors(t *testing.T) {
 		Build()
 
 	err := eventProcessor.Run(ctx)
-	require.NoError(t, err, "running event processor")
+	require.NoError(t, err, "error running event processor")
 
 	pathEnd1LeftoverMsgTransfer := pathProcessor.PathEnd1Messages(mockChannelKey1, chantypes.EventTypeSendPacket)
 	pathEnd1LeftoverMsgRecvPacket := pathProcessor.PathEnd1Messages(mockChannelKey1, chantypes.EventTypeRecvPacket)

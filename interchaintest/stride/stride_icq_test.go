@@ -63,8 +63,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 				GasAdjustment:  1.1,
 				ModifyGenesis:  ModifyGenesisStride(),
 				EncodingConfig: StrideEncoding(),
-			},
-		},
+			}},
 		{
 			Name:          "gaia",
 			ChainName:     "gaia",
@@ -162,7 +161,7 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 		Amount:  initBal,
 		Denom:   strideCfg.Denom,
 	})
-	require.NoError(t, err, "fund stride admin account")
+	require.NoError(t, err, "failed to fund stride admin account")
 
 	logger.Info("TestScenarioStrideICAandICQ [4]")
 

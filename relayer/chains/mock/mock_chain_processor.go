@@ -89,7 +89,7 @@ func (mcp *MockChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 		persistence.latestQueriedBlock = latestQueriedBlock
 	}
 
-	mcp.log.Debug("Entering main query loop.", zap.String("chain_id", mcp.chainID))
+	mcp.log.Info("entering main query loop", zap.String("chain_id", mcp.chainID))
 
 	ticker := time.NewTicker(minQueryLoopDuration)
 	defer ticker.Stop()
@@ -114,9 +114,9 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	if !mcp.inSync {
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			mcp.inSync = true
-			mcp.log.Info("Chain in sync.", zap.String("chain_id", mcp.chainID))
+			mcp.log.Info("chain is in sync", zap.String("chain_id", mcp.chainID))
 		} else {
-			mcp.log.Error("Chain not in sync.",
+			mcp.log.Warn("chain is not yet in sync",
 				zap.String("chain_id", mcp.chainID),
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
 				zap.Int64("latest_height", persistence.latestHeight),
@@ -175,6 +175,7 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 		// now pass foundMessages to the path processors
 		for _, pp := range mcp.pathProcessors {
+			mcp.log.Info("sending messages to path processor", zap.String("chain_id", mcp.chainID))
 			pp.HandleNewData(mcp.chainID, processor.ChainProcessorCacheData{
 				LatestBlock: provider.LatestBlock{
 					Height: uint64(i),
@@ -184,7 +185,6 @@ func (mcp *MockChainProcessor) queryCycle(ctx context.Context, persistence *quer
 				InSync:            mcp.inSync,
 				ChannelStateCache: channelStateCache,
 			})
-			mcp.log.Info("Sent messages to path processor.", zap.String("chain_id", mcp.chainID))
 		}
 		persistence.latestQueriedBlock = i
 	}
