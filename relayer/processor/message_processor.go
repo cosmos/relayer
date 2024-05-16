@@ -494,12 +494,17 @@ func (mp *messageProcessor) sendBatchMessages(
 		for _, t := range batch {
 			dst.finishedProcessing <- t
 		}
+		var mTypes []string
+		for _, m := range msgs {
+			mTypes = append(mTypes, m.Type())
+		}
 		errFields := []zapcore.Field{
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
 			zap.String("src_client_id", src.info.ClientID),
 			zap.String("dst_client_id", dst.info.ClientID),
+			zap.Any("types", mTypes),
 			zap.Error(err),
 		}
 

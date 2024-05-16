@@ -65,6 +65,7 @@ type PathProcessor struct {
 	initialFlushComplete bool
 	flushTimer           *time.Timer
 	flushInterval        time.Duration
+	noFlush              bool
 
 	// Signals to retry.
 	retryProcess chan struct{}
@@ -100,6 +101,7 @@ func NewPathProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	flushInterval time.Duration,
+	noFlush bool,
 	maxMsgs uint64,
 	memoLimit, maxReceiverSize int,
 ) *PathProcessor {
@@ -118,6 +120,7 @@ func NewPathProcessor(
 		maxMsgs:                   maxMsgs,
 		memoLimit:                 memoLimit,
 		maxReceiverSize:           maxReceiverSize,
+		noFlush:                   noFlush,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
@@ -294,6 +297,10 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 }
 
 func (pp *PathProcessor) handleFlush(ctx context.Context) {
+	if pp.noFlush {
+		pp.log.Debug("Not flushing - disabled.")
+		return
+	}
 	flushTimer := pp.flushInterval
 	if err := pp.flush(ctx); err != nil {
 		pp.log.Warn("Flush not complete", zap.Error(err))

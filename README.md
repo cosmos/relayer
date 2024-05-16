@@ -6,6 +6,7 @@
 - stuck packet search now syncs correctly
 - will no longer unnecessarily wait for a block to elapse before syncing (good for slow chains)
 - recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
+- use `start --no-flush` to avoid flushing completely
 
 ![banner](./docs/images/comp.gif)
 

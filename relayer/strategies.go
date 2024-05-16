@@ -33,23 +33,7 @@ const (
 )
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
-func StartRelayer(
-	ctx context.Context,
-	log *zap.Logger,
-	chains map[string]*Chain,
-	paths []NamedPath,
-	maxMsgLength uint64,
-	maxReceiverSize,
-	memoLimit int,
-	memo string,
-	clientUpdateThresholdTime time.Duration,
-	flushInterval time.Duration,
-	messageLifecycle processor.MessageLifecycle,
-	processorType string,
-	initialBlockHistory uint64,
-	metrics *processor.PrometheusMetrics,
-	stuckPacket *processor.StuckPacket,
-) chan error {
+func StartRelayer(ctx context.Context, log *zap.Logger, chains map[string]*Chain, paths []NamedPath, maxMsgLength uint64, maxReceiverSize, memoLimit int, memo string, clientUpdateThresholdTime, flushInterval time.Duration, messageLifecycle processor.MessageLifecycle, processorType string, initialBlockHistory uint64, metrics *processor.PrometheusMetrics, stuckPacket *processor.StuckPacket, noFlush bool) chan error {
 	// prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	sdk.SetAddrCacheEnabled(false)
 	errorChan := make(chan error, 1)
@@ -94,23 +78,7 @@ func StartRelayer(
 			}
 		}
 
-		go relayerStartEventProcessor(
-			ctx,
-			log,
-			chainProcessors,
-			ePaths,
-			initialBlockHistory,
-			maxMsgLength,
-			maxReceiverSize,
-			memoLimit,
-			memo,
-			messageLifecycle,
-			clientUpdateThresholdTime,
-			flushInterval,
-			errorChan,
-			metrics,
-			stuckPacket,
-		)
+		go relayerStartEventProcessor(ctx, log, chainProcessors, ePaths, initialBlockHistory, maxMsgLength, maxReceiverSize, memoLimit, memo, messageLifecycle, clientUpdateThresholdTime, flushInterval, errorChan, metrics, stuckPacket, noFlush)
 		return errorChan
 	case ProcessorLegacy:
 		if len(paths) != 1 {
@@ -151,23 +119,7 @@ func (c *Chain) chainProcessor(
 }
 
 // relayerStartEventProcessor is the main relayer process when using the event processor.
-func relayerStartEventProcessor(
-	ctx context.Context,
-	log *zap.Logger,
-	chainProcessors []processor.ChainProcessor,
-	paths []path,
-	initialBlockHistory uint64,
-	maxMsgLength uint64,
-	maxReceiverSize,
-	memoLimit int,
-	memo string,
-	messageLifecycle processor.MessageLifecycle,
-	clientUpdateThresholdTime time.Duration,
-	flushInterval time.Duration,
-	errCh chan<- error,
-	metrics *processor.PrometheusMetrics,
-	stuckPacket *processor.StuckPacket,
-) {
+func relayerStartEventProcessor(ctx context.Context, log *zap.Logger, chainProcessors []processor.ChainProcessor, paths []path, initialBlockHistory, maxMsgLength uint64, maxReceiverSize, memoLimit int, memo string, messageLifecycle processor.MessageLifecycle, clientUpdateThresholdTime, flushInterval time.Duration, errCh chan<- error, metrics *processor.PrometheusMetrics, stuckPacket *processor.StuckPacket, noFlush bool) {
 	defer close(errCh)
 
 	epb := processor.NewEventProcessor().
@@ -184,6 +136,7 @@ func relayerStartEventProcessor(
 				memo,
 				clientUpdateThresholdTime,
 				flushInterval,
+				noFlush,
 				maxMsgLength,
 				memoLimit,
 				maxReceiverSize,

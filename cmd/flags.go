@@ -469,6 +469,20 @@ func flushIntervalFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func noFlushFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(
+		"no-flush",
+		false,
+		"avoid flushing entirely (normal behavior is to flush once at start and then on interval)",
+	)
+
+	if err := v.BindPFlag("no-flush", cmd.Flags().Lookup("no-flush")); err != nil {
+		panic(err)
+	}
+
+	return cmd
+}
+
 func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagMemo, "", "a memo to include in relayed packets")
 	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagMemo)); err != nil {

@@ -149,28 +149,19 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
+			noFlush, err := cmd.Flags().GetBool("no-flush")
+			// TODO: us eit
+			_ = noFlush
+			if err != nil {
+				return err
+			}
+
 			stuckPacket, err := parseStuckPacketFromFlags(cmd)
 			if err != nil {
 				return err
 			}
 
-			rlyErrCh := relayer.StartRelayer(
-				cmd.Context(),
-				a.log,
-				chains,
-				paths,
-				maxMsgLength,
-				a.config.Global.MaxReceiverSize,
-				a.config.Global.ICS20MemoLimit,
-				a.config.memo(cmd),
-				clientUpdateThresholdTime,
-				flushInterval,
-				nil,
-				processorType,
-				initialBlockHistory,
-				prometheusMetrics,
-				stuckPacket,
-			)
+			rlyErrCh := relayer.StartRelayer(cmd.Context(), a.log, chains, paths, maxMsgLength, a.config.Global.MaxReceiverSize, a.config.Global.ICS20MemoLimit, a.config.memo(cmd), clientUpdateThresholdTime, flushInterval, nil, processorType, initialBlockHistory, prometheusMetrics, stuckPacket, noFlush)
 
 			// Block until the error channel sends a message.
 			// The context being canceled will cause the relayer to stop,
@@ -192,6 +183,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = processorFlag(a.viper, cmd)
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
+	cmd = noFlushFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	cmd = stuckPacketFlags(a.viper, cmd)
 	return cmd

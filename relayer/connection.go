@@ -40,6 +40,7 @@ func (c *Chain) CreateOpenConnections(
 		memo,
 		DefaultClientUpdateThreshold,
 		DefaultFlushInterval,
+		false,
 		DefaultMaxMsgLength,
 		0,
 		0,
