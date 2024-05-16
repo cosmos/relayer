@@ -1069,14 +1069,18 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
-	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.pathEnd1MessageSender, pp.clientUpdateThresholdTime, pp.isLocalhost)
-		return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
-	})
-	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.pathEnd2MessageSender, pp.clientUpdateThresholdTime, pp.isLocalhost)
-		return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
-	})
+	if _, ok := pp.pathEnd1MessageSender.(MessageSenderNop); !ok {
+		eg.Go(func() error {
+			mp := newMessageProcessor(pp.log, pp.metrics, pp.pathEnd1MessageSender, pp.clientUpdateThresholdTime, pp.isLocalhost)
+			return mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1)
+		})
+	}
+	if _, ok := pp.pathEnd2MessageSender.(MessageSenderNop); !ok {
+		eg.Go(func() error {
+			mp := newMessageProcessor(pp.log, pp.metrics, pp.pathEnd2MessageSender, pp.clientUpdateThresholdTime, pp.isLocalhost)
+			return mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2)
+		})
+	}
 	return eg.Wait()
 }
 

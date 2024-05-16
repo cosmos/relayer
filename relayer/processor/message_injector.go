@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -18,8 +17,6 @@ type MessageInjector struct {
 	metrics *PrometheusMetrics
 
 	memo string
-
-	dst *pathEndRuntime
 
 	cachedUpdateClient provider.RelayerMessage
 	cachedTrackers     []messageToTrack
@@ -41,82 +38,69 @@ func NewMessageInjector(
 // trackAndSendMessages will increment attempt counters for each message and send each message.
 // Messages will be batched if the broadcast mode is configured to 'batch' and there was not an error
 // in a previous batch.
-func (mb *MessageInjector) trackAndSendMessages(
+func (mi *MessageInjector) trackAndSendMessages(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 	msgUpdateClient provider.RelayerMessage,
 	trackers []messageToTrack,
 	needsClientUpdate bool,
 ) error {
-	mb.mu.Lock()
-	defer mb.mu.Unlock()
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
 
-	mb.cachedUpdateClient = msgUpdateClient
-
-	mb.dst = dst
+	mi.cachedUpdateClient = nil
 
 	//broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
 	var batch []messageToTrack
 
-	for _, t := range trackers {
-		retries := dst.trackProcessingMessage(t)
-		if t.assembledMsg() == nil {
-			dst.trackFinishedProcessingMessage(t)
-			continue
-		}
-
-		ordered := false
-		if m, ok := t.(packetMessageToTrack); ok && m.msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			ordered = true
-		}
-
-		//if broadcastBatch && (retries == 0 || ordered) {
-		if retries == 0 || ordered {
-			batch = append(batch, t)
-			continue
-		}
-		//go mb.sendSingleMessage(ctx, src, dst, t)
-	}
-
-	mb.cachedTrackers = batch
-
 	assembledCount := 0
-	for _, m := range trackers {
-		if m.assembledMsg() != nil {
+
+	for _, t := range trackers {
+		msg := t.assembledMsg()
+		if msg != nil {
+			batch = append(batch, t)
 			assembledCount++
 		}
 	}
 
-	if assembledCount > 0 {
+	mi.cachedTrackers = batch
+
+	if assembledCount > 0 ||
+		(needsClientUpdate && msgUpdateClient != nil) {
+		mi.cachedUpdateClient = msgUpdateClient
 		return nil
 	}
 
-	if needsClientUpdate && msgUpdateClient != nil {
-		return nil
+	if len(trackers) > 0 {
+		return errors.New("all messages failed to assemble")
 	}
 
-	// only msgUpdateClient, don't need to send
-	return errors.New("all messages failed to assemble")
+	return nil
 }
 
 // InjectMsgs returns relay messages ready to inject into a proposal.
-func (mb *MessageInjector) InjectMsgs(ctx context.Context) []provider.RelayerMessage {
-	mb.mu.Lock()
-	defer mb.mu.Unlock()
+func (mi *MessageInjector) InjectMsgs(ctx context.Context) []provider.RelayerMessage {
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
 
 	var msgs []provider.RelayerMessage
 
-	if mb.cachedUpdateClient != nil {
-		msgs = append(msgs, mb.cachedUpdateClient)
+	if mi.cachedUpdateClient != nil {
+		msgs = append(msgs, mi.cachedUpdateClient)
 	}
 
-	for _, t := range mb.cachedTrackers {
+	for _, t := range mi.cachedTrackers {
 		msg := t.assembledMsg()
 		if msg != nil {
 			msgs = append(msgs, msg)
 		}
-		mb.dst.finishedProcessing <- t
 	}
+
+	if len(msgs) == 0 {
+		return nil
+	}
+
+	mi.log.Info("Injecting messages", zap.Int("count", len(msgs)))
 
 	return msgs
 }
