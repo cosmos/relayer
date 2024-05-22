@@ -135,12 +135,12 @@ $ %s cfg i`, appName, defaultHome, appName)),
 					// And the home folder doesn't exist
 					if _, err := os.Stat(home); os.IsNotExist(err) {
 						// Create the home folder
-						if err = os.Mkdir(home, os.ModePerm); err != nil {
+						if err = os.Mkdir(home, 0777); err != nil {
 							return err
 						}
 					}
 					// Create the home config folder
-					if err = os.Mkdir(cfgDir, os.ModePerm); err != nil {
+					if err = os.Mkdir(cfgDir, 0777); err != nil {
 						return err
 					}
 				}
@@ -151,6 +151,11 @@ $ %s cfg i`, appName, defaultHome, appName)),
 					return err
 				}
 				defer f.Close()
+
+				err = os.Chmod(cfgPath, 0777)
+				if err != nil {
+					return err
+				}
 
 				memo, _ := cmd.Flags().GetString(flagMemo)
 
