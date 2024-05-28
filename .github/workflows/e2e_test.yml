@@ -1,0 +1,51 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      # trigger workflow if PR is opened directly as R4R.
+      - opened
+      # trigger workflow if changes are pushed to the branch.
+      - synchronize
+      # trigger workflow if PR is marked ready for review.
+      - ready_for_review
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and export
+        uses: docker/build-push-action@v5
+        with:
+          file: Dockerfile
+          context: .
+          outputs: type=docker,dest=/tmp/e2e.tar
+          platforms: linux/amd64
+          tags: |
+              ghcr.io/dymensionxyz/go-relayer:e2e
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e
+          path: /tmp/e2e.tar
+  e2e-tests:
+    needs: build-image
+    uses: dymensionxyz/e2e-tests/.github/workflows/e2e-test-workflow-call.yml@main
+    with:
+      relayer_ci: "e2e"
