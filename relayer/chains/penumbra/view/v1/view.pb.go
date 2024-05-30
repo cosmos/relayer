@@ -7,21 +7,23 @@ import (
 	context "context"
 	encoding_binary "encoding/binary"
 	fmt "fmt"
+	types "github.com/cosmos/cosmos-sdk/codec/types"
 	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
-	v111 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/app/v1"
-	v16 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/asset/v1"
-	v110 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/dex/v1"
-	v14 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/fee/v1"
-	v13 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/ibc/v1"
-	v15 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/sct/v1"
-	v112 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/shielded_pool/v1"
-	v19 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/stake/v1"
-	v12 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/keys/v1"
-	v18 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1"
-	v1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1"
-	v11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/txhash/v1"
-	v17 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1"
+	v112 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/app/v1"
+	v18 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/asset/v1"
+	v11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/auction/v1"
+	v12 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/dex/v1"
+	v16 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/fee/v1"
+	v15 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/ibc/v1"
+	v17 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/sct/v1"
+	v113 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/shielded_pool/v1"
+	v111 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/stake/v1"
+	v1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/keys/v1"
+	v110 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1"
+	v13 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/transaction/v1"
+	v14 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/txhash/v1"
+	v19 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -74,19 +76,221 @@ func (x DelegationsByAddressIndexRequest_Filter) String() string {
 }
 
 func (DelegationsByAddressIndexRequest_Filter) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{55, 0}
+	return fileDescriptor_dba93d04e42ddfc3, []int{57, 0}
+}
+
+type UnbondingTokensByAddressIndexRequest_Filter int32
+
+const (
+	// Return all unbonding tokens, regardless of whether they're claimable
+	// right now.
+	UnbondingTokensByAddressIndexRequest_FILTER_UNSPECIFIED UnbondingTokensByAddressIndexRequest_Filter = 0
+	// Return all unbonding tokens that are currently claimable. This includes:
+	// - tokens that have passed the `unbonding_delay` (from `StakeParameters`)
+	// - tokens for unbonded validators
+	UnbondingTokensByAddressIndexRequest_FILTER_CLAIMABLE UnbondingTokensByAddressIndexRequest_Filter = 1
+	// Return all unbonding tokens that are not yet claimable, because they are
+	// still in the `unbonding_delay` (from `StakeParameters`) period.
+	UnbondingTokensByAddressIndexRequest_FILTER_NOT_YET_CLAIMABLE UnbondingTokensByAddressIndexRequest_Filter = 2
+)
+
+var UnbondingTokensByAddressIndexRequest_Filter_name = map[int32]string{
+	0: "FILTER_UNSPECIFIED",
+	1: "FILTER_CLAIMABLE",
+	2: "FILTER_NOT_YET_CLAIMABLE",
+}
+
+var UnbondingTokensByAddressIndexRequest_Filter_value = map[string]int32{
+	"FILTER_UNSPECIFIED":       0,
+	"FILTER_CLAIMABLE":         1,
+	"FILTER_NOT_YET_CLAIMABLE": 2,
+}
+
+func (x UnbondingTokensByAddressIndexRequest_Filter) String() string {
+	return proto.EnumName(UnbondingTokensByAddressIndexRequest_Filter_name, int32(x))
+}
+
+func (UnbondingTokensByAddressIndexRequest_Filter) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{59, 0}
+}
+
+// Filters in an `AuctionsRequest` will be combined using `AND` logic -- that
+// is, the more filters you add, the fewer responses you're likely to get.
+type AuctionsRequest struct {
+	// If present, filter balances to only include the account specified by the `AddressIndex`.
+	AccountFilter *v1.AddressIndex `protobuf:"bytes,1,opt,name=account_filter,json=accountFilter,proto3" json:"account_filter,omitempty"`
+	// If present, include inactive auctions as well as active ones.
+	IncludeInactive bool `protobuf:"varint,2,opt,name=include_inactive,json=includeInactive,proto3" json:"include_inactive,omitempty"`
+	// If set, query a fullnode for the current state of the auctions.
+	QueryLatestState bool `protobuf:"varint,3,opt,name=query_latest_state,json=queryLatestState,proto3" json:"query_latest_state,omitempty"`
+	// If present, filter to only include auctions whose IDs are in this array.
+	AuctionIdsFilter []*v11.AuctionId `protobuf:"bytes,4,rep,name=auction_ids_filter,json=auctionIdsFilter,proto3" json:"auction_ids_filter,omitempty"`
+}
+
+func (m *AuctionsRequest) Reset()         { *m = AuctionsRequest{} }
+func (m *AuctionsRequest) String() string { return proto.CompactTextString(m) }
+func (*AuctionsRequest) ProtoMessage()    {}
+func (*AuctionsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{0}
+}
+func (m *AuctionsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AuctionsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AuctionsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AuctionsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AuctionsRequest.Merge(m, src)
+}
+func (m *AuctionsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *AuctionsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AuctionsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AuctionsRequest proto.InternalMessageInfo
+
+func (m *AuctionsRequest) GetAccountFilter() *v1.AddressIndex {
+	if m != nil {
+		return m.AccountFilter
+	}
+	return nil
+}
+
+func (m *AuctionsRequest) GetIncludeInactive() bool {
+	if m != nil {
+		return m.IncludeInactive
+	}
+	return false
+}
+
+func (m *AuctionsRequest) GetQueryLatestState() bool {
+	if m != nil {
+		return m.QueryLatestState
+	}
+	return false
+}
+
+func (m *AuctionsRequest) GetAuctionIdsFilter() []*v11.AuctionId {
+	if m != nil {
+		return m.AuctionIdsFilter
+	}
+	return nil
+}
+
+type AuctionsResponse struct {
+	Id *v11.AuctionId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The state of the returned auction.
+	//
+	// Only present when `query_latest_state` was provided.
+	Auction *types.Any `protobuf:"bytes,2,opt,name=auction,proto3" json:"auction,omitempty"`
+	// The state of any DEX positions relevant to the returned auction.
+	//
+	// Only present when `query_latest_state` was provided.
+	// Could be empty, depending on the auction state.
+	Positions []*v12.Position `protobuf:"bytes,3,rep,name=positions,proto3" json:"positions,omitempty"`
+	// The note recording the auction NFT.
+	NoteRecord *SpendableNoteRecord `protobuf:"bytes,4,opt,name=note_record,json=noteRecord,proto3" json:"note_record,omitempty"`
+	// The sequence number of the auction state _as known to the local view
+	// service_. Note that the local view service may lag behind the fullnode. For
+	// example, if the chain hits an auction's `end_height`, but the user hasn't
+	// yet exchanged their sequence-0 (opened) auction NFT for a sequence-1
+	// (closed) auction NFT, the local view service will have a sequnce number of
+	// 0.
+	//
+	// Dutch auctions move from:
+	// 0 (opened) => 1 (closed) => n (withdrawn)
+	LocalSeq uint64 `protobuf:"varint,5,opt,name=local_seq,json=localSeq,proto3" json:"local_seq,omitempty"`
+}
+
+func (m *AuctionsResponse) Reset()         { *m = AuctionsResponse{} }
+func (m *AuctionsResponse) String() string { return proto.CompactTextString(m) }
+func (*AuctionsResponse) ProtoMessage()    {}
+func (*AuctionsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{1}
+}
+func (m *AuctionsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AuctionsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AuctionsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AuctionsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AuctionsResponse.Merge(m, src)
+}
+func (m *AuctionsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *AuctionsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_AuctionsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AuctionsResponse proto.InternalMessageInfo
+
+func (m *AuctionsResponse) GetId() *v11.AuctionId {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *AuctionsResponse) GetAuction() *types.Any {
+	if m != nil {
+		return m.Auction
+	}
+	return nil
+}
+
+func (m *AuctionsResponse) GetPositions() []*v12.Position {
+	if m != nil {
+		return m.Positions
+	}
+	return nil
+}
+
+func (m *AuctionsResponse) GetNoteRecord() *SpendableNoteRecord {
+	if m != nil {
+		return m.NoteRecord
+	}
+	return nil
+}
+
+func (m *AuctionsResponse) GetLocalSeq() uint64 {
+	if m != nil {
+		return m.LocalSeq
+	}
+	return 0
 }
 
 type AuthorizeAndBuildRequest struct {
 	// The transaction plan to authorize and build.
-	TransactionPlan *v1.TransactionPlan `protobuf:"bytes,1,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
+	TransactionPlan *v13.TransactionPlan `protobuf:"bytes,1,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
 }
 
 func (m *AuthorizeAndBuildRequest) Reset()         { *m = AuthorizeAndBuildRequest{} }
 func (m *AuthorizeAndBuildRequest) String() string { return proto.CompactTextString(m) }
 func (*AuthorizeAndBuildRequest) ProtoMessage()    {}
 func (*AuthorizeAndBuildRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{0}
+	return fileDescriptor_dba93d04e42ddfc3, []int{2}
 }
 func (m *AuthorizeAndBuildRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -115,7 +319,7 @@ func (m *AuthorizeAndBuildRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AuthorizeAndBuildRequest proto.InternalMessageInfo
 
-func (m *AuthorizeAndBuildRequest) GetTransactionPlan() *v1.TransactionPlan {
+func (m *AuthorizeAndBuildRequest) GetTransactionPlan() *v13.TransactionPlan {
 	if m != nil {
 		return m.TransactionPlan
 	}
@@ -133,7 +337,7 @@ func (m *AuthorizeAndBuildResponse) Reset()         { *m = AuthorizeAndBuildResp
 func (m *AuthorizeAndBuildResponse) String() string { return proto.CompactTextString(m) }
 func (*AuthorizeAndBuildResponse) ProtoMessage()    {}
 func (*AuthorizeAndBuildResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{1}
+	return fileDescriptor_dba93d04e42ddfc3, []int{3}
 }
 func (m *AuthorizeAndBuildResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -219,7 +423,7 @@ func (m *AuthorizeAndBuildResponse_BuildProgress) Reset() {
 func (m *AuthorizeAndBuildResponse_BuildProgress) String() string { return proto.CompactTextString(m) }
 func (*AuthorizeAndBuildResponse_BuildProgress) ProtoMessage()    {}
 func (*AuthorizeAndBuildResponse_BuildProgress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{1, 0}
+	return fileDescriptor_dba93d04e42ddfc3, []int{3, 0}
 }
 func (m *AuthorizeAndBuildResponse_BuildProgress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -258,14 +462,14 @@ func (m *AuthorizeAndBuildResponse_BuildProgress) GetProgress() float32 {
 // Signals that the transaction is complete.
 type AuthorizeAndBuildResponse_Complete struct {
 	// The finished transaction.
-	Transaction *v1.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
+	Transaction *v13.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
 }
 
 func (m *AuthorizeAndBuildResponse_Complete) Reset()         { *m = AuthorizeAndBuildResponse_Complete{} }
 func (m *AuthorizeAndBuildResponse_Complete) String() string { return proto.CompactTextString(m) }
 func (*AuthorizeAndBuildResponse_Complete) ProtoMessage()    {}
 func (*AuthorizeAndBuildResponse_Complete) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{1, 1}
+	return fileDescriptor_dba93d04e42ddfc3, []int{3, 1}
 }
 func (m *AuthorizeAndBuildResponse_Complete) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -294,7 +498,7 @@ func (m *AuthorizeAndBuildResponse_Complete) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AuthorizeAndBuildResponse_Complete proto.InternalMessageInfo
 
-func (m *AuthorizeAndBuildResponse_Complete) GetTransaction() *v1.Transaction {
+func (m *AuthorizeAndBuildResponse_Complete) GetTransaction() *v13.Transaction {
 	if m != nil {
 		return m.Transaction
 	}
@@ -303,7 +507,7 @@ func (m *AuthorizeAndBuildResponse_Complete) GetTransaction() *v1.Transaction {
 
 type BroadcastTransactionRequest struct {
 	// The transaction to broadcast.
-	Transaction *v1.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
+	Transaction *v13.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
 	// If true, wait for the view service to detect the transaction during sync.
 	AwaitDetection bool `protobuf:"varint,2,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
 }
@@ -312,7 +516,7 @@ func (m *BroadcastTransactionRequest) Reset()         { *m = BroadcastTransactio
 func (m *BroadcastTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*BroadcastTransactionRequest) ProtoMessage()    {}
 func (*BroadcastTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{2}
+	return fileDescriptor_dba93d04e42ddfc3, []int{4}
 }
 func (m *BroadcastTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -341,7 +545,7 @@ func (m *BroadcastTransactionRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BroadcastTransactionRequest proto.InternalMessageInfo
 
-func (m *BroadcastTransactionRequest) GetTransaction() *v1.Transaction {
+func (m *BroadcastTransactionRequest) GetTransaction() *v13.Transaction {
 	if m != nil {
 		return m.Transaction
 	}
@@ -366,7 +570,7 @@ func (m *BroadcastTransactionResponse) Reset()         { *m = BroadcastTransacti
 func (m *BroadcastTransactionResponse) String() string { return proto.CompactTextString(m) }
 func (*BroadcastTransactionResponse) ProtoMessage()    {}
 func (*BroadcastTransactionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{3}
+	return fileDescriptor_dba93d04e42ddfc3, []int{5}
 }
 func (m *BroadcastTransactionResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -443,7 +647,7 @@ func (*BroadcastTransactionResponse) XXX_OneofWrappers() []interface{} {
 // Signals that the transaction was broadcast successfully (but has not been confirmed).
 type BroadcastTransactionResponse_BroadcastSuccess struct {
 	// The hash of the transaction that was broadcast.
-	Id *v11.TransactionId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id *v14.TransactionId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (m *BroadcastTransactionResponse_BroadcastSuccess) Reset() {
@@ -454,7 +658,7 @@ func (m *BroadcastTransactionResponse_BroadcastSuccess) String() string {
 }
 func (*BroadcastTransactionResponse_BroadcastSuccess) ProtoMessage() {}
 func (*BroadcastTransactionResponse_BroadcastSuccess) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{3, 0}
+	return fileDescriptor_dba93d04e42ddfc3, []int{5, 0}
 }
 func (m *BroadcastTransactionResponse_BroadcastSuccess) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -483,7 +687,7 @@ func (m *BroadcastTransactionResponse_BroadcastSuccess) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BroadcastTransactionResponse_BroadcastSuccess proto.InternalMessageInfo
 
-func (m *BroadcastTransactionResponse_BroadcastSuccess) GetId() *v11.TransactionId {
+func (m *BroadcastTransactionResponse_BroadcastSuccess) GetId() *v14.TransactionId {
 	if m != nil {
 		return m.Id
 	}
@@ -495,7 +699,7 @@ func (m *BroadcastTransactionResponse_BroadcastSuccess) GetId() *v11.Transaction
 // Will not be sent unless await_detection was true.
 type BroadcastTransactionResponse_Confirmed struct {
 	// The hash of the transaction that was broadcast.
-	Id *v11.TransactionId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id *v14.TransactionId `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The height in which the transaction was detected as included in the chain, if any.
 	DetectionHeight uint64 `protobuf:"varint,2,opt,name=detection_height,json=detectionHeight,proto3" json:"detection_height,omitempty"`
 }
@@ -506,7 +710,7 @@ func (m *BroadcastTransactionResponse_Confirmed) Reset() {
 func (m *BroadcastTransactionResponse_Confirmed) String() string { return proto.CompactTextString(m) }
 func (*BroadcastTransactionResponse_Confirmed) ProtoMessage()    {}
 func (*BroadcastTransactionResponse_Confirmed) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{3, 1}
+	return fileDescriptor_dba93d04e42ddfc3, []int{5, 1}
 }
 func (m *BroadcastTransactionResponse_Confirmed) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -535,7 +739,7 @@ func (m *BroadcastTransactionResponse_Confirmed) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BroadcastTransactionResponse_Confirmed proto.InternalMessageInfo
 
-func (m *BroadcastTransactionResponse_Confirmed) GetId() *v11.TransactionId {
+func (m *BroadcastTransactionResponse_Confirmed) GetId() *v14.TransactionId {
 	if m != nil {
 		return m.Id
 	}
@@ -554,21 +758,24 @@ type TransactionPlannerRequest struct {
 	ExpiryHeight uint64 `protobuf:"varint,1,opt,name=expiry_height,json=expiryHeight,proto3" json:"expiry_height,omitempty"`
 	// The memo for the requested TransactionPlan.
 	// The memo must be unspecified unless `outputs` is nonempty.
-	Memo *v1.MemoPlaintext `protobuf:"bytes,3,opt,name=memo,proto3" json:"memo,omitempty"`
+	Memo *v13.MemoPlaintext `protobuf:"bytes,3,opt,name=memo,proto3" json:"memo,omitempty"`
 	// If present, only spends funds from the given account.
-	Source *v12.AddressIndex `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	Source *v1.AddressIndex `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
 	// Request contents
-	Outputs            []*TransactionPlannerRequest_Output           `protobuf:"bytes,20,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	Swaps              []*TransactionPlannerRequest_Swap             `protobuf:"bytes,30,rep,name=swaps,proto3" json:"swaps,omitempty"`
-	SwapClaims         []*TransactionPlannerRequest_SwapClaim        `protobuf:"bytes,31,rep,name=swap_claims,json=swapClaims,proto3" json:"swap_claims,omitempty"`
-	Delegations        []*TransactionPlannerRequest_Delegate         `protobuf:"bytes,40,rep,name=delegations,proto3" json:"delegations,omitempty"`
-	Undelegations      []*TransactionPlannerRequest_Undelegate       `protobuf:"bytes,50,rep,name=undelegations,proto3" json:"undelegations,omitempty"`
-	UndelegationClaims []*TransactionPlannerRequest_UndelegateClaim  `protobuf:"bytes,51,rep,name=undelegation_claims,json=undelegationClaims,proto3" json:"undelegation_claims,omitempty"`
-	IbcRelayActions    []*v13.IbcRelay                               `protobuf:"bytes,60,rep,name=ibc_relay_actions,json=ibcRelayActions,proto3" json:"ibc_relay_actions,omitempty"`
-	Ics20Withdrawals   []*v13.Ics20Withdrawal                        `protobuf:"bytes,61,rep,name=ics20_withdrawals,json=ics20Withdrawals,proto3" json:"ics20_withdrawals,omitempty"`
-	PositionOpens      []*TransactionPlannerRequest_PositionOpen     `protobuf:"bytes,70,rep,name=position_opens,json=positionOpens,proto3" json:"position_opens,omitempty"`
-	PositionCloses     []*TransactionPlannerRequest_PositionClose    `protobuf:"bytes,71,rep,name=position_closes,json=positionCloses,proto3" json:"position_closes,omitempty"`
-	PositionWithdraws  []*TransactionPlannerRequest_PositionWithdraw `protobuf:"bytes,72,rep,name=position_withdraws,json=positionWithdraws,proto3" json:"position_withdraws,omitempty"`
+	Outputs                     []*TransactionPlannerRequest_Output                     `protobuf:"bytes,20,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	Swaps                       []*TransactionPlannerRequest_Swap                       `protobuf:"bytes,30,rep,name=swaps,proto3" json:"swaps,omitempty"`
+	SwapClaims                  []*TransactionPlannerRequest_SwapClaim                  `protobuf:"bytes,31,rep,name=swap_claims,json=swapClaims,proto3" json:"swap_claims,omitempty"`
+	Delegations                 []*TransactionPlannerRequest_Delegate                   `protobuf:"bytes,40,rep,name=delegations,proto3" json:"delegations,omitempty"`
+	Undelegations               []*TransactionPlannerRequest_Undelegate                 `protobuf:"bytes,50,rep,name=undelegations,proto3" json:"undelegations,omitempty"`
+	UndelegationClaims          []*TransactionPlannerRequest_UndelegateClaim            `protobuf:"bytes,51,rep,name=undelegation_claims,json=undelegationClaims,proto3" json:"undelegation_claims,omitempty"`
+	IbcRelayActions             []*v15.IbcRelay                                         `protobuf:"bytes,60,rep,name=ibc_relay_actions,json=ibcRelayActions,proto3" json:"ibc_relay_actions,omitempty"`
+	Ics20Withdrawals            []*v15.Ics20Withdrawal                                  `protobuf:"bytes,61,rep,name=ics20_withdrawals,json=ics20Withdrawals,proto3" json:"ics20_withdrawals,omitempty"`
+	PositionOpens               []*TransactionPlannerRequest_PositionOpen               `protobuf:"bytes,70,rep,name=position_opens,json=positionOpens,proto3" json:"position_opens,omitempty"`
+	PositionCloses              []*TransactionPlannerRequest_PositionClose              `protobuf:"bytes,71,rep,name=position_closes,json=positionCloses,proto3" json:"position_closes,omitempty"`
+	PositionWithdraws           []*TransactionPlannerRequest_PositionWithdraw           `protobuf:"bytes,72,rep,name=position_withdraws,json=positionWithdraws,proto3" json:"position_withdraws,omitempty"`
+	DutchAuctionScheduleActions []*TransactionPlannerRequest_ActionDutchAuctionSchedule `protobuf:"bytes,73,rep,name=dutch_auction_schedule_actions,json=dutchAuctionScheduleActions,proto3" json:"dutch_auction_schedule_actions,omitempty"`
+	DutchAuctionEndActions      []*TransactionPlannerRequest_ActionDutchAuctionEnd      `protobuf:"bytes,74,rep,name=dutch_auction_end_actions,json=dutchAuctionEndActions,proto3" json:"dutch_auction_end_actions,omitempty"`
+	DutchAuctionWithdrawActions []*TransactionPlannerRequest_ActionDutchAuctionWithdraw `protobuf:"bytes,75,rep,name=dutch_auction_withdraw_actions,json=dutchAuctionWithdrawActions,proto3" json:"dutch_auction_withdraw_actions,omitempty"`
 	// Specifies either that the planner should compute fees automatically or that it should use a fixed fee amount.
 	//
 	// Types that are valid to be assigned to FeeMode:
@@ -578,14 +785,14 @@ type TransactionPlannerRequest struct {
 	// The epoch index of the transaction being planned.
 	EpochIndex uint64 `protobuf:"varint,200,opt,name=epoch_index,json=epochIndex,proto3" json:"epoch_index,omitempty"` // Deprecated: Do not use.
 	// The epoch of the transaction being planned.
-	Epoch *v15.Epoch `protobuf:"bytes,201,opt,name=epoch,proto3" json:"epoch,omitempty"`
+	Epoch *v17.Epoch `protobuf:"bytes,201,opt,name=epoch,proto3" json:"epoch,omitempty"`
 }
 
 func (m *TransactionPlannerRequest) Reset()         { *m = TransactionPlannerRequest{} }
 func (m *TransactionPlannerRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest) ProtoMessage()    {}
 func (*TransactionPlannerRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6}
 }
 func (m *TransactionPlannerRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -621,10 +828,10 @@ type isTransactionPlannerRequest_FeeMode interface {
 }
 
 type TransactionPlannerRequest_AutoFee struct {
-	AutoFee *v14.FeeTier `protobuf:"bytes,100,opt,name=auto_fee,json=autoFee,proto3,oneof" json:"auto_fee,omitempty"`
+	AutoFee *v16.FeeTier `protobuf:"bytes,100,opt,name=auto_fee,json=autoFee,proto3,oneof" json:"auto_fee,omitempty"`
 }
 type TransactionPlannerRequest_ManualFee struct {
-	ManualFee *v14.Fee `protobuf:"bytes,101,opt,name=manual_fee,json=manualFee,proto3,oneof" json:"manual_fee,omitempty"`
+	ManualFee *v16.Fee `protobuf:"bytes,101,opt,name=manual_fee,json=manualFee,proto3,oneof" json:"manual_fee,omitempty"`
 }
 
 func (*TransactionPlannerRequest_AutoFee) isTransactionPlannerRequest_FeeMode()   {}
@@ -644,14 +851,14 @@ func (m *TransactionPlannerRequest) GetExpiryHeight() uint64 {
 	return 0
 }
 
-func (m *TransactionPlannerRequest) GetMemo() *v1.MemoPlaintext {
+func (m *TransactionPlannerRequest) GetMemo() *v13.MemoPlaintext {
 	if m != nil {
 		return m.Memo
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest) GetSource() *v12.AddressIndex {
+func (m *TransactionPlannerRequest) GetSource() *v1.AddressIndex {
 	if m != nil {
 		return m.Source
 	}
@@ -700,14 +907,14 @@ func (m *TransactionPlannerRequest) GetUndelegationClaims() []*TransactionPlanne
 	return nil
 }
 
-func (m *TransactionPlannerRequest) GetIbcRelayActions() []*v13.IbcRelay {
+func (m *TransactionPlannerRequest) GetIbcRelayActions() []*v15.IbcRelay {
 	if m != nil {
 		return m.IbcRelayActions
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest) GetIcs20Withdrawals() []*v13.Ics20Withdrawal {
+func (m *TransactionPlannerRequest) GetIcs20Withdrawals() []*v15.Ics20Withdrawal {
 	if m != nil {
 		return m.Ics20Withdrawals
 	}
@@ -735,14 +942,35 @@ func (m *TransactionPlannerRequest) GetPositionWithdraws() []*TransactionPlanner
 	return nil
 }
 
-func (m *TransactionPlannerRequest) GetAutoFee() *v14.FeeTier {
+func (m *TransactionPlannerRequest) GetDutchAuctionScheduleActions() []*TransactionPlannerRequest_ActionDutchAuctionSchedule {
+	if m != nil {
+		return m.DutchAuctionScheduleActions
+	}
+	return nil
+}
+
+func (m *TransactionPlannerRequest) GetDutchAuctionEndActions() []*TransactionPlannerRequest_ActionDutchAuctionEnd {
+	if m != nil {
+		return m.DutchAuctionEndActions
+	}
+	return nil
+}
+
+func (m *TransactionPlannerRequest) GetDutchAuctionWithdrawActions() []*TransactionPlannerRequest_ActionDutchAuctionWithdraw {
+	if m != nil {
+		return m.DutchAuctionWithdrawActions
+	}
+	return nil
+}
+
+func (m *TransactionPlannerRequest) GetAutoFee() *v16.FeeTier {
 	if x, ok := m.GetFeeMode().(*TransactionPlannerRequest_AutoFee); ok {
 		return x.AutoFee
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest) GetManualFee() *v14.Fee {
+func (m *TransactionPlannerRequest) GetManualFee() *v16.Fee {
 	if x, ok := m.GetFeeMode().(*TransactionPlannerRequest_ManualFee); ok {
 		return x.ManualFee
 	}
@@ -757,7 +985,7 @@ func (m *TransactionPlannerRequest) GetEpochIndex() uint64 {
 	return 0
 }
 
-func (m *TransactionPlannerRequest) GetEpoch() *v15.Epoch {
+func (m *TransactionPlannerRequest) GetEpoch() *v17.Epoch {
 	if m != nil {
 		return m.Epoch
 	}
@@ -775,16 +1003,16 @@ func (*TransactionPlannerRequest) XXX_OneofWrappers() []interface{} {
 // Request message subtypes
 type TransactionPlannerRequest_Output struct {
 	// The amount and denomination in which the Output is issued.
-	Value *v16.Value `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value *v18.Value `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	// The address to which Output will be sent.
-	Address *v12.Address `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Address *v1.Address `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_Output) Reset()         { *m = TransactionPlannerRequest_Output{} }
 func (m *TransactionPlannerRequest_Output) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_Output) ProtoMessage()    {}
 func (*TransactionPlannerRequest_Output) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 0}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 0}
 }
 func (m *TransactionPlannerRequest_Output) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -813,14 +1041,14 @@ func (m *TransactionPlannerRequest_Output) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_Output proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_Output) GetValue() *v16.Value {
+func (m *TransactionPlannerRequest_Output) GetValue() *v18.Value {
 	if m != nil {
 		return m.Value
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_Output) GetAddress() *v12.Address {
+func (m *TransactionPlannerRequest_Output) GetAddress() *v1.Address {
 	if m != nil {
 		return m.Address
 	}
@@ -829,20 +1057,20 @@ func (m *TransactionPlannerRequest_Output) GetAddress() *v12.Address {
 
 type TransactionPlannerRequest_Swap struct {
 	// The input amount and denomination to be traded in the Swap.
-	Value *v16.Value `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value *v18.Value `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	// The denomination to be received as a Output of the Swap.
-	TargetAsset *v16.AssetId `protobuf:"bytes,2,opt,name=target_asset,json=targetAsset,proto3" json:"target_asset,omitempty"`
+	TargetAsset *v18.AssetId `protobuf:"bytes,2,opt,name=target_asset,json=targetAsset,proto3" json:"target_asset,omitempty"`
 	// The pre-paid fee to be paid for claiming the Swap outputs.
-	Fee *v14.Fee `protobuf:"bytes,3,opt,name=fee,proto3" json:"fee,omitempty"`
+	Fee *v16.Fee `protobuf:"bytes,3,opt,name=fee,proto3" json:"fee,omitempty"`
 	// The address to which swap claim output will be sent.
-	ClaimAddress *v12.Address `protobuf:"bytes,4,opt,name=claim_address,json=claimAddress,proto3" json:"claim_address,omitempty"`
+	ClaimAddress *v1.Address `protobuf:"bytes,4,opt,name=claim_address,json=claimAddress,proto3" json:"claim_address,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_Swap) Reset()         { *m = TransactionPlannerRequest_Swap{} }
 func (m *TransactionPlannerRequest_Swap) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_Swap) ProtoMessage()    {}
 func (*TransactionPlannerRequest_Swap) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 1}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 1}
 }
 func (m *TransactionPlannerRequest_Swap) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -871,28 +1099,28 @@ func (m *TransactionPlannerRequest_Swap) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_Swap proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_Swap) GetValue() *v16.Value {
+func (m *TransactionPlannerRequest_Swap) GetValue() *v18.Value {
 	if m != nil {
 		return m.Value
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_Swap) GetTargetAsset() *v16.AssetId {
+func (m *TransactionPlannerRequest_Swap) GetTargetAsset() *v18.AssetId {
 	if m != nil {
 		return m.TargetAsset
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_Swap) GetFee() *v14.Fee {
+func (m *TransactionPlannerRequest_Swap) GetFee() *v16.Fee {
 	if m != nil {
 		return m.Fee
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_Swap) GetClaimAddress() *v12.Address {
+func (m *TransactionPlannerRequest_Swap) GetClaimAddress() *v1.Address {
 	if m != nil {
 		return m.ClaimAddress
 	}
@@ -903,14 +1131,14 @@ type TransactionPlannerRequest_SwapClaim struct {
 	// SwapCommitment to identify the Swap to be claimed.
 	// Use the commitment from the Swap message:
 	// penumbra.core.component.dex.v1.Swap.body.payload.commitment.
-	SwapCommitment *v17.StateCommitment `protobuf:"bytes,1,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
+	SwapCommitment *v19.StateCommitment `protobuf:"bytes,1,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_SwapClaim) Reset()         { *m = TransactionPlannerRequest_SwapClaim{} }
 func (m *TransactionPlannerRequest_SwapClaim) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_SwapClaim) ProtoMessage()    {}
 func (*TransactionPlannerRequest_SwapClaim) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 2}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 2}
 }
 func (m *TransactionPlannerRequest_SwapClaim) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -939,7 +1167,7 @@ func (m *TransactionPlannerRequest_SwapClaim) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_SwapClaim proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_SwapClaim) GetSwapCommitment() *v17.StateCommitment {
+func (m *TransactionPlannerRequest_SwapClaim) GetSwapCommitment() *v19.StateCommitment {
 	if m != nil {
 		return m.SwapCommitment
 	}
@@ -947,15 +1175,15 @@ func (m *TransactionPlannerRequest_SwapClaim) GetSwapCommitment() *v17.StateComm
 }
 
 type TransactionPlannerRequest_Delegate struct {
-	Amount   *v18.Amount   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
-	RateData *v19.RateData `protobuf:"bytes,3,opt,name=rate_data,json=rateData,proto3" json:"rate_data,omitempty"`
+	Amount   *v110.Amount   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	RateData *v111.RateData `protobuf:"bytes,3,opt,name=rate_data,json=rateData,proto3" json:"rate_data,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_Delegate) Reset()         { *m = TransactionPlannerRequest_Delegate{} }
 func (m *TransactionPlannerRequest_Delegate) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_Delegate) ProtoMessage()    {}
 func (*TransactionPlannerRequest_Delegate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 3}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 3}
 }
 func (m *TransactionPlannerRequest_Delegate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -984,14 +1212,14 @@ func (m *TransactionPlannerRequest_Delegate) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_Delegate proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_Delegate) GetAmount() *v18.Amount {
+func (m *TransactionPlannerRequest_Delegate) GetAmount() *v110.Amount {
 	if m != nil {
 		return m.Amount
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_Delegate) GetRateData() *v19.RateData {
+func (m *TransactionPlannerRequest_Delegate) GetRateData() *v111.RateData {
 	if m != nil {
 		return m.RateData
 	}
@@ -999,15 +1227,15 @@ func (m *TransactionPlannerRequest_Delegate) GetRateData() *v19.RateData {
 }
 
 type TransactionPlannerRequest_Undelegate struct {
-	Value    *v16.Value    `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	RateData *v19.RateData `protobuf:"bytes,2,opt,name=rate_data,json=rateData,proto3" json:"rate_data,omitempty"`
+	Value    *v18.Value     `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	RateData *v111.RateData `protobuf:"bytes,2,opt,name=rate_data,json=rateData,proto3" json:"rate_data,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_Undelegate) Reset()         { *m = TransactionPlannerRequest_Undelegate{} }
 func (m *TransactionPlannerRequest_Undelegate) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_Undelegate) ProtoMessage()    {}
 func (*TransactionPlannerRequest_Undelegate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 4}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 4}
 }
 func (m *TransactionPlannerRequest_Undelegate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1036,14 +1264,14 @@ func (m *TransactionPlannerRequest_Undelegate) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_Undelegate proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_Undelegate) GetValue() *v16.Value {
+func (m *TransactionPlannerRequest_Undelegate) GetValue() *v18.Value {
 	if m != nil {
 		return m.Value
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_Undelegate) GetRateData() *v19.RateData {
+func (m *TransactionPlannerRequest_Undelegate) GetRateData() *v111.RateData {
 	if m != nil {
 		return m.RateData
 	}
@@ -1052,15 +1280,15 @@ func (m *TransactionPlannerRequest_Undelegate) GetRateData() *v19.RateData {
 
 type TransactionPlannerRequest_UndelegateClaim struct {
 	// The identity key of the validator to finish undelegating from.
-	ValidatorIdentity *v12.IdentityKey `protobuf:"bytes,1,opt,name=validator_identity,json=validatorIdentity,proto3" json:"validator_identity,omitempty"`
+	ValidatorIdentity *v1.IdentityKey `protobuf:"bytes,1,opt,name=validator_identity,json=validatorIdentity,proto3" json:"validator_identity,omitempty"`
 	// The epoch in which unbonding began, used to verify the penalty.
 	StartEpochIndex uint64 `protobuf:"varint,2,opt,name=start_epoch_index,json=startEpochIndex,proto3" json:"start_epoch_index,omitempty"` // Deprecated: Do not use.
 	// The penalty applied to undelegation, in bps^2 (10e-8).
 	// In the happy path (no slashing), this is 0.
-	Penalty *v19.Penalty `protobuf:"bytes,3,opt,name=penalty,proto3" json:"penalty,omitempty"`
+	Penalty *v111.Penalty `protobuf:"bytes,3,opt,name=penalty,proto3" json:"penalty,omitempty"`
 	// The amount of unbonding tokens to claim.
 	// This is a bare number because its denom is determined by the preceding data.
-	UnbondingAmount *v18.Amount `protobuf:"bytes,4,opt,name=unbonding_amount,json=unbondingAmount,proto3" json:"unbonding_amount,omitempty"`
+	UnbondingAmount *v110.Amount `protobuf:"bytes,4,opt,name=unbonding_amount,json=unbondingAmount,proto3" json:"unbonding_amount,omitempty"`
 	// The height at which unbonding began.
 	UnbondingStartHeight uint64 `protobuf:"varint,5,opt,name=unbonding_start_height,json=unbondingStartHeight,proto3" json:"unbonding_start_height,omitempty"`
 }
@@ -1073,7 +1301,7 @@ func (m *TransactionPlannerRequest_UndelegateClaim) String() string {
 }
 func (*TransactionPlannerRequest_UndelegateClaim) ProtoMessage() {}
 func (*TransactionPlannerRequest_UndelegateClaim) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 5}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 5}
 }
 func (m *TransactionPlannerRequest_UndelegateClaim) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1102,7 +1330,7 @@ func (m *TransactionPlannerRequest_UndelegateClaim) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_UndelegateClaim proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_UndelegateClaim) GetValidatorIdentity() *v12.IdentityKey {
+func (m *TransactionPlannerRequest_UndelegateClaim) GetValidatorIdentity() *v1.IdentityKey {
 	if m != nil {
 		return m.ValidatorIdentity
 	}
@@ -1117,14 +1345,14 @@ func (m *TransactionPlannerRequest_UndelegateClaim) GetStartEpochIndex() uint64 
 	return 0
 }
 
-func (m *TransactionPlannerRequest_UndelegateClaim) GetPenalty() *v19.Penalty {
+func (m *TransactionPlannerRequest_UndelegateClaim) GetPenalty() *v111.Penalty {
 	if m != nil {
 		return m.Penalty
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_UndelegateClaim) GetUnbondingAmount() *v18.Amount {
+func (m *TransactionPlannerRequest_UndelegateClaim) GetUnbondingAmount() *v110.Amount {
 	if m != nil {
 		return m.UnbondingAmount
 	}
@@ -1143,7 +1371,7 @@ type TransactionPlannerRequest_PositionOpen struct {
 	//
 	// Positions are immutable, so the `PositionData` (and hence the `PositionId`)
 	// are unchanged over the entire lifetime of the position.
-	Position *v110.Position `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
+	Position *v12.Position `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_PositionOpen) Reset() {
@@ -1152,7 +1380,7 @@ func (m *TransactionPlannerRequest_PositionOpen) Reset() {
 func (m *TransactionPlannerRequest_PositionOpen) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_PositionOpen) ProtoMessage()    {}
 func (*TransactionPlannerRequest_PositionOpen) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 6}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 6}
 }
 func (m *TransactionPlannerRequest_PositionOpen) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1181,7 +1409,7 @@ func (m *TransactionPlannerRequest_PositionOpen) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_PositionOpen proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_PositionOpen) GetPosition() *v110.Position {
+func (m *TransactionPlannerRequest_PositionOpen) GetPosition() *v12.Position {
 	if m != nil {
 		return m.Position
 	}
@@ -1190,7 +1418,7 @@ func (m *TransactionPlannerRequest_PositionOpen) GetPosition() *v110.Position {
 
 type TransactionPlannerRequest_PositionClose struct {
 	// The position to close.
-	PositionId *v110.PositionId `protobuf:"bytes,1,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
+	PositionId *v12.PositionId `protobuf:"bytes,1,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_PositionClose) Reset() {
@@ -1199,7 +1427,7 @@ func (m *TransactionPlannerRequest_PositionClose) Reset() {
 func (m *TransactionPlannerRequest_PositionClose) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerRequest_PositionClose) ProtoMessage()    {}
 func (*TransactionPlannerRequest_PositionClose) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 7}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 7}
 }
 func (m *TransactionPlannerRequest_PositionClose) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1228,7 +1456,7 @@ func (m *TransactionPlannerRequest_PositionClose) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_PositionClose proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_PositionClose) GetPositionId() *v110.PositionId {
+func (m *TransactionPlannerRequest_PositionClose) GetPositionId() *v12.PositionId {
 	if m != nil {
 		return m.PositionId
 	}
@@ -1237,11 +1465,11 @@ func (m *TransactionPlannerRequest_PositionClose) GetPositionId() *v110.Position
 
 type TransactionPlannerRequest_PositionWithdraw struct {
 	// The position to withdraw.
-	PositionId *v110.PositionId `protobuf:"bytes,1,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
+	PositionId *v12.PositionId `protobuf:"bytes,1,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
 	// The position's final reserves.
-	Reserves *v110.Reserves `protobuf:"bytes,2,opt,name=reserves,proto3" json:"reserves,omitempty"`
+	Reserves *v12.Reserves `protobuf:"bytes,2,opt,name=reserves,proto3" json:"reserves,omitempty"`
 	// The trading pair of the position.
-	TradingPair *v110.TradingPair `protobuf:"bytes,3,opt,name=trading_pair,json=tradingPair,proto3" json:"trading_pair,omitempty"`
+	TradingPair *v12.TradingPair `protobuf:"bytes,3,opt,name=trading_pair,json=tradingPair,proto3" json:"trading_pair,omitempty"`
 }
 
 func (m *TransactionPlannerRequest_PositionWithdraw) Reset() {
@@ -1252,7 +1480,7 @@ func (m *TransactionPlannerRequest_PositionWithdraw) String() string {
 }
 func (*TransactionPlannerRequest_PositionWithdraw) ProtoMessage() {}
 func (*TransactionPlannerRequest_PositionWithdraw) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{4, 8}
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 8}
 }
 func (m *TransactionPlannerRequest_PositionWithdraw) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1281,36 +1509,192 @@ func (m *TransactionPlannerRequest_PositionWithdraw) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerRequest_PositionWithdraw proto.InternalMessageInfo
 
-func (m *TransactionPlannerRequest_PositionWithdraw) GetPositionId() *v110.PositionId {
+func (m *TransactionPlannerRequest_PositionWithdraw) GetPositionId() *v12.PositionId {
 	if m != nil {
 		return m.PositionId
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_PositionWithdraw) GetReserves() *v110.Reserves {
+func (m *TransactionPlannerRequest_PositionWithdraw) GetReserves() *v12.Reserves {
 	if m != nil {
 		return m.Reserves
 	}
 	return nil
 }
 
-func (m *TransactionPlannerRequest_PositionWithdraw) GetTradingPair() *v110.TradingPair {
+func (m *TransactionPlannerRequest_PositionWithdraw) GetTradingPair() *v12.TradingPair {
 	if m != nil {
 		return m.TradingPair
 	}
 	return nil
 }
 
+type TransactionPlannerRequest_ActionDutchAuctionSchedule struct {
+	// The description of the auction to schedule.
+	Description *v11.DutchAuctionDescription `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) Reset() {
+	*m = TransactionPlannerRequest_ActionDutchAuctionSchedule{}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) String() string {
+	return proto.CompactTextString(m)
+}
+func (*TransactionPlannerRequest_ActionDutchAuctionSchedule) ProtoMessage() {}
+func (*TransactionPlannerRequest_ActionDutchAuctionSchedule) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 9}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionSchedule.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionSchedule.Merge(m, src)
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) XXX_Size() int {
+	return m.Size()
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionSchedule.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionSchedule proto.InternalMessageInfo
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) GetDescription() *v11.DutchAuctionDescription {
+	if m != nil {
+		return m.Description
+	}
+	return nil
+}
+
+type TransactionPlannerRequest_ActionDutchAuctionEnd struct {
+	// The unique id of the auction to close.
+	AuctionId *v11.AuctionId `protobuf:"bytes,1,opt,name=auction_id,json=auctionId,proto3" json:"auction_id,omitempty"`
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) Reset() {
+	*m = TransactionPlannerRequest_ActionDutchAuctionEnd{}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) String() string {
+	return proto.CompactTextString(m)
+}
+func (*TransactionPlannerRequest_ActionDutchAuctionEnd) ProtoMessage() {}
+func (*TransactionPlannerRequest_ActionDutchAuctionEnd) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 10}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionEnd.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionEnd.Merge(m, src)
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) XXX_Size() int {
+	return m.Size()
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionEnd.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionEnd proto.InternalMessageInfo
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) GetAuctionId() *v11.AuctionId {
+	if m != nil {
+		return m.AuctionId
+	}
+	return nil
+}
+
+type TransactionPlannerRequest_ActionDutchAuctionWithdraw struct {
+	// The auction to withdraw funds from.
+	AuctionId *v11.AuctionId `protobuf:"bytes,1,opt,name=auction_id,json=auctionId,proto3" json:"auction_id,omitempty"`
+	// The sequence number of the withdrawal.
+	Seq uint64 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) Reset() {
+	*m = TransactionPlannerRequest_ActionDutchAuctionWithdraw{}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) String() string {
+	return proto.CompactTextString(m)
+}
+func (*TransactionPlannerRequest_ActionDutchAuctionWithdraw) ProtoMessage() {}
+func (*TransactionPlannerRequest_ActionDutchAuctionWithdraw) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{6, 11}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionWithdraw.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionWithdraw.Merge(m, src)
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) XXX_Size() int {
+	return m.Size()
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionWithdraw.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransactionPlannerRequest_ActionDutchAuctionWithdraw proto.InternalMessageInfo
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) GetAuctionId() *v11.AuctionId {
+	if m != nil {
+		return m.AuctionId
+	}
+	return nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) GetSeq() uint64 {
+	if m != nil {
+		return m.Seq
+	}
+	return 0
+}
+
 type TransactionPlannerResponse struct {
-	Plan *v1.TransactionPlan `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	Plan *v13.TransactionPlan `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
 }
 
 func (m *TransactionPlannerResponse) Reset()         { *m = TransactionPlannerResponse{} }
 func (m *TransactionPlannerResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionPlannerResponse) ProtoMessage()    {}
 func (*TransactionPlannerResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{5}
+	return fileDescriptor_dba93d04e42ddfc3, []int{7}
 }
 func (m *TransactionPlannerResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1339,7 +1723,7 @@ func (m *TransactionPlannerResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionPlannerResponse proto.InternalMessageInfo
 
-func (m *TransactionPlannerResponse) GetPlan() *v1.TransactionPlan {
+func (m *TransactionPlannerResponse) GetPlan() *v13.TransactionPlan {
 	if m != nil {
 		return m.Plan
 	}
@@ -1347,14 +1731,14 @@ func (m *TransactionPlannerResponse) GetPlan() *v1.TransactionPlan {
 }
 
 type AddressByIndexRequest struct {
-	AddressIndex *v12.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 }
 
 func (m *AddressByIndexRequest) Reset()         { *m = AddressByIndexRequest{} }
 func (m *AddressByIndexRequest) String() string { return proto.CompactTextString(m) }
 func (*AddressByIndexRequest) ProtoMessage()    {}
 func (*AddressByIndexRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{6}
+	return fileDescriptor_dba93d04e42ddfc3, []int{8}
 }
 func (m *AddressByIndexRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1383,7 +1767,7 @@ func (m *AddressByIndexRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AddressByIndexRequest proto.InternalMessageInfo
 
-func (m *AddressByIndexRequest) GetAddressIndex() *v12.AddressIndex {
+func (m *AddressByIndexRequest) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
@@ -1391,14 +1775,14 @@ func (m *AddressByIndexRequest) GetAddressIndex() *v12.AddressIndex {
 }
 
 type AddressByIndexResponse struct {
-	Address *v12.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Address *v1.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 }
 
 func (m *AddressByIndexResponse) Reset()         { *m = AddressByIndexResponse{} }
 func (m *AddressByIndexResponse) String() string { return proto.CompactTextString(m) }
 func (*AddressByIndexResponse) ProtoMessage()    {}
 func (*AddressByIndexResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{7}
+	return fileDescriptor_dba93d04e42ddfc3, []int{9}
 }
 func (m *AddressByIndexResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1427,7 +1811,7 @@ func (m *AddressByIndexResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AddressByIndexResponse proto.InternalMessageInfo
 
-func (m *AddressByIndexResponse) GetAddress() *v12.Address {
+func (m *AddressByIndexResponse) GetAddress() *v1.Address {
 	if m != nil {
 		return m.Address
 	}
@@ -1441,7 +1825,7 @@ func (m *WalletIdRequest) Reset()         { *m = WalletIdRequest{} }
 func (m *WalletIdRequest) String() string { return proto.CompactTextString(m) }
 func (*WalletIdRequest) ProtoMessage()    {}
 func (*WalletIdRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{8}
+	return fileDescriptor_dba93d04e42ddfc3, []int{10}
 }
 func (m *WalletIdRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1471,14 +1855,14 @@ func (m *WalletIdRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_WalletIdRequest proto.InternalMessageInfo
 
 type WalletIdResponse struct {
-	WalletId *v12.WalletId `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	WalletId *v1.WalletId `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
 }
 
 func (m *WalletIdResponse) Reset()         { *m = WalletIdResponse{} }
 func (m *WalletIdResponse) String() string { return proto.CompactTextString(m) }
 func (*WalletIdResponse) ProtoMessage()    {}
 func (*WalletIdResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{9}
+	return fileDescriptor_dba93d04e42ddfc3, []int{11}
 }
 func (m *WalletIdResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1507,7 +1891,7 @@ func (m *WalletIdResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WalletIdResponse proto.InternalMessageInfo
 
-func (m *WalletIdResponse) GetWalletId() *v12.WalletId {
+func (m *WalletIdResponse) GetWalletId() *v1.WalletId {
 	if m != nil {
 		return m.WalletId
 	}
@@ -1515,14 +1899,14 @@ func (m *WalletIdResponse) GetWalletId() *v12.WalletId {
 }
 
 type IndexByAddressRequest struct {
-	Address *v12.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Address *v1.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 }
 
 func (m *IndexByAddressRequest) Reset()         { *m = IndexByAddressRequest{} }
 func (m *IndexByAddressRequest) String() string { return proto.CompactTextString(m) }
 func (*IndexByAddressRequest) ProtoMessage()    {}
 func (*IndexByAddressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{10}
+	return fileDescriptor_dba93d04e42ddfc3, []int{12}
 }
 func (m *IndexByAddressRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1551,7 +1935,7 @@ func (m *IndexByAddressRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_IndexByAddressRequest proto.InternalMessageInfo
 
-func (m *IndexByAddressRequest) GetAddress() *v12.Address {
+func (m *IndexByAddressRequest) GetAddress() *v1.Address {
 	if m != nil {
 		return m.Address
 	}
@@ -1560,14 +1944,14 @@ func (m *IndexByAddressRequest) GetAddress() *v12.Address {
 
 type IndexByAddressResponse struct {
 	// Will be absent if given an address not viewable by this viewing service
-	AddressIndex *v12.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 }
 
 func (m *IndexByAddressResponse) Reset()         { *m = IndexByAddressResponse{} }
 func (m *IndexByAddressResponse) String() string { return proto.CompactTextString(m) }
 func (*IndexByAddressResponse) ProtoMessage()    {}
 func (*IndexByAddressResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{11}
+	return fileDescriptor_dba93d04e42ddfc3, []int{13}
 }
 func (m *IndexByAddressResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1596,7 +1980,7 @@ func (m *IndexByAddressResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_IndexByAddressResponse proto.InternalMessageInfo
 
-func (m *IndexByAddressResponse) GetAddressIndex() *v12.AddressIndex {
+func (m *IndexByAddressResponse) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
@@ -1604,14 +1988,14 @@ func (m *IndexByAddressResponse) GetAddressIndex() *v12.AddressIndex {
 }
 
 type EphemeralAddressRequest struct {
-	AddressIndex *v12.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 }
 
 func (m *EphemeralAddressRequest) Reset()         { *m = EphemeralAddressRequest{} }
 func (m *EphemeralAddressRequest) String() string { return proto.CompactTextString(m) }
 func (*EphemeralAddressRequest) ProtoMessage()    {}
 func (*EphemeralAddressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{12}
+	return fileDescriptor_dba93d04e42ddfc3, []int{14}
 }
 func (m *EphemeralAddressRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1640,7 +2024,7 @@ func (m *EphemeralAddressRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EphemeralAddressRequest proto.InternalMessageInfo
 
-func (m *EphemeralAddressRequest) GetAddressIndex() *v12.AddressIndex {
+func (m *EphemeralAddressRequest) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
@@ -1648,14 +2032,14 @@ func (m *EphemeralAddressRequest) GetAddressIndex() *v12.AddressIndex {
 }
 
 type EphemeralAddressResponse struct {
-	Address *v12.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Address *v1.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 }
 
 func (m *EphemeralAddressResponse) Reset()         { *m = EphemeralAddressResponse{} }
 func (m *EphemeralAddressResponse) String() string { return proto.CompactTextString(m) }
 func (*EphemeralAddressResponse) ProtoMessage()    {}
 func (*EphemeralAddressResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{13}
+	return fileDescriptor_dba93d04e42ddfc3, []int{15}
 }
 func (m *EphemeralAddressResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1684,7 +2068,7 @@ func (m *EphemeralAddressResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_EphemeralAddressResponse proto.InternalMessageInfo
 
-func (m *EphemeralAddressResponse) GetAddress() *v12.Address {
+func (m *EphemeralAddressResponse) GetAddress() *v1.Address {
 	if m != nil {
 		return m.Address
 	}
@@ -1693,16 +2077,16 @@ func (m *EphemeralAddressResponse) GetAddress() *v12.Address {
 
 type BalancesRequest struct {
 	// If present, filter balances to only include the account specified by the `AddressIndex`.
-	AccountFilter *v12.AddressIndex `protobuf:"bytes,1,opt,name=account_filter,json=accountFilter,proto3" json:"account_filter,omitempty"`
+	AccountFilter *v1.AddressIndex `protobuf:"bytes,1,opt,name=account_filter,json=accountFilter,proto3" json:"account_filter,omitempty"`
 	// If present, filter balances to only include the specified asset ID.
-	AssetIdFilter *v16.AssetId `protobuf:"bytes,2,opt,name=asset_id_filter,json=assetIdFilter,proto3" json:"asset_id_filter,omitempty"`
+	AssetIdFilter *v18.AssetId `protobuf:"bytes,2,opt,name=asset_id_filter,json=assetIdFilter,proto3" json:"asset_id_filter,omitempty"`
 }
 
 func (m *BalancesRequest) Reset()         { *m = BalancesRequest{} }
 func (m *BalancesRequest) String() string { return proto.CompactTextString(m) }
 func (*BalancesRequest) ProtoMessage()    {}
 func (*BalancesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{14}
+	return fileDescriptor_dba93d04e42ddfc3, []int{16}
 }
 func (m *BalancesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1731,14 +2115,14 @@ func (m *BalancesRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BalancesRequest proto.InternalMessageInfo
 
-func (m *BalancesRequest) GetAccountFilter() *v12.AddressIndex {
+func (m *BalancesRequest) GetAccountFilter() *v1.AddressIndex {
 	if m != nil {
 		return m.AccountFilter
 	}
 	return nil
 }
 
-func (m *BalancesRequest) GetAssetIdFilter() *v16.AssetId {
+func (m *BalancesRequest) GetAssetIdFilter() *v18.AssetId {
 	if m != nil {
 		return m.AssetIdFilter
 	}
@@ -1747,23 +2131,23 @@ func (m *BalancesRequest) GetAssetIdFilter() *v16.AssetId {
 
 type BalancesResponse struct {
 	// Deprecated: use `account_address` instead.
-	Account *v12.AddressIndex `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"` // Deprecated: Do not use.
+	Account *v1.AddressIndex `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"` // Deprecated: Do not use.
 	// Deprecated: use `balance_view` instead.
-	Balance *v16.Value `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"` // Deprecated: Do not use.
+	Balance *v18.Value `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"` // Deprecated: Do not use.
 	// The default address for the account.
 	//
 	// Note that the returned balance is for all funds sent to the account,
 	// not just funds sent to its default address.
-	AccountAddress *v12.AddressView `protobuf:"bytes,3,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
+	AccountAddress *v1.AddressView `protobuf:"bytes,3,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
 	// The account's balance, with metadata.
-	BalanceView *v16.ValueView `protobuf:"bytes,4,opt,name=balance_view,json=balanceView,proto3" json:"balance_view,omitempty"`
+	BalanceView *v18.ValueView `protobuf:"bytes,4,opt,name=balance_view,json=balanceView,proto3" json:"balance_view,omitempty"`
 }
 
 func (m *BalancesResponse) Reset()         { *m = BalancesResponse{} }
 func (m *BalancesResponse) String() string { return proto.CompactTextString(m) }
 func (*BalancesResponse) ProtoMessage()    {}
 func (*BalancesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{15}
+	return fileDescriptor_dba93d04e42ddfc3, []int{17}
 }
 func (m *BalancesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1793,7 +2177,7 @@ func (m *BalancesResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_BalancesResponse proto.InternalMessageInfo
 
 // Deprecated: Do not use.
-func (m *BalancesResponse) GetAccount() *v12.AddressIndex {
+func (m *BalancesResponse) GetAccount() *v1.AddressIndex {
 	if m != nil {
 		return m.Account
 	}
@@ -1801,21 +2185,21 @@ func (m *BalancesResponse) GetAccount() *v12.AddressIndex {
 }
 
 // Deprecated: Do not use.
-func (m *BalancesResponse) GetBalance() *v16.Value {
+func (m *BalancesResponse) GetBalance() *v18.Value {
 	if m != nil {
 		return m.Balance
 	}
 	return nil
 }
 
-func (m *BalancesResponse) GetAccountAddress() *v12.AddressView {
+func (m *BalancesResponse) GetAccountAddress() *v1.AddressView {
 	if m != nil {
 		return m.AccountAddress
 	}
 	return nil
 }
 
-func (m *BalancesResponse) GetBalanceView() *v16.ValueView {
+func (m *BalancesResponse) GetBalanceView() *v18.ValueView {
 	if m != nil {
 		return m.BalanceView
 	}
@@ -1830,7 +2214,7 @@ func (m *StatusRequest) Reset()         { *m = StatusRequest{} }
 func (m *StatusRequest) String() string { return proto.CompactTextString(m) }
 func (*StatusRequest) ProtoMessage()    {}
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{16}
+	return fileDescriptor_dba93d04e42ddfc3, []int{18}
 }
 func (m *StatusRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1873,7 +2257,7 @@ func (m *StatusResponse) Reset()         { *m = StatusResponse{} }
 func (m *StatusResponse) String() string { return proto.CompactTextString(m) }
 func (*StatusResponse) ProtoMessage()    {}
 func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{17}
+	return fileDescriptor_dba93d04e42ddfc3, []int{19}
 }
 func (m *StatusResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1931,7 +2315,7 @@ func (m *StatusStreamRequest) Reset()         { *m = StatusStreamRequest{} }
 func (m *StatusStreamRequest) String() string { return proto.CompactTextString(m) }
 func (*StatusStreamRequest) ProtoMessage()    {}
 func (*StatusStreamRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{18}
+	return fileDescriptor_dba93d04e42ddfc3, []int{20}
 }
 func (m *StatusStreamRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1974,7 +2358,7 @@ func (m *StatusStreamResponse) Reset()         { *m = StatusStreamResponse{} }
 func (m *StatusStreamResponse) String() string { return proto.CompactTextString(m) }
 func (*StatusStreamResponse) ProtoMessage()    {}
 func (*StatusStreamResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{19}
+	return fileDescriptor_dba93d04e42ddfc3, []int{21}
 }
 func (m *StatusStreamResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2032,20 +2416,20 @@ type NotesRequest struct {
 	// If set, return spent notes as well as unspent notes.
 	IncludeSpent bool `protobuf:"varint,2,opt,name=include_spent,json=includeSpent,proto3" json:"include_spent,omitempty"`
 	// If set, only return notes with the specified asset id.
-	AssetId *v16.AssetId `protobuf:"bytes,3,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
+	AssetId *v18.AssetId `protobuf:"bytes,3,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
 	// If set, only return notes with the specified address incore.component.dex.v1.
-	AddressIndex *v12.AddressIndex `protobuf:"bytes,4,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,4,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 	// If set, stop returning notes once the total exceeds this amount.
 	//
 	// Ignored if `asset_id` is unset or if `include_spent` is set.
-	AmountToSpend *v18.Amount `protobuf:"bytes,6,opt,name=amount_to_spend,json=amountToSpend,proto3" json:"amount_to_spend,omitempty"`
+	AmountToSpend *v110.Amount `protobuf:"bytes,6,opt,name=amount_to_spend,json=amountToSpend,proto3" json:"amount_to_spend,omitempty"`
 }
 
 func (m *NotesRequest) Reset()         { *m = NotesRequest{} }
 func (m *NotesRequest) String() string { return proto.CompactTextString(m) }
 func (*NotesRequest) ProtoMessage()    {}
 func (*NotesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{20}
+	return fileDescriptor_dba93d04e42ddfc3, []int{22}
 }
 func (m *NotesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2081,21 +2465,21 @@ func (m *NotesRequest) GetIncludeSpent() bool {
 	return false
 }
 
-func (m *NotesRequest) GetAssetId() *v16.AssetId {
+func (m *NotesRequest) GetAssetId() *v18.AssetId {
 	if m != nil {
 		return m.AssetId
 	}
 	return nil
 }
 
-func (m *NotesRequest) GetAddressIndex() *v12.AddressIndex {
+func (m *NotesRequest) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
 	return nil
 }
 
-func (m *NotesRequest) GetAmountToSpend() *v18.Amount {
+func (m *NotesRequest) GetAmountToSpend() *v110.Amount {
 	if m != nil {
 		return m.AmountToSpend
 	}
@@ -2107,14 +2491,14 @@ type NotesForVotingRequest struct {
 	// The starting height of the proposal.
 	VotableAtHeight uint64 `protobuf:"varint,1,opt,name=votable_at_height,json=votableAtHeight,proto3" json:"votable_at_height,omitempty"`
 	// If set, only return notes with the specified asset id.
-	AddressIndex *v12.AddressIndex `protobuf:"bytes,3,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,3,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 }
 
 func (m *NotesForVotingRequest) Reset()         { *m = NotesForVotingRequest{} }
 func (m *NotesForVotingRequest) String() string { return proto.CompactTextString(m) }
 func (*NotesForVotingRequest) ProtoMessage()    {}
 func (*NotesForVotingRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{21}
+	return fileDescriptor_dba93d04e42ddfc3, []int{23}
 }
 func (m *NotesForVotingRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2150,7 +2534,7 @@ func (m *NotesForVotingRequest) GetVotableAtHeight() uint64 {
 	return 0
 }
 
-func (m *NotesForVotingRequest) GetAddressIndex() *v12.AddressIndex {
+func (m *NotesForVotingRequest) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
@@ -2159,14 +2543,14 @@ func (m *NotesForVotingRequest) GetAddressIndex() *v12.AddressIndex {
 
 type WitnessRequest struct {
 	// The transaction plan to witness
-	TransactionPlan *v1.TransactionPlan `protobuf:"bytes,3,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
+	TransactionPlan *v13.TransactionPlan `protobuf:"bytes,3,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
 }
 
 func (m *WitnessRequest) Reset()         { *m = WitnessRequest{} }
 func (m *WitnessRequest) String() string { return proto.CompactTextString(m) }
 func (*WitnessRequest) ProtoMessage()    {}
 func (*WitnessRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{22}
+	return fileDescriptor_dba93d04e42ddfc3, []int{24}
 }
 func (m *WitnessRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2195,7 +2579,7 @@ func (m *WitnessRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WitnessRequest proto.InternalMessageInfo
 
-func (m *WitnessRequest) GetTransactionPlan() *v1.TransactionPlan {
+func (m *WitnessRequest) GetTransactionPlan() *v13.TransactionPlan {
 	if m != nil {
 		return m.TransactionPlan
 	}
@@ -2203,14 +2587,14 @@ func (m *WitnessRequest) GetTransactionPlan() *v1.TransactionPlan {
 }
 
 type WitnessResponse struct {
-	WitnessData *v1.WitnessData `protobuf:"bytes,1,opt,name=witness_data,json=witnessData,proto3" json:"witness_data,omitempty"`
+	WitnessData *v13.WitnessData `protobuf:"bytes,1,opt,name=witness_data,json=witnessData,proto3" json:"witness_data,omitempty"`
 }
 
 func (m *WitnessResponse) Reset()         { *m = WitnessResponse{} }
 func (m *WitnessResponse) String() string { return proto.CompactTextString(m) }
 func (*WitnessResponse) ProtoMessage()    {}
 func (*WitnessResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{23}
+	return fileDescriptor_dba93d04e42ddfc3, []int{25}
 }
 func (m *WitnessResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2239,7 +2623,7 @@ func (m *WitnessResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WitnessResponse proto.InternalMessageInfo
 
-func (m *WitnessResponse) GetWitnessData() *v1.WitnessData {
+func (m *WitnessResponse) GetWitnessData() *v13.WitnessData {
 	if m != nil {
 		return m.WitnessData
 	}
@@ -2247,15 +2631,15 @@ func (m *WitnessResponse) GetWitnessData() *v1.WitnessData {
 }
 
 type WitnessAndBuildRequest struct {
-	TransactionPlan   *v1.TransactionPlan   `protobuf:"bytes,1,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
-	AuthorizationData *v1.AuthorizationData `protobuf:"bytes,2,opt,name=authorization_data,json=authorizationData,proto3" json:"authorization_data,omitempty"`
+	TransactionPlan   *v13.TransactionPlan   `protobuf:"bytes,1,opt,name=transaction_plan,json=transactionPlan,proto3" json:"transaction_plan,omitempty"`
+	AuthorizationData *v13.AuthorizationData `protobuf:"bytes,2,opt,name=authorization_data,json=authorizationData,proto3" json:"authorization_data,omitempty"`
 }
 
 func (m *WitnessAndBuildRequest) Reset()         { *m = WitnessAndBuildRequest{} }
 func (m *WitnessAndBuildRequest) String() string { return proto.CompactTextString(m) }
 func (*WitnessAndBuildRequest) ProtoMessage()    {}
 func (*WitnessAndBuildRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{24}
+	return fileDescriptor_dba93d04e42ddfc3, []int{26}
 }
 func (m *WitnessAndBuildRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2284,14 +2668,14 @@ func (m *WitnessAndBuildRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WitnessAndBuildRequest proto.InternalMessageInfo
 
-func (m *WitnessAndBuildRequest) GetTransactionPlan() *v1.TransactionPlan {
+func (m *WitnessAndBuildRequest) GetTransactionPlan() *v13.TransactionPlan {
 	if m != nil {
 		return m.TransactionPlan
 	}
 	return nil
 }
 
-func (m *WitnessAndBuildRequest) GetAuthorizationData() *v1.AuthorizationData {
+func (m *WitnessAndBuildRequest) GetAuthorizationData() *v13.AuthorizationData {
 	if m != nil {
 		return m.AuthorizationData
 	}
@@ -2309,7 +2693,7 @@ func (m *WitnessAndBuildResponse) Reset()         { *m = WitnessAndBuildResponse
 func (m *WitnessAndBuildResponse) String() string { return proto.CompactTextString(m) }
 func (*WitnessAndBuildResponse) ProtoMessage()    {}
 func (*WitnessAndBuildResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{25}
+	return fileDescriptor_dba93d04e42ddfc3, []int{27}
 }
 func (m *WitnessAndBuildResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2393,7 +2777,7 @@ func (m *WitnessAndBuildResponse_BuildProgress) Reset()         { *m = WitnessAn
 func (m *WitnessAndBuildResponse_BuildProgress) String() string { return proto.CompactTextString(m) }
 func (*WitnessAndBuildResponse_BuildProgress) ProtoMessage()    {}
 func (*WitnessAndBuildResponse_BuildProgress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{25, 0}
+	return fileDescriptor_dba93d04e42ddfc3, []int{27, 0}
 }
 func (m *WitnessAndBuildResponse_BuildProgress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2432,14 +2816,14 @@ func (m *WitnessAndBuildResponse_BuildProgress) GetProgress() float32 {
 // Signals that the transaction is complete.
 type WitnessAndBuildResponse_Complete struct {
 	// The finished transaction.
-	Transaction *v1.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
+	Transaction *v13.Transaction `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
 }
 
 func (m *WitnessAndBuildResponse_Complete) Reset()         { *m = WitnessAndBuildResponse_Complete{} }
 func (m *WitnessAndBuildResponse_Complete) String() string { return proto.CompactTextString(m) }
 func (*WitnessAndBuildResponse_Complete) ProtoMessage()    {}
 func (*WitnessAndBuildResponse_Complete) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{25, 1}
+	return fileDescriptor_dba93d04e42ddfc3, []int{27, 1}
 }
 func (m *WitnessAndBuildResponse_Complete) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2468,7 +2852,7 @@ func (m *WitnessAndBuildResponse_Complete) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WitnessAndBuildResponse_Complete proto.InternalMessageInfo
 
-func (m *WitnessAndBuildResponse_Complete) GetTransaction() *v1.Transaction {
+func (m *WitnessAndBuildResponse_Complete) GetTransaction() *v13.Transaction {
 	if m != nil {
 		return m.Transaction
 	}
@@ -2481,7 +2865,7 @@ type AssetsRequest struct {
 	// the request indicate a filter.
 	Filtered bool `protobuf:"varint,1,opt,name=filtered,proto3" json:"filtered,omitempty"`
 	// Include these specific denominations in the response.
-	IncludeSpecificDenominations []*v16.Denom `protobuf:"bytes,2,rep,name=include_specific_denominations,json=includeSpecificDenominations,proto3" json:"include_specific_denominations,omitempty"`
+	IncludeSpecificDenominations []*v18.Denom `protobuf:"bytes,2,rep,name=include_specific_denominations,json=includeSpecificDenominations,proto3" json:"include_specific_denominations,omitempty"`
 	// Include all delegation tokens, to any validator, in the response.
 	IncludeDelegationTokens bool `protobuf:"varint,3,opt,name=include_delegation_tokens,json=includeDelegationTokens,proto3" json:"include_delegation_tokens,omitempty"`
 	// Include all unbonding tokens, from any validator, in the response.
@@ -2498,7 +2882,7 @@ func (m *AssetsRequest) Reset()         { *m = AssetsRequest{} }
 func (m *AssetsRequest) String() string { return proto.CompactTextString(m) }
 func (*AssetsRequest) ProtoMessage()    {}
 func (*AssetsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{26}
+	return fileDescriptor_dba93d04e42ddfc3, []int{28}
 }
 func (m *AssetsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2534,7 +2918,7 @@ func (m *AssetsRequest) GetFiltered() bool {
 	return false
 }
 
-func (m *AssetsRequest) GetIncludeSpecificDenominations() []*v16.Denom {
+func (m *AssetsRequest) GetIncludeSpecificDenominations() []*v18.Denom {
 	if m != nil {
 		return m.IncludeSpecificDenominations
 	}
@@ -2578,14 +2962,14 @@ func (m *AssetsRequest) GetIncludeVotingReceiptTokens() bool {
 
 // Requests all assets known to the view service.
 type AssetsResponse struct {
-	DenomMetadata *v16.Metadata `protobuf:"bytes,2,opt,name=denom_metadata,json=denomMetadata,proto3" json:"denom_metadata,omitempty"`
+	DenomMetadata *v18.Metadata `protobuf:"bytes,2,opt,name=denom_metadata,json=denomMetadata,proto3" json:"denom_metadata,omitempty"`
 }
 
 func (m *AssetsResponse) Reset()         { *m = AssetsResponse{} }
 func (m *AssetsResponse) String() string { return proto.CompactTextString(m) }
 func (*AssetsResponse) ProtoMessage()    {}
 func (*AssetsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{27}
+	return fileDescriptor_dba93d04e42ddfc3, []int{29}
 }
 func (m *AssetsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2614,7 +2998,7 @@ func (m *AssetsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AssetsResponse proto.InternalMessageInfo
 
-func (m *AssetsResponse) GetDenomMetadata() *v16.Metadata {
+func (m *AssetsResponse) GetDenomMetadata() *v18.Metadata {
 	if m != nil {
 		return m.DenomMetadata
 	}
@@ -2629,7 +3013,7 @@ func (m *AppParametersRequest) Reset()         { *m = AppParametersRequest{} }
 func (m *AppParametersRequest) String() string { return proto.CompactTextString(m) }
 func (*AppParametersRequest) ProtoMessage()    {}
 func (*AppParametersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{28}
+	return fileDescriptor_dba93d04e42ddfc3, []int{30}
 }
 func (m *AppParametersRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2659,14 +3043,14 @@ func (m *AppParametersRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_AppParametersRequest proto.InternalMessageInfo
 
 type AppParametersResponse struct {
-	Parameters *v111.AppParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
+	Parameters *v112.AppParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
 }
 
 func (m *AppParametersResponse) Reset()         { *m = AppParametersResponse{} }
 func (m *AppParametersResponse) String() string { return proto.CompactTextString(m) }
 func (*AppParametersResponse) ProtoMessage()    {}
 func (*AppParametersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{29}
+	return fileDescriptor_dba93d04e42ddfc3, []int{31}
 }
 func (m *AppParametersResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2695,7 +3079,7 @@ func (m *AppParametersResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AppParametersResponse proto.InternalMessageInfo
 
-func (m *AppParametersResponse) GetParameters() *v111.AppParameters {
+func (m *AppParametersResponse) GetParameters() *v112.AppParameters {
 	if m != nil {
 		return m.Parameters
 	}
@@ -2710,7 +3094,7 @@ func (m *GasPricesRequest) Reset()         { *m = GasPricesRequest{} }
 func (m *GasPricesRequest) String() string { return proto.CompactTextString(m) }
 func (*GasPricesRequest) ProtoMessage()    {}
 func (*GasPricesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{30}
+	return fileDescriptor_dba93d04e42ddfc3, []int{32}
 }
 func (m *GasPricesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2740,14 +3124,17 @@ func (m *GasPricesRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GasPricesRequest proto.InternalMessageInfo
 
 type GasPricesResponse struct {
-	GasPrices *v14.GasPrices `protobuf:"bytes,1,opt,name=gas_prices,json=gasPrices,proto3" json:"gas_prices,omitempty"`
+	// The current gas prices, in the preferred (native) token.
+	GasPrices *v16.GasPrices `protobuf:"bytes,1,opt,name=gas_prices,json=gasPrices,proto3" json:"gas_prices,omitempty"`
+	// Other gas prices for other accepted tokens.
+	AltGasPrices []*v16.GasPrices `protobuf:"bytes,2,rep,name=alt_gas_prices,json=altGasPrices,proto3" json:"alt_gas_prices,omitempty"`
 }
 
 func (m *GasPricesResponse) Reset()         { *m = GasPricesResponse{} }
 func (m *GasPricesResponse) String() string { return proto.CompactTextString(m) }
 func (*GasPricesResponse) ProtoMessage()    {}
 func (*GasPricesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{31}
+	return fileDescriptor_dba93d04e42ddfc3, []int{33}
 }
 func (m *GasPricesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2776,9 +3163,16 @@ func (m *GasPricesResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GasPricesResponse proto.InternalMessageInfo
 
-func (m *GasPricesResponse) GetGasPrices() *v14.GasPrices {
+func (m *GasPricesResponse) GetGasPrices() *v16.GasPrices {
 	if m != nil {
 		return m.GasPrices
+	}
+	return nil
+}
+
+func (m *GasPricesResponse) GetAltGasPrices() []*v16.GasPrices {
+	if m != nil {
+		return m.AltGasPrices
 	}
 	return nil
 }
@@ -2791,7 +3185,7 @@ func (m *FMDParametersRequest) Reset()         { *m = FMDParametersRequest{} }
 func (m *FMDParametersRequest) String() string { return proto.CompactTextString(m) }
 func (*FMDParametersRequest) ProtoMessage()    {}
 func (*FMDParametersRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{32}
+	return fileDescriptor_dba93d04e42ddfc3, []int{34}
 }
 func (m *FMDParametersRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2821,14 +3215,14 @@ func (m *FMDParametersRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_FMDParametersRequest proto.InternalMessageInfo
 
 type FMDParametersResponse struct {
-	Parameters *v112.FmdParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
+	Parameters *v113.FmdParameters `protobuf:"bytes,1,opt,name=parameters,proto3" json:"parameters,omitempty"`
 }
 
 func (m *FMDParametersResponse) Reset()         { *m = FMDParametersResponse{} }
 func (m *FMDParametersResponse) String() string { return proto.CompactTextString(m) }
 func (*FMDParametersResponse) ProtoMessage()    {}
 func (*FMDParametersResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{33}
+	return fileDescriptor_dba93d04e42ddfc3, []int{35}
 }
 func (m *FMDParametersResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2857,7 +3251,7 @@ func (m *FMDParametersResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FMDParametersResponse proto.InternalMessageInfo
 
-func (m *FMDParametersResponse) GetParameters() *v112.FmdParameters {
+func (m *FMDParametersResponse) GetParameters() *v113.FmdParameters {
 	if m != nil {
 		return m.Parameters
 	}
@@ -2865,7 +3259,7 @@ func (m *FMDParametersResponse) GetParameters() *v112.FmdParameters {
 }
 
 type NoteByCommitmentRequest struct {
-	NoteCommitment *v17.StateCommitment `protobuf:"bytes,2,opt,name=note_commitment,json=noteCommitment,proto3" json:"note_commitment,omitempty"`
+	NoteCommitment *v19.StateCommitment `protobuf:"bytes,2,opt,name=note_commitment,json=noteCommitment,proto3" json:"note_commitment,omitempty"`
 	// If set to true, waits to return until the requested note is detected.
 	AwaitDetection bool `protobuf:"varint,3,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
 }
@@ -2874,7 +3268,7 @@ func (m *NoteByCommitmentRequest) Reset()         { *m = NoteByCommitmentRequest
 func (m *NoteByCommitmentRequest) String() string { return proto.CompactTextString(m) }
 func (*NoteByCommitmentRequest) ProtoMessage()    {}
 func (*NoteByCommitmentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{34}
+	return fileDescriptor_dba93d04e42ddfc3, []int{36}
 }
 func (m *NoteByCommitmentRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2903,7 +3297,7 @@ func (m *NoteByCommitmentRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NoteByCommitmentRequest proto.InternalMessageInfo
 
-func (m *NoteByCommitmentRequest) GetNoteCommitment() *v17.StateCommitment {
+func (m *NoteByCommitmentRequest) GetNoteCommitment() *v19.StateCommitment {
 	if m != nil {
 		return m.NoteCommitment
 	}
@@ -2925,7 +3319,7 @@ func (m *NoteByCommitmentResponse) Reset()         { *m = NoteByCommitmentRespon
 func (m *NoteByCommitmentResponse) String() string { return proto.CompactTextString(m) }
 func (*NoteByCommitmentResponse) ProtoMessage()    {}
 func (*NoteByCommitmentResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{35}
+	return fileDescriptor_dba93d04e42ddfc3, []int{37}
 }
 func (m *NoteByCommitmentResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2962,7 +3356,7 @@ func (m *NoteByCommitmentResponse) GetSpendableNote() *SpendableNoteRecord {
 }
 
 type SwapByCommitmentRequest struct {
-	SwapCommitment *v17.StateCommitment `protobuf:"bytes,2,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
+	SwapCommitment *v19.StateCommitment `protobuf:"bytes,2,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
 	// If set to true, waits to return until the requested swap is detected.
 	AwaitDetection bool `protobuf:"varint,3,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
 }
@@ -2971,7 +3365,7 @@ func (m *SwapByCommitmentRequest) Reset()         { *m = SwapByCommitmentRequest
 func (m *SwapByCommitmentRequest) String() string { return proto.CompactTextString(m) }
 func (*SwapByCommitmentRequest) ProtoMessage()    {}
 func (*SwapByCommitmentRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{36}
+	return fileDescriptor_dba93d04e42ddfc3, []int{38}
 }
 func (m *SwapByCommitmentRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3000,7 +3394,7 @@ func (m *SwapByCommitmentRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SwapByCommitmentRequest proto.InternalMessageInfo
 
-func (m *SwapByCommitmentRequest) GetSwapCommitment() *v17.StateCommitment {
+func (m *SwapByCommitmentRequest) GetSwapCommitment() *v19.StateCommitment {
 	if m != nil {
 		return m.SwapCommitment
 	}
@@ -3022,7 +3416,7 @@ func (m *SwapByCommitmentResponse) Reset()         { *m = SwapByCommitmentRespon
 func (m *SwapByCommitmentResponse) String() string { return proto.CompactTextString(m) }
 func (*SwapByCommitmentResponse) ProtoMessage()    {}
 func (*SwapByCommitmentResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{37}
+	return fileDescriptor_dba93d04e42ddfc3, []int{39}
 }
 func (m *SwapByCommitmentResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3065,7 +3459,7 @@ func (m *UnclaimedSwapsRequest) Reset()         { *m = UnclaimedSwapsRequest{} }
 func (m *UnclaimedSwapsRequest) String() string { return proto.CompactTextString(m) }
 func (*UnclaimedSwapsRequest) ProtoMessage()    {}
 func (*UnclaimedSwapsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{38}
+	return fileDescriptor_dba93d04e42ddfc3, []int{40}
 }
 func (m *UnclaimedSwapsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3102,7 +3496,7 @@ func (m *UnclaimedSwapsResponse) Reset()         { *m = UnclaimedSwapsResponse{}
 func (m *UnclaimedSwapsResponse) String() string { return proto.CompactTextString(m) }
 func (*UnclaimedSwapsResponse) ProtoMessage()    {}
 func (*UnclaimedSwapsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{39}
+	return fileDescriptor_dba93d04e42ddfc3, []int{41}
 }
 func (m *UnclaimedSwapsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3139,7 +3533,7 @@ func (m *UnclaimedSwapsResponse) GetSwap() *SwapRecord {
 }
 
 type NullifierStatusRequest struct {
-	Nullifier      *v15.Nullifier `protobuf:"bytes,2,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
+	Nullifier      *v17.Nullifier `protobuf:"bytes,2,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
 	AwaitDetection bool           `protobuf:"varint,3,opt,name=await_detection,json=awaitDetection,proto3" json:"await_detection,omitempty"`
 }
 
@@ -3147,7 +3541,7 @@ func (m *NullifierStatusRequest) Reset()         { *m = NullifierStatusRequest{}
 func (m *NullifierStatusRequest) String() string { return proto.CompactTextString(m) }
 func (*NullifierStatusRequest) ProtoMessage()    {}
 func (*NullifierStatusRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{40}
+	return fileDescriptor_dba93d04e42ddfc3, []int{42}
 }
 func (m *NullifierStatusRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3176,7 +3570,7 @@ func (m *NullifierStatusRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NullifierStatusRequest proto.InternalMessageInfo
 
-func (m *NullifierStatusRequest) GetNullifier() *v15.Nullifier {
+func (m *NullifierStatusRequest) GetNullifier() *v17.Nullifier {
 	if m != nil {
 		return m.Nullifier
 	}
@@ -3198,7 +3592,7 @@ func (m *NullifierStatusResponse) Reset()         { *m = NullifierStatusResponse
 func (m *NullifierStatusResponse) String() string { return proto.CompactTextString(m) }
 func (*NullifierStatusResponse) ProtoMessage()    {}
 func (*NullifierStatusResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{41}
+	return fileDescriptor_dba93d04e42ddfc3, []int{43}
 }
 func (m *NullifierStatusResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3236,14 +3630,14 @@ func (m *NullifierStatusResponse) GetSpent() bool {
 
 type TransactionInfoByHashRequest struct {
 	// The transaction hash to query for.
-	Id *v11.TransactionId `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Id *v14.TransactionId `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (m *TransactionInfoByHashRequest) Reset()         { *m = TransactionInfoByHashRequest{} }
 func (m *TransactionInfoByHashRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfoByHashRequest) ProtoMessage()    {}
 func (*TransactionInfoByHashRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{42}
+	return fileDescriptor_dba93d04e42ddfc3, []int{44}
 }
 func (m *TransactionInfoByHashRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3272,7 +3666,7 @@ func (m *TransactionInfoByHashRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TransactionInfoByHashRequest proto.InternalMessageInfo
 
-func (m *TransactionInfoByHashRequest) GetId() *v11.TransactionId {
+func (m *TransactionInfoByHashRequest) GetId() *v14.TransactionId {
 	if m != nil {
 		return m.Id
 	}
@@ -3290,7 +3684,7 @@ func (m *TransactionInfoRequest) Reset()         { *m = TransactionInfoRequest{}
 func (m *TransactionInfoRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfoRequest) ProtoMessage()    {}
 func (*TransactionInfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{43}
+	return fileDescriptor_dba93d04e42ddfc3, []int{45}
 }
 func (m *TransactionInfoRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3337,20 +3731,20 @@ type TransactionInfo struct {
 	// The height the transaction was included in a block, if known.
 	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
 	// The hash of the transaction.
-	Id *v11.TransactionId `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Id *v14.TransactionId `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	// The transaction data itself.
-	Transaction *v1.Transaction `protobuf:"bytes,3,opt,name=transaction,proto3" json:"transaction,omitempty"`
+	Transaction *v13.Transaction `protobuf:"bytes,3,opt,name=transaction,proto3" json:"transaction,omitempty"`
 	// The transaction perspective, as seen by this view server.
-	Perspective *v1.TransactionPerspective `protobuf:"bytes,4,opt,name=perspective,proto3" json:"perspective,omitempty"`
+	Perspective *v13.TransactionPerspective `protobuf:"bytes,4,opt,name=perspective,proto3" json:"perspective,omitempty"`
 	// A precomputed transaction view of `transaction` from `perspective`, included for convenience of clients that don't have support for viewing transactions on their own.
-	View *v1.TransactionView `protobuf:"bytes,5,opt,name=view,proto3" json:"view,omitempty"`
+	View *v13.TransactionView `protobuf:"bytes,5,opt,name=view,proto3" json:"view,omitempty"`
 }
 
 func (m *TransactionInfo) Reset()         { *m = TransactionInfo{} }
 func (m *TransactionInfo) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfo) ProtoMessage()    {}
 func (*TransactionInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{44}
+	return fileDescriptor_dba93d04e42ddfc3, []int{46}
 }
 func (m *TransactionInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3386,28 +3780,28 @@ func (m *TransactionInfo) GetHeight() uint64 {
 	return 0
 }
 
-func (m *TransactionInfo) GetId() *v11.TransactionId {
+func (m *TransactionInfo) GetId() *v14.TransactionId {
 	if m != nil {
 		return m.Id
 	}
 	return nil
 }
 
-func (m *TransactionInfo) GetTransaction() *v1.Transaction {
+func (m *TransactionInfo) GetTransaction() *v13.Transaction {
 	if m != nil {
 		return m.Transaction
 	}
 	return nil
 }
 
-func (m *TransactionInfo) GetPerspective() *v1.TransactionPerspective {
+func (m *TransactionInfo) GetPerspective() *v13.TransactionPerspective {
 	if m != nil {
 		return m.Perspective
 	}
 	return nil
 }
 
-func (m *TransactionInfo) GetView() *v1.TransactionView {
+func (m *TransactionInfo) GetView() *v13.TransactionView {
 	if m != nil {
 		return m.View
 	}
@@ -3422,7 +3816,7 @@ func (m *TransactionInfoResponse) Reset()         { *m = TransactionInfoResponse
 func (m *TransactionInfoResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfoResponse) ProtoMessage()    {}
 func (*TransactionInfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{45}
+	return fileDescriptor_dba93d04e42ddfc3, []int{47}
 }
 func (m *TransactionInfoResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3466,7 +3860,7 @@ func (m *TransactionInfoByHashResponse) Reset()         { *m = TransactionInfoBy
 func (m *TransactionInfoByHashResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfoByHashResponse) ProtoMessage()    {}
 func (*TransactionInfoByHashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{46}
+	return fileDescriptor_dba93d04e42ddfc3, []int{48}
 }
 func (m *TransactionInfoByHashResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3510,7 +3904,7 @@ func (m *NotesResponse) Reset()         { *m = NotesResponse{} }
 func (m *NotesResponse) String() string { return proto.CompactTextString(m) }
 func (*NotesResponse) ProtoMessage()    {}
 func (*NotesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{47}
+	return fileDescriptor_dba93d04e42ddfc3, []int{49}
 }
 func (m *NotesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3548,14 +3942,14 @@ func (m *NotesResponse) GetNoteRecord() *SpendableNoteRecord {
 
 type NotesForVotingResponse struct {
 	NoteRecord  *SpendableNoteRecord `protobuf:"bytes,1,opt,name=note_record,json=noteRecord,proto3" json:"note_record,omitempty"`
-	IdentityKey *v12.IdentityKey     `protobuf:"bytes,2,opt,name=identity_key,json=identityKey,proto3" json:"identity_key,omitempty"`
+	IdentityKey *v1.IdentityKey      `protobuf:"bytes,2,opt,name=identity_key,json=identityKey,proto3" json:"identity_key,omitempty"`
 }
 
 func (m *NotesForVotingResponse) Reset()         { *m = NotesForVotingResponse{} }
 func (m *NotesForVotingResponse) String() string { return proto.CompactTextString(m) }
 func (*NotesForVotingResponse) ProtoMessage()    {}
 func (*NotesForVotingResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{48}
+	return fileDescriptor_dba93d04e42ddfc3, []int{50}
 }
 func (m *NotesForVotingResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3591,7 +3985,7 @@ func (m *NotesForVotingResponse) GetNoteRecord() *SpendableNoteRecord {
 	return nil
 }
 
-func (m *NotesForVotingResponse) GetIdentityKey() *v12.IdentityKey {
+func (m *NotesForVotingResponse) GetIdentityKey() *v1.IdentityKey {
 	if m != nil {
 		return m.IdentityKey
 	}
@@ -3601,13 +3995,13 @@ func (m *NotesForVotingResponse) GetIdentityKey() *v12.IdentityKey {
 // A note plaintext with associated metadata about its status.
 type SpendableNoteRecord struct {
 	// The note commitment, identifying the note.
-	NoteCommitment *v17.StateCommitment `protobuf:"bytes,1,opt,name=note_commitment,json=noteCommitment,proto3" json:"note_commitment,omitempty"`
+	NoteCommitment *v19.StateCommitment `protobuf:"bytes,1,opt,name=note_commitment,json=noteCommitment,proto3" json:"note_commitment,omitempty"`
 	// The note plaintext itself.
-	Note *v112.Note `protobuf:"bytes,2,opt,name=note,proto3" json:"note,omitempty"`
+	Note *v113.Note `protobuf:"bytes,2,opt,name=note,proto3" json:"note,omitempty"`
 	// A precomputed decryption of the note's address incore.component.dex.v1.
-	AddressIndex *v12.AddressIndex `protobuf:"bytes,3,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,3,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 	// The note's nullifier.
-	Nullifier *v15.Nullifier `protobuf:"bytes,4,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
+	Nullifier *v17.Nullifier `protobuf:"bytes,4,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
 	// The height at which the note was created.
 	HeightCreated uint64 `protobuf:"varint,5,opt,name=height_created,json=heightCreated,proto3" json:"height_created,omitempty"`
 	// Records whether the note was spent (and if so, at what height).
@@ -3615,16 +4009,16 @@ type SpendableNoteRecord struct {
 	// The note position.
 	Position uint64 `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
 	// The source of the note
-	Source *v15.CommitmentSource `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
+	Source *v17.CommitmentSource `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
 	// The sender's return address, if known.
-	ReturnAddress *v12.AddressView `protobuf:"bytes,9,opt,name=return_address,json=returnAddress,proto3" json:"return_address,omitempty"`
+	ReturnAddress *v1.AddressView `protobuf:"bytes,9,opt,name=return_address,json=returnAddress,proto3" json:"return_address,omitempty"`
 }
 
 func (m *SpendableNoteRecord) Reset()         { *m = SpendableNoteRecord{} }
 func (m *SpendableNoteRecord) String() string { return proto.CompactTextString(m) }
 func (*SpendableNoteRecord) ProtoMessage()    {}
 func (*SpendableNoteRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{49}
+	return fileDescriptor_dba93d04e42ddfc3, []int{51}
 }
 func (m *SpendableNoteRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3653,28 +4047,28 @@ func (m *SpendableNoteRecord) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SpendableNoteRecord proto.InternalMessageInfo
 
-func (m *SpendableNoteRecord) GetNoteCommitment() *v17.StateCommitment {
+func (m *SpendableNoteRecord) GetNoteCommitment() *v19.StateCommitment {
 	if m != nil {
 		return m.NoteCommitment
 	}
 	return nil
 }
 
-func (m *SpendableNoteRecord) GetNote() *v112.Note {
+func (m *SpendableNoteRecord) GetNote() *v113.Note {
 	if m != nil {
 		return m.Note
 	}
 	return nil
 }
 
-func (m *SpendableNoteRecord) GetAddressIndex() *v12.AddressIndex {
+func (m *SpendableNoteRecord) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
 	return nil
 }
 
-func (m *SpendableNoteRecord) GetNullifier() *v15.Nullifier {
+func (m *SpendableNoteRecord) GetNullifier() *v17.Nullifier {
 	if m != nil {
 		return m.Nullifier
 	}
@@ -3702,14 +4096,14 @@ func (m *SpendableNoteRecord) GetPosition() uint64 {
 	return 0
 }
 
-func (m *SpendableNoteRecord) GetSource() *v15.CommitmentSource {
+func (m *SpendableNoteRecord) GetSource() *v17.CommitmentSource {
 	if m != nil {
 		return m.Source
 	}
 	return nil
 }
 
-func (m *SpendableNoteRecord) GetReturnAddress() *v12.AddressView {
+func (m *SpendableNoteRecord) GetReturnAddress() *v1.AddressView {
 	if m != nil {
 		return m.ReturnAddress
 	}
@@ -3717,20 +4111,20 @@ func (m *SpendableNoteRecord) GetReturnAddress() *v12.AddressView {
 }
 
 type SwapRecord struct {
-	SwapCommitment *v17.StateCommitment      `protobuf:"bytes,1,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
-	Swap           *v110.SwapPlaintext       `protobuf:"bytes,2,opt,name=swap,proto3" json:"swap,omitempty"`
-	Position       uint64                    `protobuf:"varint,3,opt,name=position,proto3" json:"position,omitempty"`
-	Nullifier      *v15.Nullifier            `protobuf:"bytes,4,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
-	OutputData     *v110.BatchSwapOutputData `protobuf:"bytes,5,opt,name=output_data,json=outputData,proto3" json:"output_data,omitempty"`
-	HeightClaimed  uint64                    `protobuf:"varint,6,opt,name=height_claimed,json=heightClaimed,proto3" json:"height_claimed,omitempty"`
-	Source         *v15.CommitmentSource     `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`
+	SwapCommitment *v19.StateCommitment     `protobuf:"bytes,1,opt,name=swap_commitment,json=swapCommitment,proto3" json:"swap_commitment,omitempty"`
+	Swap           *v12.SwapPlaintext       `protobuf:"bytes,2,opt,name=swap,proto3" json:"swap,omitempty"`
+	Position       uint64                   `protobuf:"varint,3,opt,name=position,proto3" json:"position,omitempty"`
+	Nullifier      *v17.Nullifier           `protobuf:"bytes,4,opt,name=nullifier,proto3" json:"nullifier,omitempty"`
+	OutputData     *v12.BatchSwapOutputData `protobuf:"bytes,5,opt,name=output_data,json=outputData,proto3" json:"output_data,omitempty"`
+	HeightClaimed  uint64                   `protobuf:"varint,6,opt,name=height_claimed,json=heightClaimed,proto3" json:"height_claimed,omitempty"`
+	Source         *v17.CommitmentSource    `protobuf:"bytes,7,opt,name=source,proto3" json:"source,omitempty"`
 }
 
 func (m *SwapRecord) Reset()         { *m = SwapRecord{} }
 func (m *SwapRecord) String() string { return proto.CompactTextString(m) }
 func (*SwapRecord) ProtoMessage()    {}
 func (*SwapRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{50}
+	return fileDescriptor_dba93d04e42ddfc3, []int{52}
 }
 func (m *SwapRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3759,14 +4153,14 @@ func (m *SwapRecord) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SwapRecord proto.InternalMessageInfo
 
-func (m *SwapRecord) GetSwapCommitment() *v17.StateCommitment {
+func (m *SwapRecord) GetSwapCommitment() *v19.StateCommitment {
 	if m != nil {
 		return m.SwapCommitment
 	}
 	return nil
 }
 
-func (m *SwapRecord) GetSwap() *v110.SwapPlaintext {
+func (m *SwapRecord) GetSwap() *v12.SwapPlaintext {
 	if m != nil {
 		return m.Swap
 	}
@@ -3780,14 +4174,14 @@ func (m *SwapRecord) GetPosition() uint64 {
 	return 0
 }
 
-func (m *SwapRecord) GetNullifier() *v15.Nullifier {
+func (m *SwapRecord) GetNullifier() *v17.Nullifier {
 	if m != nil {
 		return m.Nullifier
 	}
 	return nil
 }
 
-func (m *SwapRecord) GetOutputData() *v110.BatchSwapOutputData {
+func (m *SwapRecord) GetOutputData() *v12.BatchSwapOutputData {
 	if m != nil {
 		return m.OutputData
 	}
@@ -3801,7 +4195,7 @@ func (m *SwapRecord) GetHeightClaimed() uint64 {
 	return 0
 }
 
-func (m *SwapRecord) GetSource() *v15.CommitmentSource {
+func (m *SwapRecord) GetSource() *v17.CommitmentSource {
 	if m != nil {
 		return m.Source
 	}
@@ -3810,16 +4204,16 @@ func (m *SwapRecord) GetSource() *v15.CommitmentSource {
 
 type OwnedPositionIdsRequest struct {
 	// If present, return only positions with this position state.
-	PositionState *v110.PositionState `protobuf:"bytes,1,opt,name=position_state,json=positionState,proto3" json:"position_state,omitempty"`
+	PositionState *v12.PositionState `protobuf:"bytes,1,opt,name=position_state,json=positionState,proto3" json:"position_state,omitempty"`
 	// If present, return only positions for this trading pair.
-	TradingPair *v110.TradingPair `protobuf:"bytes,2,opt,name=trading_pair,json=tradingPair,proto3" json:"trading_pair,omitempty"`
+	TradingPair *v12.TradingPair `protobuf:"bytes,2,opt,name=trading_pair,json=tradingPair,proto3" json:"trading_pair,omitempty"`
 }
 
 func (m *OwnedPositionIdsRequest) Reset()         { *m = OwnedPositionIdsRequest{} }
 func (m *OwnedPositionIdsRequest) String() string { return proto.CompactTextString(m) }
 func (*OwnedPositionIdsRequest) ProtoMessage()    {}
 func (*OwnedPositionIdsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{51}
+	return fileDescriptor_dba93d04e42ddfc3, []int{53}
 }
 func (m *OwnedPositionIdsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3848,14 +4242,14 @@ func (m *OwnedPositionIdsRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_OwnedPositionIdsRequest proto.InternalMessageInfo
 
-func (m *OwnedPositionIdsRequest) GetPositionState() *v110.PositionState {
+func (m *OwnedPositionIdsRequest) GetPositionState() *v12.PositionState {
 	if m != nil {
 		return m.PositionState
 	}
 	return nil
 }
 
-func (m *OwnedPositionIdsRequest) GetTradingPair() *v110.TradingPair {
+func (m *OwnedPositionIdsRequest) GetTradingPair() *v12.TradingPair {
 	if m != nil {
 		return m.TradingPair
 	}
@@ -3863,14 +4257,14 @@ func (m *OwnedPositionIdsRequest) GetTradingPair() *v110.TradingPair {
 }
 
 type OwnedPositionIdsResponse struct {
-	PositionId *v110.PositionId `protobuf:"bytes,1,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
+	PositionId *v12.PositionId `protobuf:"bytes,1,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
 }
 
 func (m *OwnedPositionIdsResponse) Reset()         { *m = OwnedPositionIdsResponse{} }
 func (m *OwnedPositionIdsResponse) String() string { return proto.CompactTextString(m) }
 func (*OwnedPositionIdsResponse) ProtoMessage()    {}
 func (*OwnedPositionIdsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{52}
+	return fileDescriptor_dba93d04e42ddfc3, []int{54}
 }
 func (m *OwnedPositionIdsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3899,7 +4293,7 @@ func (m *OwnedPositionIdsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_OwnedPositionIdsResponse proto.InternalMessageInfo
 
-func (m *OwnedPositionIdsResponse) GetPositionId() *v110.PositionId {
+func (m *OwnedPositionIdsResponse) GetPositionId() *v12.PositionId {
 	if m != nil {
 		return m.PositionId
 	}
@@ -3909,14 +4303,14 @@ func (m *OwnedPositionIdsResponse) GetPositionId() *v110.PositionId {
 // Requests information on an asset by asset id
 type AssetMetadataByIdRequest struct {
 	// The asset id to request information on.
-	AssetId *v16.AssetId `protobuf:"bytes,2,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
+	AssetId *v18.AssetId `protobuf:"bytes,2,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
 }
 
 func (m *AssetMetadataByIdRequest) Reset()         { *m = AssetMetadataByIdRequest{} }
 func (m *AssetMetadataByIdRequest) String() string { return proto.CompactTextString(m) }
 func (*AssetMetadataByIdRequest) ProtoMessage()    {}
 func (*AssetMetadataByIdRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{53}
+	return fileDescriptor_dba93d04e42ddfc3, []int{55}
 }
 func (m *AssetMetadataByIdRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3945,7 +4339,7 @@ func (m *AssetMetadataByIdRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AssetMetadataByIdRequest proto.InternalMessageInfo
 
-func (m *AssetMetadataByIdRequest) GetAssetId() *v16.AssetId {
+func (m *AssetMetadataByIdRequest) GetAssetId() *v18.AssetId {
 	if m != nil {
 		return m.AssetId
 	}
@@ -3956,14 +4350,14 @@ type AssetMetadataByIdResponse struct {
 	// If present, information on the requested asset.
 	//
 	// If the requested asset was unknown, this field will not be present.
-	DenomMetadata *v16.Metadata `protobuf:"bytes,1,opt,name=denom_metadata,json=denomMetadata,proto3" json:"denom_metadata,omitempty"`
+	DenomMetadata *v18.Metadata `protobuf:"bytes,1,opt,name=denom_metadata,json=denomMetadata,proto3" json:"denom_metadata,omitempty"`
 }
 
 func (m *AssetMetadataByIdResponse) Reset()         { *m = AssetMetadataByIdResponse{} }
 func (m *AssetMetadataByIdResponse) String() string { return proto.CompactTextString(m) }
 func (*AssetMetadataByIdResponse) ProtoMessage()    {}
 func (*AssetMetadataByIdResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{54}
+	return fileDescriptor_dba93d04e42ddfc3, []int{56}
 }
 func (m *AssetMetadataByIdResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3992,7 +4386,7 @@ func (m *AssetMetadataByIdResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AssetMetadataByIdResponse proto.InternalMessageInfo
 
-func (m *AssetMetadataByIdResponse) GetDenomMetadata() *v16.Metadata {
+func (m *AssetMetadataByIdResponse) GetDenomMetadata() *v18.Metadata {
 	if m != nil {
 		return m.DenomMetadata
 	}
@@ -4004,7 +4398,7 @@ func (m *AssetMetadataByIdResponse) GetDenomMetadata() *v16.Metadata {
 // validator in their `extended_metadata` fields.
 type DelegationsByAddressIndexRequest struct {
 	// The address index to fetch delegation balances for.
-	AddressIndex *v12.AddressIndex                       `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+	AddressIndex *v1.AddressIndex                        `protobuf:"bytes,1,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
 	Filter       DelegationsByAddressIndexRequest_Filter `protobuf:"varint,2,opt,name=filter,proto3,enum=penumbra.view.v1.DelegationsByAddressIndexRequest_Filter" json:"filter,omitempty"`
 }
 
@@ -4012,7 +4406,7 @@ func (m *DelegationsByAddressIndexRequest) Reset()         { *m = DelegationsByA
 func (m *DelegationsByAddressIndexRequest) String() string { return proto.CompactTextString(m) }
 func (*DelegationsByAddressIndexRequest) ProtoMessage()    {}
 func (*DelegationsByAddressIndexRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{55}
+	return fileDescriptor_dba93d04e42ddfc3, []int{57}
 }
 func (m *DelegationsByAddressIndexRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4041,7 +4435,7 @@ func (m *DelegationsByAddressIndexRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_DelegationsByAddressIndexRequest proto.InternalMessageInfo
 
-func (m *DelegationsByAddressIndexRequest) GetAddressIndex() *v12.AddressIndex {
+func (m *DelegationsByAddressIndexRequest) GetAddressIndex() *v1.AddressIndex {
 	if m != nil {
 		return m.AddressIndex
 	}
@@ -4059,14 +4453,14 @@ func (m *DelegationsByAddressIndexRequest) GetFilter() DelegationsByAddressIndex
 // The `ValueView` includes the `ValidatorInfo` for the delegated validator in
 // cits `extended_metadata` field.
 type DelegationsByAddressIndexResponse struct {
-	ValueView *v16.ValueView `protobuf:"bytes,1,opt,name=value_view,json=valueView,proto3" json:"value_view,omitempty"`
+	ValueView *v18.ValueView `protobuf:"bytes,1,opt,name=value_view,json=valueView,proto3" json:"value_view,omitempty"`
 }
 
 func (m *DelegationsByAddressIndexResponse) Reset()         { *m = DelegationsByAddressIndexResponse{} }
 func (m *DelegationsByAddressIndexResponse) String() string { return proto.CompactTextString(m) }
 func (*DelegationsByAddressIndexResponse) ProtoMessage()    {}
 func (*DelegationsByAddressIndexResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dba93d04e42ddfc3, []int{56}
+	return fileDescriptor_dba93d04e42ddfc3, []int{58}
 }
 func (m *DelegationsByAddressIndexResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4095,15 +4489,131 @@ func (m *DelegationsByAddressIndexResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_DelegationsByAddressIndexResponse proto.InternalMessageInfo
 
-func (m *DelegationsByAddressIndexResponse) GetValueView() *v16.ValueView {
+func (m *DelegationsByAddressIndexResponse) GetValueView() *v18.ValueView {
 	if m != nil {
 		return m.ValueView
 	}
 	return nil
 }
 
+// Requests unbonding tokens for a given address index, with optional filtering
+// for whether the tokens are currently claimable.
+type UnbondingTokensByAddressIndexRequest struct {
+	Filter UnbondingTokensByAddressIndexRequest_Filter `protobuf:"varint,1,opt,name=filter,proto3,enum=penumbra.view.v1.UnbondingTokensByAddressIndexRequest_Filter" json:"filter,omitempty"`
+	// The address index to fetch unbonding tokens for.
+	AddressIndex *v1.AddressIndex `protobuf:"bytes,2,opt,name=address_index,json=addressIndex,proto3" json:"address_index,omitempty"`
+}
+
+func (m *UnbondingTokensByAddressIndexRequest) Reset()         { *m = UnbondingTokensByAddressIndexRequest{} }
+func (m *UnbondingTokensByAddressIndexRequest) String() string { return proto.CompactTextString(m) }
+func (*UnbondingTokensByAddressIndexRequest) ProtoMessage()    {}
+func (*UnbondingTokensByAddressIndexRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{59}
+}
+func (m *UnbondingTokensByAddressIndexRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UnbondingTokensByAddressIndexRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UnbondingTokensByAddressIndexRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UnbondingTokensByAddressIndexRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnbondingTokensByAddressIndexRequest.Merge(m, src)
+}
+func (m *UnbondingTokensByAddressIndexRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *UnbondingTokensByAddressIndexRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnbondingTokensByAddressIndexRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnbondingTokensByAddressIndexRequest proto.InternalMessageInfo
+
+func (m *UnbondingTokensByAddressIndexRequest) GetFilter() UnbondingTokensByAddressIndexRequest_Filter {
+	if m != nil {
+		return m.Filter
+	}
+	return UnbondingTokensByAddressIndexRequest_FILTER_UNSPECIFIED
+}
+
+func (m *UnbondingTokensByAddressIndexRequest) GetAddressIndex() *v1.AddressIndex {
+	if m != nil {
+		return m.AddressIndex
+	}
+	return nil
+}
+
+// Returns unbonding tokens for the given address index, optionally filtered by
+// whether the tokens are currently claimable.
+type UnbondingTokensByAddressIndexResponse struct {
+	// A `ValueView` representing the amount of the given unbonding token.
+	ValueView *v18.ValueView `protobuf:"bytes,1,opt,name=value_view,json=valueView,proto3" json:"value_view,omitempty"`
+	// Whether the unbonding token is currently claimable. This will only be
+	// `true` if the `unbonding_delay` (from `StakeParameters`) has passed or the
+	// validator has unbonded.
+	Claimable bool `protobuf:"varint,2,opt,name=claimable,proto3" json:"claimable,omitempty"`
+}
+
+func (m *UnbondingTokensByAddressIndexResponse) Reset()         { *m = UnbondingTokensByAddressIndexResponse{} }
+func (m *UnbondingTokensByAddressIndexResponse) String() string { return proto.CompactTextString(m) }
+func (*UnbondingTokensByAddressIndexResponse) ProtoMessage()    {}
+func (*UnbondingTokensByAddressIndexResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dba93d04e42ddfc3, []int{60}
+}
+func (m *UnbondingTokensByAddressIndexResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UnbondingTokensByAddressIndexResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UnbondingTokensByAddressIndexResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UnbondingTokensByAddressIndexResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnbondingTokensByAddressIndexResponse.Merge(m, src)
+}
+func (m *UnbondingTokensByAddressIndexResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *UnbondingTokensByAddressIndexResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnbondingTokensByAddressIndexResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnbondingTokensByAddressIndexResponse proto.InternalMessageInfo
+
+func (m *UnbondingTokensByAddressIndexResponse) GetValueView() *v18.ValueView {
+	if m != nil {
+		return m.ValueView
+	}
+	return nil
+}
+
+func (m *UnbondingTokensByAddressIndexResponse) GetClaimable() bool {
+	if m != nil {
+		return m.Claimable
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterEnum("penumbra.view.v1.DelegationsByAddressIndexRequest_Filter", DelegationsByAddressIndexRequest_Filter_name, DelegationsByAddressIndexRequest_Filter_value)
+	proto.RegisterEnum("penumbra.view.v1.UnbondingTokensByAddressIndexRequest_Filter", UnbondingTokensByAddressIndexRequest_Filter_name, UnbondingTokensByAddressIndexRequest_Filter_value)
+	proto.RegisterType((*AuctionsRequest)(nil), "penumbra.view.v1.AuctionsRequest")
+	proto.RegisterType((*AuctionsResponse)(nil), "penumbra.view.v1.AuctionsResponse")
 	proto.RegisterType((*AuthorizeAndBuildRequest)(nil), "penumbra.view.v1.AuthorizeAndBuildRequest")
 	proto.RegisterType((*AuthorizeAndBuildResponse)(nil), "penumbra.view.v1.AuthorizeAndBuildResponse")
 	proto.RegisterType((*AuthorizeAndBuildResponse_BuildProgress)(nil), "penumbra.view.v1.AuthorizeAndBuildResponse.BuildProgress")
@@ -4122,6 +4632,9 @@ func init() {
 	proto.RegisterType((*TransactionPlannerRequest_PositionOpen)(nil), "penumbra.view.v1.TransactionPlannerRequest.PositionOpen")
 	proto.RegisterType((*TransactionPlannerRequest_PositionClose)(nil), "penumbra.view.v1.TransactionPlannerRequest.PositionClose")
 	proto.RegisterType((*TransactionPlannerRequest_PositionWithdraw)(nil), "penumbra.view.v1.TransactionPlannerRequest.PositionWithdraw")
+	proto.RegisterType((*TransactionPlannerRequest_ActionDutchAuctionSchedule)(nil), "penumbra.view.v1.TransactionPlannerRequest.ActionDutchAuctionSchedule")
+	proto.RegisterType((*TransactionPlannerRequest_ActionDutchAuctionEnd)(nil), "penumbra.view.v1.TransactionPlannerRequest.ActionDutchAuctionEnd")
+	proto.RegisterType((*TransactionPlannerRequest_ActionDutchAuctionWithdraw)(nil), "penumbra.view.v1.TransactionPlannerRequest.ActionDutchAuctionWithdraw")
 	proto.RegisterType((*TransactionPlannerResponse)(nil), "penumbra.view.v1.TransactionPlannerResponse")
 	proto.RegisterType((*AddressByIndexRequest)(nil), "penumbra.view.v1.AddressByIndexRequest")
 	proto.RegisterType((*AddressByIndexResponse)(nil), "penumbra.view.v1.AddressByIndexResponse")
@@ -4176,253 +4689,286 @@ func init() {
 	proto.RegisterType((*AssetMetadataByIdResponse)(nil), "penumbra.view.v1.AssetMetadataByIdResponse")
 	proto.RegisterType((*DelegationsByAddressIndexRequest)(nil), "penumbra.view.v1.DelegationsByAddressIndexRequest")
 	proto.RegisterType((*DelegationsByAddressIndexResponse)(nil), "penumbra.view.v1.DelegationsByAddressIndexResponse")
+	proto.RegisterType((*UnbondingTokensByAddressIndexRequest)(nil), "penumbra.view.v1.UnbondingTokensByAddressIndexRequest")
+	proto.RegisterType((*UnbondingTokensByAddressIndexResponse)(nil), "penumbra.view.v1.UnbondingTokensByAddressIndexResponse")
 }
 
 func init() { proto.RegisterFile("penumbra/view/v1/view.proto", fileDescriptor_dba93d04e42ddfc3) }
 
 var fileDescriptor_dba93d04e42ddfc3 = []byte{
-	// 3847 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x3b, 0x4d, 0x6f, 0x1b, 0x49,
-	0x76, 0x6a, 0x4a, 0x96, 0xa8, 0x27, 0xf1, 0x43, 0x65, 0x4b, 0xa2, 0xb9, 0x1e, 0xd9, 0xee, 0xd9,
-	0x19, 0x7f, 0xed, 0x52, 0x1f, 0xf6, 0xee, 0xce, 0x78, 0x1c, 0x6c, 0x44, 0x7d, 0x58, 0x9a, 0xf1,
-	0xc8, 0x9c, 0x96, 0x2c, 0x4f, 0x26, 0x9e, 0x74, 0x8a, 0xdd, 0x25, 0xa9, 0x63, 0xb2, 0xbb, 0xd3,
-	0x5d, 0xa4, 0xa4, 0xfc, 0x80, 0x00, 0xd9, 0x20, 0x40, 0x80, 0xe4, 0x9c, 0x43, 0x80, 0x4d, 0x82,
-	0x04, 0xc8, 0x2d, 0x87, 0x9c, 0x72, 0xdd, 0x0d, 0x10, 0x60, 0x91, 0xd3, 0x5e, 0x02, 0x0c, 0x66,
-	0x6e, 0xb9, 0xe7, 0x94, 0x43, 0x82, 0xfa, 0xe8, 0x66, 0x77, 0xb3, 0x5b, 0x24, 0x65, 0x25, 0xc0,
-	0x9e, 0x58, 0xf5, 0xea, 0x7d, 0xd5, 0xab, 0xaa, 0x57, 0xaf, 0xde, 0x6b, 0xc2, 0xf7, 0x5c, 0x62,
-	0x77, 0xda, 0x4d, 0x0f, 0x2f, 0x77, 0x2d, 0x72, 0xba, 0xdc, 0x5d, 0xe5, 0xbf, 0x35, 0xd7, 0x73,
-	0xa8, 0x83, 0xca, 0xc1, 0x60, 0x8d, 0x03, 0xbb, 0xab, 0xd5, 0xa5, 0x10, 0xdd, 0x70, 0x3c, 0xb2,
-	0x8c, 0x5d, 0x97, 0x91, 0x60, 0xd7, 0x15, 0x14, 0x55, 0x35, 0x31, 0xee, 0xfb, 0x84, 0x72, 0x0c,
-	0xd6, 0x90, 0x38, 0xf7, 0xe3, 0x38, 0x86, 0xd3, 0x76, 0x1d, 0x9b, 0xd8, 0x74, 0xd9, 0x24, 0x67,
-	0x0c, 0xd7, 0x24, 0x67, 0x83, 0x30, 0x8f, 0x08, 0x61, 0x98, 0x47, 0x84, 0x0c, 0xc2, 0xb4, 0x9a,
-	0x06, 0xc3, 0xb4, 0x9a, 0xc6, 0x20, 0x4c, 0xdf, 0xe0, 0x9a, 0xfa, 0x46, 0xa0, 0xe7, 0xb3, 0x4c,
-	0xcc, 0x13, 0x8b, 0xb4, 0x4c, 0x62, 0xea, 0xae, 0xe3, 0xb4, 0x38, 0x4d, 0x14, 0x20, 0xa9, 0x7f,
-	0x90, 0x49, 0x4d, 0xf1, 0x5b, 0xae, 0x3d, 0x6f, 0x48, 0xec, 0x3b, 0x71, 0xec, 0xb7, 0xe4, 0xdc,
-	0x67, 0x28, 0xec, 0x57, 0x62, 0x24, 0x2c, 0x6f, 0x77, 0xda, 0x0c, 0xc1, 0xee, 0xb4, 0xe5, 0x78,
-	0x2d, 0x3e, 0x4e, 0x3d, 0x6c, 0xfb, 0xd8, 0xa0, 0x96, 0x63, 0x33, 0xbc, 0x48, 0x57, 0xe2, 0x7f,
-	0x3f, 0x81, 0x7f, 0x76, 0x82, 0xfd, 0x13, 0x8e, 0xca, 0x5b, 0xfd, 0x7a, 0x79, 0xe7, 0x2e, 0x75,
-	0x96, 0xa9, 0xb0, 0x12, 0x0d, 0xac, 0xa4, 0x52, 0xa8, 0xac, 0x77, 0xe8, 0x89, 0xe3, 0x59, 0x7f,
-	0x44, 0xd6, 0x6d, 0xb3, 0xde, 0xb1, 0x5a, 0xa6, 0x46, 0xfe, 0xb0, 0x43, 0x7c, 0x8a, 0xbe, 0x84,
-	0x72, 0x44, 0xb0, 0xee, 0xb6, 0xb0, 0x5d, 0x51, 0xee, 0x28, 0xf7, 0x67, 0xd6, 0x7e, 0x18, 0xaa,
-	0x5b, 0x63, 0xe2, 0x6b, 0x51, 0xfd, 0xba, 0xab, 0xb5, 0x83, 0x5e, 0xb7, 0xd1, 0xc2, 0xb6, 0x56,
-	0xa2, 0x71, 0x80, 0xfa, 0x5d, 0x0e, 0x6e, 0xa6, 0x88, 0xf5, 0x5d, 0xc7, 0xf6, 0x09, 0x6a, 0x42,
-	0xb1, 0xc9, 0x00, 0xba, 0xeb, 0x39, 0xc7, 0x1e, 0xf1, 0x7d, 0x29, 0xf5, 0xe3, 0x5a, 0x72, 0x43,
-	0xd7, 0x32, 0x99, 0xd4, 0x78, 0xaf, 0x21, 0x19, 0xec, 0x8c, 0x69, 0x85, 0x66, 0x14, 0x80, 0x34,
-	0xc8, 0xb3, 0x35, 0x6d, 0x11, 0x4a, 0x2a, 0x39, 0xce, 0xfd, 0xc9, 0x28, 0xdc, 0x37, 0x24, 0xed,
-	0xce, 0x98, 0x16, 0xf2, 0xa9, 0x3e, 0x82, 0x42, 0x4c, 0x2a, 0xaa, 0x42, 0x3e, 0x36, 0x85, 0x9c,
-	0x16, 0xf6, 0xab, 0xaf, 0x21, 0x1f, 0x30, 0x41, 0x9f, 0xc1, 0x4c, 0xc4, 0x42, 0x72, 0xb6, 0x0f,
-	0x86, 0xb6, 0xb1, 0x16, 0xa5, 0xae, 0xe7, 0x61, 0xd2, 0xa7, 0x98, 0x76, 0x7c, 0xf5, 0x2f, 0x14,
-	0xf8, 0x5e, 0xdd, 0x73, 0xb0, 0x69, 0x60, 0x9f, 0x46, 0xf1, 0xe5, 0xfa, 0x5e, 0xa5, 0x58, 0x74,
-	0x0f, 0x4a, 0xf8, 0x14, 0x5b, 0x54, 0x37, 0x09, 0x25, 0x82, 0x21, 0xb3, 0x6b, 0x5e, 0x2b, 0x72,
-	0xf0, 0x66, 0x00, 0x55, 0xff, 0x71, 0x1c, 0x6e, 0xa5, 0x6b, 0x25, 0x97, 0xdf, 0x86, 0xb9, 0x66,
-	0x30, 0xae, 0xfb, 0x1d, 0xc3, 0xe8, 0xed, 0x80, 0x9f, 0xf6, 0xaf, 0xd1, 0x45, 0xac, 0x7a, 0x83,
-	0xfb, 0x82, 0xcd, 0xce, 0x98, 0x56, 0x6e, 0x26, 0x60, 0xe8, 0x4b, 0x98, 0x36, 0x1c, 0xfb, 0xc8,
-	0xf2, 0xda, 0xc4, 0x94, 0x7b, 0xe1, 0xa3, 0x11, 0xe5, 0x6c, 0x04, 0xf4, 0x3b, 0x63, 0x5a, 0x8f,
-	0x59, 0xf5, 0x53, 0x28, 0x27, 0x35, 0x40, 0x3f, 0x86, 0x9c, 0x65, 0xca, 0xe9, 0x7c, 0x98, 0xb4,
-	0xb5, 0x38, 0xbb, 0x71, 0x33, 0xef, 0x9a, 0x5a, 0xce, 0x32, 0xab, 0x36, 0x4c, 0x87, 0x52, 0x2e,
-	0xcb, 0x04, 0x3d, 0x80, 0x72, 0xb8, 0x3c, 0xfa, 0x09, 0xb1, 0x8e, 0x4f, 0x28, 0x9f, 0xf1, 0x84,
-	0x56, 0x0a, 0xe1, 0x3b, 0x1c, 0x1c, 0xd9, 0x46, 0x7f, 0xb7, 0x08, 0x37, 0x13, 0x27, 0xda, 0x26,
-	0x5e, 0xb0, 0x89, 0xde, 0x87, 0x02, 0x39, 0x73, 0x2d, 0xef, 0x3c, 0xe0, 0xa7, 0x70, 0x7e, 0xb3,
-	0x02, 0x28, 0x98, 0xa1, 0x9f, 0xc2, 0x44, 0x9b, 0xb4, 0x9d, 0xca, 0x38, 0xd7, 0xf8, 0xd1, 0xc5,
-	0x5b, 0xec, 0x73, 0xd2, 0x76, 0x1a, 0x2d, 0x6c, 0xd9, 0x94, 0x9c, 0x51, 0x8d, 0x13, 0xa2, 0x4f,
-	0x60, 0xd2, 0x77, 0x3a, 0x9e, 0x41, 0x2a, 0x13, 0x9c, 0xc5, 0xfb, 0x09, 0x16, 0xdc, 0xd3, 0xb2,
-	0x13, 0x6b, 0x9a, 0xec, 0x74, 0xed, 0xda, 0x26, 0x39, 0xd3, 0x24, 0x09, 0x7a, 0x01, 0x53, 0x4e,
-	0x87, 0xba, 0x1d, 0xea, 0x57, 0x6e, 0xdc, 0x19, 0xbf, 0x3f, 0xb3, 0xb6, 0xd6, 0xbf, 0xbc, 0x99,
-	0x13, 0xac, 0xbd, 0xe4, 0xa4, 0x5a, 0xc0, 0x02, 0x6d, 0xc3, 0x35, 0xff, 0x14, 0xbb, 0x7e, 0x65,
-	0x89, 0xf3, 0x5a, 0x19, 0x85, 0xd7, 0xfe, 0x29, 0x76, 0x35, 0x41, 0x8e, 0x0e, 0x61, 0x86, 0x35,
-	0x74, 0xa3, 0x85, 0xad, 0xb6, 0x5f, 0xb9, 0xcd, 0xb9, 0xfd, 0x68, 0x54, 0x6e, 0x1b, 0x8c, 0x5a,
-	0x03, 0x3f, 0x68, 0x72, 0xbe, 0x26, 0x69, 0x91, 0x63, 0xcc, 0x28, 0xfc, 0xca, 0x7d, 0xce, 0xf7,
-	0xc9, 0x28, 0x7c, 0x37, 0x05, 0x39, 0xd1, 0xa2, 0x8c, 0xd0, 0x1b, 0x28, 0x74, 0xec, 0x28, 0xe7,
-	0x35, 0xce, 0xf9, 0xc7, 0xa3, 0x70, 0x7e, 0x15, 0x30, 0x20, 0x5a, 0x9c, 0x19, 0x6a, 0xc1, 0xf5,
-	0x28, 0x20, 0xb0, 0xca, 0x63, 0x2e, 0xe3, 0x93, 0xcb, 0xc9, 0x10, 0xb6, 0x41, 0x51, 0xbe, 0xd2,
-	0x46, 0x07, 0x30, 0x67, 0x35, 0x0d, 0xdd, 0x23, 0x2d, 0x7c, 0xae, 0x0b, 0x2e, 0x7e, 0xe5, 0x19,
-	0x97, 0x75, 0x3f, 0xb1, 0xb3, 0xc2, 0x9b, 0xbf, 0xc6, 0x82, 0x90, 0xee, 0x6a, 0x6d, 0xb7, 0x69,
-	0x68, 0x8c, 0x4e, 0x2b, 0x59, 0xb2, 0xb5, 0x6e, 0x04, 0x16, 0x9a, 0xb3, 0x0c, 0x7f, 0x6d, 0x45,
-	0x3f, 0xb5, 0xe8, 0x89, 0xe9, 0xe1, 0x53, 0xdc, 0xf2, 0x2b, 0xbf, 0xc5, 0xb9, 0x2e, 0x0f, 0xe4,
-	0xca, 0x08, 0x5f, 0x87, 0x74, 0x5a, 0xd9, 0x8a, 0x03, 0x7c, 0xa4, 0x43, 0xd1, 0x75, 0x7c, 0x8b,
-	0x5b, 0xc7, 0x71, 0x89, 0xed, 0x57, 0xb6, 0x39, 0xeb, 0x8f, 0x46, 0x31, 0x4e, 0x43, 0x72, 0x78,
-	0xe9, 0x12, 0x5b, 0x2b, 0xb8, 0x91, 0x9e, 0x8f, 0x9a, 0x50, 0x0a, 0x05, 0x18, 0x2d, 0xc7, 0x27,
-	0x7e, 0xe5, 0x39, 0x97, 0xf0, 0xf1, 0x65, 0x24, 0x6c, 0x30, 0x0e, 0x5a, 0xa8, 0x32, 0xef, 0xfa,
-	0xe8, 0x2d, 0xa0, 0x50, 0x46, 0x60, 0x25, 0xbf, 0xb2, 0xc3, 0xc5, 0x3c, 0xbb, 0x8c, 0x98, 0xc0,
-	0x42, 0xda, 0x9c, 0x9b, 0x80, 0xf8, 0x68, 0x13, 0xf2, 0xb8, 0x43, 0x1d, 0xfd, 0x88, 0x90, 0x8a,
-	0xc9, 0xdd, 0xc6, 0xbd, 0xcc, 0x65, 0x60, 0xb1, 0x68, 0x77, 0xb5, 0xb6, 0x4d, 0xc8, 0x81, 0x45,
-	0xbc, 0x9d, 0x31, 0x6d, 0x8a, 0x91, 0x6e, 0x13, 0x82, 0x36, 0x01, 0xda, 0xd8, 0xee, 0xe0, 0x16,
-	0xe7, 0x43, 0x52, 0xdd, 0x4f, 0x1a, 0x1f, 0x76, 0x15, 0x08, 0x42, 0xc6, 0xe5, 0xfb, 0x30, 0x43,
-	0x5c, 0xc7, 0x38, 0xd1, 0x2d, 0xe6, 0x9a, 0x2a, 0xbf, 0xe0, 0x5e, 0xb2, 0x9e, 0xab, 0x28, 0x1a,
-	0x70, 0x38, 0xf7, 0x58, 0xe8, 0x19, 0x5c, 0xe3, 0xbd, 0xca, 0x2f, 0x85, 0x6f, 0xff, 0x20, 0x53,
-	0x0e, 0x8b, 0x73, 0xbb, 0xab, 0xb5, 0x2d, 0x86, 0xad, 0x09, 0xa2, 0xea, 0x29, 0x4c, 0x0a, 0x67,
-	0x85, 0x1e, 0xc3, 0xb5, 0x2e, 0x6e, 0x75, 0x88, 0xbc, 0x22, 0xde, 0x4b, 0xb0, 0x11, 0xe1, 0x7c,
-	0x77, 0xb5, 0x76, 0xc8, 0x90, 0x34, 0x81, 0x8b, 0x3e, 0x82, 0x29, 0x2c, 0xdc, 0xa7, 0xbc, 0x05,
-	0x97, 0x2e, 0x76, 0xb2, 0x5a, 0x80, 0x5e, 0xfd, 0x6f, 0x05, 0x26, 0x98, 0x33, 0xba, 0x9c, 0xdc,
-	0x3a, 0xcc, 0x52, 0xec, 0x1d, 0x13, 0xaa, 0xf3, 0x71, 0x29, 0xfc, 0x76, 0x16, 0xed, 0x3a, 0x6b,
-	0xec, 0x9a, 0xda, 0x8c, 0x20, 0xe2, 0x5d, 0xf4, 0x23, 0x18, 0x67, 0xab, 0x33, 0x3e, 0xf4, 0xea,
-	0x68, 0x0c, 0x1f, 0x6d, 0x40, 0x81, 0x3b, 0x1a, 0x3d, 0x98, 0xf8, 0xc4, 0x50, 0x13, 0x9f, 0xe5,
-	0x44, 0xb2, 0x57, 0xfd, 0x1a, 0xa6, 0x43, 0x4f, 0x8c, 0x1a, 0x50, 0x12, 0x5e, 0xdd, 0x69, 0xb7,
-	0x2d, 0xda, 0x26, 0x36, 0x95, 0xb6, 0x88, 0x6e, 0x3d, 0x1e, 0x8b, 0xd7, 0xa8, 0x58, 0xc2, 0x7d,
-	0xca, 0x5c, 0x55, 0x88, 0xae, 0x15, 0xb9, 0x2f, 0x0f, 0xfb, 0xd5, 0x3f, 0x51, 0x20, 0x1f, 0x78,
-	0x64, 0xf4, 0x04, 0x26, 0x71, 0xdb, 0xe9, 0x84, 0x5c, 0x6f, 0x25, 0x34, 0x65, 0x0f, 0x0a, 0xa6,
-	0x28, 0xc7, 0xd1, 0x24, 0x2e, 0x7a, 0x0e, 0xd3, 0x1e, 0xa6, 0x44, 0x37, 0x31, 0xc5, 0xd2, 0x46,
-	0x0f, 0xb3, 0x77, 0x16, 0x7f, 0xd7, 0x74, 0x57, 0x6b, 0x1a, 0xa6, 0x64, 0x13, 0x53, 0xac, 0xe5,
-	0x3d, 0xd9, 0xaa, 0xfe, 0x4c, 0x01, 0xe8, 0xf9, 0xd7, 0xcb, 0x2d, 0x77, 0x4c, 0x99, 0xdc, 0x3b,
-	0x28, 0xf3, 0xeb, 0x1c, 0x94, 0x12, 0xce, 0x1e, 0x7d, 0x01, 0xa8, 0x8b, 0x5b, 0x96, 0x89, 0xa9,
-	0xe3, 0xe9, 0x96, 0x49, 0x6c, 0x6a, 0xd1, 0x73, 0xa9, 0x9e, 0x9a, 0xb1, 0xaa, 0xbb, 0x12, 0xed,
-	0x33, 0x72, 0xae, 0xcd, 0x85, 0xd4, 0x01, 0x14, 0xd5, 0x60, 0xce, 0xa7, 0xd8, 0xa3, 0x7a, 0xf4,
-	0xfc, 0xe6, 0xc2, 0xe3, 0x5b, 0xe2, 0x83, 0x5b, 0xbd, 0x33, 0xbc, 0x01, 0x53, 0x2e, 0xb1, 0x71,
-	0x8b, 0x9e, 0x4b, 0x53, 0x3f, 0x18, 0x3c, 0xbb, 0x86, 0x20, 0xd0, 0x02, 0x4a, 0xf4, 0x1c, 0xca,
-	0x1d, 0xbb, 0xe9, 0xd8, 0xa6, 0x65, 0x1f, 0xeb, 0x72, 0xc5, 0x27, 0x86, 0x58, 0xf1, 0x52, 0x48,
-	0x25, 0x00, 0xe8, 0x09, 0x2c, 0xf4, 0x18, 0x89, 0x79, 0xc8, 0x38, 0xed, 0x1a, 0x8f, 0xd3, 0x6e,
-	0x84, 0xa3, 0xfb, 0x6c, 0x50, 0xc4, 0x6b, 0xd5, 0x03, 0x98, 0x8d, 0xde, 0x14, 0xcc, 0x93, 0x06,
-	0xee, 0x55, 0x1a, 0x33, 0xfb, 0x9a, 0x64, 0xef, 0x7f, 0x36, 0x25, 0x89, 0xaf, 0x85, 0x94, 0xd5,
-	0x37, 0x50, 0x88, 0xdd, 0x0e, 0xec, 0x01, 0x12, 0xde, 0x06, 0x61, 0x3c, 0xfb, 0x70, 0x58, 0xce,
-	0xbb, 0xa6, 0x06, 0x6e, 0xd8, 0xae, 0xfe, 0x97, 0x02, 0xe5, 0xe4, 0xad, 0x70, 0xa5, 0x12, 0x98,
-	0x15, 0x3c, 0xe2, 0x13, 0xaf, 0x4b, 0x02, 0x0f, 0x39, 0xd0, 0x0a, 0x9a, 0xc4, 0xd7, 0x42, 0x4a,
-	0xb4, 0x07, 0xb3, 0xd4, 0xc3, 0x7c, 0x3d, 0x5c, 0x6c, 0x79, 0x19, 0x31, 0x71, 0x1f, 0xa7, 0x03,
-	0x41, 0xd3, 0xc0, 0x96, 0xc7, 0x1f, 0x5e, 0x41, 0xa7, 0x0e, 0x90, 0x3f, 0x22, 0x44, 0x6f, 0x3b,
-	0x26, 0x51, 0x75, 0xa8, 0xa6, 0x5d, 0x99, 0xf2, 0x61, 0xb5, 0x0e, 0x13, 0x97, 0x7f, 0xc3, 0x73,
-	0x52, 0x15, 0xc3, 0xbc, 0x74, 0x7b, 0xf5, 0x73, 0x11, 0x64, 0xcb, 0x67, 0xc0, 0x0e, 0x14, 0xa4,
-	0x0f, 0x95, 0x27, 0x44, 0x19, 0x3e, 0x4e, 0x9f, 0xc5, 0x91, 0x9e, 0xaa, 0xc1, 0x42, 0x52, 0x84,
-	0xd4, 0x3f, 0x72, 0x41, 0x29, 0x23, 0x5d, 0x50, 0xea, 0x1c, 0x94, 0x5e, 0xe3, 0x56, 0x8b, 0xdf,
-	0x1b, 0x42, 0x61, 0xb5, 0x01, 0xe5, 0x1e, 0x48, 0x0a, 0x78, 0x06, 0xd3, 0xa7, 0x1c, 0xd6, 0xdb,
-	0x2b, 0xb7, 0x33, 0x44, 0x84, 0xb4, 0xf9, 0x53, 0xd9, 0x52, 0xbf, 0x80, 0x79, 0xae, 0x6f, 0xfd,
-	0x3c, 0x90, 0x2f, 0x6d, 0x73, 0x79, 0xbd, 0x9b, 0xb0, 0x90, 0x64, 0x29, 0x55, 0xbd, 0x3a, 0x7b,
-	0x1b, 0xb0, 0xb8, 0xe5, 0x9e, 0x90, 0x36, 0xf1, 0x70, 0x2b, 0xa1, 0xf8, 0xd5, 0x09, 0x39, 0x80,
-	0x4a, 0xbf, 0x90, 0x77, 0x5e, 0xd6, 0xbf, 0x51, 0xa0, 0x54, 0xc7, 0x2d, 0x6c, 0x1b, 0x24, 0xd4,
-	0xf9, 0x53, 0x28, 0x62, 0xc3, 0x60, 0xbe, 0x4f, 0x3f, 0xb2, 0x5a, 0x94, 0x78, 0xa3, 0x28, 0x5d,
-	0x90, 0xa4, 0xdb, 0x9c, 0x12, 0x3d, 0x87, 0x12, 0xbf, 0xc3, 0x74, 0xcb, 0x0c, 0x98, 0x0d, 0x19,
-	0x9c, 0x14, 0xb0, 0x68, 0x08, 0x46, 0xea, 0xcf, 0x73, 0x50, 0xee, 0x29, 0x1a, 0x1e, 0xc7, 0x29,
-	0x29, 0x6e, 0x04, 0x15, 0xf9, 0x9d, 0x13, 0xd0, 0xa1, 0x4f, 0x60, 0xaa, 0x29, 0xd8, 0x4a, 0xc5,
-	0x2e, 0xbe, 0x82, 0x05, 0xb1, 0xa4, 0x40, 0x9f, 0x41, 0x29, 0xb0, 0x54, 0x60, 0xff, 0xf1, 0x0b,
-	0x2f, 0x4a, 0xa9, 0xc7, 0xa1, 0x45, 0x4e, 0xb5, 0xc0, 0xc8, 0x12, 0x86, 0x36, 0x61, 0x56, 0xf2,
-	0xd5, 0x59, 0xf0, 0x2e, 0x2f, 0xab, 0xbb, 0x17, 0xaa, 0xc3, 0x19, 0xcd, 0x48, 0x32, 0xd6, 0x51,
-	0x4b, 0x50, 0xd8, 0xe7, 0x49, 0x87, 0xe0, 0x94, 0xfe, 0xa9, 0x02, 0xc5, 0x00, 0x22, 0xcd, 0x76,
-	0x1f, 0xca, 0x47, 0x9d, 0x56, 0x4b, 0xf7, 0xcf, 0x6d, 0x23, 0x9e, 0x73, 0x28, 0x32, 0xf8, 0xfe,
-	0xb9, 0x6d, 0xc8, 0xac, 0x43, 0x0d, 0xae, 0xbb, 0xd8, 0xa3, 0x16, 0x8e, 0x23, 0x8b, 0x84, 0xc7,
-	0x9c, 0x1c, 0x8a, 0xe0, 0xdf, 0x86, 0x19, 0x03, 0x53, 0xe3, 0x84, 0xb9, 0xe6, 0x8e, 0xcb, 0x8d,
-	0x91, 0xd7, 0x20, 0x00, 0xbd, 0x72, 0xd5, 0x79, 0xb8, 0x2e, 0x94, 0xd9, 0xa7, 0x1e, 0xc1, 0xed,
-	0x40, 0xc9, 0x7f, 0x50, 0xe0, 0x46, 0x1c, 0x2e, 0x55, 0xfd, 0x18, 0x6e, 0xb6, 0x30, 0x25, 0x3e,
-	0xd5, 0xdf, 0xda, 0xce, 0xa9, 0xad, 0x37, 0x5b, 0x8e, 0xf1, 0x36, 0xae, 0xf3, 0x82, 0x40, 0xf8,
-	0x8c, 0x8d, 0xd7, 0xd9, 0xb0, 0xd4, 0x25, 0x6d, 0x96, 0xb9, 0x51, 0x66, 0x39, 0x9e, 0x31, 0x4b,
-	0xf5, 0x7f, 0x14, 0x98, 0xdd, 0x73, 0x68, 0xef, 0xc4, 0xbc, 0x0f, 0x05, 0xcb, 0x36, 0x5a, 0x1d,
-	0x93, 0xe8, 0xbe, 0xcb, 0x02, 0x56, 0x91, 0xb7, 0x9b, 0x95, 0xc0, 0x7d, 0x06, 0x43, 0x4f, 0x21,
-	0x1f, 0x1c, 0x05, 0xb9, 0x4b, 0x06, 0x9e, 0x81, 0x29, 0x79, 0x06, 0xfa, 0xdd, 0xc8, 0xc4, 0x25,
-	0xdd, 0x08, 0xda, 0x84, 0x92, 0x08, 0x86, 0x74, 0xea, 0x70, 0x65, 0xcd, 0xca, 0xe4, 0x10, 0x51,
-	0x51, 0x41, 0x10, 0x1d, 0x38, 0x6c, 0x2e, 0xa6, 0xfa, 0x67, 0x0a, 0xcc, 0x73, 0x0b, 0x6c, 0x3b,
-	0xde, 0xa1, 0x43, 0x2d, 0xfb, 0x38, 0x30, 0xc5, 0x43, 0x98, 0xeb, 0x3a, 0x14, 0x37, 0x5b, 0x44,
-	0xc7, 0x34, 0xbe, 0x50, 0x25, 0x39, 0xb0, 0x2e, 0x63, 0xa4, 0xfe, 0x59, 0x8d, 0x5f, 0xd6, 0x39,
-	0xfe, 0x01, 0x14, 0x5f, 0x5b, 0xd4, 0x8e, 0x38, 0xde, 0xb4, 0xcc, 0xfb, 0xf8, 0x95, 0x64, 0xde,
-	0x75, 0x28, 0x85, 0xb2, 0xe4, 0x2e, 0x7d, 0x01, 0xb3, 0xa7, 0x02, 0x24, 0x62, 0xf2, 0xa1, 0xf2,
-	0xc0, 0x92, 0x09, 0x0f, 0xc9, 0x67, 0x4e, 0x7b, 0x1d, 0xf5, 0xdf, 0x15, 0x58, 0x90, 0x83, 0xff,
-	0x6f, 0xf5, 0x04, 0xf4, 0x7b, 0x80, 0xb0, 0xcc, 0xd5, 0x8b, 0xf4, 0x51, 0xe4, 0x71, 0xb1, 0x7c,
-	0x31, 0xef, 0xf5, 0x28, 0x1d, 0x9f, 0xce, 0x1c, 0x4e, 0x82, 0xd4, 0xff, 0xc8, 0xc1, 0x62, 0xdf,
-	0xa4, 0xa4, 0xf9, 0x7e, 0x3f, 0xa3, 0x5a, 0xf1, 0x93, 0xfe, 0x74, 0x46, 0x06, 0x8b, 0x41, 0xb5,
-	0x8a, 0x46, 0x5f, 0xad, 0x62, 0x6d, 0x78, 0xde, 0xbf, 0x11, 0x95, 0x8a, 0x9f, 0x8f, 0x43, 0x81,
-	0xbb, 0x8d, 0xf0, 0x04, 0x54, 0x21, 0x2f, 0x6e, 0x5c, 0x22, 0x22, 0xb1, 0xbc, 0x16, 0xf6, 0x91,
-	0x01, 0x4b, 0x11, 0x87, 0x65, 0x58, 0x47, 0x96, 0xa1, 0x9b, 0xc4, 0x76, 0xda, 0x96, 0x2d, 0x53,
-	0x93, 0x39, 0x9e, 0x50, 0xca, 0xbc, 0x0c, 0x37, 0x19, 0xb2, 0x76, 0xab, 0xe7, 0xe0, 0x38, 0x8f,
-	0xcd, 0x28, 0x0b, 0xf4, 0x14, 0x6e, 0x06, 0x42, 0x22, 0x69, 0x49, 0xea, 0xbc, 0x25, 0xb6, 0x2f,
-	0xaf, 0x86, 0x45, 0x89, 0xb0, 0x19, 0x8e, 0x1f, 0xf0, 0x61, 0xf4, 0x11, 0x54, 0x02, 0xda, 0xde,
-	0xe3, 0x4b, 0x92, 0x4e, 0x70, 0xd2, 0x05, 0x39, 0xfe, 0x2a, 0x18, 0x96, 0x94, 0x1f, 0x42, 0x29,
-	0xa0, 0x6c, 0xb9, 0xba, 0x7d, 0x44, 0x7d, 0xfe, 0x4e, 0xcb, 0x6b, 0x81, 0x8b, 0x7e, 0xe1, 0xee,
-	0x1d, 0x51, 0x1f, 0xad, 0xc1, 0x7c, 0x80, 0xe7, 0x7a, 0x8e, 0xeb, 0xf8, 0xb8, 0x25, 0xb0, 0x27,
-	0x39, 0xf6, 0x75, 0x39, 0xd8, 0x90, 0x63, 0x9c, 0x66, 0x1d, 0xde, 0x0b, 0x68, 0xba, 0xdc, 0xeb,
-	0xe9, 0x1e, 0x31, 0x88, 0xe5, 0xd2, 0x40, 0xb5, 0x29, 0x4e, 0x5b, 0x95, 0x48, 0x81, 0x67, 0xe4,
-	0x28, 0x42, 0x3d, 0xf5, 0x77, 0xa0, 0x18, 0x2c, 0x93, 0xdc, 0xfd, 0xcf, 0xa1, 0xc8, 0x4d, 0xaf,
-	0xb7, 0x09, 0xc5, 0x91, 0x53, 0x77, 0x27, 0xcb, 0xf6, 0x9f, 0x4b, 0x3c, 0xad, 0xc0, 0xe9, 0x82,
-	0xae, 0xba, 0x00, 0x37, 0xd6, 0x5d, 0xb7, 0x81, 0x3d, 0xdc, 0x26, 0x94, 0x78, 0x61, 0x04, 0xf0,
-	0x06, 0xe6, 0x13, 0x70, 0x29, 0x79, 0x03, 0xc0, 0x0d, 0xa1, 0x19, 0x11, 0x14, 0x76, 0x5d, 0x7e,
-	0xc6, 0x63, 0x0c, 0x22, 0x64, 0x2a, 0x82, 0xf2, 0x73, 0xec, 0x37, 0x3c, 0xab, 0x17, 0x41, 0xaa,
-	0x5f, 0xc3, 0x5c, 0x04, 0x16, 0xc6, 0xdb, 0x70, 0x8c, 0x7d, 0xdd, 0xe5, 0xd0, 0x8c, 0x7d, 0xdf,
-	0x97, 0x67, 0xea, 0xb1, 0x99, 0x3e, 0x0e, 0x9a, 0x6c, 0xa2, 0xdb, 0x9f, 0x6f, 0xf6, 0x4f, 0xd4,
-	0x85, 0xf9, 0x04, 0x5c, 0x8a, 0x7e, 0x9d, 0x32, 0xd1, 0x9f, 0x64, 0xe7, 0x14, 0x62, 0xc5, 0xec,
-	0xee, 0x6a, 0x6d, 0xbb, 0x6d, 0x66, 0x4c, 0xfe, 0x2f, 0x15, 0x58, 0x64, 0xf7, 0x60, 0xfd, 0x3c,
-	0x92, 0x7e, 0x92, 0xe7, 0xaf, 0x01, 0x25, 0xdb, 0xa1, 0x24, 0x9a, 0xc7, 0xca, 0x8d, 0x98, 0xc7,
-	0x62, 0xf4, 0xbd, 0x7e, 0x5a, 0x81, 0x70, 0x3c, 0xb5, 0x40, 0x78, 0x02, 0x95, 0x7e, 0xad, 0xc2,
-	0xbb, 0xaa, 0xc8, 0xaf, 0x7d, 0x7e, 0x45, 0x33, 0x01, 0x95, 0xbe, 0x44, 0x69, 0xe0, 0x10, 0xf7,
-	0x03, 0x3c, 0xc6, 0x4c, 0x23, 0x86, 0xe3, 0x99, 0x5a, 0xc1, 0x8f, 0x02, 0xb9, 0x01, 0xf6, 0x4f,
-	0xb1, 0x9b, 0x61, 0x80, 0x64, 0x22, 0x2f, 0xf7, 0x4e, 0x89, 0xbc, 0xe1, 0x0d, 0xf0, 0x02, 0x2a,
-	0xfd, 0x5a, 0x49, 0x03, 0xac, 0xc0, 0x04, 0x63, 0xdb, 0x9f, 0xfe, 0x0b, 0xa7, 0x7d, 0x8a, 0x5d,
-	0x39, 0x5b, 0x8e, 0xa9, 0x2e, 0xc2, 0xfc, 0x2b, 0x9b, 0x27, 0x2c, 0x89, 0xc9, 0x06, 0xc3, 0x0d,
-	0xf7, 0x29, 0x2c, 0x24, 0x07, 0x2e, 0x2d, 0xe4, 0x67, 0x0a, 0x2c, 0xec, 0x75, 0x5a, 0x2d, 0xeb,
-	0xc8, 0x22, 0x5e, 0x2c, 0x84, 0x47, 0xcf, 0x61, 0xda, 0x0e, 0x46, 0xa4, 0x09, 0x1f, 0x0c, 0x4a,
-	0x6b, 0x87, 0xac, 0xb4, 0x1e, 0xed, 0xf0, 0xf6, 0x5b, 0x86, 0xc5, 0x3e, 0x5d, 0xe4, 0xcc, 0x6e,
-	0xc0, 0x35, 0x11, 0xe3, 0x8a, 0x3b, 0x45, 0x74, 0xd4, 0x43, 0xb8, 0x15, 0xad, 0x95, 0xda, 0x47,
-	0x4e, 0xfd, 0x7c, 0x07, 0xfb, 0x27, 0xc1, 0x14, 0x44, 0xb9, 0x35, 0x37, 0x6a, 0xb9, 0x55, 0xfd,
-	0x0a, 0x16, 0x12, 0x7c, 0x03, 0x8e, 0x77, 0x61, 0x36, 0x96, 0x8c, 0x13, 0x31, 0xe6, 0x8c, 0xdf,
-	0xcb, 0xc1, 0xa1, 0xf7, 0x00, 0x88, 0x6d, 0xc6, 0x63, 0xff, 0x69, 0x62, 0x9b, 0x32, 0x8c, 0xff,
-	0x65, 0x0e, 0x4a, 0x09, 0xe6, 0x68, 0x01, 0x26, 0x63, 0xfc, 0x64, 0xef, 0xb2, 0xfa, 0x27, 0x6f,
-	0xfb, 0xf1, 0x77, 0xfa, 0x40, 0xe0, 0x10, 0x66, 0x5c, 0xe2, 0xb1, 0x0b, 0x9b, 0x5a, 0xdd, 0xa0,
-	0x8e, 0xfb, 0x64, 0xf8, 0xc0, 0xaf, 0x47, 0xab, 0x45, 0x19, 0xa1, 0x75, 0x98, 0xe0, 0x2f, 0xce,
-	0x6b, 0x23, 0x46, 0x92, 0xfc, 0xf5, 0xc9, 0x49, 0xd5, 0x57, 0xb0, 0xd8, 0xb7, 0x4e, 0x72, 0xc3,
-	0x3c, 0x85, 0x29, 0x7a, 0xa6, 0x5b, 0xf6, 0x91, 0x23, 0x4f, 0xc3, 0xdd, 0x0b, 0xab, 0x54, 0x9c,
-	0x76, 0x92, 0x9e, 0xb1, 0x5f, 0xf5, 0x77, 0xe1, 0xbd, 0x8c, 0x6d, 0x75, 0x05, 0xcc, 0x5f, 0x43,
-	0x41, 0xbe, 0xe2, 0x24, 0xb3, 0x6d, 0x98, 0xe1, 0x1e, 0xdb, 0xe3, 0xe7, 0x72, 0x34, 0xbf, 0x08,
-	0x76, 0xd8, 0x56, 0xff, 0x96, 0x1d, 0xe5, 0xc4, 0xeb, 0xe8, 0x6a, 0x45, 0xa0, 0x2d, 0x98, 0x0d,
-	0x72, 0xf3, 0xfa, 0x5b, 0x72, 0x2e, 0x77, 0xe6, 0x30, 0xf9, 0xf9, 0x19, 0xab, 0xd7, 0x51, 0xff,
-	0x79, 0x02, 0xae, 0xa7, 0x88, 0x4a, 0xbb, 0xbb, 0x94, 0x77, 0xbb, 0xbb, 0xea, 0x30, 0xc1, 0x2f,
-	0x1b, 0xa1, 0x68, 0x6d, 0xf8, 0xcb, 0x97, 0x6b, 0xc5, 0x69, 0xaf, 0xee, 0xbd, 0x18, 0xf7, 0xa8,
-	0x13, 0xef, 0xe0, 0x51, 0x3f, 0x80, 0xa2, 0xf0, 0x10, 0xba, 0xe1, 0x11, 0x4c, 0x89, 0x29, 0x8b,
-	0x02, 0x05, 0x01, 0xdd, 0x10, 0x40, 0xe6, 0xac, 0x24, 0x9a, 0xf0, 0x9d, 0x93, 0xc2, 0x59, 0x09,
-	0x98, 0x48, 0x0f, 0x54, 0x23, 0x05, 0x82, 0x29, 0x3e, 0x1c, 0xf6, 0xd1, 0x4e, 0xf8, 0xed, 0x46,
-	0x9e, 0xeb, 0xba, 0x32, 0x48, 0xd7, 0x9e, 0xe1, 0xf7, 0x39, 0x5d, 0xf8, 0x21, 0xc7, 0x2e, 0x14,
-	0x3d, 0x42, 0x3b, 0x9e, 0x1d, 0x26, 0xac, 0xa6, 0x87, 0x4e, 0x58, 0x15, 0x04, 0xa5, 0x04, 0xa9,
-	0xff, 0x36, 0x0e, 0xd0, 0xbb, 0xc5, 0xae, 0xbe, 0x6c, 0xc7, 0xdc, 0x12, 0xbf, 0x43, 0x73, 0xa9,
-	0x6e, 0xa9, 0x2f, 0xbd, 0xcf, 0x74, 0x89, 0x7c, 0xf4, 0xc2, 0x48, 0x63, 0x46, 0x1d, 0x4f, 0x18,
-	0xf5, 0xca, 0xf6, 0xc0, 0x01, 0xcc, 0x88, 0x2f, 0x5b, 0xc4, 0x9b, 0x59, 0x78, 0xd1, 0xc7, 0x83,
-	0xd4, 0xad, 0x63, 0x6a, 0x9c, 0x30, 0x9d, 0x45, 0xc1, 0x99, 0xbf, 0x9b, 0xc1, 0x09, 0xdb, 0xd1,
-	0x9d, 0x25, 0x02, 0x0c, 0xb9, 0x69, 0x82, 0x9d, 0x25, 0x80, 0x91, 0xad, 0x31, 0xf5, 0x6e, 0x5b,
-	0x43, 0xfd, 0x17, 0x05, 0x16, 0x5f, 0x9e, 0xda, 0xc4, 0xec, 0xd5, 0x6e, 0xc2, 0x08, 0xe4, 0x20,
-	0xf2, 0xe5, 0x04, 0x7b, 0x70, 0x92, 0x8c, 0xac, 0x43, 0x66, 0x1d, 0x88, 0xaf, 0x75, 0xef, 0x73,
-	0x09, 0xde, 0xed, 0xab, 0xe3, 0xe4, 0xde, 0xad, 0x8e, 0xa3, 0x1e, 0x43, 0xa5, 0x7f, 0x02, 0xd2,
-	0xf1, 0x5e, 0x65, 0x19, 0x4b, 0x3d, 0x84, 0x0a, 0x7f, 0xc4, 0x05, 0x4f, 0xaf, 0xfa, 0x79, 0x58,
-	0x15, 0x89, 0xa5, 0xf9, 0x72, 0xa3, 0xa5, 0xf9, 0x54, 0x13, 0x6e, 0xa6, 0xf0, 0xcd, 0x7c, 0x27,
-	0x2a, 0x97, 0x7b, 0x27, 0xfe, 0x55, 0x0e, 0xee, 0xf4, 0x1e, 0xdc, 0x7e, 0x58, 0x19, 0xf9, 0xbf,
-	0xa9, 0x46, 0xa1, 0x2f, 0x60, 0x32, 0x92, 0xf9, 0x2f, 0xa6, 0x7d, 0x0b, 0x33, 0x48, 0x9b, 0x9a,
-	0x28, 0x02, 0x68, 0x92, 0x91, 0xfa, 0x35, 0x4c, 0xca, 0xfa, 0xc2, 0x02, 0xa0, 0xed, 0xdd, 0x17,
-	0x07, 0x5b, 0x9a, 0xfe, 0x6a, 0x6f, 0xbf, 0xb1, 0xb5, 0xb1, 0xbb, 0xbd, 0xbb, 0xb5, 0x59, 0x1e,
-	0x43, 0x8f, 0xe0, 0x9e, 0x84, 0xaf, 0xbf, 0x78, 0xa1, 0xaf, 0x6f, 0x1c, 0xec, 0x1e, 0x6e, 0xe9,
-	0xaf, 0x77, 0x0f, 0x76, 0xf4, 0xbd, 0x97, 0x7b, 0x5f, 0x6d, 0x69, 0x2f, 0xf5, 0xfa, 0xfa, 0x8b,
-	0xf5, 0xbd, 0x8d, 0xad, 0xfd, 0xb2, 0x82, 0x8a, 0x00, 0x3d, 0xe4, 0x72, 0x4e, 0x25, 0x70, 0xf7,
-	0x02, 0x8d, 0xe4, 0x72, 0xfc, 0x36, 0x00, 0xaf, 0xc6, 0x8b, 0x64, 0xbd, 0x32, 0x6c, 0xb2, 0x7e,
-	0xba, 0x1b, 0x34, 0xd7, 0xfe, 0x69, 0x1e, 0x66, 0x58, 0x63, 0x9f, 0x78, 0x5d, 0x8b, 0x57, 0x13,
-	0x26, 0x45, 0xac, 0x8d, 0x6e, 0xa7, 0x04, 0x04, 0xd1, 0x17, 0x41, 0xf5, 0x4e, 0x36, 0x82, 0x54,
-	0x4f, 0x87, 0xd9, 0x68, 0x42, 0x1d, 0x7d, 0x90, 0x45, 0x11, 0x4b, 0xc4, 0x57, 0x3f, 0x1c, 0x84,
-	0x26, 0xd8, 0xaf, 0x28, 0xe8, 0x53, 0xb8, 0xc6, 0x63, 0x1c, 0xb4, 0xd4, 0x4f, 0x12, 0x4d, 0x8e,
-	0x57, 0x6f, 0x67, 0x8e, 0x87, 0xbc, 0x08, 0x14, 0xe3, 0xf1, 0x12, 0xba, 0x97, 0x41, 0x94, 0xcc,
-	0x37, 0x57, 0xef, 0x0f, 0x46, 0x0c, 0xc5, 0x7c, 0x0e, 0x93, 0x22, 0xf7, 0x92, 0x66, 0xe0, 0x58,
-	0xf2, 0x2c, 0xcd, 0xc0, 0xf1, 0xb4, 0xcd, 0x8a, 0x82, 0x5a, 0x30, 0xd7, 0x77, 0x5a, 0xd1, 0xc3,
-	0x0c, 0xc2, 0x14, 0x57, 0x51, 0x7d, 0x34, 0x14, 0x6e, 0x98, 0x24, 0x2d, 0xc4, 0x92, 0x30, 0x28,
-	0x65, 0xa9, 0xd2, 0xd2, 0x3f, 0xd5, 0x7b, 0x03, 0xf1, 0xa4, 0x84, 0x03, 0x98, 0x0e, 0xd3, 0x2d,
-	0x48, 0xed, 0xa7, 0x4a, 0xa6, 0x79, 0xaa, 0xef, 0x5f, 0x88, 0xd3, 0xd3, 0x3b, 0x96, 0x94, 0x49,
-	0xd3, 0x3b, 0x2d, 0x9b, 0x93, 0xa6, 0x77, 0x7a, 0x76, 0xc7, 0x80, 0x62, 0xbc, 0xdc, 0x9d, 0xb6,
-	0x7b, 0x52, 0x6b, 0xee, 0x69, 0xbb, 0x27, 0xa3, 0x72, 0xfe, 0x05, 0xe4, 0x83, 0x82, 0x35, 0x4a,
-	0x79, 0x63, 0x24, 0x6a, 0xe3, 0x55, 0xf5, 0x22, 0x94, 0x9e, 0xde, 0xf1, 0xd2, 0x74, 0x9a, 0xde,
-	0xa9, 0xf5, 0xf0, 0x34, 0xbd, 0x33, 0xaa, 0xdc, 0x16, 0x94, 0x93, 0x65, 0x63, 0xf4, 0xa0, 0x9f,
-	0x3a, 0xa3, 0x7e, 0x5d, 0x7d, 0x38, 0x0c, 0xaa, 0x14, 0xb5, 0x0f, 0xf9, 0xa0, 0x42, 0x9b, 0x66,
-	0xa2, 0x44, 0x99, 0x39, 0xcd, 0x44, 0xc9, 0x02, 0xef, 0x8a, 0xc2, 0xf4, 0x4f, 0xa6, 0xb2, 0xd2,
-	0xf4, 0xcf, 0x48, 0xc2, 0xa5, 0xe9, 0x9f, 0x99, 0x19, 0xb3, 0xa0, 0x9c, 0x4c, 0x1a, 0xa5, 0x89,
-	0xca, 0x48, 0x77, 0xa5, 0x89, 0xca, 0xcc, 0x41, 0x11, 0x28, 0xc6, 0x13, 0x47, 0x69, 0x4b, 0x9f,
-	0x9a, 0x73, 0x4a, 0x5b, 0xfa, 0xf4, 0x1c, 0xd4, 0x8a, 0x82, 0x8e, 0xa0, 0x94, 0x48, 0xe3, 0xa0,
-	0x34, 0x7f, 0x99, 0x9a, 0x75, 0xaa, 0x3e, 0x18, 0x02, 0x53, 0x4e, 0xe7, 0x0c, 0xe6, 0x53, 0x9f,
-	0xe9, 0xa8, 0x36, 0xf0, 0x35, 0x1e, 0x4b, 0x13, 0x55, 0x97, 0x87, 0xc6, 0x97, 0x92, 0x4f, 0xfa,
-	0x53, 0x38, 0xf7, 0x07, 0x67, 0x00, 0xb2, 0x67, 0x98, 0x91, 0xc4, 0x58, 0x51, 0xd0, 0x5b, 0x28,
-	0x27, 0x83, 0xcb, 0xb4, 0xdd, 0x91, 0x11, 0x41, 0xa7, 0xed, 0x8e, 0xac, 0x58, 0x75, 0x45, 0x41,
-	0x0e, 0xa0, 0xfe, 0xaf, 0x90, 0xd0, 0xa3, 0x11, 0x3e, 0xef, 0xad, 0xfe, 0x60, 0x38, 0x64, 0x69,
-	0xc7, 0x3d, 0x98, 0x92, 0xe5, 0x2f, 0x74, 0x27, 0xb3, 0x32, 0x16, 0xb0, 0xbe, 0x7b, 0x01, 0x46,
-	0x6f, 0x5d, 0x12, 0xe5, 0xb4, 0xb4, 0x75, 0x49, 0xaf, 0x72, 0xa6, 0xad, 0x4b, 0x46, 0x6d, 0x6e,
-	0x45, 0x41, 0x36, 0xcc, 0xf5, 0xfd, 0xc9, 0x28, 0xf5, 0x16, 0xce, 0xf8, 0x8f, 0x56, 0xea, 0x2d,
-	0x9c, 0xf5, 0xaf, 0xa5, 0x15, 0x05, 0x9d, 0xc2, 0x8d, 0xb4, 0x3f, 0xb2, 0xa0, 0x1f, 0x0e, 0xfb,
-	0x87, 0x17, 0x21, 0xb5, 0x36, 0xda, 0xff, 0x63, 0x56, 0x14, 0xf4, 0xc7, 0x0a, 0xdc, 0xcc, 0x0c,
-	0x4b, 0xd1, 0xda, 0xe8, 0x51, 0x75, 0xf5, 0xf1, 0x48, 0x34, 0x81, 0x22, 0xf5, 0x6f, 0x94, 0x5f,
-	0x7c, 0xbb, 0xa4, 0xfc, 0xea, 0xdb, 0x25, 0xe5, 0x9b, 0x6f, 0x97, 0x94, 0x3f, 0xff, 0x6e, 0x69,
-	0xec, 0x57, 0xdf, 0x2d, 0x8d, 0xfd, 0xfa, 0xbb, 0xa5, 0x31, 0xb8, 0x61, 0x38, 0xed, 0x3e, 0xa6,
-	0xf5, 0x69, 0x16, 0xe5, 0x36, 0x3c, 0x87, 0x3a, 0x0d, 0xe5, 0xab, 0x8d, 0x63, 0x8b, 0x9e, 0x74,
-	0x9a, 0xec, 0xad, 0xb5, 0x6c, 0x38, 0x7e, 0xdb, 0xf1, 0x97, 0xf9, 0x9f, 0x08, 0x88, 0xb7, 0xdc,
-	0x5d, 0x0b, 0x9b, 0xc6, 0x09, 0xb6, 0x6c, 0x7f, 0x39, 0xf9, 0xdf, 0xcc, 0x4f, 0xd8, 0x6f, 0x77,
-	0xf5, 0xaf, 0x73, 0xe3, 0x8d, 0xc3, 0x2f, 0xff, 0x3e, 0x57, 0x6e, 0x04, 0xa2, 0x98, 0x84, 0xda,
-	0xe1, 0xea, 0xbf, 0xf6, 0x40, 0x6f, 0x18, 0xe8, 0xcd, 0xe1, 0xea, 0xb7, 0xb9, 0x5b, 0x49, 0xd0,
-	0x9b, 0xe7, 0x8d, 0x7a, 0x10, 0x63, 0xfd, 0x67, 0x0e, 0x05, 0xc3, 0x4f, 0x9f, 0xb2, 0xf1, 0xa7,
-	0x4f, 0x0f, 0x57, 0x9b, 0x93, 0xfc, 0xaf, 0x7d, 0x8f, 0xff, 0x37, 0x00, 0x00, 0xff, 0xff, 0x04,
-	0x1d, 0xb5, 0xb5, 0x1d, 0x3a, 0x00, 0x00,
+	// 4352 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x3c, 0x4b, 0x6c, 0xdc, 0x48,
+	0x76, 0x66, 0x4b, 0x96, 0x5a, 0x4f, 0x6a, 0x75, 0xab, 0xc6, 0x92, 0xdb, 0x3d, 0xb6, 0xec, 0xe1,
+	0x7c, 0x2c, 0xdb, 0xb3, 0xad, 0x8f, 0x67, 0xe7, 0x63, 0x7b, 0xb0, 0xe9, 0xd6, 0xc7, 0x92, 0x2d,
+	0xcb, 0x3d, 0x94, 0x2c, 0xcf, 0xce, 0x7a, 0xc2, 0x54, 0x93, 0x25, 0x89, 0x31, 0x9b, 0xa4, 0x49,
+	0x76, 0xcb, 0x4a, 0xf6, 0x9c, 0x20, 0xbb, 0x08, 0x10, 0x64, 0x73, 0x4d, 0x02, 0x04, 0xd9, 0x04,
+	0x48, 0x80, 0xb9, 0xe7, 0x94, 0xeb, 0x6e, 0x80, 0x00, 0x8b, 0x9c, 0xf6, 0x12, 0x60, 0x31, 0x73,
+	0xcb, 0x3d, 0xa7, 0x1c, 0x12, 0xb0, 0x3e, 0x6c, 0x92, 0x4d, 0xaa, 0xbb, 0x65, 0x6d, 0x80, 0x3d,
+	0x89, 0x7c, 0xf5, 0x7e, 0xf5, 0xaa, 0x58, 0xef, 0x57, 0x2d, 0x78, 0xdb, 0x21, 0x56, 0xbb, 0xd5,
+	0x74, 0xf1, 0x62, 0xc7, 0x20, 0xc7, 0x8b, 0x9d, 0x65, 0xfa, 0xb7, 0xea, 0xb8, 0xb6, 0x6f, 0xa3,
+	0x92, 0x18, 0xac, 0x52, 0x60, 0x67, 0xb9, 0x72, 0xe5, 0xd0, 0xb6, 0x0f, 0x4d, 0xb2, 0x48, 0xc7,
+	0x9b, 0xed, 0x83, 0x45, 0x6c, 0x9d, 0x30, 0xe4, 0xca, 0x7c, 0xc8, 0x49, 0xb3, 0x5d, 0xb2, 0x88,
+	0x1d, 0x27, 0xe0, 0x86, 0x1d, 0x87, 0x8f, 0xcb, 0x89, 0x71, 0xcf, 0x23, 0x3e, 0xc5, 0x08, 0x1e,
+	0x38, 0xce, 0x52, 0x1c, 0x47, 0xb3, 0x5b, 0x8e, 0x6d, 0x11, 0xcb, 0x5f, 0xc4, 0x6d, 0xcd, 0x37,
+	0x6c, 0x8b, 0xe2, 0xb3, 0x47, 0x4e, 0xb1, 0x90, 0x45, 0xa1, 0x93, 0xd7, 0x01, 0xb6, 0x4e, 0x5e,
+	0xf7, 0xc3, 0x3c, 0x20, 0x24, 0xc0, 0x3c, 0x20, 0xa4, 0x1f, 0xa6, 0xd1, 0xd4, 0x02, 0x4c, 0xa3,
+	0xa9, 0xf5, 0xc3, 0xf4, 0x34, 0x3a, 0x37, 0x4f, 0x13, 0x33, 0x7b, 0x90, 0x89, 0x79, 0x64, 0x10,
+	0x53, 0x27, 0xba, 0xea, 0xd8, 0xb6, 0x49, 0x69, 0xa2, 0x00, 0x4e, 0xfd, 0x61, 0x26, 0xb5, 0x8f,
+	0x5f, 0x52, 0xed, 0xe9, 0x03, 0xc7, 0xbe, 0x11, 0xc7, 0x7e, 0x49, 0x4e, 0xbc, 0x00, 0x25, 0xf8,
+	0x9b, 0xbe, 0x56, 0x56, 0xbb, 0x15, 0x20, 0x58, 0xed, 0x16, 0x1f, 0xaf, 0xc6, 0xc7, 0x7d, 0x17,
+	0x5b, 0x1e, 0x0e, 0x57, 0x20, 0xf2, 0xca, 0xf1, 0xdf, 0x4b, 0xe0, 0xbf, 0x3e, 0xc2, 0xde, 0x11,
+	0x45, 0xa5, 0x4f, 0xbd, 0x7a, 0xb9, 0x27, 0x8e, 0x6f, 0x2f, 0xfa, 0xcc, 0x4a, 0xbe, 0xb0, 0x92,
+	0xfc, 0xb3, 0x1c, 0x14, 0x6b, 0x6c, 0x7d, 0x3d, 0x85, 0xbc, 0x6a, 0x13, 0xcf, 0x47, 0x8f, 0x60,
+	0x1a, 0x6b, 0x9a, 0xdd, 0xb6, 0x7c, 0xf5, 0xc0, 0x30, 0x7d, 0xe2, 0x96, 0xa5, 0x1b, 0xd2, 0xc2,
+	0xe4, 0xca, 0xbb, 0xa1, 0x92, 0xd5, 0x40, 0x68, 0x95, 0x4e, 0xaf, 0xb3, 0x5c, 0xad, 0xe9, 0xba,
+	0x4b, 0x3c, 0x6f, 0xcb, 0xd2, 0xc9, 0x6b, 0xa5, 0xc0, 0x49, 0x37, 0x28, 0x25, 0xba, 0x05, 0x25,
+	0xc3, 0xd2, 0xcc, 0xb6, 0x4e, 0x54, 0xc3, 0x0a, 0x66, 0xd0, 0x21, 0xe5, 0xdc, 0x0d, 0x69, 0x21,
+	0xaf, 0x14, 0x39, 0x7c, 0x8b, 0x83, 0xd1, 0x87, 0x80, 0x5e, 0xb5, 0x89, 0x7b, 0xa2, 0x9a, 0xd8,
+	0x27, 0x9e, 0xaf, 0x7a, 0x3e, 0xf6, 0x49, 0x79, 0x84, 0x22, 0x97, 0xe8, 0xc8, 0x36, 0x1d, 0xd8,
+	0x0d, 0xe0, 0xe8, 0x47, 0x80, 0xf8, 0xbe, 0x54, 0x0d, 0xdd, 0x13, 0x8a, 0x8e, 0xde, 0x18, 0x59,
+	0x98, 0x5c, 0xf9, 0x5e, 0x42, 0xd1, 0x70, 0xf5, 0xaa, 0x62, 0x2b, 0x07, 0x5a, 0xb3, 0xc7, 0x2d,
+	0x5d, 0x29, 0x61, 0xf1, 0xe8, 0x31, 0xad, 0xe5, 0x6f, 0x72, 0x50, 0xea, 0x5a, 0xc5, 0x73, 0x6c,
+	0xcb, 0x23, 0xe8, 0x73, 0xc8, 0x19, 0x3a, 0x37, 0xc5, 0x90, 0x12, 0x72, 0x86, 0x8e, 0xaa, 0x30,
+	0xce, 0xc7, 0xa8, 0x01, 0x26, 0x57, 0x2e, 0x55, 0xd9, 0xa7, 0x5d, 0x15, 0x9f, 0x76, 0xb5, 0x66,
+	0x9d, 0x28, 0x02, 0x09, 0x6d, 0xc0, 0x84, 0x63, 0x7b, 0x06, 0xd5, 0xa1, 0x3c, 0x42, 0xe7, 0xb5,
+	0x90, 0x29, 0x35, 0xf8, 0xe8, 0x3a, 0xcb, 0xd5, 0x06, 0x27, 0x50, 0xba, 0xa4, 0x68, 0x03, 0x26,
+	0x2d, 0xdb, 0x27, 0xaa, 0x4b, 0x34, 0xdb, 0xd5, 0xcb, 0xa3, 0x54, 0xf6, 0xfb, 0xd5, 0xe4, 0x41,
+	0x53, 0xdd, 0x75, 0x88, 0xa5, 0xe3, 0xa6, 0x49, 0x76, 0x6c, 0x9f, 0x28, 0x14, 0x59, 0x01, 0x2b,
+	0x7c, 0x46, 0x6f, 0xc3, 0x84, 0x69, 0x6b, 0xd8, 0x54, 0x3d, 0xf2, 0xaa, 0x7c, 0xf1, 0x86, 0xb4,
+	0x30, 0xaa, 0xe4, 0x29, 0x60, 0x97, 0xbc, 0x92, 0x7d, 0x28, 0xd7, 0xda, 0xfe, 0x91, 0xed, 0x1a,
+	0x7f, 0x44, 0x6a, 0x96, 0x5e, 0x6f, 0x1b, 0xa6, 0x2e, 0xb6, 0xd3, 0x97, 0x50, 0x8a, 0xec, 0x5f,
+	0xd5, 0x31, 0xb1, 0x95, 0x61, 0xc5, 0xe8, 0x36, 0xef, 0x2c, 0x57, 0xf7, 0xba, 0xaf, 0x0d, 0x13,
+	0x5b, 0x4a, 0xd1, 0x8f, 0x03, 0xe4, 0xef, 0x72, 0x70, 0x25, 0x45, 0x2c, 0x5f, 0xaf, 0x26, 0x4c,
+	0x37, 0x03, 0x80, 0xea, 0xb8, 0xf6, 0x61, 0xb0, 0x41, 0xb9, 0xd4, 0xcf, 0x7a, 0xe7, 0x9e, 0xc9,
+	0xa4, 0x4a, 0xdf, 0x1a, 0x9c, 0xc1, 0xe6, 0x05, 0xa5, 0xd0, 0x8c, 0x02, 0x90, 0x02, 0xf9, 0x60,
+	0x11, 0x4c, 0xe2, 0x13, 0xbe, 0xaa, 0x1f, 0x0d, 0xc3, 0x7d, 0x95, 0xd3, 0x6e, 0x5e, 0x50, 0x42,
+	0x3e, 0x95, 0x3b, 0x50, 0x88, 0x49, 0x45, 0x15, 0xc8, 0xc7, 0xa6, 0x90, 0x53, 0xc2, 0xf7, 0xca,
+	0x73, 0xc8, 0x0b, 0x26, 0xe8, 0x31, 0x4c, 0x46, 0x2c, 0xc4, 0x67, 0x7b, 0x6b, 0x60, 0x1b, 0x2b,
+	0x51, 0xea, 0x7a, 0x1e, 0xc6, 0x82, 0x0f, 0xb0, 0xed, 0xc9, 0x3f, 0x93, 0xe0, 0xed, 0xba, 0x6b,
+	0x63, 0x5d, 0xc3, 0x9e, 0x1f, 0xc5, 0xe7, 0xeb, 0x7b, 0x9e, 0x62, 0xd1, 0x4d, 0x28, 0xe2, 0x63,
+	0x6c, 0xf8, 0xaa, 0x4e, 0x7c, 0xd2, 0xfd, 0x5a, 0xf2, 0xca, 0x34, 0x05, 0xaf, 0x09, 0xa8, 0xfc,
+	0xcd, 0x08, 0x5c, 0x4d, 0xd7, 0x8a, 0x2f, 0xbf, 0x05, 0x33, 0x4d, 0x31, 0xae, 0x7a, 0x6d, 0x4d,
+	0xeb, 0xee, 0x80, 0x1f, 0xf4, 0xae, 0xd1, 0x69, 0xac, 0xba, 0x83, 0xbb, 0x8c, 0xcd, 0xe6, 0x05,
+	0xa5, 0xd4, 0x4c, 0xc0, 0xd0, 0x97, 0x30, 0xa1, 0xd9, 0xd6, 0x81, 0xe1, 0xb6, 0x88, 0xce, 0xf7,
+	0xc2, 0xa7, 0x43, 0xca, 0x59, 0x15, 0xf4, 0x9b, 0x17, 0x94, 0x2e, 0xb3, 0xca, 0x23, 0x28, 0x25,
+	0x35, 0x40, 0x1f, 0x47, 0x0e, 0xa3, 0x0f, 0x92, 0xb6, 0x66, 0x2e, 0x20, 0x6e, 0x66, 0x76, 0x0a,
+	0x55, 0x2c, 0x98, 0x08, 0xa5, 0x9c, 0x95, 0x49, 0x70, 0xa8, 0x87, 0xcb, 0xa3, 0x1e, 0x11, 0xe3,
+	0xf0, 0xc8, 0xa7, 0x33, 0x1e, 0x55, 0x8a, 0x21, 0x7c, 0x93, 0x82, 0x23, 0xdb, 0xe8, 0xef, 0xaf,
+	0xc1, 0x95, 0xc4, 0x17, 0x6d, 0x11, 0x57, 0x6c, 0xa2, 0x77, 0xa1, 0x40, 0x5e, 0x3b, 0x86, 0x7b,
+	0x22, 0xf8, 0x49, 0x94, 0xdf, 0x14, 0x03, 0x32, 0x66, 0xe8, 0x07, 0x30, 0xda, 0x22, 0x2d, 0x9b,
+	0xfa, 0x84, 0xc9, 0x95, 0x3b, 0xa7, 0x6f, 0xb1, 0x27, 0xa4, 0x65, 0x37, 0x4c, 0x6c, 0x58, 0x3e,
+	0x79, 0xed, 0x2b, 0x94, 0x10, 0xdd, 0x87, 0x31, 0xcf, 0x6e, 0xbb, 0x1a, 0xe1, 0xc7, 0xe0, 0x40,
+	0x1e, 0x8d, 0x93, 0xa0, 0x6d, 0x18, 0xb7, 0xdb, 0xbe, 0xd3, 0xf6, 0xbd, 0xf2, 0x25, 0x7a, 0x1c,
+	0xaf, 0xf4, 0x2e, 0x6f, 0xe6, 0x04, 0xab, 0x4f, 0x29, 0xa9, 0x22, 0x58, 0xa0, 0x0d, 0xb8, 0xe8,
+	0x1d, 0x63, 0xc7, 0x2b, 0xcf, 0x53, 0x5e, 0x4b, 0xc3, 0xf0, 0xda, 0x3d, 0xc6, 0x8e, 0xc2, 0xc8,
+	0xd1, 0x3e, 0x4c, 0x06, 0x0f, 0xaa, 0x66, 0x62, 0xa3, 0xe5, 0x95, 0xaf, 0x53, 0x6e, 0xdf, 0x1f,
+	0x96, 0xdb, 0x6a, 0x40, 0xad, 0x80, 0x27, 0x1e, 0x29, 0x5f, 0x9d, 0x98, 0xe4, 0x10, 0x33, 0x07,
+	0xb4, 0x40, 0xf9, 0x7e, 0x34, 0x0c, 0xdf, 0x35, 0x46, 0x4e, 0x94, 0x28, 0x23, 0xf4, 0x02, 0x0a,
+	0x6d, 0x2b, 0xca, 0x79, 0x85, 0x72, 0xfe, 0x78, 0x18, 0xce, 0xcf, 0x04, 0x03, 0xa2, 0xc4, 0x99,
+	0x21, 0x13, 0xde, 0x8a, 0x02, 0x84, 0x55, 0xee, 0x52, 0x19, 0xf7, 0xcf, 0x26, 0x83, 0xd9, 0x06,
+	0x45, 0xf9, 0x72, 0x1b, 0xed, 0xc1, 0x8c, 0xd1, 0xd4, 0x54, 0x97, 0x98, 0xf8, 0x44, 0x65, 0x5c,
+	0xbc, 0xf2, 0x83, 0x3e, 0xae, 0x3a, 0x88, 0x65, 0x3b, 0xcb, 0xd5, 0xad, 0xa6, 0xa6, 0x04, 0x74,
+	0x4a, 0xd1, 0xe0, 0x4f, 0x35, 0x4d, 0x58, 0x68, 0xc6, 0xd0, 0xbc, 0x95, 0x25, 0xf5, 0xd8, 0xf0,
+	0x8f, 0x74, 0x17, 0x1f, 0x63, 0xd3, 0x2b, 0x7f, 0x4e, 0xb9, 0x2e, 0xf6, 0xe5, 0x1a, 0x10, 0x3e,
+	0x0f, 0xe9, 0x94, 0x92, 0x11, 0x07, 0x78, 0x48, 0x85, 0x69, 0x11, 0x1b, 0xa8, 0xb6, 0x43, 0x2c,
+	0xaf, 0xbc, 0x41, 0x59, 0x7f, 0x3a, 0x8c, 0x71, 0x44, 0x9c, 0xf1, 0xd4, 0x21, 0x96, 0x52, 0x70,
+	0x22, 0x6f, 0x1e, 0x6a, 0x42, 0x31, 0x14, 0xa0, 0x99, 0xb6, 0x47, 0xbc, 0xf2, 0x43, 0x2a, 0xe1,
+	0xb3, 0xb3, 0x48, 0x58, 0x0d, 0x38, 0x28, 0xa1, 0xca, 0xf4, 0xd5, 0x43, 0x2f, 0x01, 0x85, 0x32,
+	0x84, 0x95, 0xbc, 0xf2, 0x26, 0x15, 0xf3, 0xe0, 0x2c, 0x62, 0x84, 0x85, 0x94, 0x19, 0x27, 0x01,
+	0xf1, 0xd0, 0x4f, 0x25, 0x98, 0xd7, 0xdb, 0xbe, 0x76, 0xa4, 0x8a, 0x80, 0xd3, 0xd3, 0x8e, 0x88,
+	0xde, 0x36, 0x49, 0xb8, 0xe6, 0x5b, 0x54, 0xf2, 0xc6, 0x30, 0x92, 0xd9, 0x6a, 0xaf, 0x05, 0x7c,
+	0x79, 0x9c, 0xb8, 0xcb, 0xb9, 0x2a, 0x6f, 0xeb, 0x29, 0x50, 0xb1, 0x3b, 0x7e, 0x0c, 0x57, 0xe2,
+	0xca, 0x10, 0x4b, 0x0f, 0xf5, 0x78, 0x44, 0xf5, 0xa8, 0xbd, 0x99, 0x1e, 0xeb, 0x96, 0xae, 0xcc,
+	0xe9, 0x71, 0x80, 0x90, 0xde, 0x6b, 0x0b, 0x61, 0xfe, 0x50, 0x87, 0xc7, 0xe7, 0x61, 0x8b, 0x70,
+	0x3d, 0x62, 0xb6, 0x10, 0x50, 0xa1, 0xcd, 0x1a, 0xe4, 0x71, 0xdb, 0xb7, 0xd5, 0x03, 0x42, 0xca,
+	0x3a, 0x3d, 0xd0, 0x6f, 0x66, 0x7e, 0x20, 0x41, 0xb2, 0xd9, 0x59, 0xae, 0x6e, 0x10, 0xb2, 0x67,
+	0x10, 0x77, 0xf3, 0x42, 0x10, 0x68, 0xfb, 0xf6, 0x06, 0x21, 0x68, 0x0d, 0xa0, 0x85, 0xad, 0x36,
+	0x36, 0x29, 0x1f, 0x92, 0xea, 0x18, 0xd2, 0xf8, 0x04, 0x4e, 0x9a, 0x11, 0x06, 0x5c, 0xde, 0x83,
+	0x49, 0xe2, 0xd8, 0xda, 0x91, 0x6a, 0x04, 0x4e, 0xa3, 0xfc, 0x0b, 0xea, 0xbf, 0xea, 0xb9, 0xb2,
+	0xa4, 0x00, 0x85, 0x53, 0x5f, 0x82, 0x1e, 0xc0, 0x45, 0xfa, 0x56, 0xfe, 0xa5, 0x94, 0x8c, 0xc3,
+	0x13, 0x72, 0x82, 0x44, 0xb6, 0xb3, 0x5c, 0x5d, 0x0f, 0xb0, 0x15, 0x46, 0x54, 0x39, 0x86, 0x31,
+	0xe6, 0x46, 0xd0, 0x5d, 0xb8, 0xd8, 0xc1, 0x66, 0x9b, 0x70, 0xe7, 0x7d, 0x2d, 0xc1, 0x86, 0x65,
+	0xf8, 0x9d, 0xe5, 0xea, 0x7e, 0x80, 0xa4, 0x30, 0x5c, 0xf4, 0x29, 0x8c, 0x63, 0xe6, 0xd8, 0x78,
+	0x7c, 0x32, 0x7f, 0xba, 0xfb, 0x53, 0x04, 0x7a, 0xe5, 0x7f, 0x24, 0x18, 0x0d, 0xdc, 0xc4, 0xd9,
+	0xe4, 0xd6, 0x61, 0xca, 0xc7, 0xee, 0x21, 0xf1, 0x55, 0x3a, 0xce, 0x85, 0x5f, 0xcf, 0xa2, 0xad,
+	0x05, 0x0f, 0x5b, 0xba, 0x32, 0xc9, 0x88, 0xe8, 0x2b, 0xfa, 0x3e, 0x8c, 0x04, 0xab, 0x33, 0x32,
+	0xf0, 0xea, 0x28, 0x01, 0x3e, 0x5a, 0x85, 0x02, 0x75, 0x01, 0xaa, 0x98, 0xf8, 0xe8, 0x40, 0x13,
+	0x9f, 0xa2, 0x44, 0xfc, 0xad, 0xf2, 0x35, 0x4c, 0x84, 0x3e, 0x12, 0x35, 0xa0, 0xc8, 0xfc, 0xad,
+	0xdd, 0x6a, 0x19, 0x7e, 0x8b, 0x58, 0x3e, 0xb7, 0x45, 0x74, 0xeb, 0xd1, 0x64, 0xbb, 0xea, 0xb3,
+	0x25, 0xa4, 0xf9, 0xea, 0x6a, 0x88, 0xae, 0x4c, 0x53, 0x2f, 0x1b, 0xbe, 0x57, 0xfe, 0x4c, 0x82,
+	0xbc, 0xf0, 0x95, 0xe8, 0x23, 0x18, 0xc3, 0xad, 0x20, 0x7f, 0xe6, 0x5c, 0xaf, 0x26, 0x34, 0xb5,
+	0xda, 0x2d, 0xaa, 0x28, 0xc5, 0x51, 0x38, 0x2e, 0x7a, 0x08, 0x13, 0x2e, 0xf6, 0x89, 0xaa, 0x63,
+	0x1f, 0x73, 0x1b, 0xdd, 0xce, 0xde, 0x59, 0xb4, 0x70, 0xd1, 0x59, 0xae, 0x2a, 0xd8, 0x27, 0x6b,
+	0xd8, 0xc7, 0x4a, 0xde, 0xe5, 0x4f, 0x95, 0x9f, 0x48, 0x00, 0x5d, 0xcf, 0x77, 0xb6, 0xe5, 0x8e,
+	0x29, 0x93, 0x7b, 0x03, 0x65, 0x7e, 0x9d, 0x83, 0x62, 0xc2, 0x0d, 0xa3, 0x2f, 0x00, 0x75, 0xb0,
+	0x69, 0xe8, 0xd8, 0xb7, 0x5d, 0xd5, 0xd0, 0x89, 0xe5, 0x1b, 0xfe, 0x09, 0x57, 0x4f, 0xce, 0x58,
+	0xd5, 0x2d, 0x8e, 0xf6, 0x98, 0x9c, 0x28, 0x33, 0x21, 0xb5, 0x80, 0xa2, 0x2a, 0xcc, 0x78, 0x3e,
+	0x76, 0x7d, 0x35, 0xfa, 0xfd, 0xe6, 0xc2, 0xcf, 0xb7, 0x48, 0x07, 0xd7, 0xbb, 0xdf, 0xf0, 0x2a,
+	0x8c, 0x3b, 0xc4, 0xc2, 0xa6, 0x7f, 0xc2, 0x4d, 0x7d, 0xab, 0xff, 0xec, 0x1a, 0x8c, 0x40, 0x11,
+	0x94, 0xe8, 0x21, 0x94, 0xda, 0x56, 0xd3, 0xb6, 0x74, 0xc3, 0x3a, 0x54, 0xf9, 0x8a, 0x8f, 0x0e,
+	0xb0, 0xe2, 0xc5, 0x90, 0x8a, 0x01, 0xd0, 0x47, 0x30, 0xd7, 0x65, 0xc4, 0xe6, 0xc1, 0x23, 0x68,
+	0x96, 0xa3, 0x5f, 0x0a, 0x47, 0x77, 0x83, 0x41, 0x16, 0x49, 0x57, 0xf6, 0x60, 0x2a, 0xea, 0xc3,
+	0x83, 0x93, 0x54, 0x38, 0x3e, 0x6e, 0xcc, 0xc1, 0x6b, 0x0d, 0x21, 0x65, 0xe5, 0x05, 0x14, 0x62,
+	0x7e, 0x3b, 0x48, 0x0d, 0x43, 0x3f, 0x1d, 0x66, 0x1a, 0xb7, 0x07, 0xe5, 0xbc, 0xa5, 0x2b, 0xe0,
+	0x84, 0xcf, 0x95, 0xff, 0x96, 0xa0, 0x94, 0xf4, 0xd7, 0xe7, 0x2a, 0x21, 0xb0, 0x82, 0x4b, 0x3c,
+	0xe2, 0x76, 0x88, 0x38, 0x21, 0xfb, 0x5a, 0x41, 0xe1, 0xf8, 0x4a, 0x48, 0x89, 0x76, 0x60, 0xca,
+	0x77, 0x31, 0x5d, 0x0f, 0x07, 0x1b, 0x6e, 0x46, 0xb6, 0xd2, 0xc3, 0x69, 0x8f, 0xd1, 0x34, 0xb0,
+	0xe1, 0xd2, 0x94, 0x58, 0xbc, 0x54, 0xfe, 0x18, 0x2a, 0xd9, 0xc1, 0x02, 0xfa, 0x3a, 0x88, 0xd3,
+	0x3d, 0xcd, 0x35, 0x9c, 0xc8, 0xe2, 0xdd, 0x1f, 0xa4, 0x3c, 0x15, 0x65, 0xb7, 0xd6, 0x65, 0xa1,
+	0x44, 0xf9, 0x55, 0x08, 0xcc, 0xa6, 0x46, 0x08, 0x68, 0x1b, 0xa0, 0x5b, 0x7f, 0x3b, 0x5b, 0x55,
+	0x6c, 0x22, 0xac, 0xbb, 0x55, 0x7e, 0x9c, 0x36, 0xc7, 0x70, 0x91, 0xcf, 0x55, 0x16, 0x2a, 0xc1,
+	0x88, 0x47, 0x5e, 0xf1, 0x84, 0x35, 0x78, 0xac, 0x03, 0xe4, 0x0f, 0x08, 0x51, 0x5b, 0xb6, 0x4e,
+	0x64, 0x15, 0x2a, 0x69, 0x81, 0x0a, 0x2f, 0x2a, 0xd4, 0x60, 0xf4, 0xec, 0xf5, 0x2b, 0x4a, 0x2a,
+	0x63, 0x98, 0xe5, 0x8e, 0xa5, 0x7e, 0xc2, 0x12, 0x4c, 0x9e, 0x02, 0x6f, 0x42, 0x81, 0x7b, 0x29,
+	0x7e, 0x06, 0x0d, 0x51, 0x75, 0x9d, 0xc2, 0x91, 0x37, 0x59, 0x81, 0xb9, 0xa4, 0x08, 0xae, 0x7f,
+	0x24, 0x04, 0x90, 0x86, 0x0a, 0x01, 0xe4, 0x19, 0x28, 0x3e, 0xc7, 0xa6, 0x49, 0x3d, 0x33, 0x53,
+	0x58, 0x6e, 0x40, 0xa9, 0x0b, 0xe2, 0x02, 0x1e, 0xc0, 0xc4, 0x31, 0x85, 0x75, 0x57, 0xea, 0x7a,
+	0x86, 0x88, 0x90, 0x36, 0x7f, 0xcc, 0x9f, 0xe4, 0x2f, 0x60, 0x96, 0xea, 0x5b, 0x3f, 0x11, 0xf2,
+	0xb9, 0x6d, 0xce, 0xae, 0x77, 0x13, 0xe6, 0x92, 0x2c, 0xb9, 0xaa, 0xe7, 0x67, 0x6f, 0x0d, 0x2e,
+	0xaf, 0x3b, 0x47, 0xa4, 0x45, 0x5c, 0x6c, 0x26, 0x14, 0x3f, 0x3f, 0x21, 0x7b, 0x50, 0xee, 0x15,
+	0xf2, 0xc6, 0xcb, 0xfa, 0x0f, 0x12, 0x14, 0xeb, 0xd8, 0xc4, 0x96, 0x46, 0x7e, 0x2b, 0xf5, 0xff,
+	0x87, 0x50, 0xa4, 0x51, 0x82, 0x6a, 0xe8, 0x82, 0xd9, 0x80, 0xe1, 0x5f, 0x01, 0xb3, 0x07, 0x5e,
+	0x92, 0xff, 0x79, 0x0e, 0x4a, 0x5d, 0x45, 0xc3, 0xcf, 0x71, 0x9c, 0x8b, 0x1b, 0x42, 0x45, 0xea,
+	0xd5, 0x05, 0x1d, 0xba, 0x0f, 0xe3, 0x4d, 0xc6, 0x96, 0x2b, 0x76, 0x7a, 0x90, 0xc3, 0x88, 0x39,
+	0x05, 0x7a, 0x0c, 0x45, 0x61, 0x29, 0x61, 0xff, 0x91, 0x53, 0x43, 0x11, 0xae, 0xc7, 0xbe, 0x41,
+	0x8e, 0x15, 0x61, 0x64, 0x0e, 0x43, 0x6b, 0x30, 0xc5, 0xf9, 0xaa, 0x41, 0xca, 0xc4, 0xc3, 0x81,
+	0x77, 0x4e, 0x55, 0x87, 0x32, 0x9a, 0xe4, 0x64, 0xc1, 0x8b, 0x5c, 0x84, 0xc2, 0x2e, 0x2d, 0xb8,
+	0x89, 0xaf, 0xf4, 0xa7, 0x12, 0x4c, 0x0b, 0x08, 0x37, 0xdb, 0x02, 0x94, 0x0e, 0xda, 0xa6, 0xa9,
+	0x7a, 0x27, 0x96, 0x16, 0xaf, 0xb7, 0x4d, 0x07, 0xf0, 0xdd, 0x13, 0x4b, 0xe3, 0x15, 0xb7, 0x2a,
+	0xbc, 0xe5, 0x60, 0xd7, 0x37, 0x70, 0x1c, 0x99, 0x9d, 0x9d, 0x33, 0x7c, 0x28, 0x82, 0x7f, 0x1d,
+	0x26, 0x35, 0xec, 0x6b, 0x47, 0x81, 0xf3, 0x6b, 0x3b, 0xbc, 0x79, 0x03, 0x02, 0xf4, 0xcc, 0x91,
+	0x67, 0xe1, 0x2d, 0xa6, 0xcc, 0xae, 0xef, 0x12, 0xdc, 0x12, 0x4a, 0xfe, 0xb3, 0x04, 0x97, 0xe2,
+	0x70, 0xae, 0xea, 0x67, 0x70, 0x85, 0xb7, 0x83, 0x5e, 0x5a, 0xf6, 0xb1, 0xa5, 0x36, 0x4d, 0x5b,
+	0x7b, 0x19, 0xd7, 0x79, 0x8e, 0x21, 0x3c, 0x0e, 0xc6, 0xeb, 0xc1, 0x30, 0xd7, 0x25, 0x6d, 0x96,
+	0xb9, 0x61, 0x66, 0x39, 0x92, 0x31, 0x4b, 0xf9, 0x7f, 0x25, 0x98, 0xda, 0xb1, 0xfd, 0xee, 0x17,
+	0xf3, 0x2e, 0x14, 0x44, 0x97, 0xcb, 0x73, 0x82, 0x94, 0x80, 0xd5, 0xac, 0xa7, 0x38, 0x70, 0x37,
+	0x80, 0xa1, 0x7b, 0x90, 0x17, 0x9f, 0x02, 0xdf, 0x25, 0x7d, 0xbf, 0x81, 0x71, 0xfe, 0x0d, 0xf4,
+	0x1e, 0x23, 0xa3, 0x67, 0x3c, 0x46, 0xd0, 0x1a, 0x14, 0x59, 0xb8, 0xa9, 0xfa, 0x36, 0x55, 0x56,
+	0x2f, 0x8f, 0x0d, 0x10, 0x77, 0x16, 0x18, 0xd1, 0x9e, 0x4d, 0xdb, 0x44, 0xf2, 0x9f, 0x4b, 0x30,
+	0x4b, 0x2d, 0xb0, 0x61, 0xbb, 0xfb, 0xb6, 0x6f, 0x58, 0x87, 0xc2, 0x14, 0xb7, 0x61, 0xa6, 0x63,
+	0xfb, 0xb8, 0x69, 0x12, 0x15, 0xfb, 0xf1, 0x85, 0x2a, 0xf2, 0x81, 0x1a, 0x8f, 0x42, 0x7b, 0x67,
+	0x35, 0x72, 0xd6, 0xc3, 0xf1, 0x0f, 0x61, 0xfa, 0xb9, 0xe1, 0x5b, 0x91, 0x83, 0x37, 0xad, 0xeb,
+	0x34, 0x72, 0x2e, 0x5d, 0x27, 0x15, 0x8a, 0xa1, 0x2c, 0xbe, 0x4b, 0xb7, 0x61, 0xea, 0x98, 0x81,
+	0x58, 0xd6, 0x33, 0x50, 0x0f, 0x84, 0x33, 0xa1, 0x49, 0xcf, 0xe4, 0x71, 0xf7, 0x45, 0xfe, 0x0f,
+	0x09, 0xe6, 0xf8, 0xe0, 0xff, 0x5b, 0x2f, 0x0d, 0xfd, 0x3e, 0x20, 0xcc, 0xfb, 0x54, 0xac, 0x74,
+	0x1a, 0x49, 0xdf, 0x16, 0x4f, 0xe7, 0x5d, 0x8b, 0xd2, 0xd1, 0xe9, 0xcc, 0xe0, 0x24, 0x48, 0xfe,
+	0xcf, 0x1c, 0x5c, 0xee, 0x99, 0x14, 0x37, 0xdf, 0x1f, 0x64, 0x74, 0xea, 0x3e, 0xe9, 0x2d, 0x22,
+	0x65, 0xb0, 0xe8, 0xd7, 0xa7, 0x6b, 0xf4, 0xf4, 0xe9, 0x56, 0x06, 0xe7, 0xfd, 0x3b, 0xd1, 0xa5,
+	0xfb, 0xf9, 0x08, 0x14, 0xe8, 0xb1, 0x11, 0x7e, 0x01, 0x15, 0xc8, 0x33, 0x8f, 0x4b, 0x58, 0x24,
+	0x96, 0x57, 0xc2, 0x77, 0xa4, 0xc1, 0x7c, 0xe4, 0xc0, 0xd2, 0x8c, 0x03, 0x43, 0x53, 0x75, 0x62,
+	0xd9, 0x2d, 0xc3, 0xe2, 0x65, 0xf9, 0x1c, 0x2d, 0xe3, 0x65, 0x3a, 0xc3, 0xb5, 0x00, 0x59, 0xb9,
+	0xda, 0x3d, 0xe0, 0x28, 0x8f, 0xb5, 0x28, 0x0b, 0x74, 0x0f, 0xae, 0x08, 0x21, 0x91, 0x92, 0xbc,
+	0x6f, 0xbf, 0x24, 0x96, 0xc7, 0x5d, 0xc3, 0x65, 0x8e, 0xb0, 0x16, 0x8e, 0xef, 0xd1, 0x61, 0xf4,
+	0x29, 0x94, 0x05, 0x6d, 0x37, 0xbd, 0xe5, 0xa4, 0xa3, 0x94, 0x74, 0x8e, 0x8f, 0x3f, 0x13, 0xc3,
+	0x9c, 0xf2, 0x03, 0x10, 0x37, 0x0b, 0x54, 0xd3, 0x51, 0xad, 0x03, 0xdf, 0xa3, 0x99, 0x70, 0x5e,
+	0x11, 0x47, 0xf4, 0xb6, 0xb3, 0x73, 0xe0, 0x7b, 0x68, 0x05, 0x66, 0x05, 0x9e, 0xe3, 0xda, 0x8e,
+	0xed, 0x61, 0x93, 0x61, 0x8f, 0x51, 0xec, 0xb7, 0xf8, 0x60, 0x83, 0x8f, 0x51, 0x9a, 0x1a, 0x5c,
+	0x13, 0x34, 0x1d, 0x7a, 0xea, 0xa9, 0x2e, 0xd1, 0x88, 0xe1, 0xf8, 0x42, 0xb5, 0x71, 0x4a, 0x5b,
+	0xe1, 0x48, 0xe2, 0x64, 0xa4, 0x28, 0x4c, 0x3d, 0xf9, 0x87, 0x30, 0x2d, 0x96, 0x89, 0xef, 0xfe,
+	0x87, 0x30, 0x4d, 0x4d, 0xaf, 0xb6, 0x88, 0x8f, 0x23, 0x5f, 0xdd, 0x8d, 0x2c, 0xdb, 0x3f, 0xe1,
+	0x78, 0x4a, 0x81, 0xd2, 0x89, 0x57, 0x79, 0x0e, 0x2e, 0xd5, 0x1c, 0xa7, 0x81, 0x5d, 0xdc, 0x22,
+	0x3e, 0x71, 0xc3, 0x08, 0xe0, 0x05, 0xcc, 0x26, 0xe0, 0x5c, 0xf2, 0x2a, 0x80, 0x13, 0x42, 0x33,
+	0x22, 0x28, 0xec, 0x38, 0xf4, 0x1b, 0x8f, 0x31, 0x88, 0x90, 0xc9, 0x08, 0x4a, 0x0f, 0xb1, 0xd7,
+	0x70, 0x8d, 0x6e, 0x04, 0x29, 0x7f, 0x23, 0xc1, 0x4c, 0x04, 0x18, 0x06, 0xdc, 0x70, 0x88, 0x3d,
+	0xd5, 0xa1, 0xd0, 0x8c, 0x8d, 0xdf, 0x53, 0xca, 0xeb, 0xb2, 0x99, 0x38, 0x14, 0x8f, 0xe8, 0x29,
+	0x4c, 0x63, 0xd3, 0x57, 0x23, 0xdc, 0xd8, 0x76, 0x1d, 0x82, 0xdb, 0x14, 0x36, 0xfd, 0xf0, 0x2d,
+	0x30, 0xdd, 0xc6, 0x93, 0xb5, 0x5e, 0xd3, 0x39, 0x30, 0x9b, 0x80, 0xf3, 0xb9, 0x3c, 0x4f, 0x31,
+	0xdd, 0x27, 0xd9, 0x75, 0xa0, 0xd8, 0x0d, 0xa3, 0xce, 0x72, 0x75, 0xa3, 0xa5, 0x67, 0x98, 0xf3,
+	0xaf, 0x24, 0xb8, 0x1c, 0x78, 0xd6, 0xfa, 0x49, 0xa4, 0x64, 0xc8, 0xbf, 0xe8, 0x06, 0x14, 0xe9,
+	0x55, 0x8e, 0x48, 0xed, 0x31, 0x37, 0x64, 0xed, 0x31, 0xa0, 0xef, 0xbe, 0xa7, 0xb5, 0xdb, 0x47,
+	0x52, 0xdb, 0xed, 0x47, 0x50, 0xee, 0xd5, 0x2a, 0xf4, 0x7e, 0xd3, 0x9e, 0xb8, 0x3c, 0xa2, 0x06,
+	0x02, 0xca, 0xd2, 0x30, 0x97, 0x4c, 0x0a, 0x5e, 0x14, 0x48, 0x0d, 0xb0, 0x7b, 0x8c, 0x9d, 0x0c,
+	0x03, 0x24, 0x8b, 0xaf, 0xb9, 0x37, 0x2a, 0xbe, 0x0e, 0x6e, 0x80, 0x6d, 0x28, 0xf7, 0x6a, 0xc5,
+	0x0d, 0xb0, 0x04, 0xa3, 0x01, 0xdb, 0xde, 0x92, 0x6d, 0x38, 0xed, 0x63, 0xec, 0xf0, 0xd9, 0x52,
+	0x4c, 0xf9, 0x32, 0xcc, 0x3e, 0xb3, 0x68, 0x91, 0x99, 0xe8, 0xc1, 0x60, 0xb8, 0xe1, 0x1e, 0xc1,
+	0x5c, 0x72, 0xe0, 0xcc, 0x42, 0x7e, 0x22, 0xc1, 0xdc, 0x4e, 0xdb, 0x34, 0x8d, 0x03, 0x83, 0xb8,
+	0xb1, 0xa4, 0x00, 0x3d, 0x84, 0x09, 0x4b, 0x8c, 0x70, 0x13, 0xde, 0xea, 0xd7, 0x8a, 0x08, 0x59,
+	0x29, 0x5d, 0xda, 0xc1, 0xed, 0xb7, 0x08, 0x97, 0x7b, 0x74, 0xe1, 0x33, 0xbb, 0x04, 0x17, 0x59,
+	0xd4, 0xcc, 0xbc, 0x14, 0x7b, 0x91, 0xf7, 0xe1, 0x6a, 0xf4, 0xe6, 0x81, 0x75, 0x60, 0xd7, 0x4f,
+	0x36, 0xb1, 0x77, 0x24, 0xa6, 0xc0, 0x2e, 0x2f, 0xe4, 0x86, 0xbd, 0xbc, 0x20, 0x7f, 0x05, 0x73,
+	0x09, 0xbe, 0x82, 0xe3, 0x3b, 0x30, 0x15, 0x2b, 0xa0, 0xb2, 0xa8, 0x75, 0xd2, 0xeb, 0xd6, 0x4d,
+	0xd1, 0x35, 0x00, 0x62, 0xe9, 0xf1, 0x6c, 0x62, 0x82, 0x58, 0x3a, 0x4f, 0x0c, 0x7e, 0x99, 0x83,
+	0x62, 0x82, 0x39, 0x9a, 0x83, 0xb1, 0x18, 0x3f, 0xfe, 0x76, 0x56, 0xfd, 0x93, 0xf1, 0xc3, 0xc8,
+	0x1b, 0x5d, 0xb7, 0xd9, 0x87, 0x49, 0x87, 0xb8, 0x41, 0x08, 0x40, 0x6f, 0xe6, 0x8d, 0x26, 0xaf,
+	0x30, 0xf5, 0x0b, 0x25, 0xbb, 0xb4, 0x4a, 0x94, 0x11, 0xaa, 0xc1, 0x28, 0xcd, 0x61, 0x2f, 0x0e,
+	0x19, 0x9b, 0xd2, 0x7c, 0x96, 0x92, 0xca, 0xcf, 0xe0, 0x72, 0xcf, 0x3a, 0xf1, 0x0d, 0x73, 0x0f,
+	0xc6, 0xfd, 0xd7, 0xaa, 0x61, 0x1d, 0xd8, 0xfc, 0x6b, 0x78, 0xe7, 0xd4, 0x6e, 0x23, 0xa5, 0x1d,
+	0xf3, 0x5f, 0x07, 0x7f, 0xe5, 0x1f, 0xc1, 0xb5, 0x8c, 0x6d, 0x75, 0x0e, 0xcc, 0x9f, 0x43, 0x81,
+	0xe7, 0x85, 0x9c, 0x59, 0xe2, 0xf2, 0x9d, 0x74, 0xc6, 0xcb, 0x77, 0xf2, 0x3f, 0x06, 0x9f, 0x72,
+	0x22, 0xdf, 0x3a, 0x5f, 0x11, 0x68, 0x1d, 0xa6, 0x44, 0x3f, 0x45, 0x7d, 0x49, 0x4e, 0xf8, 0xce,
+	0x1c, 0xa4, 0xa7, 0x32, 0x69, 0x74, 0x5f, 0xe4, 0x7f, 0x19, 0x85, 0xb7, 0x52, 0x44, 0xa5, 0xf9,
+	0x2e, 0xe9, 0xcd, 0x7c, 0x57, 0x1d, 0x46, 0xa9, 0xb3, 0x61, 0x8a, 0x56, 0x07, 0x77, 0xbe, 0x54,
+	0x2b, 0x4a, 0x7b, 0x7e, 0x19, 0x68, 0xfc, 0x44, 0x1d, 0x7d, 0x83, 0x13, 0xf5, 0x7d, 0x98, 0x66,
+	0x27, 0x84, 0xaa, 0xb9, 0x04, 0xfb, 0x44, 0xe7, 0x8d, 0x9c, 0x02, 0x83, 0xae, 0x32, 0x60, 0x70,
+	0x58, 0x71, 0x34, 0x76, 0x76, 0x8e, 0xb1, 0xc3, 0x8a, 0xc1, 0x58, 0xc1, 0xa1, 0x12, 0x69, 0xea,
+	0x8c, 0xb3, 0x0b, 0x9b, 0xe2, 0x1d, 0x6d, 0x86, 0x37, 0xa1, 0xf2, 0x54, 0xd7, 0xa5, 0x7e, 0xba,
+	0x76, 0x0d, 0xbf, 0x4b, 0xe9, 0xc2, 0x6b, 0x51, 0x5b, 0x30, 0xed, 0x12, 0xbf, 0xed, 0x5a, 0x61,
+	0x09, 0x6c, 0x62, 0xe0, 0x12, 0x58, 0x81, 0x51, 0x72, 0x90, 0xfc, 0xef, 0x23, 0x00, 0x5d, 0x2f,
+	0x76, 0xfe, 0xad, 0xd6, 0xe0, 0x58, 0xa2, 0x3e, 0x34, 0xd7, 0xa7, 0x85, 0xc0, 0x5b, 0x32, 0x81,
+	0x2e, 0x91, 0x2b, 0x64, 0x01, 0x69, 0xcc, 0xa8, 0x23, 0x09, 0xa3, 0x9e, 0xdb, 0x1e, 0xd8, 0x83,
+	0x49, 0x76, 0x4f, 0x8c, 0x65, 0xe1, 0xec, 0x14, 0xbd, 0xdb, 0x4f, 0xdd, 0x3a, 0xf6, 0xb5, 0xa3,
+	0x40, 0x67, 0x76, 0x49, 0x80, 0x66, 0xe2, 0x60, 0x87, 0xcf, 0xd1, 0x9d, 0xc5, 0x02, 0x0c, 0xbe,
+	0x69, 0xc4, 0xce, 0x62, 0xc0, 0xc8, 0xd6, 0x18, 0x7f, 0xb3, 0xad, 0x21, 0xff, 0xab, 0x04, 0x97,
+	0x9f, 0x1e, 0x5b, 0x44, 0xef, 0xf6, 0xdb, 0xc2, 0x08, 0x64, 0x2f, 0x72, 0x0f, 0x89, 0xdd, 0xf4,
+	0x96, 0x06, 0x5b, 0x14, 0xc1, 0x8b, 0xae, 0x75, 0xf7, 0xf2, 0x11, 0xbb, 0x15, 0x9e, 0xec, 0xbd,
+	0xe5, 0xde, 0xac, 0xf7, 0x26, 0x1f, 0x42, 0xb9, 0x77, 0x02, 0xfc, 0xe0, 0x3d, 0xcf, 0xd6, 0xa3,
+	0xbc, 0x0f, 0x65, 0x9a, 0x16, 0x8a, 0x64, 0xae, 0x7e, 0x12, 0xf6, 0x59, 0x62, 0x85, 0xc3, 0xdc,
+	0x70, 0x85, 0x43, 0x59, 0x87, 0x2b, 0x29, 0x7c, 0x33, 0x33, 0x4f, 0xe9, 0x6c, 0x99, 0xe7, 0xdf,
+	0xe4, 0xe0, 0x46, 0x37, 0x85, 0xf7, 0xc2, 0x5e, 0xcb, 0x6f, 0xa7, 0xbf, 0x85, 0xbe, 0x80, 0xb1,
+	0x48, 0x2f, 0x61, 0x3a, 0xed, 0x66, 0x59, 0x3f, 0x6d, 0xaa, 0xac, 0xad, 0xa0, 0x70, 0x46, 0xf2,
+	0xd7, 0x30, 0xc6, 0x3b, 0x16, 0x73, 0x80, 0x36, 0xb6, 0xb6, 0xf7, 0xd6, 0x15, 0xf5, 0xd9, 0xce,
+	0x6e, 0x63, 0x7d, 0x75, 0x6b, 0x63, 0x6b, 0x7d, 0xad, 0x74, 0x01, 0xdd, 0x81, 0x9b, 0x1c, 0x5e,
+	0xdb, 0xde, 0x56, 0x6b, 0xab, 0x7b, 0x5b, 0xfb, 0xeb, 0xea, 0xf3, 0xad, 0xbd, 0x4d, 0x75, 0xe7,
+	0xe9, 0xce, 0x57, 0xeb, 0xca, 0x53, 0xb5, 0x5e, 0xdb, 0xae, 0xed, 0xac, 0xae, 0xef, 0x96, 0x24,
+	0x34, 0x0d, 0xd0, 0x45, 0x2e, 0xe5, 0x64, 0x02, 0xef, 0x9c, 0xa2, 0x11, 0x5f, 0x8e, 0xdf, 0x03,
+	0xa0, 0x37, 0x28, 0x58, 0xf9, 0x5f, 0x1a, 0xb4, 0xfc, 0x3f, 0xd1, 0x11, 0x8f, 0xf2, 0x5f, 0xe7,
+	0xe0, 0xbd, 0x44, 0x3d, 0x24, 0x7d, 0x2d, 0x9e, 0x85, 0x16, 0x94, 0xa8, 0x05, 0x3f, 0xef, 0xb5,
+	0xe0, 0x20, 0x7c, 0x12, 0x56, 0xec, 0x5d, 0xe2, 0xdc, 0xd9, 0xbb, 0x5d, 0xfd, 0xd6, 0xe3, 0x12,
+	0x94, 0x38, 0x7c, 0x75, 0xbb, 0xb6, 0xf5, 0xa4, 0x56, 0xdf, 0x5e, 0x2f, 0x49, 0xe8, 0x2a, 0x94,
+	0x39, 0x74, 0xe7, 0xe9, 0x9e, 0xfa, 0xc3, 0xf5, 0xbd, 0xc8, 0x68, 0x4e, 0xfe, 0x53, 0x09, 0xde,
+	0xef, 0x33, 0xaf, 0xf3, 0x5a, 0x0b, 0x74, 0x15, 0x26, 0xe8, 0x31, 0x1b, 0xc4, 0x41, 0xbc, 0x1f,
+	0xd0, 0x05, 0xac, 0xfc, 0xed, 0x65, 0x98, 0x0c, 0xd0, 0x76, 0x89, 0xdb, 0x31, 0x68, 0x27, 0x69,
+	0x8c, 0x65, 0x45, 0xe8, 0x7a, 0x4a, 0xe8, 0x16, 0xcd, 0xdd, 0x2a, 0x37, 0xb2, 0x11, 0xb8, 0xf2,
+	0x2a, 0x4c, 0x45, 0x9b, 0x29, 0xe8, 0xfd, 0x2c, 0x8a, 0x58, 0x13, 0xa6, 0xf2, 0x41, 0x3f, 0x34,
+	0xc6, 0x7e, 0x49, 0x42, 0x8f, 0xe0, 0x22, 0x8d, 0x46, 0xd1, 0x7c, 0x2f, 0x49, 0xb4, 0x31, 0x52,
+	0xb9, 0x9e, 0x39, 0x1e, 0xf2, 0x22, 0x30, 0x1d, 0x8f, 0x6c, 0xd1, 0xcd, 0x0c, 0xa2, 0x64, 0xaf,
+	0xa1, 0xb2, 0xd0, 0x1f, 0x31, 0x14, 0xf3, 0x04, 0xc6, 0x58, 0xdd, 0x2d, 0xcd, 0xc0, 0xb1, 0xc2,
+	0x69, 0x9a, 0x81, 0xe3, 0x25, 0xbb, 0x25, 0x09, 0x99, 0x30, 0xd3, 0x73, 0xae, 0xa2, 0xdb, 0x19,
+	0x84, 0x29, 0x87, 0x7a, 0xe5, 0xce, 0x40, 0xb8, 0x61, 0x81, 0xbc, 0x10, 0x2b, 0xc0, 0xa1, 0x94,
+	0xa5, 0x4a, 0x2b, 0xfd, 0x55, 0x6e, 0xf6, 0xc5, 0xe3, 0x12, 0xf6, 0x60, 0x22, 0xac, 0x86, 0x21,
+	0xb9, 0x97, 0x2a, 0x59, 0xe2, 0xab, 0xbc, 0x7b, 0x2a, 0x4e, 0x57, 0xef, 0x58, 0xf9, 0x2c, 0x4d,
+	0xef, 0xb4, 0xba, 0x5b, 0x9a, 0xde, 0xe9, 0x75, 0x38, 0x0d, 0xa6, 0xe3, 0x57, 0x1d, 0xd2, 0x76,
+	0x4f, 0xea, 0x7d, 0x8b, 0xb4, 0xdd, 0x93, 0x71, 0x6b, 0xe2, 0x0b, 0xc8, 0x8b, 0xcb, 0x0a, 0x28,
+	0x25, 0x1b, 0x4c, 0xdc, 0x8b, 0xa8, 0xc8, 0xa7, 0xa1, 0x74, 0xf5, 0x8e, 0x5f, 0x4b, 0x48, 0xd3,
+	0x3b, 0xf5, 0x2e, 0x44, 0x9a, 0xde, 0x19, 0x37, 0x1c, 0x0c, 0x28, 0x25, 0xaf, 0x0c, 0xa0, 0x5b,
+	0xbd, 0xd4, 0x19, 0x77, 0x17, 0x2a, 0xb7, 0x07, 0x41, 0xe5, 0xa2, 0x76, 0x21, 0x2f, 0xba, 0xf3,
+	0x69, 0x26, 0x4a, 0x5c, 0x31, 0x48, 0x33, 0x51, 0xb2, 0xb9, 0xbf, 0x24, 0x05, 0xfa, 0x27, 0x8b,
+	0x8e, 0x69, 0xfa, 0x67, 0x94, 0x4b, 0xd3, 0xf4, 0xcf, 0xac, 0x61, 0x1a, 0x50, 0x4a, 0x96, 0xf7,
+	0xd2, 0x44, 0x65, 0x14, 0x26, 0xd3, 0x44, 0x65, 0x56, 0x0b, 0x09, 0x4c, 0xc7, 0x4b, 0x7c, 0x69,
+	0x4b, 0x9f, 0x5a, 0x1d, 0x4c, 0x5b, 0xfa, 0xf4, 0x6a, 0xe1, 0x92, 0x84, 0x0e, 0xa0, 0x98, 0x28,
+	0xb8, 0xa1, 0xb4, 0xf3, 0x32, 0xb5, 0x3e, 0x58, 0xb9, 0x35, 0x00, 0x26, 0x9f, 0xce, 0x6b, 0x98,
+	0x4d, 0x2d, 0xa8, 0xa0, 0x6a, 0xdf, 0xba, 0x49, 0xac, 0xa0, 0x57, 0x59, 0x1c, 0x18, 0x9f, 0x4b,
+	0x3e, 0xea, 0x2d, 0xb6, 0x2d, 0xf4, 0xaf, 0xd5, 0x64, 0xcf, 0x30, 0xa3, 0xdc, 0xb4, 0x24, 0xa1,
+	0x97, 0x50, 0x4a, 0xa6, 0x01, 0x69, 0xbb, 0x23, 0x23, 0xd7, 0x49, 0xdb, 0x1d, 0x59, 0x59, 0xc5,
+	0x92, 0x84, 0x6c, 0x40, 0xbd, 0x37, 0xd0, 0xd0, 0x9d, 0x21, 0x2e, 0xd4, 0x57, 0x3e, 0x1c, 0x0c,
+	0x99, 0xdb, 0x71, 0x07, 0xc6, 0x79, 0xeb, 0x13, 0xdd, 0xc8, 0xec, 0x8a, 0x0a, 0xd6, 0xef, 0x9c,
+	0x82, 0xd1, 0x5d, 0x97, 0x44, 0x2b, 0x35, 0x6d, 0x5d, 0xd2, 0x3b, 0xdc, 0x69, 0xeb, 0x92, 0xd1,
+	0x97, 0x5d, 0x92, 0x90, 0x05, 0x33, 0x3d, 0x3f, 0xae, 0x4c, 0xf5, 0xc2, 0x19, 0xbf, 0x4d, 0x4d,
+	0xf5, 0xc2, 0x59, 0xbf, 0xd6, 0x5c, 0x92, 0xd0, 0x31, 0x5c, 0x4a, 0xfb, 0x01, 0x1f, 0xfa, 0xde,
+	0xa0, 0x3f, 0xf4, 0x63, 0x52, 0xab, 0xc3, 0xfd, 0x2e, 0x70, 0x49, 0x42, 0x7f, 0x22, 0xc1, 0x95,
+	0xcc, 0x04, 0x02, 0xad, 0x0c, 0x9f, 0xff, 0x54, 0xee, 0x0e, 0x45, 0x13, 0x2a, 0xf2, 0x97, 0x12,
+	0x5c, 0x3b, 0x35, 0x82, 0x46, 0x1f, 0x9f, 0x2d, 0x95, 0xa8, 0x7c, 0x32, 0x34, 0x5d, 0xa8, 0xd4,
+	0x2e, 0xe4, 0xc5, 0xaf, 0xb5, 0xd3, 0x9c, 0x4f, 0xe2, 0xf7, 0xed, 0x69, 0xce, 0x27, 0xf9, 0x63,
+	0xef, 0x25, 0xa9, 0xfe, 0x1b, 0xe9, 0x17, 0xdf, 0xce, 0x4b, 0xbf, 0xfa, 0x76, 0x5e, 0xfa, 0xcd,
+	0xb7, 0xf3, 0xd2, 0x5f, 0x7c, 0x37, 0x7f, 0xe1, 0x57, 0xdf, 0xcd, 0x5f, 0xf8, 0xf5, 0x77, 0xf3,
+	0x17, 0xe0, 0x92, 0x66, 0xb7, 0x7a, 0x78, 0xd4, 0x27, 0x82, 0x78, 0xbe, 0xe1, 0xda, 0xbe, 0xdd,
+	0x90, 0xbe, 0x5a, 0x3d, 0x34, 0xfc, 0xa3, 0x76, 0x33, 0xc8, 0xff, 0x17, 0x35, 0xdb, 0x6b, 0xd9,
+	0xde, 0x22, 0xfd, 0x99, 0x18, 0x71, 0x17, 0x3b, 0x2b, 0xe1, 0xa3, 0x76, 0x84, 0x0d, 0xcb, 0x5b,
+	0x4c, 0xfe, 0x47, 0x88, 0xfb, 0xc1, 0xdf, 0xce, 0xf2, 0xdf, 0xe5, 0x46, 0x1a, 0xfb, 0x5f, 0xfe,
+	0x53, 0xae, 0xd4, 0x10, 0xa2, 0x02, 0x09, 0xd5, 0xfd, 0xe5, 0x7f, 0xeb, 0x82, 0x5e, 0x04, 0xa0,
+	0x17, 0xfb, 0xcb, 0xdf, 0xe6, 0xae, 0x26, 0x41, 0x2f, 0x1e, 0x36, 0xea, 0x22, 0x9a, 0xfc, 0xaf,
+	0x1c, 0x12, 0xc3, 0xf7, 0xee, 0x05, 0xe3, 0xf7, 0xee, 0xed, 0x2f, 0x37, 0xc7, 0xe8, 0x2f, 0xcf,
+	0xef, 0xfe, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x6f, 0x46, 0x34, 0x9f, 0x93, 0x42, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -4526,6 +5072,11 @@ type ViewServiceClient interface {
 	// that token. Each `ValueView`'s `extended_metadata` field will contain the
 	// `ValidatorInfo` of the delegated validator.
 	DelegationsByAddressIndex(ctx context.Context, in *DelegationsByAddressIndexRequest, opts ...grpc.CallOption) (ViewService_DelegationsByAddressIndexClient, error)
+	// Get unbonding tokens for the given address index, optionally filtered by
+	// whether the tokens are currently claimable.
+	UnbondingTokensByAddressIndex(ctx context.Context, in *UnbondingTokensByAddressIndexRequest, opts ...grpc.CallOption) (ViewService_UnbondingTokensByAddressIndexClient, error)
+	// Gets the auctions controlled by the user's wallet.
+	Auctions(ctx context.Context, in *AuctionsRequest, opts ...grpc.CallOption) (ViewService_AuctionsClient, error)
 }
 
 type viewServiceClient struct {
@@ -5055,6 +5606,70 @@ func (x *viewServiceDelegationsByAddressIndexClient) Recv() (*DelegationsByAddre
 	return m, nil
 }
 
+func (c *viewServiceClient) UnbondingTokensByAddressIndex(ctx context.Context, in *UnbondingTokensByAddressIndexRequest, opts ...grpc.CallOption) (ViewService_UnbondingTokensByAddressIndexClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewService_serviceDesc.Streams[12], "/penumbra.view.v1.ViewService/UnbondingTokensByAddressIndex", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewServiceUnbondingTokensByAddressIndexClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewService_UnbondingTokensByAddressIndexClient interface {
+	Recv() (*UnbondingTokensByAddressIndexResponse, error)
+	grpc.ClientStream
+}
+
+type viewServiceUnbondingTokensByAddressIndexClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewServiceUnbondingTokensByAddressIndexClient) Recv() (*UnbondingTokensByAddressIndexResponse, error) {
+	m := new(UnbondingTokensByAddressIndexResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *viewServiceClient) Auctions(ctx context.Context, in *AuctionsRequest, opts ...grpc.CallOption) (ViewService_AuctionsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ViewService_serviceDesc.Streams[13], "/penumbra.view.v1.ViewService/Auctions", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &viewServiceAuctionsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ViewService_AuctionsClient interface {
+	Recv() (*AuctionsResponse, error)
+	grpc.ClientStream
+}
+
+type viewServiceAuctionsClient struct {
+	grpc.ClientStream
+}
+
+func (x *viewServiceAuctionsClient) Recv() (*AuctionsResponse, error) {
+	m := new(AuctionsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ViewServiceServer is the server API for ViewService service.
 type ViewServiceServer interface {
 	// Get current status of chain sync
@@ -5146,6 +5761,11 @@ type ViewServiceServer interface {
 	// that token. Each `ValueView`'s `extended_metadata` field will contain the
 	// `ValidatorInfo` of the delegated validator.
 	DelegationsByAddressIndex(*DelegationsByAddressIndexRequest, ViewService_DelegationsByAddressIndexServer) error
+	// Get unbonding tokens for the given address index, optionally filtered by
+	// whether the tokens are currently claimable.
+	UnbondingTokensByAddressIndex(*UnbondingTokensByAddressIndexRequest, ViewService_UnbondingTokensByAddressIndexServer) error
+	// Gets the auctions controlled by the user's wallet.
+	Auctions(*AuctionsRequest, ViewService_AuctionsServer) error
 }
 
 // UnimplementedViewServiceServer can be embedded to have forward compatible implementations.
@@ -5232,6 +5852,12 @@ func (*UnimplementedViewServiceServer) BroadcastTransaction(req *BroadcastTransa
 }
 func (*UnimplementedViewServiceServer) DelegationsByAddressIndex(req *DelegationsByAddressIndexRequest, srv ViewService_DelegationsByAddressIndexServer) error {
 	return status.Errorf(codes.Unimplemented, "method DelegationsByAddressIndex not implemented")
+}
+func (*UnimplementedViewServiceServer) UnbondingTokensByAddressIndex(req *UnbondingTokensByAddressIndexRequest, srv ViewService_UnbondingTokensByAddressIndexServer) error {
+	return status.Errorf(codes.Unimplemented, "method UnbondingTokensByAddressIndex not implemented")
+}
+func (*UnimplementedViewServiceServer) Auctions(req *AuctionsRequest, srv ViewService_AuctionsServer) error {
+	return status.Errorf(codes.Unimplemented, "method Auctions not implemented")
 }
 
 func RegisterViewServiceServer(s grpc1.Server, srv ViewServiceServer) {
@@ -5760,6 +6386,48 @@ func (x *viewServiceDelegationsByAddressIndexServer) Send(m *DelegationsByAddres
 	return x.ServerStream.SendMsg(m)
 }
 
+func _ViewService_UnbondingTokensByAddressIndex_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(UnbondingTokensByAddressIndexRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewServiceServer).UnbondingTokensByAddressIndex(m, &viewServiceUnbondingTokensByAddressIndexServer{stream})
+}
+
+type ViewService_UnbondingTokensByAddressIndexServer interface {
+	Send(*UnbondingTokensByAddressIndexResponse) error
+	grpc.ServerStream
+}
+
+type viewServiceUnbondingTokensByAddressIndexServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewServiceUnbondingTokensByAddressIndexServer) Send(m *UnbondingTokensByAddressIndexResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _ViewService_Auctions_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AuctionsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ViewServiceServer).Auctions(m, &viewServiceAuctionsServer{stream})
+}
+
+type ViewService_AuctionsServer interface {
+	Send(*AuctionsResponse) error
+	grpc.ServerStream
+}
+
+type viewServiceAuctionsServer struct {
+	grpc.ServerStream
+}
+
+func (x *viewServiceAuctionsServer) Send(m *AuctionsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _ViewService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "penumbra.view.v1.ViewService",
 	HandlerType: (*ViewServiceServer)(nil),
@@ -5886,8 +6554,165 @@ var _ViewService_serviceDesc = grpc.ServiceDesc{
 			Handler:       _ViewService_DelegationsByAddressIndex_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "UnbondingTokensByAddressIndex",
+			Handler:       _ViewService_UnbondingTokensByAddressIndex_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Auctions",
+			Handler:       _ViewService_Auctions_Handler,
+			ServerStreams: true,
+		},
 	},
 	Metadata: "penumbra/view/v1/view.proto",
+}
+
+func (m *AuctionsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AuctionsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuctionsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.AuctionIdsFilter) > 0 {
+		for iNdEx := len(m.AuctionIdsFilter) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AuctionIdsFilter[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if m.QueryLatestState {
+		i--
+		if m.QueryLatestState {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.IncludeInactive {
+		i--
+		if m.IncludeInactive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.AccountFilter != nil {
+		{
+			size, err := m.AccountFilter.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AuctionsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AuctionsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AuctionsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.LocalSeq != 0 {
+		i = encodeVarintView(dAtA, i, uint64(m.LocalSeq))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.NoteRecord != nil {
+		{
+			size, err := m.NoteRecord.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Positions) > 0 {
+		for iNdEx := len(m.Positions) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Positions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.Auction != nil {
+		{
+			size, err := m.Auction.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Id != nil {
+		{
+			size, err := m.Id.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AuthorizeAndBuildRequest) Marshal() (dAtA []byte, err error) {
@@ -6305,6 +7130,54 @@ func (m *TransactionPlannerRequest) MarshalToSizedBuffer(dAtA []byte) (int, erro
 			if _, err := m.FeeMode.MarshalTo(dAtA[i:]); err != nil {
 				return 0, err
 			}
+		}
+	}
+	if len(m.DutchAuctionWithdrawActions) > 0 {
+		for iNdEx := len(m.DutchAuctionWithdrawActions) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DutchAuctionWithdrawActions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xda
+		}
+	}
+	if len(m.DutchAuctionEndActions) > 0 {
+		for iNdEx := len(m.DutchAuctionEndActions) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DutchAuctionEndActions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xd2
+		}
+	}
+	if len(m.DutchAuctionScheduleActions) > 0 {
+		for iNdEx := len(m.DutchAuctionScheduleActions) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DutchAuctionScheduleActions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x4
+			i--
+			dAtA[i] = 0xca
 		}
 	}
 	if len(m.PositionWithdraws) > 0 {
@@ -6994,6 +7867,116 @@ func (m *TransactionPlannerRequest_PositionWithdraw) MarshalToSizedBuffer(dAtA [
 	if m.PositionId != nil {
 		{
 			size, err := m.PositionId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Description != nil {
+		{
+			size, err := m.Description.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AuctionId != nil {
+		{
+			size, err := m.AuctionId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Seq != 0 {
+		i = encodeVarintView(dAtA, i, uint64(m.Seq))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.AuctionId != nil {
+		{
+			size, err := m.AuctionId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -8151,6 +9134,20 @@ func (m *GasPricesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.AltGasPrices) > 0 {
+		for iNdEx := len(m.AltGasPrices) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AltGasPrices[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintView(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
 	if m.GasPrices != nil {
 		{
 			size, err := m.GasPrices.MarshalToSizedBuffer(dAtA[:i])
@@ -9246,6 +10243,91 @@ func (m *DelegationsByAddressIndexResponse) MarshalToSizedBuffer(dAtA []byte) (i
 	return len(dAtA) - i, nil
 }
 
+func (m *UnbondingTokensByAddressIndexRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UnbondingTokensByAddressIndexRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnbondingTokensByAddressIndexRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.AddressIndex != nil {
+		{
+			size, err := m.AddressIndex.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Filter != 0 {
+		i = encodeVarintView(dAtA, i, uint64(m.Filter))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *UnbondingTokensByAddressIndexResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UnbondingTokensByAddressIndexResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnbondingTokensByAddressIndexResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Claimable {
+		i--
+		if m.Claimable {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.ValueView != nil {
+		{
+			size, err := m.ValueView.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintView(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintView(dAtA []byte, offset int, v uint64) int {
 	offset -= sovView(v)
 	base := offset
@@ -9257,6 +10339,61 @@ func encodeVarintView(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *AuctionsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AccountFilter != nil {
+		l = m.AccountFilter.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if m.IncludeInactive {
+		n += 2
+	}
+	if m.QueryLatestState {
+		n += 2
+	}
+	if len(m.AuctionIdsFilter) > 0 {
+		for _, e := range m.AuctionIdsFilter {
+			l = e.Size()
+			n += 1 + l + sovView(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *AuctionsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Id != nil {
+		l = m.Id.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if m.Auction != nil {
+		l = m.Auction.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if len(m.Positions) > 0 {
+		for _, e := range m.Positions {
+			l = e.Size()
+			n += 1 + l + sovView(uint64(l))
+		}
+	}
+	if m.NoteRecord != nil {
+		l = m.NoteRecord.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if m.LocalSeq != 0 {
+		n += 1 + sovView(uint64(m.LocalSeq))
+	}
+	return n
+}
+
 func (m *AuthorizeAndBuildRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -9495,6 +10632,24 @@ func (m *TransactionPlannerRequest) Size() (n int) {
 			n += 2 + l + sovView(uint64(l))
 		}
 	}
+	if len(m.DutchAuctionScheduleActions) > 0 {
+		for _, e := range m.DutchAuctionScheduleActions {
+			l = e.Size()
+			n += 2 + l + sovView(uint64(l))
+		}
+	}
+	if len(m.DutchAuctionEndActions) > 0 {
+		for _, e := range m.DutchAuctionEndActions {
+			l = e.Size()
+			n += 2 + l + sovView(uint64(l))
+		}
+	}
+	if len(m.DutchAuctionWithdrawActions) > 0 {
+		for _, e := range m.DutchAuctionWithdrawActions {
+			l = e.Size()
+			n += 2 + l + sovView(uint64(l))
+		}
+	}
 	if m.FeeMode != nil {
 		n += m.FeeMode.Size()
 	}
@@ -9691,6 +10846,48 @@ func (m *TransactionPlannerRequest_PositionWithdraw) Size() (n int) {
 	if m.TradingPair != nil {
 		l = m.TradingPair.Size()
 		n += 1 + l + sovView(uint64(l))
+	}
+	return n
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Description != nil {
+		l = m.Description.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	return n
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AuctionId != nil {
+		l = m.AuctionId.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	return n
+}
+
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AuctionId != nil {
+		l = m.AuctionId.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if m.Seq != 0 {
+		n += 1 + sovView(uint64(m.Seq))
 	}
 	return n
 }
@@ -10135,6 +11332,12 @@ func (m *GasPricesResponse) Size() (n int) {
 		l = m.GasPrices.Size()
 		n += 1 + l + sovView(uint64(l))
 	}
+	if len(m.AltGasPrices) > 0 {
+		for _, e := range m.AltGasPrices {
+			l = e.Size()
+			n += 1 + l + sovView(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -10542,11 +11745,414 @@ func (m *DelegationsByAddressIndexResponse) Size() (n int) {
 	return n
 }
 
+func (m *UnbondingTokensByAddressIndexRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Filter != 0 {
+		n += 1 + sovView(uint64(m.Filter))
+	}
+	if m.AddressIndex != nil {
+		l = m.AddressIndex.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	return n
+}
+
+func (m *UnbondingTokensByAddressIndexResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ValueView != nil {
+		l = m.ValueView.Size()
+		n += 1 + l + sovView(uint64(l))
+	}
+	if m.Claimable {
+		n += 2
+	}
+	return n
+}
+
 func sovView(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozView(x uint64) (n int) {
 	return sovView(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *AuctionsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AuctionsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AuctionsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountFilter", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AccountFilter == nil {
+				m.AccountFilter = &v1.AddressIndex{}
+			}
+			if err := m.AccountFilter.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IncludeInactive", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.IncludeInactive = bool(v != 0)
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueryLatestState", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.QueryLatestState = bool(v != 0)
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuctionIdsFilter", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AuctionIdsFilter = append(m.AuctionIdsFilter, &v11.AuctionId{})
+			if err := m.AuctionIdsFilter[len(m.AuctionIdsFilter)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AuctionsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AuctionsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AuctionsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Id == nil {
+				m.Id = &v11.AuctionId{}
+			}
+			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Auction", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Auction == nil {
+				m.Auction = &types.Any{}
+			}
+			if err := m.Auction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Positions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Positions = append(m.Positions, &v12.Position{})
+			if err := m.Positions[len(m.Positions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NoteRecord", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.NoteRecord == nil {
+				m.NoteRecord = &SpendableNoteRecord{}
+			}
+			if err := m.NoteRecord.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LocalSeq", wireType)
+			}
+			m.LocalSeq = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.LocalSeq |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *AuthorizeAndBuildRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -10607,7 +12213,7 @@ func (m *AuthorizeAndBuildRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransactionPlan == nil {
-				m.TransactionPlan = &v1.TransactionPlan{}
+				m.TransactionPlan = &v13.TransactionPlan{}
 			}
 			if err := m.TransactionPlan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -10874,7 +12480,7 @@ func (m *AuthorizeAndBuildResponse_Complete) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Transaction == nil {
-				m.Transaction = &v1.Transaction{}
+				m.Transaction = &v13.Transaction{}
 			}
 			if err := m.Transaction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -10960,7 +12566,7 @@ func (m *BroadcastTransactionRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Transaction == nil {
-				m.Transaction = &v1.Transaction{}
+				m.Transaction = &v13.Transaction{}
 			}
 			if err := m.Transaction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11186,7 +12792,7 @@ func (m *BroadcastTransactionResponse_BroadcastSuccess) Unmarshal(dAtA []byte) e
 				return io.ErrUnexpectedEOF
 			}
 			if m.Id == nil {
-				m.Id = &v11.TransactionId{}
+				m.Id = &v14.TransactionId{}
 			}
 			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11272,7 +12878,7 @@ func (m *BroadcastTransactionResponse_Confirmed) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Id == nil {
-				m.Id = &v11.TransactionId{}
+				m.Id = &v14.TransactionId{}
 			}
 			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11396,7 +13002,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Memo == nil {
-				m.Memo = &v1.MemoPlaintext{}
+				m.Memo = &v13.MemoPlaintext{}
 			}
 			if err := m.Memo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11432,7 +13038,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Source == nil {
-				m.Source = &v12.AddressIndex{}
+				m.Source = &v1.AddressIndex{}
 			}
 			if err := m.Source.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -11671,7 +13277,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IbcRelayActions = append(m.IbcRelayActions, &v13.IbcRelay{})
+			m.IbcRelayActions = append(m.IbcRelayActions, &v15.IbcRelay{})
 			if err := m.IbcRelayActions[len(m.IbcRelayActions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -11705,7 +13311,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Ics20Withdrawals = append(m.Ics20Withdrawals, &v13.Ics20Withdrawal{})
+			m.Ics20Withdrawals = append(m.Ics20Withdrawals, &v15.Ics20Withdrawal{})
 			if err := m.Ics20Withdrawals[len(m.Ics20Withdrawals)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -11812,6 +13418,108 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 73:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DutchAuctionScheduleActions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DutchAuctionScheduleActions = append(m.DutchAuctionScheduleActions, &TransactionPlannerRequest_ActionDutchAuctionSchedule{})
+			if err := m.DutchAuctionScheduleActions[len(m.DutchAuctionScheduleActions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 74:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DutchAuctionEndActions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DutchAuctionEndActions = append(m.DutchAuctionEndActions, &TransactionPlannerRequest_ActionDutchAuctionEnd{})
+			if err := m.DutchAuctionEndActions[len(m.DutchAuctionEndActions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 75:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DutchAuctionWithdrawActions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DutchAuctionWithdrawActions = append(m.DutchAuctionWithdrawActions, &TransactionPlannerRequest_ActionDutchAuctionWithdraw{})
+			if err := m.DutchAuctionWithdrawActions[len(m.DutchAuctionWithdrawActions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 100:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field AutoFee", wireType)
@@ -11841,7 +13549,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v14.FeeTier{}
+			v := &v16.FeeTier{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -11876,7 +13584,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &v14.Fee{}
+			v := &v16.Fee{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -11931,7 +13639,7 @@ func (m *TransactionPlannerRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Epoch == nil {
-				m.Epoch = &v15.Epoch{}
+				m.Epoch = &v17.Epoch{}
 			}
 			if err := m.Epoch.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12017,7 +13725,7 @@ func (m *TransactionPlannerRequest_Output) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &v16.Value{}
+				m.Value = &v18.Value{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12053,7 +13761,7 @@ func (m *TransactionPlannerRequest_Output) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Address == nil {
-				m.Address = &v12.Address{}
+				m.Address = &v1.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12139,7 +13847,7 @@ func (m *TransactionPlannerRequest_Swap) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &v16.Value{}
+				m.Value = &v18.Value{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12175,7 +13883,7 @@ func (m *TransactionPlannerRequest_Swap) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TargetAsset == nil {
-				m.TargetAsset = &v16.AssetId{}
+				m.TargetAsset = &v18.AssetId{}
 			}
 			if err := m.TargetAsset.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12211,7 +13919,7 @@ func (m *TransactionPlannerRequest_Swap) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Fee == nil {
-				m.Fee = &v14.Fee{}
+				m.Fee = &v16.Fee{}
 			}
 			if err := m.Fee.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12247,7 +13955,7 @@ func (m *TransactionPlannerRequest_Swap) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ClaimAddress == nil {
-				m.ClaimAddress = &v12.Address{}
+				m.ClaimAddress = &v1.Address{}
 			}
 			if err := m.ClaimAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12333,7 +14041,7 @@ func (m *TransactionPlannerRequest_SwapClaim) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SwapCommitment == nil {
-				m.SwapCommitment = &v17.StateCommitment{}
+				m.SwapCommitment = &v19.StateCommitment{}
 			}
 			if err := m.SwapCommitment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12419,7 +14127,7 @@ func (m *TransactionPlannerRequest_Delegate) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Amount == nil {
-				m.Amount = &v18.Amount{}
+				m.Amount = &v110.Amount{}
 			}
 			if err := m.Amount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12455,7 +14163,7 @@ func (m *TransactionPlannerRequest_Delegate) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.RateData == nil {
-				m.RateData = &v19.RateData{}
+				m.RateData = &v111.RateData{}
 			}
 			if err := m.RateData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12541,7 +14249,7 @@ func (m *TransactionPlannerRequest_Undelegate) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Value == nil {
-				m.Value = &v16.Value{}
+				m.Value = &v18.Value{}
 			}
 			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12577,7 +14285,7 @@ func (m *TransactionPlannerRequest_Undelegate) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.RateData == nil {
-				m.RateData = &v19.RateData{}
+				m.RateData = &v111.RateData{}
 			}
 			if err := m.RateData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12663,7 +14371,7 @@ func (m *TransactionPlannerRequest_UndelegateClaim) Unmarshal(dAtA []byte) error
 				return io.ErrUnexpectedEOF
 			}
 			if m.ValidatorIdentity == nil {
-				m.ValidatorIdentity = &v12.IdentityKey{}
+				m.ValidatorIdentity = &v1.IdentityKey{}
 			}
 			if err := m.ValidatorIdentity.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12718,7 +14426,7 @@ func (m *TransactionPlannerRequest_UndelegateClaim) Unmarshal(dAtA []byte) error
 				return io.ErrUnexpectedEOF
 			}
 			if m.Penalty == nil {
-				m.Penalty = &v19.Penalty{}
+				m.Penalty = &v111.Penalty{}
 			}
 			if err := m.Penalty.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12754,7 +14462,7 @@ func (m *TransactionPlannerRequest_UndelegateClaim) Unmarshal(dAtA []byte) error
 				return io.ErrUnexpectedEOF
 			}
 			if m.UnbondingAmount == nil {
-				m.UnbondingAmount = &v18.Amount{}
+				m.UnbondingAmount = &v110.Amount{}
 			}
 			if err := m.UnbondingAmount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12859,7 +14567,7 @@ func (m *TransactionPlannerRequest_PositionOpen) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Position == nil {
-				m.Position = &v110.Position{}
+				m.Position = &v12.Position{}
 			}
 			if err := m.Position.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -12945,7 +14653,7 @@ func (m *TransactionPlannerRequest_PositionClose) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PositionId == nil {
-				m.PositionId = &v110.PositionId{}
+				m.PositionId = &v12.PositionId{}
 			}
 			if err := m.PositionId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13031,7 +14739,7 @@ func (m *TransactionPlannerRequest_PositionWithdraw) Unmarshal(dAtA []byte) erro
 				return io.ErrUnexpectedEOF
 			}
 			if m.PositionId == nil {
-				m.PositionId = &v110.PositionId{}
+				m.PositionId = &v12.PositionId{}
 			}
 			if err := m.PositionId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13067,7 +14775,7 @@ func (m *TransactionPlannerRequest_PositionWithdraw) Unmarshal(dAtA []byte) erro
 				return io.ErrUnexpectedEOF
 			}
 			if m.Reserves == nil {
-				m.Reserves = &v110.Reserves{}
+				m.Reserves = &v12.Reserves{}
 			}
 			if err := m.Reserves.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13103,12 +14811,289 @@ func (m *TransactionPlannerRequest_PositionWithdraw) Unmarshal(dAtA []byte) erro
 				return io.ErrUnexpectedEOF
 			}
 			if m.TradingPair == nil {
-				m.TradingPair = &v110.TradingPair{}
+				m.TradingPair = &v12.TradingPair{}
 			}
 			if err := m.TradingPair.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionSchedule) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ActionDutchAuctionSchedule: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ActionDutchAuctionSchedule: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Description", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Description == nil {
+				m.Description = &v11.DutchAuctionDescription{}
+			}
+			if err := m.Description.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionEnd) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ActionDutchAuctionEnd: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ActionDutchAuctionEnd: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuctionId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AuctionId == nil {
+				m.AuctionId = &v11.AuctionId{}
+			}
+			if err := m.AuctionId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TransactionPlannerRequest_ActionDutchAuctionWithdraw) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ActionDutchAuctionWithdraw: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ActionDutchAuctionWithdraw: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuctionId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AuctionId == nil {
+				m.AuctionId = &v11.AuctionId{}
+			}
+			if err := m.AuctionId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Seq", wireType)
+			}
+			m.Seq = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Seq |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipView(dAtA[iNdEx:])
@@ -13189,7 +15174,7 @@ func (m *TransactionPlannerResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Plan == nil {
-				m.Plan = &v1.TransactionPlan{}
+				m.Plan = &v13.TransactionPlan{}
 			}
 			if err := m.Plan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13275,7 +15260,7 @@ func (m *AddressByIndexRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13361,7 +15346,7 @@ func (m *AddressByIndexResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Address == nil {
-				m.Address = &v12.Address{}
+				m.Address = &v1.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13497,7 +15482,7 @@ func (m *WalletIdResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.WalletId == nil {
-				m.WalletId = &v12.WalletId{}
+				m.WalletId = &v1.WalletId{}
 			}
 			if err := m.WalletId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13583,7 +15568,7 @@ func (m *IndexByAddressRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Address == nil {
-				m.Address = &v12.Address{}
+				m.Address = &v1.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13669,7 +15654,7 @@ func (m *IndexByAddressResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13755,7 +15740,7 @@ func (m *EphemeralAddressRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13841,7 +15826,7 @@ func (m *EphemeralAddressResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Address == nil {
-				m.Address = &v12.Address{}
+				m.Address = &v1.Address{}
 			}
 			if err := m.Address.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13927,7 +15912,7 @@ func (m *BalancesRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AccountFilter == nil {
-				m.AccountFilter = &v12.AddressIndex{}
+				m.AccountFilter = &v1.AddressIndex{}
 			}
 			if err := m.AccountFilter.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13963,7 +15948,7 @@ func (m *BalancesRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AssetIdFilter == nil {
-				m.AssetIdFilter = &v16.AssetId{}
+				m.AssetIdFilter = &v18.AssetId{}
 			}
 			if err := m.AssetIdFilter.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14049,7 +16034,7 @@ func (m *BalancesResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Account == nil {
-				m.Account = &v12.AddressIndex{}
+				m.Account = &v1.AddressIndex{}
 			}
 			if err := m.Account.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14085,7 +16070,7 @@ func (m *BalancesResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Balance == nil {
-				m.Balance = &v16.Value{}
+				m.Balance = &v18.Value{}
 			}
 			if err := m.Balance.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14121,7 +16106,7 @@ func (m *BalancesResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AccountAddress == nil {
-				m.AccountAddress = &v12.AddressView{}
+				m.AccountAddress = &v1.AddressView{}
 			}
 			if err := m.AccountAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14157,7 +16142,7 @@ func (m *BalancesResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.BalanceView == nil {
-				m.BalanceView = &v16.ValueView{}
+				m.BalanceView = &v18.ValueView{}
 			}
 			if err := m.BalanceView.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14578,7 +16563,7 @@ func (m *NotesRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AssetId == nil {
-				m.AssetId = &v16.AssetId{}
+				m.AssetId = &v18.AssetId{}
 			}
 			if err := m.AssetId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14614,7 +16599,7 @@ func (m *NotesRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14650,7 +16635,7 @@ func (m *NotesRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AmountToSpend == nil {
-				m.AmountToSpend = &v18.Amount{}
+				m.AmountToSpend = &v110.Amount{}
 			}
 			if err := m.AmountToSpend.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14755,7 +16740,7 @@ func (m *NotesForVotingRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14841,7 +16826,7 @@ func (m *WitnessRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransactionPlan == nil {
-				m.TransactionPlan = &v1.TransactionPlan{}
+				m.TransactionPlan = &v13.TransactionPlan{}
 			}
 			if err := m.TransactionPlan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -14927,7 +16912,7 @@ func (m *WitnessResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.WitnessData == nil {
-				m.WitnessData = &v1.WitnessData{}
+				m.WitnessData = &v13.WitnessData{}
 			}
 			if err := m.WitnessData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -15013,7 +16998,7 @@ func (m *WitnessAndBuildRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransactionPlan == nil {
-				m.TransactionPlan = &v1.TransactionPlan{}
+				m.TransactionPlan = &v13.TransactionPlan{}
 			}
 			if err := m.TransactionPlan.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -15049,7 +17034,7 @@ func (m *WitnessAndBuildRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AuthorizationData == nil {
-				m.AuthorizationData = &v1.AuthorizationData{}
+				m.AuthorizationData = &v13.AuthorizationData{}
 			}
 			if err := m.AuthorizationData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -15316,7 +17301,7 @@ func (m *WitnessAndBuildResponse_Complete) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Transaction == nil {
-				m.Transaction = &v1.Transaction{}
+				m.Transaction = &v13.Transaction{}
 			}
 			if err := m.Transaction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -15421,7 +17406,7 @@ func (m *AssetsRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IncludeSpecificDenominations = append(m.IncludeSpecificDenominations, &v16.Denom{})
+			m.IncludeSpecificDenominations = append(m.IncludeSpecificDenominations, &v18.Denom{})
 			if err := m.IncludeSpecificDenominations[len(m.IncludeSpecificDenominations)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -15606,7 +17591,7 @@ func (m *AssetsResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DenomMetadata == nil {
-				m.DenomMetadata = &v16.Metadata{}
+				m.DenomMetadata = &v18.Metadata{}
 			}
 			if err := m.DenomMetadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -15742,7 +17727,7 @@ func (m *AppParametersResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Parameters == nil {
-				m.Parameters = &v111.AppParameters{}
+				m.Parameters = &v112.AppParameters{}
 			}
 			if err := m.Parameters.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -15878,9 +17863,43 @@ func (m *GasPricesResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.GasPrices == nil {
-				m.GasPrices = &v14.GasPrices{}
+				m.GasPrices = &v16.GasPrices{}
 			}
 			if err := m.GasPrices.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AltGasPrices", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AltGasPrices = append(m.AltGasPrices, &v16.GasPrices{})
+			if err := m.AltGasPrices[len(m.AltGasPrices)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -16014,7 +18033,7 @@ func (m *FMDParametersResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Parameters == nil {
-				m.Parameters = &v112.FmdParameters{}
+				m.Parameters = &v113.FmdParameters{}
 			}
 			if err := m.Parameters.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -16100,7 +18119,7 @@ func (m *NoteByCommitmentRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.NoteCommitment == nil {
-				m.NoteCommitment = &v17.StateCommitment{}
+				m.NoteCommitment = &v19.StateCommitment{}
 			}
 			if err := m.NoteCommitment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -16292,7 +18311,7 @@ func (m *SwapByCommitmentRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SwapCommitment == nil {
-				m.SwapCommitment = &v17.StateCommitment{}
+				m.SwapCommitment = &v19.StateCommitment{}
 			}
 			if err := m.SwapCommitment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -16620,7 +18639,7 @@ func (m *NullifierStatusRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Nullifier == nil {
-				m.Nullifier = &v15.Nullifier{}
+				m.Nullifier = &v17.Nullifier{}
 			}
 			if err := m.Nullifier.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -16796,7 +18815,7 @@ func (m *TransactionInfoByHashRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Id == nil {
-				m.Id = &v11.TransactionId{}
+				m.Id = &v14.TransactionId{}
 			}
 			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -16989,7 +19008,7 @@ func (m *TransactionInfo) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Id == nil {
-				m.Id = &v11.TransactionId{}
+				m.Id = &v14.TransactionId{}
 			}
 			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17025,7 +19044,7 @@ func (m *TransactionInfo) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Transaction == nil {
-				m.Transaction = &v1.Transaction{}
+				m.Transaction = &v13.Transaction{}
 			}
 			if err := m.Transaction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17061,7 +19080,7 @@ func (m *TransactionInfo) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Perspective == nil {
-				m.Perspective = &v1.TransactionPerspective{}
+				m.Perspective = &v13.TransactionPerspective{}
 			}
 			if err := m.Perspective.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17097,7 +19116,7 @@ func (m *TransactionInfo) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.View == nil {
-				m.View = &v1.TransactionView{}
+				m.View = &v13.TransactionView{}
 			}
 			if err := m.View.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17477,7 +19496,7 @@ func (m *NotesForVotingResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.IdentityKey == nil {
-				m.IdentityKey = &v12.IdentityKey{}
+				m.IdentityKey = &v1.IdentityKey{}
 			}
 			if err := m.IdentityKey.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17563,7 +19582,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.NoteCommitment == nil {
-				m.NoteCommitment = &v17.StateCommitment{}
+				m.NoteCommitment = &v19.StateCommitment{}
 			}
 			if err := m.NoteCommitment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17599,7 +19618,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Note == nil {
-				m.Note = &v112.Note{}
+				m.Note = &v113.Note{}
 			}
 			if err := m.Note.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17635,7 +19654,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17671,7 +19690,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Nullifier == nil {
-				m.Nullifier = &v15.Nullifier{}
+				m.Nullifier = &v17.Nullifier{}
 			}
 			if err := m.Nullifier.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17764,7 +19783,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Source == nil {
-				m.Source = &v15.CommitmentSource{}
+				m.Source = &v17.CommitmentSource{}
 			}
 			if err := m.Source.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17800,7 +19819,7 @@ func (m *SpendableNoteRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ReturnAddress == nil {
-				m.ReturnAddress = &v12.AddressView{}
+				m.ReturnAddress = &v1.AddressView{}
 			}
 			if err := m.ReturnAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17886,7 +19905,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SwapCommitment == nil {
-				m.SwapCommitment = &v17.StateCommitment{}
+				m.SwapCommitment = &v19.StateCommitment{}
 			}
 			if err := m.SwapCommitment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17922,7 +19941,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Swap == nil {
-				m.Swap = &v110.SwapPlaintext{}
+				m.Swap = &v12.SwapPlaintext{}
 			}
 			if err := m.Swap.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -17977,7 +19996,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Nullifier == nil {
-				m.Nullifier = &v15.Nullifier{}
+				m.Nullifier = &v17.Nullifier{}
 			}
 			if err := m.Nullifier.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18013,7 +20032,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.OutputData == nil {
-				m.OutputData = &v110.BatchSwapOutputData{}
+				m.OutputData = &v12.BatchSwapOutputData{}
 			}
 			if err := m.OutputData.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18068,7 +20087,7 @@ func (m *SwapRecord) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Source == nil {
-				m.Source = &v15.CommitmentSource{}
+				m.Source = &v17.CommitmentSource{}
 			}
 			if err := m.Source.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18154,7 +20173,7 @@ func (m *OwnedPositionIdsRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PositionState == nil {
-				m.PositionState = &v110.PositionState{}
+				m.PositionState = &v12.PositionState{}
 			}
 			if err := m.PositionState.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18190,7 +20209,7 @@ func (m *OwnedPositionIdsRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TradingPair == nil {
-				m.TradingPair = &v110.TradingPair{}
+				m.TradingPair = &v12.TradingPair{}
 			}
 			if err := m.TradingPair.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18276,7 +20295,7 @@ func (m *OwnedPositionIdsResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PositionId == nil {
-				m.PositionId = &v110.PositionId{}
+				m.PositionId = &v12.PositionId{}
 			}
 			if err := m.PositionId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18362,7 +20381,7 @@ func (m *AssetMetadataByIdRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AssetId == nil {
-				m.AssetId = &v16.AssetId{}
+				m.AssetId = &v18.AssetId{}
 			}
 			if err := m.AssetId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18448,7 +20467,7 @@ func (m *AssetMetadataByIdResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DenomMetadata == nil {
-				m.DenomMetadata = &v16.Metadata{}
+				m.DenomMetadata = &v18.Metadata{}
 			}
 			if err := m.DenomMetadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18534,7 +20553,7 @@ func (m *DelegationsByAddressIndexRequest) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AddressIndex == nil {
-				m.AddressIndex = &v12.AddressIndex{}
+				m.AddressIndex = &v1.AddressIndex{}
 			}
 			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -18639,12 +20658,223 @@ func (m *DelegationsByAddressIndexResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ValueView == nil {
-				m.ValueView = &v16.ValueView{}
+				m.ValueView = &v18.ValueView{}
 			}
 			if err := m.ValueView.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UnbondingTokensByAddressIndexRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UnbondingTokensByAddressIndexRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UnbondingTokensByAddressIndexRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Filter", wireType)
+			}
+			m.Filter = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Filter |= UnbondingTokensByAddressIndexRequest_Filter(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AddressIndex", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AddressIndex == nil {
+				m.AddressIndex = &v1.AddressIndex{}
+			}
+			if err := m.AddressIndex.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipView(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthView
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UnbondingTokensByAddressIndexResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowView
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UnbondingTokensByAddressIndexResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UnbondingTokensByAddressIndexResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ValueView", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthView
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthView
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ValueView == nil {
+				m.ValueView = &v18.ValueView{}
+			}
+			if err := m.ValueView.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Claimable", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowView
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Claimable = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipView(dAtA[iNdEx:])
