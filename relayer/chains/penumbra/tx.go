@@ -311,6 +311,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 	txBody := penumbratypes.TransactionBody{
 		Actions: make([]*penumbratypes.Action, 0),
 		TransactionParameters: &penumbratypes.TransactionParameters{
+			ChainId: cc.ChainId(),
 			Fee: &penumbrafee.Fee{
 				Amount: &penumbraasset.Amount{Lo: 0, Hi: 0},
 			},
