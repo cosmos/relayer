@@ -371,7 +371,6 @@ $ %s query balances ibc-0 ibc-1 --key-name=test`,
 
 				data[addr] = coins.String()
 			}
-			// Convert the map to a JSON string
 			jsonOutput, err := json.Marshal(data)
 			if err != nil {
 				return err

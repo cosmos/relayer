@@ -480,7 +480,7 @@ func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 
 func keyNameFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagKeyName, "", "a key from the keychain associated with a particular chain")
-	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagKeyName)); err != nil {
+	if err := v.BindPFlag(flagKeyName, cmd.Flags().Lookup(flagKeyName)); err != nil {
 		panic(err)
 	}
 	return cmd
