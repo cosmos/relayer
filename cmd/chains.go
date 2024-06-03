@@ -72,8 +72,8 @@ $ %s ch set-rpc-addr ibc-0 https://abc.xyz.com:443`, appName, appName)),
 
 func cmdChainsUseBackupRpcAddr(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "set-backup-rpc-addr chain_name comma_separated_valid_rpc_urls",
-		Aliases: []string{"rpc"},
+		Use:     "set-backup-rpc-addrs chain_name comma_separated_valid_rpc_urls",
+		Aliases: []string{"set-backup-rpcs"},
 		Short:   "Sets chain's backup rpc addresses",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
