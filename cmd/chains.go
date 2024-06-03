@@ -41,6 +41,7 @@ func chainsCmd(a *appState) *cobra.Command {
 		chainsAddDirCmd(a),
 		cmdChainsConfigure(a),
 		cmdChainsUseRpcAddr(a),
+		cmdChainsUseBackupRpcAddr(a),
 	)
 
 	return cmd
@@ -48,9 +49,9 @@ func chainsCmd(a *appState) *cobra.Command {
 
 func cmdChainsUseRpcAddr(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "set-rpc-addr chain_name  valid_rpc_url",
+		Use:     "set-rpc-addr chain_name valid_rpc_url",
 		Aliases: []string{"rpc"},
-		Short:   "Sets  chain's rpc address",
+		Short:   "Sets chain's rpc address",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains set-rpc-addr ibc-0 https://abc.xyz.com:443
@@ -63,6 +64,36 @@ $ %s ch set-rpc-addr ibc-0 https://abc.xyz.com:443`, appName, appName)),
 			}
 
 			return a.useRpcAddr(chainName, rpc_address)
+		},
+	}
+
+	return cmd
+}
+
+func cmdChainsUseBackupRpcAddr(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "set-backup-rpc-addr chain_name comma_separated_valid_rpc_urls",
+		Aliases: []string{"rpc"},
+		Short:   "Sets chain's backup rpc addresses",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains set-backup-rpc-addr ibc-0 https://abc.xyz.com:443,https://123.456.com:443
+$ %s ch set-backup-rpc-addr ibc-0 https://abc.xyz.com:443,https://123.456.com:443`, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainName := args[0]
+			rpc_addresses := args[1]
+
+			// Split rpc_addresses by ','
+			rpc_addresses_list := strings.Split(rpc_addresses, ",")
+
+			// Loop through and ensure valid
+			for _, rpc_address := range rpc_addresses_list {
+				if !isValidURL(rpc_address) {
+					return invalidRpcAddr(rpc_address)
+				}
+			}
+
+			return a.useBackupRpcAddrs(chainName, rpc_addresses_list)
 		},
 	}
 

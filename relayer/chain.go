@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/avast/retry-go/v4"
-	"net/url"
 	"time"
+
+	"github.com/avast/retry-go/v4"
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -31,7 +31,6 @@ type Chain struct {
 
 	ChainProvider provider.ChainProvider
 	Chainid       string `yaml:"chain-id" json:"chain-id"`
-	RPCAddr       string `yaml:"rpc-addr" json:"rpc-addr"`
 
 	PathEnd *PathEnd `yaml:"-" json:"-"`
 
@@ -135,12 +134,6 @@ func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 		out[cid] = chain
 	}
 	return out, nil
-}
-
-// GetRPCPort returns the port configured for the chain
-func (c *Chain) GetRPCPort() string {
-	u, _ := url.Parse(c.RPCAddr)
-	return u.Port()
 }
 
 // CreateTestKey creates a key for test chain

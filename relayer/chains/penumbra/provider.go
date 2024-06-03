@@ -45,6 +45,7 @@ type PenumbraProviderConfig struct {
 	ChainName        string                     `json:"-" yaml:"-"`
 	ChainID          string                     `json:"chain-id" yaml:"chain-id"`
 	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
+	BackupRPCAddrs   []string                   `json:"backup-rpc-addrs" yaml:"backup-rpc-addrs"`
 	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend   string                     `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment    float64                    `json:"gas-adjustment" yaml:"gas-adjustment"`
@@ -231,6 +232,12 @@ func (cc *PenumbraProvider) Sprint(toPrint proto.Message) (string, error) {
 // It will fail if the rpcAddr is invalid(not a url).
 func (cc *PenumbraProvider) SetRpcAddr(rpcAddr string) error {
 	cc.PCfg.RPCAddr = rpcAddr
+	return nil
+}
+
+// SetBackupRpcAddrs implements provider.ChainProvider.
+func (cc *PenumbraProvider) SetBackupRpcAddrs(rpcAddrs []string) error {
+	cc.PCfg.BackupRPCAddrs = rpcAddrs
 	return nil
 }
 
