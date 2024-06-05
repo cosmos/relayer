@@ -1064,7 +1064,7 @@ func (cc *CosmosProvider) QueryRecvPacket(
 		}
 	}
 
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s: %w", q, gerr.ErrNotFound)
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
