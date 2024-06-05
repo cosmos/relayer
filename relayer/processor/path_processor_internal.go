@@ -1346,7 +1346,15 @@ SeqLoop:
 				continue SeqLoop
 			}
 		}
-		// does not exist in unrecv, so this is an ack that must be written
+		/*
+			The packet is not in unrecv, meaning it has been received by the destination chain
+			The commitment on the src chain still exists
+			That means we need to send an ack to the src chain
+			HOWEVER
+			In the upstream relayer, they assume the ack is already available
+			For us, due to delayedack, it may not be available for some time
+
+		*/
 		unacked = append(unacked, seq)
 	}
 
@@ -1387,6 +1395,9 @@ SeqLoop:
 		eg.Go(func() error {
 			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
 			if err != nil {
+				/*
+					It's possible that an acknowledgement event was not yet published on the dst chain
+				*/
 				return err
 			}
 

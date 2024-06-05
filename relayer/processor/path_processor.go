@@ -422,6 +422,11 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
+			/*
+				NOTE: it is possible that there are still outstanding broadcasts
+				This cancel will cancel them
+				In the future, we may want to wait for them to finish (<-pp.pathEnd1.finishedProcessing etc)
+			*/
 			cancel()
 			return
 		}
