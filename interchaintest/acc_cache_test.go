@@ -19,7 +19,7 @@ func TestAccCacheBugfix(t *testing.T) {
 	priv := ed25519.GenPrivKey()
 	pub := priv.PubKey()
 
-	//Set to 'osmo'
+	// Set to 'osmo'
 	prefix := "osmo"
 	sdkConf := sdk.GetConfig()
 	sdkConf.SetBech32PrefixForAccount(prefix, prefix+"pub")
@@ -29,7 +29,7 @@ func TestAccCacheBugfix(t *testing.T) {
 	addrOsmo := sdk.AccAddress(pub.Address())
 	osmoAddrBech32 := addrOsmo.String()
 
-	//Set to 'cosmos'
+	// Set to 'cosmos'
 	prefix = "cosmos"
 	sdkConf.SetBech32PrefixForAccount(prefix, prefix+"pub")
 	sdkConf.SetBech32PrefixForValidator(prefix+"valoper", prefix+"valoperpub")
@@ -38,6 +38,6 @@ func TestAccCacheBugfix(t *testing.T) {
 	addrCosmos := sdk.AccAddress(pub.Address())
 	cosmosAddrBech32 := addrCosmos.String()
 
-	//If the addresses are equal, the AccAddress caching caused a bug
+	// If the addresses are equal, the AccAddress caching caused a bug
 	require.NotEqual(t, osmoAddrBech32, cosmosAddrBech32)
 }

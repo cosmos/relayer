@@ -14,10 +14,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ zapcore.ObjectMarshaler = packetIBCMessage{}
-var _ zapcore.ObjectMarshaler = channelIBCMessage{}
-var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
-var _ zapcore.ObjectMarshaler = clientICQMessage{}
+var (
+	_ zapcore.ObjectMarshaler = packetIBCMessage{}
+	_ zapcore.ObjectMarshaler = channelIBCMessage{}
+	_ zapcore.ObjectMarshaler = connectionIBCMessage{}
+	_ zapcore.ObjectMarshaler = clientICQMessage{}
+)
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -87,7 +89,7 @@ func (msg packetIBCMessage) assemble(
 	var err error
 	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
 	if err != nil {
-		return nil, fmt.Errorf("error querying packet proof: %w", err)
+		return nil, fmt.Errorf("querying packet proof: %w", err)
 	}
 	return assembleMessage(msg.info, proof)
 }
@@ -177,7 +179,7 @@ func (msg channelIBCMessage) assemble(
 	if chanProof != nil {
 		proof, err = chanProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
-			return nil, fmt.Errorf("error querying channel proof: %w", err)
+			return nil, fmt.Errorf("querying channel proof: %w", err)
 		}
 	}
 	return assembleMessage(msg.info, proof)
@@ -250,7 +252,7 @@ func (msg connectionIBCMessage) assemble(
 	if connProof != nil {
 		proof, err = connProof(ctx, msg.info, src.latestBlock.Height)
 		if err != nil {
-			return nil, fmt.Errorf("error querying connection proof: %w", err)
+			return nil, fmt.Errorf("querying connection proof: %w", err)
 		}
 	}
 
@@ -304,7 +306,7 @@ func (msg clientICQMessage) assemble(
 
 	proof, err := src.chainProvider.QueryICQWithProof(ctx, msg.info.Type, msg.info.Request, src.latestBlock.Height-1)
 	if err != nil {
-		return nil, fmt.Errorf("error during interchain query: %w", err)
+		return nil, fmt.Errorf("during interchain query: %w", err)
 	}
 
 	return dst.chainProvider.MsgSubmitQueryResponse(msg.info.Chain, msg.info.QueryID, proof)
@@ -363,8 +365,10 @@ func (m *processingMessage) setFinishedProcessing(height uint64) {
 	m.processing = false
 }
 
-type packetProcessingCache map[ChannelKey]packetChannelMessageCache
-type packetChannelMessageCache map[string]*packetMessageSendCache
+type (
+	packetProcessingCache     map[ChannelKey]packetChannelMessageCache
+	packetChannelMessageCache map[string]*packetMessageSendCache
+)
 
 type packetMessageSendCache struct {
 	mu sync.Mutex
@@ -408,11 +412,13 @@ func (c packetChannelMessageCache) deleteMessages(toDelete ...map[string][]uint6
 	}
 }
 
-type channelProcessingCache map[string]*channelKeySendCache
-type channelKeySendCache struct {
-	mu sync.Mutex
-	m  map[ChannelKey]*processingMessage
-}
+type (
+	channelProcessingCache map[string]*channelKeySendCache
+	channelKeySendCache    struct {
+		mu sync.Mutex
+		m  map[ChannelKey]*processingMessage
+	}
+)
 
 func newChannelKeySendCache() *channelKeySendCache {
 	return &channelKeySendCache{
@@ -451,11 +457,13 @@ func (c channelProcessingCache) deleteMessages(toDelete ...map[string][]ChannelK
 	}
 }
 
-type connectionProcessingCache map[string]*connectionKeySendCache
-type connectionKeySendCache struct {
-	mu sync.Mutex
-	m  map[ConnectionKey]*processingMessage
-}
+type (
+	connectionProcessingCache map[string]*connectionKeySendCache
+	connectionKeySendCache    struct {
+		mu sync.Mutex
+		m  map[ConnectionKey]*processingMessage
+	}
+)
 
 func newConnectionKeySendCache() *connectionKeySendCache {
 	return &connectionKeySendCache{

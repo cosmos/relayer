@@ -121,7 +121,7 @@ func ModifyGenesisStride() func(ibc.ChainConfig, []byte) ([]byte, error) {
 	return func(cfg ibc.ChainConfig, genbz []byte) ([]byte, error) {
 		g := make(map[string]interface{})
 		if err := json.Unmarshal(genbz, &g); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal genesis file: %w", err)
+			return nil, fmt.Errorf("unmarshal genesis file: %w", err)
 		}
 
 		if err := dyno.Set(g, DayEpochLen, "app_state", "epochs", "epochs", DayEpochIndex, "duration"); err != nil {
@@ -149,15 +149,15 @@ func ModifyGenesisStride() func(ibc.ChainConfig, []byte) ([]byte, error) {
 			return nil, err
 		}
 		if err := dyno.Set(g, VotingPeriod, "app_state", "gov", "voting_params", "voting_period"); err != nil {
-			return nil, fmt.Errorf("failed to set voting period in genesis json: %w", err)
+			return nil, fmt.Errorf("set voting period in genesis json: %w", err)
 		}
 		if err := dyno.Set(g, MaxDepositPeriod, "app_state", "gov", "deposit_params", "max_deposit_period"); err != nil {
-			return nil, fmt.Errorf("failed to set voting period in genesis json: %w", err)
+			return nil, fmt.Errorf("set voting period in genesis json: %w", err)
 		}
 
 		out, err := json.Marshal(g)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal genesis bytes to json: %w", err)
+			return nil, fmt.Errorf("marshal genesis bytes to json: %w", err)
 		}
 		return out, nil
 	}
@@ -167,7 +167,7 @@ func ModifyGenesisStrideCounterparty() func(ibc.ChainConfig, []byte) ([]byte, er
 	return func(cfg ibc.ChainConfig, genbz []byte) ([]byte, error) {
 		g := make(map[string]interface{})
 		if err := json.Unmarshal(genbz, &g); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal genesis file: %w", err)
+			return nil, fmt.Errorf("unmarshal genesis file: %w", err)
 		}
 
 		if err := dyno.Set(g, UnbondingTime,
@@ -184,7 +184,7 @@ func ModifyGenesisStrideCounterparty() func(ibc.ChainConfig, []byte) ([]byte, er
 
 		out, err := json.Marshal(g)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal genesis bytes to json: %w", err)
+			return nil, fmt.Errorf("marshal genesis bytes to json: %w", err)
 		}
 		return out, nil
 	}

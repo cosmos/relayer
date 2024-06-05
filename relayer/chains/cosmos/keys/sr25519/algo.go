@@ -10,8 +10,7 @@ import (
 
 var Sr25519 = sr25519Algo{}
 
-type sr25519Algo struct {
-}
+type sr25519Algo struct{}
 
 func (s sr25519Algo) Name() hd.PubKeyType {
 	return hd.Sr25519Type
@@ -38,7 +37,7 @@ func (s sr25519Algo) Derive() hd.DeriveFn {
 // Generate generates a sr25519 private key from the given bytes.
 func (s sr25519Algo) Generate() hd.GenerateFn {
 	return func(bz []byte) types.PrivKey {
-		var bzArr = make([]byte, 32)
+		bzArr := make([]byte, 32)
 		copy(bzArr, bz)
 
 		return &PrivKey{PrivKey: tmsr25519.GenPrivKeyFromSecret(bzArr)}

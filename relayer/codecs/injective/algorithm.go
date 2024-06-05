@@ -43,8 +43,7 @@ var (
 	EthSecp256k1 = ethSecp256k1Algo{}
 )
 
-type ethSecp256k1Algo struct {
-}
+type ethSecp256k1Algo struct{}
 
 // Name returns eth_secp256k1
 func (s ethSecp256k1Algo) Name() hd.PubKeyType {
@@ -92,7 +91,7 @@ func (s ethSecp256k1Algo) Derive() hd.DeriveFn {
 // Generate generates a secp256k1 private key from the given bytes.
 func (s ethSecp256k1Algo) Generate() hd.GenerateFn {
 	return func(bz []byte) cryptotypes.PrivKey {
-		var bzArr = make([]byte, PrivKeySize)
+		bzArr := make([]byte, PrivKeySize)
 		copy(bzArr, bz)
 
 		return &PrivKey{Key: bzArr}

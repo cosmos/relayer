@@ -33,28 +33,29 @@ type dockerErrorDetail struct {
 func uniqueRelayerImageName() (string, error) {
 	uuid, err := uuid.NewRandom()
 	if err != nil {
-		return "", fmt.Errorf("failed to generate uuid %v", err)
+		return "", fmt.Errorf("generate uuid %v", err)
 	}
 	return RelayerImagePrefix + uuid.String()[:6], nil
 }
+
 func BuildRelayerImage(t *testing.T) string {
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Join(filepath.Dir(b), "..")
 
 	tar, err := archive.TarWithOptions(basepath, &archive.TarOptions{})
-	require.NoError(t, err, "error archiving relayer for docker image build")
+	require.NoError(t, err, "archiving relayer for docker image build")
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	require.NoError(t, err, "error building docker client")
+	require.NoError(t, err, "building docker client")
 
 	image, err := uniqueRelayerImageName()
-	require.NoError(t, err, "error generating unique tag for docker image")
+	require.NoError(t, err, "generating unique tag for docker image")
 
 	res, err := cli.ImageBuild(context.Background(), tar, dockertypes.ImageBuildOptions{
 		Dockerfile: "local.Dockerfile",
 		Tags:       []string{image},
 	})
-	require.NoError(t, err, "error building docker image")
+	require.NoError(t, err, "building docker image")
 
 	defer res.Body.Close()
 	t.Cleanup(func() {
@@ -67,14 +68,14 @@ func BuildRelayerImage(t *testing.T) string {
 func destroyRelayerImage(t *testing.T, image string) {
 	// Create a Docker client
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	require.NoError(t, err, "error building docker client")
+	require.NoError(t, err, "building docker client")
 
 	// Remove the Docker image using the provided tag (uniquestr)
 	_, err = cli.ImageRemove(context.Background(), image, dockertypes.ImageRemoveOptions{
 		Force:         true, // Force remove the image
 		PruneChildren: true, // Remove all child images
 	})
-	require.NoError(t, err, "error removing docker image")
+	require.NoError(t, err, "removing docker image")
 }
 
 func handleDockerBuildOutput(t *testing.T, body io.Reader) {

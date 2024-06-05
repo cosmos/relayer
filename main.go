@@ -10,6 +10,6 @@ func main() {
 }
 
 func init() {
-	//prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
+	// prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	sdk.SetAddrCacheEnabled(false)
 }

@@ -181,12 +181,12 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(
 				newPc := make(PacketSequenceCache)
 				for seq, p := range pCache {
 					if err := checkMemoLimit(p.Data, memoLimit); err != nil {
-						pathEnd.log.Warn("Ignoring packet", zap.Error(err))
+						pathEnd.log.Error("Ignoring packet.", zap.Error(err))
 						continue
 					}
 
 					if err := checkMaxReceiverSize(p.Data, maxReceiverSize); err != nil {
-						pathEnd.log.Warn("Ignoring packet", zap.Error(err))
+						pathEnd.log.Error("Ignoring packet.", zap.Error(err))
 						continue
 					}
 
@@ -292,7 +292,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		}
 		channelKey, err := PacketInfoChannelKey(m.Termination.EventType, m.Termination.Info)
 		if err != nil {
-			pathEnd.log.Error("Unexpected error checking packet message",
+			pathEnd.log.Error("Unexpected error checking packet message.",
 				zap.String("event_type", m.Termination.EventType),
 				zap.Inline(channelKey),
 				zap.Error(err),
@@ -312,7 +312,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			return false
 		}
 		// stop path processor, condition fulfilled
-		pathEnd.log.Info("Found termination condition for packet flow")
+		pathEnd.log.Info("Found termination condition for packet flow.")
 		return true
 	case *ChannelMessageLifecycle:
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
@@ -328,7 +328,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		foundCounterpartyChannelID := m.Termination.Info.CounterpartyChannelID == ""
 		foundCounterpartyPortID := m.Termination.Info.CounterpartyPortID == ""
 		for _, ci := range cache {
-			pathEnd.log.Info("Channel handshake termination candidate",
+			pathEnd.log.Info("Channel handshake termination candidate.",
 				zap.String("termination_port_id", m.Termination.Info.PortID),
 				zap.String("observed_port_id", ci.PortID),
 				zap.String("termination_counterparty_port_id", m.Termination.Info.CounterpartyPortID),
@@ -348,7 +348,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			}
 		}
 		if foundChannelID && foundPortID && foundCounterpartyChannelID && foundCounterpartyPortID {
-			pathEnd.log.Info("Found termination condition for channel handshake")
+			pathEnd.log.Info("Found termination condition for channel handshake.")
 			return true
 		}
 	case *ChannelCloseLifecycle:
@@ -360,7 +360,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		foundChannelID := m.SrcChannelID == ""
 		foundPortID := m.SrcPortID == ""
 		for _, ci := range cache {
-			pathEnd.log.Info("Channel close termination candidate",
+			pathEnd.log.Info("Channel close termination candidate.",
 				zap.String("termination_port_id", m.SrcPortID),
 				zap.String("observed_port_id", ci.PortID),
 				zap.String("termination_channel_id", m.SrcChannelID),
@@ -383,7 +383,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			}
 		}
 		if foundChannelID && foundPortID {
-			pathEnd.log.Info("Found termination condition for channel close")
+			pathEnd.log.Info("Found termination condition for channel close.")
 			return true
 		}
 	case *ConnectionMessageLifecycle:
@@ -400,7 +400,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 		foundCounterpartyClientID := m.Termination.Info.CounterpartyClientID == ""
 		foundCounterpartyConnectionID := m.Termination.Info.CounterpartyConnID == ""
 		for _, ci := range cache {
-			pathEnd.log.Info("Connection handshake termination candidate",
+			pathEnd.log.Info("Connection handshake termination candidate.",
 				zap.String("termination_client_id", m.Termination.Info.ClientID),
 				zap.String("observed_client_id", ci.ClientID),
 				zap.String("termination_counterparty_client_id", m.Termination.Info.CounterpartyClientID),
@@ -420,7 +420,7 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			}
 		}
 		if foundClientID && foundConnectionID && foundCounterpartyClientID && foundCounterpartyConnectionID {
-			pathEnd.log.Info("Found termination condition for connection handshake")
+			pathEnd.log.Info("Found termination condition for connection handshake.")
 			return true
 		}
 	}
@@ -488,8 +488,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 
 	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
 	if err != nil {
-		pathEnd.log.Error(
-			"Failed to check for misbehaviour",
+		pathEnd.log.Error("Check for misbehaviour.",
 			zap.String("client_id", pathEnd.info.ClientID),
 			zap.Error(err),
 		)
@@ -536,7 +535,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	sequence := message.info.Sequence
 	k, err := message.channelKey()
 	if err != nil {
-		pathEnd.log.Error("Unexpected error checking if should send packet message",
+		pathEnd.log.Error("Unexpected checking if should send packet message.",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
@@ -551,7 +550,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	if message.info.Height >= pathEndForHeight.latestBlock.Height {
-		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
+		pathEnd.log.Debug("Not relaying packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Uint64("message_height", message.info.Height),
@@ -562,7 +561,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 	if !pathEnd.channelStateCache[k].Open {
 		// channel is not open, do not send
-		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
+		pathEnd.log.Error("Refusing to relay packet message because channel is not open.",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
@@ -596,7 +595,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	if inProgress.retryCount >= maxMessageSendRetries {
-		pathEnd.log.Error("Giving up on sending packet message after max retries",
+		pathEnd.log.Error("Giving up on sending packet message after max retries.",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
 			zap.Inline(k),
@@ -682,7 +681,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
-		pathEnd.log.Error("Giving up on sending connection message after max retries",
+		pathEnd.log.Error("Giving up on sending connection message after max retries.",
 			zap.String("event_type", eventType),
 		)
 		// giving up on sending this connection handshake message
@@ -761,7 +760,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
-		pathEnd.log.Error("Giving up on sending channel message after max retries",
+		pathEnd.log.Error("Giving up on sending channel message after max retries.",
 			zap.String("event_type", eventType),
 			zap.Int("max_retries", maxMessageSendRetries),
 		)
@@ -852,7 +851,7 @@ func (pathEnd *pathEndRuntime) shouldSendClientICQMessage(message provider.Clien
 		return false
 	}
 	if inProgress.retryCount >= maxMessageSendRetries {
-		pathEnd.log.Error("Giving up on sending client ICQ message after max retries",
+		pathEnd.log.Error("Giving up on sending client ICQ message after max retries.",
 			zap.String("query_id", string(queryID)),
 		)
 
@@ -876,7 +875,7 @@ func (pathEnd *pathEndRuntime) trackProcessingMessage(tracker messageToTrack) ui
 		sequence := t.msg.info.Sequence
 		channelKey, err := t.msg.channelKey()
 		if err != nil {
-			pathEnd.log.Error("Unexpected error tracking processing packet",
+			pathEnd.log.Error("Unexpected error tracking processing packet.",
 				zap.Inline(channelKey),
 				zap.String("event_type", eventType),
 				zap.Uint64("sequence", sequence),

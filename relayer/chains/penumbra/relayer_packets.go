@@ -175,9 +175,11 @@ type relayMsgPacketAck struct {
 func (rp relayMsgPacketAck) Data() []byte {
 	return rp.packetData
 }
+
 func (rp relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
 }
+
 func (rp relayMsgPacketAck) Timeout() clienttypes.Height {
 	return rp.timeout
 }

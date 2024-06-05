@@ -15,7 +15,7 @@ import (
 // PathProcessor will stop if it observes a message that matches
 // the MessageLifecycle's Termination message.
 type MessageLifecycle interface {
-	messageLifecycler() //noop
+	messageLifecycler() // noop
 }
 
 // Flush lifecycle informs the PathProcessor to terminate once

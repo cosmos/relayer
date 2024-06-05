@@ -66,7 +66,6 @@ func TestNoChannelFilter(t *testing.T) {
 
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockChannel2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
 	require.False(t, mockPathEndRuntime.ShouldRelayChannel(mockCounterpartyChanne2), "allowed channel to be relayed, even though it was outside of cached state; this channel does not pertain to a src or dest chain in the path secion of the config")
-
 }
 
 func TestAllowChannelFilter(t *testing.T) {
@@ -210,7 +209,6 @@ func TestDenyChannelFilter(t *testing.T) {
 	// channels not included in deny list
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockNotBlocked), "does not allow channel to be relayed, even though channelID is not in deny list")
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockNotBlockedCounterparty), "does not allow channel to be relayed, even though channelID is not in deny list")
-
 }
 
 func TestAllowChannelFilterWithSpecificPort(t *testing.T) {
@@ -303,5 +301,4 @@ func TestDenyChannelWithSpecificPort(t *testing.T) {
 	// same channels with different ports
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mockChannelWithAllowedPort), "does not allow port to be relayed on, even though portID is not in deny list")
 	require.True(t, mockPathEndRuntime.ShouldRelayChannel(mocCounterpartykChannelWithAllowedPort), "does not allow port to be relayed on, even though portID is not in deny list")
-
 }

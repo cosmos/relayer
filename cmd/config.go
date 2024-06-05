@@ -135,12 +135,12 @@ $ %s cfg i`, appName, defaultHome, appName)),
 					// And the home folder doesn't exist
 					if _, err := os.Stat(home); os.IsNotExist(err) {
 						// Create the home folder
-						if err = os.Mkdir(home, 0777); err != nil {
+						if err = os.Mkdir(home, 0o777); err != nil {
 							return err
 						}
 					}
 					// Create the home config folder
-					if err = os.Mkdir(cfgDir, 0777); err != nil {
+					if err = os.Mkdir(cfgDir, 0o777); err != nil {
 						return err
 					}
 				}
@@ -152,7 +152,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				}
 				defer f.Close()
 
-				err = os.Chmod(cfgPath, 0777)
+				err = os.Chmod(cfgPath, 0o777)
 				if err != nil {
 					return err
 				}
@@ -250,21 +250,21 @@ func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, d
 
 			byt, err := os.ReadFile(pth)
 			if err != nil {
-				return fmt.Errorf("failed to read file %s: %w", pth, err)
+				return fmt.Errorf("read file %s: %w", pth, err)
 			}
 
 			p := &relayer.Path{}
 			if err = json.Unmarshal(byt, p); err != nil {
-				return fmt.Errorf("failed to unmarshal file %s: %w", pth, err)
+				return fmt.Errorf("unmarshal file %s: %w", pth, err)
 			}
 
 			pthName := strings.Split(f.Name(), ".")[0]
 			if err := a.config.ValidatePath(ctx, stderr, p); err != nil {
-				return fmt.Errorf("failed to validate path %s: %w", pth, err)
+				return fmt.Errorf("validate path %s: %w", pth, err)
 			}
 
 			if err := a.config.AddPath(pthName, p); err != nil {
-				return fmt.Errorf("failed to add path %s: %w", pth, err)
+				return fmt.Errorf("add path %s: %w", pth, err)
 			}
 
 			fmt.Fprintf(stderr, "added path %s...\n\n", pthName)
@@ -344,11 +344,11 @@ func (c *ConfigInputWrapper) RuntimeConfig(ctx context.Context, a *appState) (*C
 			a.homePath, a.debug, chainName,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build ChainProviders: %w", err)
+			return nil, fmt.Errorf("build ChainProviders: %w", err)
 		}
 
 		if err := prov.Init(ctx); err != nil {
-			return nil, fmt.Errorf("failed to initialize provider: %w", err)
+			return nil, fmt.Errorf("initialize provider: %w", err)
 		}
 
 		chain := relayer.NewChain(a.log, prov, a.debug)
@@ -596,7 +596,7 @@ func (c *Config) validateConfig() error {
 	// verify that the channel filter rule is valid for every path in the config
 	for _, p := range c.Paths {
 		if err := p.ValidateChannelFilterRule(); err != nil {
-			return fmt.Errorf("error initializing the relayer config for path %s: %w", p.String(), err)
+			return fmt.Errorf("initializing the relayer config for path %s: %w", p.String(), err)
 		}
 	}
 

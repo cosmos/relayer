@@ -12,9 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 )
 
-var (
-	_ module.AppModuleBasic = AppModuleBasic{}
-)
+var _ module.AppModuleBasic = AppModuleBasic{}
 
 // AppModuleBasic implements the AppModuleBasic interface
 type AppModuleBasic struct{}

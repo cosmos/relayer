@@ -278,7 +278,7 @@ func (pp *PathProcessor) ProcessBacklogIfReady() {
 	default:
 		// Log that the channel is saturated;
 		// something is wrong if we are retrying this quickly.
-		pp.log.Error("Failed to enqueue path processor retry, retries already scheduled")
+		pp.log.Error("Enqueue path processor retry, retries already scheduled")
 	}
 }
 
@@ -301,13 +301,13 @@ func (pp *PathProcessor) handleFlush(ctx context.Context) {
 		pp.log.Debug("Not flushing - disabled.")
 		return
 	}
-	flushTimer := pp.flushInterval
+	flushInterval := pp.flushInterval
 	if err := pp.flush(ctx); err != nil {
-		pp.log.Warn("Flush not complete", zap.Error(err))
-		flushTimer = flushFailureRetry
+		pp.log.Error("Flush. Will try again later.", zap.Error(err), zap.Duration("until next attempt (seconds)", flushInterval))
+		flushInterval = flushFailureRetry
 	}
 	pp.flushTimer.Stop()
-	pp.flushTimer = time.NewTimer(flushTimer)
+	pp.flushTimer = time.NewTimer(flushInterval)
 }
 
 // processAvailableSignals will block if signals are not yet available, otherwise it will process one of the available signals.
@@ -419,6 +419,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
+			pp.log.Debug("Flushing: should flush and initial flush is not yet complete.")
 			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
@@ -433,7 +434,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx, cancel); err != nil {
-			pp.log.Debug("error process latest messages", zap.Error(err))
+			pp.log.Debug("ERROR process latest messages", zap.Error(err))
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()
@@ -472,13 +473,13 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 	for k, v := range cacheData.IBCMessagesCache.PacketFlow {
 		chan1, err := chantypes.ParseChannelSequence(k.ChannelID)
 		if err != nil {
-			pp.log.Error("Failed to parse channel ID int from string", zap.Error(err))
+			pp.log.Error("Parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
 		chan2, err := chantypes.ParseChannelSequence(k.CounterpartyChannelID)
 		if err != nil {
-			pp.log.Error("Failed to parse channel ID int from string", zap.Error(err))
+			pp.log.Error("Parse channel ID int from string", zap.Error(err))
 			continue
 		}
 
@@ -520,7 +521,7 @@ func (pp *PathProcessor) handleLocalhostData(cacheData ChainProcessorCacheData) 
 
 				pathEnd2Cache.IBCMessagesCache.ChannelHandshake[eventType][k] = v
 			default:
-				pp.log.Error("Invalid IBC channel event type", zap.String("event_type", eventType))
+				pp.log.Error("Invalid IBC channel event type.", zap.String("event_type", eventType))
 			}
 		}
 	}

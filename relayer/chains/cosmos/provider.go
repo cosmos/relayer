@@ -136,7 +136,7 @@ type CosmosProvider struct {
 	Cdc            Codec
 	// TODO: GRPC Client type?
 
-	//nextAccountSeq uint64
+	// nextAccountSeq uint64
 	feegrantMu sync.Mutex
 
 	// the map key is the TX signer, which can either be 'default' (provider key) or a feegrantee
@@ -234,7 +234,6 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error) {
-
 	unbondingTime := overrideUnbondingPeriod
 	var err error
 	if unbondingTime == 0 {

@@ -186,5 +186,4 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, sdkmath.ZeroInt().Equal(balance))
 	}
-
 }

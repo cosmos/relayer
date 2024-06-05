@@ -59,7 +59,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	// RootCmd represents the base command when called without any subcommands
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   appName,
 		Short: "This application makes data relay between IBC enabled chains easy!",
 		Long: strings.TrimSpace(`rly has:

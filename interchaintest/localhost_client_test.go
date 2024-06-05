@@ -101,7 +101,9 @@ func TestLocalhost_TokenTransfers(t *testing.T) {
 				GasPrices:      "0.0stake",
 				GasAdjustment:  1.1,
 				EncodingConfig: &cdc,
-			}}},
+			},
+		},
+	},
 	)
 
 	chains, err := cf.Chains(t.Name())
@@ -317,7 +319,9 @@ func TestLocalhost_InterchainAccounts(t *testing.T) {
 				GasPrices:      "0.0stake",
 				GasAdjustment:  1.1,
 				EncodingConfig: &cdc,
-			}}},
+			},
+		},
+	},
 	)
 
 	chains, err := cf.Chains(t.Name())

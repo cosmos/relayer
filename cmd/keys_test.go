@@ -248,7 +248,7 @@ func TestKeysRestoreAll_Delete(t *testing.T) {
 	res = sys.MustRun(t, "keys", "delete", "testChain2", "default", "-y")
 	require.Empty(t, res.Stdout.String())
 	require.Equal(t, res.Stderr.String(), "key default deleted\n")
-	
+
 	res = sys.MustRun(t, "keys", "delete", "testChain3", "default", "-y")
 	require.Empty(t, res.Stdout.String())
 	require.Equal(t, res.Stderr.String(), "key default deleted\n")
