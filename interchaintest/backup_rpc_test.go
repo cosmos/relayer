@@ -11,8 +11,9 @@ import (
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8"
-	iccosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
 	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
@@ -28,50 +29,27 @@ func TestBackupRpcs(t *testing.T) {
 
 	t.Parallel()
 
-	numVals := 1
+	numVals := 5
 	numFullNodes := 0
-
-	image := ibc.DockerImage{
-		Repository: "ghcr.io/cosmos/ibc-go-simd",
-		Version:    "v8.0.0",
-		UidGid:     "100:1000",
-	}
 
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{
-			Name:          "ibc-go-simd",
-			Version:       "main",
+			Name:          "gaia",
+			Version:       "v7.0.0",
 			NumValidators: &numVals,
 			NumFullNodes:  &numFullNodes,
+
 			ChainConfig: ibc.ChainConfig{
-				Type:          "cosmos",
-				Name:          "simd",
-				ChainID:       "chain-a",
-				Images:        []ibc.DockerImage{image},
-				Bin:           "simd",
-				Bech32Prefix:  "cosmos",
-				Denom:         "stake",
-				CoinType:      "118",
-				GasPrices:     "0.0stake",
-				GasAdjustment: 1.1,
+				GasPrices: "0.0uatom",
 			},
 		},
 		{
-			Name:          "ibc-go-simd",
-			Version:       "main",
+			Name:          "osmosis",
+			Version:       "v11.0.0",
 			NumValidators: &numVals,
 			NumFullNodes:  &numFullNodes,
 			ChainConfig: ibc.ChainConfig{
-				Type:          "cosmos",
-				Name:          "simd",
-				ChainID:       "chain-b",
-				Images:        []ibc.DockerImage{image},
-				Bin:           "simd",
-				Bech32Prefix:  "cosmos",
-				Denom:         "stake",
-				CoinType:      "118",
-				GasPrices:     "0.0stake",
-				GasAdjustment: 1.1,
+				GasPrices: "0.0uosmo",
 			},
 		},
 	})
@@ -83,7 +61,15 @@ func TestBackupRpcs(t *testing.T) {
 	ctx := context.Background()
 	client, network := interchaintest.DockerSetup(t)
 
-	rf := relayertest.NewRelayerFactory(relayertest.RelayerConfig{InitialBlockHistory: 50})
+	image := relayertest.BuildRelayerImage(t)
+	rf := interchaintest.NewBuiltinRelayerFactory(
+		ibc.CosmosRly,
+		zaptest.NewLogger(t),
+		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
+		interchaintestrelayer.ImagePull(false),
+		interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
+	)
+
 	r := rf.Build(t, client, network)
 
 	const pathName = "chainA-chainB"
@@ -138,22 +124,42 @@ func TestBackupRpcs(t *testing.T) {
 	cfgOutput.Global = cfg.Global
 	cfgOutput.Paths = cfg.Paths
 
-	// Get nodes associated with chainA
-	for _, chain := range [](*iccosmos.CosmosChain){chainA.(*iccosmos.CosmosChain), chainB.(*iccosmos.CosmosChain)} {
+	// Get all chains
+	for _, chain := range [](*interchaintestcosmos.CosmosChain){chainA.(*interchaintestcosmos.CosmosChain), chainB.(*interchaintestcosmos.CosmosChain)} {
 
 		addrs := []string{}
 
-		for _, node := range chain.FullNodes {
+		// loop through nodes to collect rpc addrs
+		for _, node := range chain.Validators {
 
-			rpc := fmt.Sprintf("http://%s", node.HostRPCPort)
+			cl := node.DockerClient
+			inspect, _ := cl.ContainerInspect(ctx, node.ContainerID())
+			require.NoError(t, err)
+
+			portBindings := inspect.HostConfig.PortBindings
+			hostPort := ""
+
+			// find the host port mapped to 26657 on the container
+			for port, bindings := range portBindings {
+				if port == "26657/tcp" {
+					for _, binding := range bindings {
+						hostPort = binding.HostPort
+						break
+					}
+					break
+				}
+			}
+
+			rpc := fmt.Sprintf("http://127.0.0.1:%s", hostPort)
 			addrs = append(addrs, rpc)
 		}
 
+		// TODO: REMOVE ME
 		t.Log(addrs)
 
 		value := cfg.ProviderConfigs[chain.Config().ChainID].Value.(*cosmos.CosmosProviderConfig)
-		value.RPCAddr = addrs[0]
-		value.BackupRPCAddrs = addrs[1:]
+		value.RPCAddr = addrs[numVals-1]
+		value.BackupRPCAddrs = addrs[:numVals-1]
 
 		cfgOutput.ProviderConfigs[chain.Config().ChainID] = &cmd.ProviderConfigWrapper{
 			Type:  "cosmos",
@@ -193,6 +199,25 @@ func TestBackupRpcs(t *testing.T) {
 		Denom:   chainA.Config().Denom,
 		Amount:  transferAmount,
 	}
+
+	t.Log("========== BEFORE SHUT DOWN LAST VALIDATOR ==========")
+	t.Log("========== BEFORE SHUT DOWN LAST VALIDATOR ==========")
+	t.Log("========== BEFORE SHUT DOWN LAST VALIDATOR ==========")
+
+	// wait 10 blocks
+	require.NoError(t, testutil.WaitForBlocks(ctx, 10, chainA, chainB))
+
+	// turn off last node
+	val := chainA.(*interchaintestcosmos.CosmosChain).Validators[numVals-1]
+	err = val.PauseContainer(ctx)
+	require.NoError(t, err)
+
+	// wait 10 blocks
+	require.NoError(t, testutil.WaitForBlocks(ctx, 10, chainA, chainB))
+
+	t.Log("========== AFTER SHUT DOWN LAST VALIDATOR ==========")
+	t.Log("========== AFTER SHUT DOWN LAST VALIDATOR ==========")
+	t.Log("========== AFTER SHUT DOWN LAST VALIDATOR ==========")
 
 	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transferAB, ibc.TransferOptions{})
 	require.NoError(t, err)
