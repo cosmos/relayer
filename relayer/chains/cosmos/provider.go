@@ -371,13 +371,13 @@ func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout tim
 
 					// attempt to setup rpc client
 					if err = cc.setRpcClient(false, rpcAddr, timeout); err != nil {
-						cc.log.Debug("Failed to connect to RPC client", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
+						cc.log.Error("Failed to connect to RPC client", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
 						continue
 					}
 
 					// attempt to setup light client
 					if err = cc.setLightProvider(rpcAddr); err != nil {
-						cc.log.Debug("Failed to connect to light client provider", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
+						cc.log.Error("Failed to connect to light client provider", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
 						continue
 					}
 
