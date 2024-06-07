@@ -3,22 +3,21 @@ package interchaintest_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	"github.com/cosmos/relayer/v2/cmd"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8"
 	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
 	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	"github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
 	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"gopkg.in/yaml.v3"
 )
 
 // TestBackupRpcs tests the functionality of falling back to secondary RPCs when the primary node goes offline or becomes unresponsive.
@@ -115,14 +114,7 @@ func TestBackupRpcs(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, initBal.Equal(userBBal))
 
-	// Read relayer config from disk, configure memo limit, & write config back to disk.
-	relayer := r.(*relayertest.Relayer)
-
-	cfg := relayer.Sys().MustGetConfig(t)
-	cfgOutput := new(cmd.ConfigOutputWrapper)
-	cfgOutput.ProviderConfigs = cmd.ProviderConfigs{}
-	cfgOutput.Global = cfg.Global
-	cfgOutput.Paths = cfg.Paths
+	rly := r.(*rly.CosmosRelayer)
 
 	// Get all chains
 	for _, chain := range [](*interchaintestcosmos.CosmosChain){chainA.(*interchaintestcosmos.CosmosChain), chainB.(*interchaintestcosmos.CosmosChain)} {
@@ -131,47 +123,18 @@ func TestBackupRpcs(t *testing.T) {
 
 		// loop through nodes to collect rpc addrs
 		for _, node := range chain.Validators {
-
-			cl := node.DockerClient
-			inspect, _ := cl.ContainerInspect(ctx, node.ContainerID())
-			require.NoError(t, err)
-
-			portBindings := inspect.HostConfig.PortBindings
-			hostPort := ""
-
-			// find the host port mapped to 26657 on the container
-			for port, bindings := range portBindings {
-				if port == "26657/tcp" {
-					for _, binding := range bindings {
-						hostPort = binding.HostPort
-						break
-					}
-					break
-				}
-			}
-
-			rpc := fmt.Sprintf("http://127.0.0.1:%s", hostPort)
+			rpc := fmt.Sprintf("http://%s:26657", node.Name())
 			addrs = append(addrs, rpc)
 		}
 
-		// TODO: REMOVE ME
-		t.Log(addrs)
+		cmd := []string{"rly", "chains", "set-rpc-addr", chain.Config().Name, addrs[numVals-1], "--home", rly.HomeDir()}
+		res := r.Exec(ctx, eRep, cmd, nil)
+		require.NoError(t, res.Err)
 
-		value := cfg.ProviderConfigs[chain.Config().ChainID].Value.(*cosmos.CosmosProviderConfig)
-		value.RPCAddr = addrs[numVals-1]
-		value.BackupRPCAddrs = addrs[:numVals-1]
-
-		cfgOutput.ProviderConfigs[chain.Config().ChainID] = &cmd.ProviderConfigWrapper{
-			Type:  "cosmos",
-			Value: value,
-		}
+		cmd = []string{"rly", "chains", "set-backup-rpc-addrs", chain.Config().Name, strings.Join(addrs[:numVals-1], ","), "--home", rly.HomeDir()}
+		res = r.Exec(ctx, eRep, cmd, nil)
+		require.NoError(t, res.Err)
 	}
-
-	cfgBz, err := yaml.Marshal(cfgOutput)
-	require.NoError(t, err)
-
-	err = relayer.Sys().WriteConfig(t, cfgBz)
-	require.NoError(t, err)
 
 	err = r.StartRelayer(ctx, eRep, pathName)
 	require.NoError(t, err)
@@ -200,29 +163,27 @@ func TestBackupRpcs(t *testing.T) {
 		Amount:  transferAmount,
 	}
 
-	t.Log("========== BEFORE SHUT DOWN LAST VALIDATOR ==========")
-	t.Log("========== BEFORE SHUT DOWN LAST VALIDATOR ==========")
-	t.Log("========== BEFORE SHUT DOWN LAST VALIDATOR ==========")
-
 	// wait 10 blocks
 	require.NoError(t, testutil.WaitForBlocks(ctx, 10, chainA, chainB))
 
-	// turn off last node
+	// turn off last nodes on both chains
 	val := chainA.(*interchaintestcosmos.CosmosChain).Validators[numVals-1]
-	err = val.PauseContainer(ctx)
+	err = val.StopContainer(ctx)
+	require.NoError(t, err)
+
+	val = chainB.(*interchaintestcosmos.CosmosChain).Validators[numVals-1]
+	err = val.StopContainer(ctx)
 	require.NoError(t, err)
 
 	// wait 10 blocks
 	require.NoError(t, testutil.WaitForBlocks(ctx, 10, chainA, chainB))
 
-	t.Log("========== AFTER SHUT DOWN LAST VALIDATOR ==========")
-	t.Log("========== AFTER SHUT DOWN LAST VALIDATOR ==========")
-	t.Log("========== AFTER SHUT DOWN LAST VALIDATOR ==========")
-
+	// send ibc tx from chain a to b
 	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transferAB, ibc.TransferOptions{})
 	require.NoError(t, err)
 
-	require.NoError(t, testutil.WaitForBlocks(ctx, 5, chainA, chainB))
+	// wait 20 blocks so relayer can pick up the tx
+	require.NoError(t, testutil.WaitForBlocks(ctx, 20, chainA, chainB))
 
 	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
 	denom := transfertypes.GetPrefixedDenom(
@@ -232,6 +193,7 @@ func TestBackupRpcs(t *testing.T) {
 	)
 	trace := transfertypes.ParseDenomTrace(denom)
 
+	// validate user balances on both chains
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, userABal.Equal(initBal.Sub(transferAmount)))
