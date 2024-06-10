@@ -329,7 +329,6 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout time.Duration) {
 	// list of rpcs & index to keep track of active rpc
 	rpcs := append([]string{cc.PCfg.RPCAddr}, cc.PCfg.BackupRPCAddrs...)
-	index := 0
 
 	// exit routine if there is only one rpc client
 	if len(rpcs) <= 1 {
@@ -354,6 +353,7 @@ func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout tim
 			if err != nil {
 				cc.log.Error("RPC client disconnected", zap.String("chain", cc.ChainName()), zap.Error(err))
 
+				index := -1
 				attempts := 0
 
 				// attempt to connect to the backup RPC client
