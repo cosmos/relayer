@@ -286,7 +286,9 @@ func (cc *PenumbraProvider) startLivelinessChecks(ctx context.Context, timeout t
 
 	// exit routine if there is only one rpc client
 	if len(rpcs) <= 1 {
-		cc.log.Debug("No backup RPCs defined", zap.String("chain", cc.ChainName()))
+		if cc.log != nil {
+			cc.log.Debug("No backup RPCs defined", zap.String("chain", cc.ChainName()))
+		}
 		return
 	}
 
