@@ -83,11 +83,12 @@ $ %s ch set-backup-rpc-addr ibc-0 https://abc.xyz.com:443,https://123.456.com:44
 			chainName := args[0]
 			rpc_addresses := args[1]
 
-			// Split rpc_addresses by ','
+			// split rpc_addresses by ','
 			rpc_addresses_list := strings.Split(rpc_addresses, ",")
 
-			// Loop through and ensure valid
+			// loop through and ensure valid
 			for _, rpc_address := range rpc_addresses_list {
+				rpc_address := rpc_address
 				if !isValidURL(rpc_address) {
 					return invalidRpcAddr(rpc_address)
 				}
