@@ -209,6 +209,48 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context, forceAdd bool) (str
 	return endpoint, nil
 }
 
+// GetBackupRPCEndpoints returns a slice of strings to be used as fallback, backup RPC endpoints. forceAdd will
+// force the use of all available RPC endpoints, regardless of health.
+func (c ChainInfo) GetBackupRPCEndpoints(ctx context.Context, forceAdd bool, primaryRPC string, count uint64) ([]string, error) {
+	// if force add, get all rpcs, otherwise get only healthy ones
+	var rpcs []string
+	var err error
+	if forceAdd {
+		rpcs, err = c.GetAllRPCEndpoints()
+	} else {
+		rpcs, err = c.GetRPCEndpoints(ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// if no rpcs, return error
+	if len(rpcs) == 0 {
+		if !forceAdd {
+			return nil, fmt.Errorf("no working RPCs found, consider using --force-add")
+		} else {
+			return nil, nil
+		}
+	}
+
+	// Select first two endpoints
+	backupRpcs := []string{}
+	for _, endpoint := range rpcs {
+		if len(backupRpcs) < 2 && primaryRPC != endpoint {
+			backupRpcs = append(backupRpcs, endpoint)
+		} else {
+			break
+		}
+	}
+
+	// Log endpoints
+	c.log.Info("Backup Endpoints selected",
+		zap.String("chain_name", c.ChainName),
+		zap.Strings("endpoints", backupRpcs),
+	)
+	return backupRpcs, nil
+}
+
 // GetAssetList returns the asset metadata from the cosmos chain registry for this particular chain.
 func (c ChainInfo) GetAssetList(ctx context.Context, testnet bool, name string) (AssetList, error) {
 	var chainRegURL string
@@ -265,10 +307,17 @@ func (c ChainInfo) GetChainConfig(ctx context.Context, forceAdd, testnet bool, n
 		return nil, err
 	}
 
+	// select 2 healthy endpoints as backup
+	backupRpcs, err := c.GetBackupRPCEndpoints(ctx, forceAdd, rpc, 2)
+	if err != nil {
+		return nil, err
+	}
+
 	return &cosmos.CosmosProviderConfig{
 		Key:              "default",
 		ChainID:          c.ChainID,
 		RPCAddr:          rpc,
+		BackupRPCAddrs:   backupRpcs,
 		AccountPrefix:    c.Bech32Prefix,
 		KeyringBackend:   "test",
 		GasAdjustment:    1.2,
