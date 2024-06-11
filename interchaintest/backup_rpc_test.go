@@ -8,11 +8,12 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/strangelove-ventures/interchaintest/v8"
-	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	icrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
 	"github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
 	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
 	"github.com/strangelove-ventures/interchaintest/v8/testutil"
@@ -64,9 +65,9 @@ func TestBackupRpcs(t *testing.T) {
 	rf := interchaintest.NewBuiltinRelayerFactory(
 		ibc.CosmosRly,
 		zaptest.NewLogger(t),
-		interchaintestrelayer.CustomDockerImage(image, "latest", "100:1000"),
-		interchaintestrelayer.ImagePull(false),
-		interchaintestrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
+		icrelayer.CustomDockerImage(image, "latest", "100:1000"),
+		icrelayer.ImagePull(false),
+		icrelayer.StartupFlags("--processor", "events", "--block-history", "100"),
 	)
 
 	r := rf.Build(t, client, network)
@@ -117,7 +118,7 @@ func TestBackupRpcs(t *testing.T) {
 	rly := r.(*rly.CosmosRelayer)
 
 	// Get all chains
-	for _, chain := range [](*interchaintestcosmos.CosmosChain){chainA.(*interchaintestcosmos.CosmosChain), chainB.(*interchaintestcosmos.CosmosChain)} {
+	for _, chain := range [](*cosmos.CosmosChain){chainA.(*cosmos.CosmosChain), chainB.(*cosmos.CosmosChain)} {
 
 		addrs := []string{}
 
@@ -167,11 +168,11 @@ func TestBackupRpcs(t *testing.T) {
 	require.NoError(t, testutil.WaitForBlocks(ctx, 10, chainA, chainB))
 
 	// turn off last nodes on both chains
-	val := chainA.(*interchaintestcosmos.CosmosChain).Validators[numVals-1]
+	val := chainA.(*cosmos.CosmosChain).Validators[numVals-1]
 	err = val.StopContainer(ctx)
 	require.NoError(t, err)
 
-	val = chainB.(*interchaintestcosmos.CosmosChain).Validators[numVals-1]
+	val = chainB.(*cosmos.CosmosChain).Validators[numVals-1]
 	err = val.StopContainer(ctx)
 	require.NoError(t, err)
 
@@ -179,11 +180,25 @@ func TestBackupRpcs(t *testing.T) {
 	require.NoError(t, testutil.WaitForBlocks(ctx, 10, chainA, chainB))
 
 	// send ibc tx from chain a to b
-	_, err = chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transferAB, ibc.TransferOptions{})
+	tx, err := chainA.SendIBCTransfer(ctx, channel.ChannelID, userA.KeyName(), transferAB, ibc.TransferOptions{})
+	require.NoError(t, err)
+	require.NoError(t, tx.Validate())
+
+	// get chain b height
+	bHeight, err := chainB.Height(ctx)
 	require.NoError(t, err)
 
-	// wait 20 blocks so relayer can pick up the tx
-	require.NoError(t, testutil.WaitForBlocks(ctx, 20, chainA, chainB))
+	// Poll for MsgRecvPacket on b chain
+	_, err = cosmos.PollForMessage[*chantypes.MsgRecvPacket](ctx, chainB.(*cosmos.CosmosChain), cosmos.DefaultEncoding().InterfaceRegistry, bHeight, bHeight+20, nil)
+	require.NoError(t, err)
+
+	// get chain a height
+	aHeight, err := chainA.Height(ctx)
+	require.NoError(t, err)
+
+	// poll for acknowledge on 'a' chain
+	_, err = testutil.PollForAck(ctx, chainA.(*cosmos.CosmosChain), aHeight, aHeight+30, tx.Packet)
+	require.NoError(t, err)
 
 	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
 	denom := transfertypes.GetPrefixedDenom(
