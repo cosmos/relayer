@@ -24,7 +24,7 @@ var (
 		MinGasAmount:     1,
 		MaxGasAmount:     0,
 		Debug:            false,
-		Timeout:          "30s",
+		Timeout:          "3m",
 		BlockTimeout:     "30s",
 		OutputFormat:     "json",
 		SignModeStr:      "direct",

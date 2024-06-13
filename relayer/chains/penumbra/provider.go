@@ -60,6 +60,7 @@ type PenumbraProviderConfig struct {
 	Modules          []module.AppModuleBasic    `json:"-" yaml:"-"`
 	Slip44           int                        `json:"coin-type" yaml:"coin-type"`
 	Broadcast        provider.BroadcastMode     `json:"broadcast-mode" yaml:"broadcast-mode"`
+	MaxMsgNum        uint64                     `json:"max-msg-num" yaml:"max-msg-num"`
 	MinLoopDuration  time.Duration              `json:"min-loop-duration" yaml:"min-loop-duration"`
 	ExtensionOptions []provider.ExtensionOption `json:"extension-options" yaml:"extension-options"`
 }
@@ -73,6 +74,10 @@ func (pc PenumbraProviderConfig) Validate() error {
 
 func (pc PenumbraProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pc.Broadcast
+}
+
+func (pc PenumbraProviderConfig) BroadcastMaxMsgNum() uint64 {
+	return pc.MaxMsgNum
 }
 
 // NewProvider validates the PenumbraProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
