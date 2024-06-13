@@ -59,7 +59,7 @@ build-osmosis-docker:
 ###############################################################################
 
 test:
-	@go test -mod=readonly -race ./...
+	@go test -mod=readonly -timeout 3m -race ./...
 
 interchaintest:
 	cd interchaintest && go test -race -v -run TestRelayerInProcess .
