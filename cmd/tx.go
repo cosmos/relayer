@@ -1214,7 +1214,7 @@ func ensureKeysExist(chains map[string]*relayer.Chain) error {
 	return nil
 }
 
-// MsgRegisterCounterpartyPayee registers the counterparty_payee
+// registerCounterpartyCmd registers the counterparty_payee
 func registerCounterpartyCmd(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "register-counterparty chain_name channel_id port_id relay_addr counterparty_payee",
