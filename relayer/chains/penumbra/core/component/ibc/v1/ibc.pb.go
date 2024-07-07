@@ -167,9 +167,11 @@ type Ics20Withdrawal struct {
 	// The height on the counterparty chain at which this transfer expires, and
 	// funds are sent back to the return address.
 	TimeoutHeight *types1.Height `protobuf:"bytes,5,opt,name=timeout_height,json=timeoutHeight,proto3" json:"timeout_height,omitempty"`
-	// the timestamp at which this transfer expires.
+	// The timestamp, in epoch time, after which this transfer will be considered invalid.
+	// Clients must quantize this value to the nearest minute, to preserve privacy.
+	// IBC withdrawals that do not quantize timestamps will be rejected.
 	TimeoutTime uint64 `protobuf:"varint,6,opt,name=timeout_time,json=timeoutTime,proto3" json:"timeout_time,omitempty"`
-	// the source channel used for the withdrawal
+	// The source channel used for the withdrawal
 	SourceChannel string `protobuf:"bytes,7,opt,name=source_channel,json=sourceChannel,proto3" json:"source_channel,omitempty"`
 }
 
