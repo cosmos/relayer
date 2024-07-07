@@ -1755,7 +1755,6 @@ type Proposal struct {
 	// The proposal's payload.
 	//
 	// Types that are valid to be assigned to Payload:
-	//
 	//	*Proposal_Signaling_
 	//	*Proposal_Emergency_
 	//	*Proposal_ParameterChange_
