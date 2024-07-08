@@ -311,6 +311,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 	txBody := penumbratypes.TransactionBody{
 		Actions: make([]*penumbratypes.Action, 0),
 		TransactionParameters: &penumbratypes.TransactionParameters{
+			ChainId: cc.ChainId(),
 			Fee: &penumbrafee.Fee{
 				Amount: &penumbraasset.Amount{Lo: 0, Hi: 0},
 			},
@@ -436,7 +437,7 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
-// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
+// MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {

@@ -12,6 +12,8 @@ import (
 	v15 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/sct/v1"
 	v11 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/keys/v1"
 	v1 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/num/v1"
+	v17 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/txhash/v1"
+	v16 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/decaf377_fmd/v1"
 	v14 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/decaf377_rdsa/v1"
 	v13 "github.com/cosmos/relayer/v2/relayer/chains/penumbra/crypto/tct/v1"
 	grpc "google.golang.org/grpc"
@@ -35,7 +37,8 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Configuration data for the shielded pool component.
 type ShieldedPoolParameters struct {
-	FixedFmdParams *FmdParameters `protobuf:"bytes,1,opt,name=fixed_fmd_params,json=fixedFmdParams,proto3" json:"fixed_fmd_params,omitempty"`
+	FixedFmdParams *FmdParameters     `protobuf:"bytes,1,opt,name=fixed_fmd_params,json=fixedFmdParams,proto3" json:"fixed_fmd_params,omitempty"` // Deprecated: Do not use.
+	FmdMetaParams  *FmdMetaParameters `protobuf:"bytes,2,opt,name=fmd_meta_params,json=fmdMetaParams,proto3" json:"fmd_meta_params,omitempty"`
 }
 
 func (m *ShieldedPoolParameters) Reset()         { *m = ShieldedPoolParameters{} }
@@ -71,9 +74,17 @@ func (m *ShieldedPoolParameters) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ShieldedPoolParameters proto.InternalMessageInfo
 
+// Deprecated: Do not use.
 func (m *ShieldedPoolParameters) GetFixedFmdParams() *FmdParameters {
 	if m != nil {
 		return m.FixedFmdParams
+	}
+	return nil
+}
+
+func (m *ShieldedPoolParameters) GetFmdMetaParams() *FmdMetaParameters {
+	if m != nil {
+		return m.FmdMetaParams
 	}
 	return nil
 }
@@ -192,6 +203,341 @@ func (m *GenesisContent_Allocation) GetAddress() *v11.Address {
 	return nil
 }
 
+// The parameters which control how the FMD parameters evolve over time.
+type FmdMetaParameters struct {
+	// How much time users have to transition to new parameters.
+	FmdGracePeriodBlocks uint64 `protobuf:"varint,1,opt,name=fmd_grace_period_blocks,json=fmdGracePeriodBlocks,proto3" json:"fmd_grace_period_blocks,omitempty"`
+	// The algorithm governing how the parameters change.
+	//
+	// Types that are valid to be assigned to Algorithm:
+	//
+	//	*FmdMetaParameters_FixedPrecisionBits
+	//	*FmdMetaParameters_SlidingWindow
+	Algorithm isFmdMetaParameters_Algorithm `protobuf_oneof:"algorithm"`
+}
+
+func (m *FmdMetaParameters) Reset()         { *m = FmdMetaParameters{} }
+func (m *FmdMetaParameters) String() string { return proto.CompactTextString(m) }
+func (*FmdMetaParameters) ProtoMessage()    {}
+func (*FmdMetaParameters) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{2}
+}
+func (m *FmdMetaParameters) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FmdMetaParameters) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FmdMetaParameters.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FmdMetaParameters) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FmdMetaParameters.Merge(m, src)
+}
+func (m *FmdMetaParameters) XXX_Size() int {
+	return m.Size()
+}
+func (m *FmdMetaParameters) XXX_DiscardUnknown() {
+	xxx_messageInfo_FmdMetaParameters.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FmdMetaParameters proto.InternalMessageInfo
+
+type isFmdMetaParameters_Algorithm interface {
+	isFmdMetaParameters_Algorithm()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type FmdMetaParameters_FixedPrecisionBits struct {
+	FixedPrecisionBits uint32 `protobuf:"varint,2,opt,name=fixed_precision_bits,json=fixedPrecisionBits,proto3,oneof" json:"fixed_precision_bits,omitempty"`
+}
+type FmdMetaParameters_SlidingWindow struct {
+	SlidingWindow *FmdMetaParameters_AlgorithmSlidingWindow `protobuf:"bytes,3,opt,name=sliding_window,json=slidingWindow,proto3,oneof" json:"sliding_window,omitempty"`
+}
+
+func (*FmdMetaParameters_FixedPrecisionBits) isFmdMetaParameters_Algorithm() {}
+func (*FmdMetaParameters_SlidingWindow) isFmdMetaParameters_Algorithm()      {}
+
+func (m *FmdMetaParameters) GetAlgorithm() isFmdMetaParameters_Algorithm {
+	if m != nil {
+		return m.Algorithm
+	}
+	return nil
+}
+
+func (m *FmdMetaParameters) GetFmdGracePeriodBlocks() uint64 {
+	if m != nil {
+		return m.FmdGracePeriodBlocks
+	}
+	return 0
+}
+
+func (m *FmdMetaParameters) GetFixedPrecisionBits() uint32 {
+	if x, ok := m.GetAlgorithm().(*FmdMetaParameters_FixedPrecisionBits); ok {
+		return x.FixedPrecisionBits
+	}
+	return 0
+}
+
+func (m *FmdMetaParameters) GetSlidingWindow() *FmdMetaParameters_AlgorithmSlidingWindow {
+	if x, ok := m.GetAlgorithm().(*FmdMetaParameters_SlidingWindow); ok {
+		return x.SlidingWindow
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*FmdMetaParameters) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*FmdMetaParameters_FixedPrecisionBits)(nil),
+		(*FmdMetaParameters_SlidingWindow)(nil),
+	}
+}
+
+// A sliding window algorithm for updating the parameters.
+type FmdMetaParameters_AlgorithmSlidingWindow struct {
+	// The window size, in terms of the number of update periods.
+	//
+	// The update period is 16 blocks, by default, but can change with governance.
+	WindowUpdatePeriods uint32 `protobuf:"varint,1,opt,name=window_update_periods,json=windowUpdatePeriods,proto3" json:"window_update_periods,omitempty"`
+	// The number of detections we aim to see per window.
+	TargetedDetectionsPerWindow uint32 `protobuf:"varint,2,opt,name=targeted_detections_per_window,json=targetedDetectionsPerWindow,proto3" json:"targeted_detections_per_window,omitempty"`
+}
+
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) Reset() {
+	*m = FmdMetaParameters_AlgorithmSlidingWindow{}
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) String() string { return proto.CompactTextString(m) }
+func (*FmdMetaParameters_AlgorithmSlidingWindow) ProtoMessage()    {}
+func (*FmdMetaParameters_AlgorithmSlidingWindow) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{2, 0}
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FmdMetaParameters_AlgorithmSlidingWindow.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FmdMetaParameters_AlgorithmSlidingWindow.Merge(m, src)
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) XXX_Size() int {
+	return m.Size()
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) XXX_DiscardUnknown() {
+	xxx_messageInfo_FmdMetaParameters_AlgorithmSlidingWindow.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FmdMetaParameters_AlgorithmSlidingWindow proto.InternalMessageInfo
+
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) GetWindowUpdatePeriods() uint32 {
+	if m != nil {
+		return m.WindowUpdatePeriods
+	}
+	return 0
+}
+
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) GetTargetedDetectionsPerWindow() uint32 {
+	if m != nil {
+		return m.TargetedDetectionsPerWindow
+	}
+	return 0
+}
+
+// Used to potentially store state for the FMD Meta Parameters algorithm.
+type FmdMetaParametersAlgorithmState struct {
+	// Types that are valid to be assigned to State:
+	//
+	//	*FmdMetaParametersAlgorithmState_Fixed
+	//	*FmdMetaParametersAlgorithmState_SlidingWindow
+	State isFmdMetaParametersAlgorithmState_State `protobuf_oneof:"state"`
+}
+
+func (m *FmdMetaParametersAlgorithmState) Reset()         { *m = FmdMetaParametersAlgorithmState{} }
+func (m *FmdMetaParametersAlgorithmState) String() string { return proto.CompactTextString(m) }
+func (*FmdMetaParametersAlgorithmState) ProtoMessage()    {}
+func (*FmdMetaParametersAlgorithmState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{3}
+}
+func (m *FmdMetaParametersAlgorithmState) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FmdMetaParametersAlgorithmState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FmdMetaParametersAlgorithmState.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FmdMetaParametersAlgorithmState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FmdMetaParametersAlgorithmState.Merge(m, src)
+}
+func (m *FmdMetaParametersAlgorithmState) XXX_Size() int {
+	return m.Size()
+}
+func (m *FmdMetaParametersAlgorithmState) XXX_DiscardUnknown() {
+	xxx_messageInfo_FmdMetaParametersAlgorithmState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FmdMetaParametersAlgorithmState proto.InternalMessageInfo
+
+type isFmdMetaParametersAlgorithmState_State interface {
+	isFmdMetaParametersAlgorithmState_State()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type FmdMetaParametersAlgorithmState_Fixed struct {
+	Fixed *FmdMetaParametersAlgorithmState_FixedState `protobuf:"bytes,1,opt,name=fixed,proto3,oneof" json:"fixed,omitempty"`
+}
+type FmdMetaParametersAlgorithmState_SlidingWindow struct {
+	SlidingWindow *FmdMetaParametersAlgorithmState_SlidingWindowState `protobuf:"bytes,2,opt,name=sliding_window,json=slidingWindow,proto3,oneof" json:"sliding_window,omitempty"`
+}
+
+func (*FmdMetaParametersAlgorithmState_Fixed) isFmdMetaParametersAlgorithmState_State()         {}
+func (*FmdMetaParametersAlgorithmState_SlidingWindow) isFmdMetaParametersAlgorithmState_State() {}
+
+func (m *FmdMetaParametersAlgorithmState) GetState() isFmdMetaParametersAlgorithmState_State {
+	if m != nil {
+		return m.State
+	}
+	return nil
+}
+
+func (m *FmdMetaParametersAlgorithmState) GetFixed() *FmdMetaParametersAlgorithmState_FixedState {
+	if x, ok := m.GetState().(*FmdMetaParametersAlgorithmState_Fixed); ok {
+		return x.Fixed
+	}
+	return nil
+}
+
+func (m *FmdMetaParametersAlgorithmState) GetSlidingWindow() *FmdMetaParametersAlgorithmState_SlidingWindowState {
+	if x, ok := m.GetState().(*FmdMetaParametersAlgorithmState_SlidingWindow); ok {
+		return x.SlidingWindow
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*FmdMetaParametersAlgorithmState) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*FmdMetaParametersAlgorithmState_Fixed)(nil),
+		(*FmdMetaParametersAlgorithmState_SlidingWindow)(nil),
+	}
+}
+
+// The state used for the fixed algorithm.
+type FmdMetaParametersAlgorithmState_FixedState struct {
+}
+
+func (m *FmdMetaParametersAlgorithmState_FixedState) Reset() {
+	*m = FmdMetaParametersAlgorithmState_FixedState{}
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) String() string {
+	return proto.CompactTextString(m)
+}
+func (*FmdMetaParametersAlgorithmState_FixedState) ProtoMessage() {}
+func (*FmdMetaParametersAlgorithmState_FixedState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{3, 0}
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FmdMetaParametersAlgorithmState_FixedState.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FmdMetaParametersAlgorithmState_FixedState.Merge(m, src)
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) XXX_Size() int {
+	return m.Size()
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) XXX_DiscardUnknown() {
+	xxx_messageInfo_FmdMetaParametersAlgorithmState_FixedState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FmdMetaParametersAlgorithmState_FixedState proto.InternalMessageInfo
+
+// The state used for the sliding window algorithm.
+type FmdMetaParametersAlgorithmState_SlidingWindowState struct {
+	// The number of clues previously observed, approximately.
+	ApproximateClueCount uint32 `protobuf:"varint,1,opt,name=approximate_clue_count,json=approximateClueCount,proto3" json:"approximate_clue_count,omitempty"`
+}
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) Reset() {
+	*m = FmdMetaParametersAlgorithmState_SlidingWindowState{}
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) String() string {
+	return proto.CompactTextString(m)
+}
+func (*FmdMetaParametersAlgorithmState_SlidingWindowState) ProtoMessage() {}
+func (*FmdMetaParametersAlgorithmState_SlidingWindowState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{3, 1}
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FmdMetaParametersAlgorithmState_SlidingWindowState.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FmdMetaParametersAlgorithmState_SlidingWindowState.Merge(m, src)
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) XXX_Size() int {
+	return m.Size()
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) XXX_DiscardUnknown() {
+	xxx_messageInfo_FmdMetaParametersAlgorithmState_SlidingWindowState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FmdMetaParametersAlgorithmState_SlidingWindowState proto.InternalMessageInfo
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) GetApproximateClueCount() uint32 {
+	if m != nil {
+		return m.ApproximateClueCount
+	}
+	return 0
+}
+
 // Parameters for Fuzzy Message Detection
 type FmdParameters struct {
 	PrecisionBits   uint32 `protobuf:"varint,1,opt,name=precision_bits,json=precisionBits,proto3" json:"precision_bits,omitempty"`
@@ -202,7 +548,7 @@ func (m *FmdParameters) Reset()         { *m = FmdParameters{} }
 func (m *FmdParameters) String() string { return proto.CompactTextString(m) }
 func (*FmdParameters) ProtoMessage()    {}
 func (*FmdParameters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{2}
+	return fileDescriptor_26a9f446de1cd73c, []int{4}
 }
 func (m *FmdParameters) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -255,7 +601,7 @@ func (m *Note) Reset()         { *m = Note{} }
 func (m *Note) String() string { return proto.CompactTextString(m) }
 func (*Note) ProtoMessage()    {}
 func (*Note) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{3}
+	return fileDescriptor_26a9f446de1cd73c, []int{5}
 }
 func (m *Note) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -315,7 +661,7 @@ func (m *NoteView) Reset()         { *m = NoteView{} }
 func (m *NoteView) String() string { return proto.CompactTextString(m) }
 func (*NoteView) ProtoMessage()    {}
 func (*NoteView) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{4}
+	return fileDescriptor_26a9f446de1cd73c, []int{6}
 }
 func (m *NoteView) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -375,7 +721,7 @@ func (m *NoteCiphertext) Reset()         { *m = NoteCiphertext{} }
 func (m *NoteCiphertext) String() string { return proto.CompactTextString(m) }
 func (*NoteCiphertext) ProtoMessage()    {}
 func (*NoteCiphertext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{5}
+	return fileDescriptor_26a9f446de1cd73c, []int{7}
 }
 func (m *NoteCiphertext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -427,7 +773,7 @@ func (m *NotePayload) Reset()         { *m = NotePayload{} }
 func (m *NotePayload) String() string { return proto.CompactTextString(m) }
 func (*NotePayload) ProtoMessage()    {}
 func (*NotePayload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{6}
+	return fileDescriptor_26a9f446de1cd73c, []int{8}
 }
 func (m *NotePayload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -486,7 +832,7 @@ func (m *ZKOutputProof) Reset()         { *m = ZKOutputProof{} }
 func (m *ZKOutputProof) String() string { return proto.CompactTextString(m) }
 func (*ZKOutputProof) ProtoMessage()    {}
 func (*ZKOutputProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{7}
+	return fileDescriptor_26a9f446de1cd73c, []int{9}
 }
 func (m *ZKOutputProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -531,7 +877,7 @@ func (m *ZKSpendProof) Reset()         { *m = ZKSpendProof{} }
 func (m *ZKSpendProof) String() string { return proto.CompactTextString(m) }
 func (*ZKSpendProof) ProtoMessage()    {}
 func (*ZKSpendProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{8}
+	return fileDescriptor_26a9f446de1cd73c, []int{10}
 }
 func (m *ZKSpendProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -576,7 +922,7 @@ func (m *ZKNullifierDerivationProof) Reset()         { *m = ZKNullifierDerivatio
 func (m *ZKNullifierDerivationProof) String() string { return proto.CompactTextString(m) }
 func (*ZKNullifierDerivationProof) ProtoMessage()    {}
 func (*ZKNullifierDerivationProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{9}
+	return fileDescriptor_26a9f446de1cd73c, []int{11}
 }
 func (m *ZKNullifierDerivationProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -626,7 +972,7 @@ func (m *Spend) Reset()         { *m = Spend{} }
 func (m *Spend) String() string { return proto.CompactTextString(m) }
 func (*Spend) ProtoMessage()    {}
 func (*Spend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{10}
+	return fileDescriptor_26a9f446de1cd73c, []int{12}
 }
 func (m *Spend) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -685,7 +1031,7 @@ func (m *EventSpend) Reset()         { *m = EventSpend{} }
 func (m *EventSpend) String() string { return proto.CompactTextString(m) }
 func (*EventSpend) ProtoMessage()    {}
 func (*EventSpend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{11}
+	return fileDescriptor_26a9f446de1cd73c, []int{13}
 }
 func (m *EventSpend) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -730,7 +1076,7 @@ func (m *EventOutput) Reset()         { *m = EventOutput{} }
 func (m *EventOutput) String() string { return proto.CompactTextString(m) }
 func (*EventOutput) ProtoMessage()    {}
 func (*EventOutput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{12}
+	return fileDescriptor_26a9f446de1cd73c, []int{14}
 }
 func (m *EventOutput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -766,6 +1112,59 @@ func (m *EventOutput) GetNoteCommitment() *v13.StateCommitment {
 	return nil
 }
 
+// ABCI Event recording a clue.
+type EventBroadcastClue struct {
+	Clue *v16.Clue          `protobuf:"bytes,1,opt,name=clue,proto3" json:"clue,omitempty"`
+	Tx   *v17.TransactionId `protobuf:"bytes,2,opt,name=tx,proto3" json:"tx,omitempty"`
+}
+
+func (m *EventBroadcastClue) Reset()         { *m = EventBroadcastClue{} }
+func (m *EventBroadcastClue) String() string { return proto.CompactTextString(m) }
+func (*EventBroadcastClue) ProtoMessage()    {}
+func (*EventBroadcastClue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{15}
+}
+func (m *EventBroadcastClue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventBroadcastClue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventBroadcastClue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventBroadcastClue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventBroadcastClue.Merge(m, src)
+}
+func (m *EventBroadcastClue) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventBroadcastClue) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventBroadcastClue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventBroadcastClue proto.InternalMessageInfo
+
+func (m *EventBroadcastClue) GetClue() *v16.Clue {
+	if m != nil {
+		return m.Clue
+	}
+	return nil
+}
+
+func (m *EventBroadcastClue) GetTx() *v17.TransactionId {
+	if m != nil {
+		return m.Tx
+	}
+	return nil
+}
+
 // The body of a spend description, containing only the effecting data
 // describing changes to the ledger, and not the authorizing data that allows
 // those changes to be performed.
@@ -782,7 +1181,7 @@ func (m *SpendBody) Reset()         { *m = SpendBody{} }
 func (m *SpendBody) String() string { return proto.CompactTextString(m) }
 func (*SpendBody) ProtoMessage()    {}
 func (*SpendBody) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{13}
+	return fileDescriptor_26a9f446de1cd73c, []int{16}
 }
 func (m *SpendBody) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -844,7 +1243,7 @@ func (m *SpendView) Reset()         { *m = SpendView{} }
 func (m *SpendView) String() string { return proto.CompactTextString(m) }
 func (*SpendView) ProtoMessage()    {}
 func (*SpendView) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{14}
+	return fileDescriptor_26a9f446de1cd73c, []int{17}
 }
 func (m *SpendView) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -927,7 +1326,7 @@ func (m *SpendView_Visible) Reset()         { *m = SpendView_Visible{} }
 func (m *SpendView_Visible) String() string { return proto.CompactTextString(m) }
 func (*SpendView_Visible) ProtoMessage()    {}
 func (*SpendView_Visible) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{14, 0}
+	return fileDescriptor_26a9f446de1cd73c, []int{17, 0}
 }
 func (m *SpendView_Visible) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -978,7 +1377,7 @@ func (m *SpendView_Opaque) Reset()         { *m = SpendView_Opaque{} }
 func (m *SpendView_Opaque) String() string { return proto.CompactTextString(m) }
 func (*SpendView_Opaque) ProtoMessage()    {}
 func (*SpendView_Opaque) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{14, 1}
+	return fileDescriptor_26a9f446de1cd73c, []int{17, 1}
 }
 func (m *SpendView_Opaque) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1033,7 +1432,7 @@ func (m *SpendPlan) Reset()         { *m = SpendPlan{} }
 func (m *SpendPlan) String() string { return proto.CompactTextString(m) }
 func (*SpendPlan) ProtoMessage()    {}
 func (*SpendPlan) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{15}
+	return fileDescriptor_26a9f446de1cd73c, []int{18}
 }
 func (m *SpendPlan) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1116,7 +1515,7 @@ func (m *Output) Reset()         { *m = Output{} }
 func (m *Output) String() string { return proto.CompactTextString(m) }
 func (*Output) ProtoMessage()    {}
 func (*Output) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{16}
+	return fileDescriptor_26a9f446de1cd73c, []int{19}
 }
 func (m *Output) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1170,7 +1569,7 @@ type OutputBody struct {
 	// An encrypted key for decrypting the memo.
 	WrappedMemoKey []byte `protobuf:"bytes,3,opt,name=wrapped_memo_key,json=wrappedMemoKey,proto3" json:"wrapped_memo_key,omitempty"`
 	// The key material used for note encryption, wrapped in encryption to the
-	// sender's outgoing viewing key. 80 bytes.
+	// sender's outgoing viewing key. 48 bytes.
 	OvkWrappedKey []byte `protobuf:"bytes,4,opt,name=ovk_wrapped_key,json=ovkWrappedKey,proto3" json:"ovk_wrapped_key,omitempty"`
 }
 
@@ -1178,7 +1577,7 @@ func (m *OutputBody) Reset()         { *m = OutputBody{} }
 func (m *OutputBody) String() string { return proto.CompactTextString(m) }
 func (*OutputBody) ProtoMessage()    {}
 func (*OutputBody) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{17}
+	return fileDescriptor_26a9f446de1cd73c, []int{20}
 }
 func (m *OutputBody) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1247,7 +1646,7 @@ func (m *OutputView) Reset()         { *m = OutputView{} }
 func (m *OutputView) String() string { return proto.CompactTextString(m) }
 func (*OutputView) ProtoMessage()    {}
 func (*OutputView) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{18}
+	return fileDescriptor_26a9f446de1cd73c, []int{21}
 }
 func (m *OutputView) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1331,7 +1730,7 @@ func (m *OutputView_Visible) Reset()         { *m = OutputView_Visible{} }
 func (m *OutputView_Visible) String() string { return proto.CompactTextString(m) }
 func (*OutputView_Visible) ProtoMessage()    {}
 func (*OutputView_Visible) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{18, 0}
+	return fileDescriptor_26a9f446de1cd73c, []int{21, 0}
 }
 func (m *OutputView_Visible) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1389,7 +1788,7 @@ func (m *OutputView_Opaque) Reset()         { *m = OutputView_Opaque{} }
 func (m *OutputView_Opaque) String() string { return proto.CompactTextString(m) }
 func (*OutputView_Opaque) ProtoMessage()    {}
 func (*OutputView_Opaque) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{18, 1}
+	return fileDescriptor_26a9f446de1cd73c, []int{21, 1}
 }
 func (m *OutputView_Opaque) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1444,7 +1843,7 @@ func (m *OutputPlan) Reset()         { *m = OutputPlan{} }
 func (m *OutputPlan) String() string { return proto.CompactTextString(m) }
 func (*OutputPlan) ProtoMessage()    {}
 func (*OutputPlan) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{19}
+	return fileDescriptor_26a9f446de1cd73c, []int{22}
 }
 func (m *OutputPlan) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1525,7 +1924,7 @@ func (m *AssetMetadataByIdRequest) Reset()         { *m = AssetMetadataByIdReque
 func (m *AssetMetadataByIdRequest) String() string { return proto.CompactTextString(m) }
 func (*AssetMetadataByIdRequest) ProtoMessage()    {}
 func (*AssetMetadataByIdRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{20}
+	return fileDescriptor_26a9f446de1cd73c, []int{23}
 }
 func (m *AssetMetadataByIdRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1572,7 +1971,7 @@ func (m *AssetMetadataByIdResponse) Reset()         { *m = AssetMetadataByIdResp
 func (m *AssetMetadataByIdResponse) String() string { return proto.CompactTextString(m) }
 func (*AssetMetadataByIdResponse) ProtoMessage()    {}
 func (*AssetMetadataByIdResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_26a9f446de1cd73c, []int{21}
+	return fileDescriptor_26a9f446de1cd73c, []int{24}
 }
 func (m *AssetMetadataByIdResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1608,10 +2007,107 @@ func (m *AssetMetadataByIdResponse) GetDenomMetadata() *v12.Metadata {
 	return nil
 }
 
+// Requests information on an asset by multiple asset ids
+type AssetMetadataByIdsRequest struct {
+	// The asset IDs to request information on. Note that node is neither required
+	// nor expected to stream responses in the same order as this array.
+	AssetId []*v12.AssetId `protobuf:"bytes,1,rep,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
+}
+
+func (m *AssetMetadataByIdsRequest) Reset()         { *m = AssetMetadataByIdsRequest{} }
+func (m *AssetMetadataByIdsRequest) String() string { return proto.CompactTextString(m) }
+func (*AssetMetadataByIdsRequest) ProtoMessage()    {}
+func (*AssetMetadataByIdsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{25}
+}
+func (m *AssetMetadataByIdsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AssetMetadataByIdsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AssetMetadataByIdsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AssetMetadataByIdsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AssetMetadataByIdsRequest.Merge(m, src)
+}
+func (m *AssetMetadataByIdsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *AssetMetadataByIdsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AssetMetadataByIdsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AssetMetadataByIdsRequest proto.InternalMessageInfo
+
+func (m *AssetMetadataByIdsRequest) GetAssetId() []*v12.AssetId {
+	if m != nil {
+		return m.AssetId
+	}
+	return nil
+}
+
+type AssetMetadataByIdsResponse struct {
+	// A single asset metadata streamed from the node.
+	DenomMetadata *v12.Metadata `protobuf:"bytes,1,opt,name=denom_metadata,json=denomMetadata,proto3" json:"denom_metadata,omitempty"`
+}
+
+func (m *AssetMetadataByIdsResponse) Reset()         { *m = AssetMetadataByIdsResponse{} }
+func (m *AssetMetadataByIdsResponse) String() string { return proto.CompactTextString(m) }
+func (*AssetMetadataByIdsResponse) ProtoMessage()    {}
+func (*AssetMetadataByIdsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_26a9f446de1cd73c, []int{26}
+}
+func (m *AssetMetadataByIdsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AssetMetadataByIdsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AssetMetadataByIdsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *AssetMetadataByIdsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AssetMetadataByIdsResponse.Merge(m, src)
+}
+func (m *AssetMetadataByIdsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *AssetMetadataByIdsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_AssetMetadataByIdsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AssetMetadataByIdsResponse proto.InternalMessageInfo
+
+func (m *AssetMetadataByIdsResponse) GetDenomMetadata() *v12.Metadata {
+	if m != nil {
+		return m.DenomMetadata
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*ShieldedPoolParameters)(nil), "penumbra.core.component.shielded_pool.v1.ShieldedPoolParameters")
 	proto.RegisterType((*GenesisContent)(nil), "penumbra.core.component.shielded_pool.v1.GenesisContent")
 	proto.RegisterType((*GenesisContent_Allocation)(nil), "penumbra.core.component.shielded_pool.v1.GenesisContent.Allocation")
+	proto.RegisterType((*FmdMetaParameters)(nil), "penumbra.core.component.shielded_pool.v1.FmdMetaParameters")
+	proto.RegisterType((*FmdMetaParameters_AlgorithmSlidingWindow)(nil), "penumbra.core.component.shielded_pool.v1.FmdMetaParameters.AlgorithmSlidingWindow")
+	proto.RegisterType((*FmdMetaParametersAlgorithmState)(nil), "penumbra.core.component.shielded_pool.v1.FmdMetaParametersAlgorithmState")
+	proto.RegisterType((*FmdMetaParametersAlgorithmState_FixedState)(nil), "penumbra.core.component.shielded_pool.v1.FmdMetaParametersAlgorithmState.FixedState")
+	proto.RegisterType((*FmdMetaParametersAlgorithmState_SlidingWindowState)(nil), "penumbra.core.component.shielded_pool.v1.FmdMetaParametersAlgorithmState.SlidingWindowState")
 	proto.RegisterType((*FmdParameters)(nil), "penumbra.core.component.shielded_pool.v1.FmdParameters")
 	proto.RegisterType((*Note)(nil), "penumbra.core.component.shielded_pool.v1.Note")
 	proto.RegisterType((*NoteView)(nil), "penumbra.core.component.shielded_pool.v1.NoteView")
@@ -1623,6 +2119,7 @@ func init() {
 	proto.RegisterType((*Spend)(nil), "penumbra.core.component.shielded_pool.v1.Spend")
 	proto.RegisterType((*EventSpend)(nil), "penumbra.core.component.shielded_pool.v1.EventSpend")
 	proto.RegisterType((*EventOutput)(nil), "penumbra.core.component.shielded_pool.v1.EventOutput")
+	proto.RegisterType((*EventBroadcastClue)(nil), "penumbra.core.component.shielded_pool.v1.EventBroadcastClue")
 	proto.RegisterType((*SpendBody)(nil), "penumbra.core.component.shielded_pool.v1.SpendBody")
 	proto.RegisterType((*SpendView)(nil), "penumbra.core.component.shielded_pool.v1.SpendView")
 	proto.RegisterType((*SpendView_Visible)(nil), "penumbra.core.component.shielded_pool.v1.SpendView.Visible")
@@ -1636,6 +2133,8 @@ func init() {
 	proto.RegisterType((*OutputPlan)(nil), "penumbra.core.component.shielded_pool.v1.OutputPlan")
 	proto.RegisterType((*AssetMetadataByIdRequest)(nil), "penumbra.core.component.shielded_pool.v1.AssetMetadataByIdRequest")
 	proto.RegisterType((*AssetMetadataByIdResponse)(nil), "penumbra.core.component.shielded_pool.v1.AssetMetadataByIdResponse")
+	proto.RegisterType((*AssetMetadataByIdsRequest)(nil), "penumbra.core.component.shielded_pool.v1.AssetMetadataByIdsRequest")
+	proto.RegisterType((*AssetMetadataByIdsResponse)(nil), "penumbra.core.component.shielded_pool.v1.AssetMetadataByIdsResponse")
 }
 
 func init() {
@@ -1643,105 +2142,131 @@ func init() {
 }
 
 var fileDescriptor_26a9f446de1cd73c = []byte{
-	// 1564 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x58, 0xcd, 0x6f, 0xdb, 0xc8,
-	0x15, 0x37, 0xe5, 0xcf, 0x3c, 0x7d, 0x24, 0x19, 0x04, 0x85, 0x2b, 0xb4, 0xaa, 0xcb, 0x36, 0x89,
-	0x83, 0x14, 0x52, 0x65, 0xbb, 0x75, 0xa0, 0xe4, 0x50, 0x4b, 0x4d, 0xec, 0xc0, 0x4d, 0xac, 0xd2,
-	0x8d, 0x12, 0x18, 0x06, 0x88, 0x91, 0x38, 0xb2, 0x08, 0x93, 0x1c, 0x86, 0x33, 0x52, 0xa2, 0xf6,
-	0x12, 0xf4, 0xd0, 0x4b, 0x2f, 0x45, 0x80, 0xa2, 0x3d, 0xec, 0x65, 0xf7, 0xb8, 0xc0, 0xde, 0xf6,
-	0x8f, 0x58, 0xec, 0x29, 0xc7, 0xbd, 0xed, 0xc2, 0xc1, 0x5e, 0xf6, 0xb2, 0xb7, 0x3d, 0x2f, 0x66,
-	0x38, 0xa4, 0x44, 0xd9, 0x32, 0x24, 0xc7, 0xc0, 0x5e, 0x12, 0xf2, 0xf1, 0xf7, 0x7e, 0xef, 0x63,
-	0xde, 0xfc, 0x66, 0x2c, 0x78, 0xe0, 0x13, 0xaf, 0xeb, 0x36, 0x03, 0x5c, 0x6a, 0xd1, 0x80, 0x94,
-	0x5a, 0xd4, 0xf5, 0xa9, 0x47, 0x3c, 0x5e, 0x62, 0x1d, 0x9b, 0x38, 0x16, 0xb1, 0x4c, 0x9f, 0x52,
-	0xa7, 0xd4, 0x2b, 0x27, 0x0d, 0x45, 0x3f, 0xa0, 0x9c, 0xa2, 0xd5, 0xc8, 0xbb, 0x28, 0xbc, 0x8b,
-	0xb1, 0x77, 0x31, 0x09, 0xee, 0x95, 0xf3, 0x7a, 0x32, 0x0e, 0x66, 0x8c, 0x70, 0xc1, 0x2a, 0x1f,
-	0x42, 0xb6, 0xfc, 0xea, 0xd8, 0x5c, 0x5a, 0x12, 0xcb, 0x5a, 0x11, 0x72, 0x25, 0x89, 0x3c, 0x26,
-	0x7d, 0x26, 0x00, 0xe2, 0x7f, 0x85, 0x28, 0x24, 0x11, 0x5e, 0xd7, 0x15, 0x00, 0xaf, 0xeb, 0xaa,
-	0xef, 0x1b, 0x83, 0xef, 0x41, 0xdf, 0xe7, 0xb4, 0x64, 0x91, 0x16, 0x6e, 0xaf, 0x6f, 0x6e, 0x9a,
-	0x81, 0xc5, 0xb0, 0xc0, 0x26, 0x0c, 0xa7, 0xe3, 0x86, 0x5e, 0x3c, 0xcc, 0x8c, 0x47, 0x99, 0xe9,
-	0xff, 0x80, 0x9f, 0xed, 0xab, 0xda, 0xeb, 0x94, 0x3a, 0x75, 0x1c, 0x60, 0x97, 0x70, 0x12, 0x30,
-	0x84, 0xe1, 0x5a, 0xdb, 0x7e, 0x4d, 0x2c, 0xb3, 0xed, 0x5a, 0xa6, 0x2f, 0xec, 0x6c, 0x59, 0x5b,
-	0xd1, 0x56, 0xd3, 0x6b, 0x9b, 0xc5, 0x49, 0xdb, 0x58, 0x7c, 0xe4, 0x5a, 0x03, 0x4a, 0x23, 0x27,
-	0x09, 0x23, 0x1b, 0xd3, 0xdf, 0xcc, 0x42, 0x6e, 0x9b, 0x78, 0x84, 0xd9, 0xac, 0x46, 0x3d, 0x4e,
-	0x3c, 0x8e, 0x02, 0xb8, 0x91, 0x20, 0x49, 0x46, 0xfe, 0xd3, 0xe4, 0x91, 0xcf, 0xae, 0xca, 0x40,
-	0x6c, 0xd4, 0xce, 0x10, 0x81, 0x34, 0x76, 0x1c, 0xda, 0xc2, 0xdc, 0xa6, 0x1e, 0x5b, 0x9e, 0x5d,
-	0x99, 0x5d, 0x4d, 0xaf, 0xd5, 0x26, 0x0f, 0x95, 0x2c, 0xa1, 0xb8, 0x15, 0x73, 0x19, 0xc3, 0xbc,
-	0xf9, 0xb7, 0x1a, 0xc0, 0xe0, 0x1b, 0xda, 0x80, 0x05, 0xec, 0xd2, 0xae, 0xc7, 0x55, 0x6d, 0xbf,
-	0x18, 0x09, 0x28, 0xd6, 0xbe, 0x57, 0x2e, 0x6e, 0x49, 0x8c, 0xa1, 0xb0, 0xe8, 0x06, 0xcc, 0x5b,
-	0xc4, 0xa3, 0xee, 0x72, 0x6a, 0x45, 0x5b, 0xbd, 0x62, 0x84, 0x2f, 0xe8, 0x1e, 0x2c, 0x62, 0xcb,
-	0x0a, 0x08, 0x13, 0xd9, 0x0b, 0xb2, 0xc2, 0x08, 0x99, 0x9c, 0x34, 0xc1, 0x16, 0xa2, 0x8c, 0x08,
-	0xae, 0xb7, 0x20, 0x9b, 0x58, 0x23, 0x74, 0x13, 0x72, 0x7e, 0x40, 0x5a, 0x36, 0xb3, 0xa9, 0x67,
-	0x36, 0x6d, 0x1e, 0xb6, 0x3e, 0x6b, 0x64, 0x63, 0x6b, 0xd5, 0xe6, 0x0c, 0xdd, 0x05, 0x84, 0x99,
-	0x49, 0xdb, 0x66, 0xd3, 0xa1, 0xad, 0x63, 0xb3, 0x43, 0xec, 0xa3, 0x0e, 0x97, 0x49, 0xcd, 0x19,
-	0x57, 0x31, 0xdb, 0x6b, 0x57, 0x85, 0x7d, 0x47, 0x9a, 0xf5, 0x7f, 0x6b, 0x30, 0xf7, 0x94, 0x72,
-	0x82, 0xd6, 0x61, 0xbe, 0x87, 0x9d, 0x2e, 0x51, 0x25, 0xff, 0x72, 0x24, 0xcb, 0x70, 0x73, 0xf5,
-	0xca, 0xc5, 0x86, 0x00, 0x19, 0x21, 0x56, 0x94, 0x1c, 0x30, 0x42, 0x2c, 0xc9, 0x9e, 0x31, 0xc2,
-	0x97, 0x0f, 0x28, 0xf9, 0x7f, 0x1a, 0x2c, 0x89, 0x6c, 0x1a, 0x36, 0x79, 0x85, 0x36, 0x93, 0x19,
-	0xfd, 0xfa, 0xdc, 0x8c, 0x84, 0xc7, 0xf9, 0x59, 0x3d, 0x18, 0xcd, 0x4a, 0x3f, 0x3f, 0x2b, 0xc9,
-	0x18, 0x67, 0x76, 0x0b, 0x72, 0x22, 0xb1, 0x9a, 0xed, 0x77, 0x48, 0xc0, 0xc9, 0x6b, 0xb9, 0xdc,
-	0xb6, 0xe7, 0x91, 0x40, 0xa6, 0x97, 0x31, 0xc2, 0x17, 0xfd, 0x5b, 0x0d, 0xd2, 0x02, 0x58, 0xc7,
-	0x7d, 0x87, 0x62, 0x0b, 0xd5, 0xe1, 0xaa, 0x47, 0x39, 0x31, 0x5b, 0xd4, 0x75, 0x6d, 0xee, 0x92,
-	0x78, 0xa6, 0x6e, 0x0f, 0x45, 0x97, 0x02, 0x50, 0x14, 0x3b, 0x5f, 0xec, 0x0e, 0x8e, 0x39, 0xa9,
-	0xc5, 0x70, 0x23, 0x27, 0xfc, 0x07, 0xef, 0xe8, 0x37, 0x90, 0x25, 0x7e, 0x87, 0xb8, 0x24, 0xc0,
-	0x8e, 0x79, 0x4c, 0xfa, 0xaa, 0xca, 0x4c, 0x6c, 0xdc, 0x25, 0x7d, 0x64, 0x42, 0x8e, 0x78, 0x92,
-	0x97, 0x58, 0xa6, 0x20, 0x50, 0x35, 0xdf, 0x9b, 0x7c, 0xeb, 0x24, 0xcb, 0x35, 0xb2, 0x31, 0x9f,
-	0xf8, 0xa0, 0xdf, 0x84, 0xec, 0xc1, 0xee, 0x5e, 0x97, 0xfb, 0x5d, 0x5e, 0x0f, 0x28, 0x6d, 0x8f,
-	0x69, 0xc7, 0x6f, 0x21, 0x73, 0xb0, 0xbb, 0xef, 0x13, 0xcf, 0x3a, 0x0f, 0xb5, 0x06, 0xf9, 0x83,
-	0xdd, 0xa7, 0x5d, 0xc7, 0xb1, 0xdb, 0x36, 0x09, 0xfe, 0x4c, 0x02, 0xbb, 0x27, 0x37, 0xe2, 0x79,
-	0x3e, 0xdf, 0x6b, 0x30, 0x2f, 0x89, 0xd1, 0x36, 0xcc, 0x35, 0xa9, 0xd5, 0x57, 0x7d, 0x5d, 0x9f,
-	0x42, 0x87, 0x84, 0x7b, 0x95, 0x5a, 0x7d, 0x43, 0x12, 0xa0, 0x3d, 0x58, 0xc2, 0x5d, 0xde, 0x31,
-	0x99, 0x7d, 0x24, 0x9b, 0x9a, 0x5e, 0xdb, 0x38, 0xb5, 0x48, 0x49, 0x29, 0x8f, 0x48, 0xb6, 0xba,
-	0xbc, 0xb3, 0x6f, 0x1f, 0x79, 0x98, 0x77, 0x03, 0x62, 0x2c, 0xe2, 0xf0, 0x15, 0xfd, 0x05, 0xe6,
-	0x7d, 0x51, 0x82, 0x6a, 0xfe, 0x1f, 0x27, 0x4f, 0x6d, 0xb8, 0x69, 0x46, 0x48, 0xa2, 0x3f, 0x03,
-	0x78, 0xd8, 0x23, 0x1e, 0x8f, 0xaa, 0xbe, 0xe2, 0x45, 0x1d, 0x53, 0xa5, 0xdf, 0x19, 0xcf, 0x1f,
-	0x8e, 0x56, 0xdc, 0x62, 0x63, 0xe0, 0xab, 0x9b, 0x90, 0x96, 0xb4, 0xe1, 0x62, 0x5e, 0xfe, 0xc0,
-	0xea, 0x3f, 0x68, 0x70, 0x25, 0x6e, 0x35, 0x7a, 0x01, 0xa8, 0x89, 0x1d, 0xec, 0xb5, 0xce, 0x08,
-	0x71, 0x67, 0xdc, 0x16, 0xaf, 0x86, 0x1e, 0x43, 0x41, 0xae, 0x37, 0x47, 0x4d, 0xc9, 0x8e, 0x2c,
-	0x5c, 0xbc, 0x23, 0xe8, 0x11, 0xa4, 0x82, 0xe3, 0xe5, 0xb9, 0x53, 0x6b, 0x76, 0xde, 0x04, 0x34,
-	0x48, 0x60, 0xb7, 0xed, 0xf0, 0xfc, 0xd8, 0x25, 0x7d, 0x23, 0x15, 0x1c, 0xeb, 0x9f, 0xcf, 0xaa,
-	0xc2, 0xa5, 0x9c, 0x3d, 0x87, 0xc5, 0x9e, 0xcd, 0xec, 0xa6, 0x13, 0x09, 0xda, 0xfd, 0x29, 0x27,
-	0x55, 0xb0, 0x14, 0x1b, 0x21, 0xc5, 0xce, 0x8c, 0x11, 0xb1, 0xa1, 0xbf, 0xc1, 0x02, 0xf5, 0xf1,
-	0xcb, 0x2e, 0x51, 0x43, 0x5b, 0xb9, 0x08, 0xef, 0x9e, 0x64, 0xd8, 0x99, 0x31, 0x14, 0x57, 0xfe,
-	0xff, 0x1a, 0x2c, 0xaa, 0x60, 0xe8, 0x21, 0xcc, 0x33, 0x81, 0x54, 0x89, 0x97, 0xa6, 0x0c, 0x60,
-	0x84, 0xde, 0xe8, 0x11, 0xcc, 0x49, 0x29, 0x0a, 0xd3, 0x5c, 0x9b, 0x4e, 0x8a, 0xa4, 0x1c, 0x4b,
-	0xff, 0xfc, 0x1e, 0x2c, 0x84, 0xe9, 0x5e, 0x52, 0x62, 0xd5, 0x0c, 0x80, 0x7c, 0x30, 0x7b, 0x36,
-	0x79, 0xa5, 0xff, 0x2b, 0xa5, 0x96, 0xad, 0xee, 0x60, 0x0f, 0x55, 0x55, 0xd2, 0x61, 0x84, 0xe2,
-	0x74, 0x49, 0x87, 0x09, 0xa3, 0x3c, 0x2c, 0xf9, 0x94, 0xd9, 0x62, 0x36, 0xd4, 0x39, 0x1c, 0xbf,
-	0xa3, 0x02, 0x40, 0x80, 0x3d, 0x8b, 0xba, 0xf6, 0xdf, 0x49, 0x20, 0x85, 0x22, 0x63, 0x0c, 0x59,
-	0xc4, 0xa1, 0x2f, 0x4f, 0x35, 0xb3, 0xe9, 0xd8, 0x9e, 0x65, 0x7b, 0x47, 0x72, 0x30, 0x33, 0x46,
-	0x56, 0x5a, 0xab, 0xca, 0x88, 0x56, 0xe1, 0x9a, 0x54, 0x89, 0x18, 0x66, 0x06, 0xcb, 0xf3, 0x12,
-	0x98, 0x93, 0xf6, 0x08, 0x68, 0x9c, 0x81, 0x64, 0x72, 0xb7, 0x8c, 0x22, 0xf7, 0xf5, 0x8f, 0x35,
-	0x58, 0x50, 0xaa, 0xb0, 0x93, 0xd0, 0xd8, 0x8d, 0xc9, 0xbb, 0x10, 0xfa, 0x0f, 0x89, 0xec, 0x93,
-	0x48, 0x13, 0x53, 0xd3, 0x5e, 0x58, 0x13, 0xe7, 0x4d, 0x24, 0x8a, 0x6f, 0x53, 0x00, 0x83, 0x18,
-	0xe8, 0x05, 0x64, 0xa4, 0x7a, 0xf9, 0xe1, 0xf1, 0xab, 0xf2, 0xfd, 0xc3, 0x74, 0xab, 0xa6, 0xce,
-	0x6e, 0x23, 0xed, 0x0d, 0x1d, 0xe4, 0x67, 0xeb, 0x56, 0xea, 0x12, 0x74, 0x6b, 0x15, 0xae, 0xbd,
-	0x0a, 0xb0, 0xef, 0x13, 0xcb, 0x74, 0x89, 0x4b, 0xe5, 0x99, 0x1e, 0xce, 0x41, 0x4e, 0xd9, 0x9f,
-	0x10, 0x97, 0x8a, 0x53, 0xfd, 0x16, 0x5c, 0xa5, 0xbd, 0x63, 0x33, 0x42, 0x0b, 0xa0, 0x1a, 0x06,
-	0xda, 0x3b, 0x7e, 0x1e, 0x5a, 0x77, 0x49, 0x5f, 0xff, 0xe7, 0x5c, 0xd4, 0x14, 0xa9, 0x3c, 0x2f,
-	0x46, 0x95, 0xe7, 0xc1, 0xb4, 0xeb, 0x37, 0x4e, 0x7a, 0x9e, 0x8d, 0x48, 0xcf, 0xfd, 0x0b, 0x11,
-	0x9f, 0xd2, 0x9e, 0xaf, 0x87, 0xb4, 0x67, 0x07, 0x16, 0xa8, 0x84, 0xaa, 0xdc, 0x7f, 0x3f, 0x6d,
-	0x08, 0x43, 0xf9, 0x5f, 0x96, 0xfc, 0xa0, 0x2a, 0xa4, 0xd5, 0x78, 0xc5, 0x4b, 0x75, 0xfa, 0x76,
-	0x1a, 0x5d, 0x26, 0xd5, 0xf8, 0x88, 0x23, 0x01, 0xfc, 0xf8, 0x39, 0x6f, 0xc4, 0x12, 0x76, 0x69,
-	0xf5, 0x55, 0xb3, 0x90, 0x0e, 0x9f, 0x42, 0x19, 0xfb, 0x6f, 0xbc, 0x33, 0xa4, 0x8e, 0x5d, 0xe8,
-	0x7e, 0xbf, 0x05, 0x19, 0x8b, 0x30, 0x6e, 0x46, 0x17, 0xe7, 0xd4, 0x44, 0xd7, 0xf9, 0xb4, 0xf0,
-	0x51, 0x2f, 0x83, 0xcb, 0xf8, 0xec, 0xf0, 0x65, 0xfc, 0x27, 0x54, 0xb5, 0x06, 0x2c, 0x6f, 0x89,
-	0x62, 0x9f, 0x10, 0x8e, 0x2d, 0xcc, 0x71, 0xb5, 0xff, 0xd8, 0x32, 0xc8, 0xcb, 0x2e, 0x61, 0x1c,
-	0x55, 0x60, 0x49, 0x36, 0xc2, 0xb4, 0x2d, 0x55, 0xeb, 0xaf, 0xc6, 0xf5, 0x49, 0x72, 0x3c, 0xb6,
-	0x8c, 0x45, 0x1c, 0x3e, 0xe8, 0x16, 0xfc, 0xfc, 0x0c, 0x5e, 0xe6, 0x53, 0x8f, 0x11, 0xb4, 0x0d,
-	0x39, 0xf9, 0xe7, 0xa0, 0xe9, 0xaa, 0xaf, 0x6a, 0x19, 0x56, 0xc6, 0xd1, 0x47, 0x2c, 0x46, 0x56,
-	0xfa, 0x45, 0xaf, 0x6b, 0x9f, 0x69, 0x90, 0xf9, 0x6b, 0x97, 0x04, 0xfd, 0x7d, 0x12, 0xf4, 0xec,
-	0x16, 0x41, 0x1f, 0x69, 0x70, 0xfd, 0x54, 0x5c, 0x54, 0x9d, 0x7c, 0x8a, 0xc6, 0x35, 0x23, 0x5f,
-	0xfb, 0x20, 0x8e, 0xb0, 0xf0, 0xea, 0x9b, 0xd9, 0x2f, 0x4e, 0x0a, 0xda, 0xbb, 0x93, 0x82, 0xf6,
-	0xcd, 0x49, 0x41, 0xfb, 0xcf, 0xfb, 0xc2, 0xcc, 0xbb, 0xf7, 0x85, 0x99, 0xaf, 0xde, 0x17, 0x66,
-	0xe0, 0x77, 0x2d, 0xea, 0x4e, 0x1c, 0xa2, 0x7a, 0x3d, 0xf1, 0xab, 0x41, 0x40, 0x39, 0xad, 0x6b,
-	0x07, 0xd6, 0x91, 0xcd, 0x3b, 0xdd, 0xa6, 0xf0, 0x2b, 0xb5, 0x28, 0x73, 0x29, 0x2b, 0x05, 0xc4,
-	0xc1, 0x7d, 0x12, 0x94, 0x7a, 0x6b, 0xf1, 0x63, 0xab, 0x83, 0x6d, 0x8f, 0x95, 0x26, 0xfd, 0x79,
-	0xea, 0x7e, 0xc2, 0xd0, 0x2b, 0x7f, 0x92, 0x9a, 0xab, 0xd7, 0x6a, 0xfb, 0x9f, 0xa6, 0x6e, 0xd7,
-	0xa3, 0x64, 0x6b, 0x22, 0xd9, 0x5a, 0x9c, 0xec, 0x70, 0x6a, 0xc5, 0x46, 0xf9, 0xcb, 0x01, 0xf2,
-	0x50, 0x20, 0x0f, 0x63, 0xe4, 0xe1, 0x30, 0xf2, 0xb0, 0x51, 0x3e, 0x49, 0xad, 0x4f, 0x88, 0x3c,
-	0xdc, 0xae, 0x57, 0xa3, 0x06, 0x7f, 0x97, 0xba, 0x1b, 0x79, 0x55, 0x2a, 0xc2, 0x4d, 0xfc, 0xab,
-	0xfc, 0x2a, 0x95, 0x61, 0xc7, 0x4a, 0xa5, 0x51, 0x6e, 0x2e, 0xc8, 0x9f, 0x93, 0xd6, 0x7f, 0x0c,
-	0x00, 0x00, 0xff, 0xff, 0x74, 0xe5, 0xc5, 0x77, 0xa0, 0x13, 0x00, 0x00,
+	// 1981 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x59, 0xcf, 0x73, 0x1b, 0x49,
+	0x15, 0xf6, 0xc8, 0xbf, 0x92, 0x67, 0xc9, 0xd9, 0x34, 0x21, 0x18, 0x01, 0xde, 0x30, 0x6c, 0xb2,
+	0xde, 0x5a, 0x4a, 0x5e, 0x39, 0xd9, 0xcd, 0xe2, 0xe4, 0x80, 0xa5, 0x6c, 0xe2, 0x60, 0xb2, 0x11,
+	0xed, 0xc4, 0x49, 0xa5, 0x5c, 0x35, 0xd5, 0x9a, 0x69, 0x59, 0x53, 0x9e, 0x99, 0x9e, 0x9d, 0x6e,
+	0xc9, 0x16, 0x5c, 0xb6, 0xa8, 0x02, 0x0e, 0x5c, 0x60, 0xab, 0x28, 0x38, 0xec, 0x65, 0x39, 0x72,
+	0xe6, 0x8f, 0xa0, 0x38, 0x2d, 0x37, 0x6e, 0x50, 0x09, 0x5c, 0xb8, 0x70, 0xe3, 0xc0, 0x89, 0xea,
+	0x1f, 0x33, 0xd2, 0x48, 0x96, 0x4b, 0x8a, 0x5d, 0xc5, 0x25, 0x99, 0xe9, 0xfe, 0xde, 0xf7, 0xbe,
+	0xf7, 0x5e, 0xf7, 0xeb, 0x1e, 0x19, 0xee, 0xc6, 0x34, 0xea, 0x84, 0xcd, 0x84, 0xac, 0xbb, 0x2c,
+	0xa1, 0xeb, 0x2e, 0x0b, 0x63, 0x16, 0xd1, 0x48, 0xac, 0xf3, 0xb6, 0x4f, 0x03, 0x8f, 0x7a, 0x4e,
+	0xcc, 0x58, 0xb0, 0xde, 0xad, 0xe6, 0x07, 0x2a, 0x71, 0xc2, 0x04, 0x43, 0x6b, 0xa9, 0x75, 0x45,
+	0x5a, 0x57, 0x32, 0xeb, 0x4a, 0x1e, 0xdc, 0xad, 0x96, 0xed, 0xbc, 0x1f, 0xc2, 0x39, 0x15, 0x92,
+	0x55, 0x3d, 0x68, 0xb6, 0xf2, 0xda, 0x58, 0x2d, 0xae, 0xc2, 0x72, 0x37, 0x45, 0x5e, 0xcb, 0x23,
+	0x0f, 0x69, 0x8f, 0x4b, 0x80, 0xfc, 0xdf, 0x20, 0x56, 0xf3, 0x88, 0xa8, 0x13, 0x4a, 0x40, 0xd4,
+	0x09, 0xcd, 0xfc, 0x5b, 0xf9, 0x79, 0x71, 0xdc, 0x26, 0xbc, 0x2d, 0x21, 0xfa, 0xc9, 0xa0, 0x36,
+	0xfa, 0xa8, 0xa4, 0x17, 0x0b, 0xb6, 0xee, 0x51, 0x97, 0xb4, 0x6e, 0xde, 0xbe, 0xed, 0xb4, 0x42,
+	0x4f, 0xa2, 0x07, 0xdf, 0x8d, 0xcd, 0xad, 0xb1, 0x36, 0x89, 0xc7, 0x49, 0xce, 0x48, 0x0e, 0x8c,
+	0x46, 0xa4, 0xad, 0x84, 0x8e, 0x59, 0xa4, 0x31, 0xdb, 0xff, 0xb0, 0xe0, 0xea, 0xae, 0x49, 0x6b,
+	0x83, 0xb1, 0xa0, 0x41, 0x12, 0x12, 0x52, 0x41, 0x13, 0x8e, 0x28, 0xbc, 0xd1, 0xf2, 0x8f, 0xa9,
+	0x27, 0x55, 0x38, 0xb1, 0x1c, 0xe7, 0x2b, 0xd6, 0x35, 0x6b, 0x6d, 0x69, 0xe3, 0x76, 0x65, 0xd2,
+	0x0a, 0x55, 0xee, 0x87, 0x5e, 0x9f, 0xb2, 0x56, 0x58, 0xb1, 0xf0, 0xb2, 0x22, 0x4d, 0xc7, 0x39,
+	0x72, 0xe1, 0x92, 0x74, 0x10, 0x52, 0x41, 0x52, 0x2f, 0x05, 0xe5, 0xe5, 0xce, 0x54, 0x5e, 0x1e,
+	0x51, 0x41, 0xfa, 0x9e, 0x70, 0xa9, 0x35, 0x30, 0xc4, 0xed, 0x4f, 0x67, 0x61, 0xf9, 0x01, 0x8d,
+	0x28, 0xf7, 0x79, 0x9d, 0x45, 0x82, 0x46, 0x02, 0x25, 0x70, 0x25, 0xc7, 0x93, 0x0f, 0xf1, 0xfb,
+	0x93, 0x3b, 0x3f, 0x39, 0x7d, 0x18, 0xf1, 0xe1, 0x71, 0x99, 0xd2, 0x25, 0x12, 0x04, 0xcc, 0x25,
+	0xc2, 0x67, 0x11, 0x5f, 0x99, 0xbd, 0x36, 0xbb, 0xb6, 0xb4, 0x51, 0x9f, 0xdc, 0x55, 0x3e, 0x84,
+	0xca, 0x56, 0xc6, 0x85, 0x07, 0x79, 0xcb, 0x9f, 0x59, 0x00, 0xfd, 0x39, 0x74, 0x0b, 0x16, 0x48,
+	0xc8, 0x3a, 0x91, 0x30, 0xb1, 0x7d, 0x73, 0xc8, 0xa1, 0x5c, 0xbf, 0xdd, 0x6a, 0x65, 0x4b, 0x61,
+	0xb0, 0xc1, 0xa2, 0x2b, 0x30, 0xef, 0xd1, 0x88, 0x85, 0xaa, 0x1a, 0x17, 0xb1, 0x7e, 0x41, 0x1f,
+	0xc2, 0x22, 0xf1, 0xbc, 0x84, 0x72, 0xa9, 0x5e, 0x92, 0xad, 0x0e, 0x91, 0xa9, 0xdd, 0x22, 0xd9,
+	0x34, 0x0a, 0xa7, 0x70, 0xfb, 0xf3, 0x59, 0xb8, 0x3c, 0x52, 0x27, 0xf4, 0x3e, 0x7c, 0x4d, 0x56,
+	0xff, 0x20, 0x21, 0x2e, 0x75, 0x62, 0x9a, 0xf8, 0xcc, 0x73, 0x9a, 0x01, 0x73, 0x0f, 0x75, 0x21,
+	0xe6, 0xf0, 0x95, 0x56, 0xe8, 0x3d, 0x90, 0xb3, 0x0d, 0x35, 0x59, 0x53, 0x73, 0x68, 0x03, 0xae,
+	0xe8, 0xb5, 0x19, 0x27, 0xd4, 0xf5, 0xb9, 0xcf, 0x22, 0xa7, 0xe9, 0x0b, 0xbd, 0x72, 0x4a, 0xdb,
+	0x33, 0x18, 0xa9, 0xd9, 0x46, 0x3a, 0x59, 0xf3, 0x05, 0x47, 0x3f, 0x81, 0x65, 0x1e, 0xf8, 0x9e,
+	0x1f, 0x1d, 0x38, 0x47, 0x7e, 0xe4, 0xb1, 0x23, 0x13, 0x01, 0x3e, 0xc3, 0x3a, 0xab, 0x6c, 0x05,
+	0x07, 0x2c, 0xf1, 0x45, 0x3b, 0xdc, 0xd5, 0xd4, 0xcf, 0x14, 0xf3, 0xf6, 0x0c, 0x2e, 0xf1, 0xc1,
+	0x81, 0xf2, 0xaf, 0x2d, 0xb8, 0x7a, 0x32, 0x16, 0x6d, 0xc0, 0x57, 0xb5, 0x1e, 0xa7, 0x13, 0x7b,
+	0x44, 0xa4, 0x69, 0xd0, 0x09, 0x28, 0xe1, 0xaf, 0xe8, 0xc9, 0xa7, 0x6a, 0x4e, 0x27, 0x81, 0xa3,
+	0x3a, 0xac, 0x0a, 0x92, 0x1c, 0x50, 0x41, 0x3d, 0xc7, 0xa3, 0x82, 0xba, 0xaa, 0xf0, 0xd2, 0x32,
+	0x8d, 0x4d, 0x65, 0x02, 0x7f, 0x23, 0x45, 0xdd, 0xcb, 0x40, 0x0d, 0x9a, 0x68, 0xc7, 0xb5, 0x25,
+	0xb8, 0x48, 0x52, 0x49, 0xf6, 0x7f, 0x0b, 0xf0, 0xe6, 0x48, 0x78, 0x7d, 0xc5, 0x82, 0x08, 0x8a,
+	0x02, 0x98, 0x57, 0x79, 0x35, 0xeb, 0xe8, 0xc9, 0x19, 0x12, 0x97, 0x67, 0xae, 0xdc, 0x97, 0xb4,
+	0xea, 0x71, 0x7b, 0x06, 0x6b, 0x27, 0xe8, 0x67, 0xd6, 0x48, 0xc1, 0x74, 0x63, 0xd8, 0x3f, 0x3f,
+	0xbf, 0xb9, 0x4a, 0xa4, 0xfe, 0x87, 0x4a, 0x57, 0x04, 0xe8, 0xcb, 0x2b, 0xff, 0x00, 0xd0, 0xa8,
+	0x11, 0xba, 0x05, 0x57, 0x49, 0x1c, 0x27, 0xec, 0xd8, 0x0f, 0x65, 0x05, 0xdd, 0xa0, 0x43, 0x1d,
+	0x37, 0xdb, 0x72, 0x25, 0x7c, 0x65, 0x60, 0xb6, 0x1e, 0x74, 0x68, 0x5d, 0xce, 0xd5, 0x16, 0x61,
+	0x9e, 0x4b, 0x73, 0xdb, 0x85, 0x52, 0xae, 0x51, 0xa2, 0xeb, 0xb0, 0x3c, 0xb4, 0xb2, 0x35, 0x4f,
+	0x29, 0xce, 0x2d, 0xe9, 0x77, 0x01, 0x11, 0xee, 0xb0, 0x96, 0xde, 0x32, 0x4e, 0x9b, 0xfa, 0x07,
+	0x6d, 0xa1, 0xb2, 0x34, 0x87, 0x2f, 0x11, 0xfe, 0xb8, 0xa5, 0xb6, 0xcb, 0xb6, 0x1a, 0xb6, 0x7f,
+	0x69, 0xc1, 0xdc, 0xc7, 0x4c, 0x50, 0x74, 0x13, 0xe6, 0xbb, 0x24, 0xe8, 0x50, 0x53, 0xc6, 0x6f,
+	0x0d, 0xa5, 0x53, 0x1f, 0x9e, 0xdd, 0x6a, 0x65, 0x4f, 0x82, 0xb0, 0xc6, 0xca, 0x76, 0x90, 0x70,
+	0x4a, 0x3d, 0xc5, 0x5e, 0xc4, 0xfa, 0xe5, 0x0c, 0xed, 0xe0, 0xb7, 0x16, 0x5c, 0x90, 0x6a, 0xf6,
+	0x7c, 0x7a, 0x84, 0x6e, 0xe7, 0x15, 0x7d, 0xfb, 0x54, 0x45, 0xd2, 0xe2, 0x74, 0x55, 0x77, 0x87,
+	0x55, 0xd9, 0xa7, 0xab, 0x52, 0x8c, 0x99, 0xb2, 0x1b, 0xb0, 0x2c, 0x85, 0xd5, 0xfd, 0xb8, 0x4d,
+	0x13, 0x41, 0x8f, 0x55, 0x2b, 0xf4, 0xa3, 0x88, 0x26, 0x4a, 0x5e, 0x11, 0xeb, 0x17, 0xfb, 0x9f,
+	0x16, 0x2c, 0x49, 0x60, 0x83, 0xf4, 0x02, 0x46, 0x3c, 0xd4, 0x80, 0x4b, 0x11, 0x93, 0xc5, 0x67,
+	0x61, 0xe8, 0x8b, 0x90, 0x66, 0xfd, 0xf6, 0xed, 0x01, 0xef, 0xea, 0x18, 0xae, 0xc8, 0xf3, 0x57,
+	0x9e, 0x1c, 0xb2, 0xf8, 0xf5, 0x0c, 0x8e, 0x97, 0xa5, 0x7d, 0xff, 0x1d, 0x7d, 0x07, 0x4a, 0x34,
+	0x6e, 0xd3, 0x90, 0x26, 0x24, 0x70, 0x0e, 0x69, 0xcf, 0x44, 0x59, 0xcc, 0x06, 0x77, 0x68, 0x0f,
+	0x39, 0xb0, 0x4c, 0x23, 0xc5, 0x4b, 0x3d, 0x47, 0x12, 0x98, 0x98, 0x3f, 0x9c, 0x7c, 0x97, 0xe4,
+	0xc3, 0xc5, 0xa5, 0x8c, 0x4f, 0x4e, 0xd8, 0xd7, 0xa1, 0xf4, 0x62, 0xe7, 0x71, 0x47, 0xc4, 0x1d,
+	0xd1, 0x48, 0x18, 0x6b, 0x8d, 0x49, 0xc7, 0x5b, 0x50, 0x7c, 0xb1, 0xb3, 0x1b, 0xd3, 0xc8, 0x3b,
+	0x0d, 0xb5, 0x01, 0xe5, 0x17, 0x3b, 0x1f, 0x77, 0x82, 0xc0, 0x6f, 0xf9, 0x34, 0xb9, 0x47, 0x13,
+	0xbf, 0xab, 0x0e, 0xa9, 0xd3, 0x6c, 0xfe, 0x6d, 0xc1, 0xbc, 0x22, 0x46, 0x0f, 0x60, 0xae, 0xc9,
+	0xbc, 0x9e, 0xc9, 0xeb, 0xcd, 0x29, 0xce, 0x68, 0x69, 0x5e, 0x63, 0x5e, 0x0f, 0x2b, 0x02, 0xf4,
+	0x18, 0x2e, 0x90, 0x8e, 0x68, 0x3b, 0xdc, 0x3f, 0x30, 0x4d, 0xe5, 0xd6, 0x48, 0x91, 0xf2, 0x17,
+	0xaa, 0x94, 0x64, 0xab, 0x23, 0xda, 0xbb, 0xfe, 0x41, 0x44, 0x44, 0x27, 0xa1, 0x78, 0x91, 0xe8,
+	0x57, 0xf4, 0x43, 0x98, 0x8f, 0x65, 0x08, 0x26, 0xf9, 0x1f, 0x4c, 0x2e, 0x6d, 0x30, 0x69, 0x58,
+	0x93, 0xd8, 0x4f, 0x01, 0x3e, 0xea, 0xd2, 0x48, 0xa4, 0x51, 0x5f, 0x8c, 0xd2, 0x8c, 0x99, 0xd0,
+	0xdf, 0x19, 0xcf, 0xaf, 0x97, 0x56, 0x96, 0x62, 0xdc, 0xb7, 0xb5, 0x1d, 0x58, 0x52, 0xb4, 0xba,
+	0x98, 0xe7, 0xbf, 0x60, 0xed, 0x5f, 0x58, 0x80, 0x94, 0x87, 0x5a, 0xc2, 0x88, 0xe7, 0x12, 0x2e,
+	0x64, 0xb3, 0x43, 0xdf, 0x83, 0x39, 0xb7, 0xbf, 0xbb, 0xaf, 0x8f, 0xcf, 0xb4, 0xbc, 0xef, 0x76,
+	0xab, 0x15, 0x69, 0x84, 0x95, 0x09, 0xfa, 0x00, 0x0a, 0xe2, 0xd8, 0x94, 0xe8, 0xc6, 0x50, 0xd0,
+	0xe6, 0x52, 0xdd, 0xad, 0x56, 0x9e, 0x24, 0x24, 0xe2, 0x44, 0x9d, 0x6f, 0x0f, 0x3d, 0x5c, 0x10,
+	0xc7, 0xf6, 0x7f, 0x2c, 0xb8, 0x98, 0x15, 0x1d, 0x3d, 0x07, 0xd4, 0x24, 0x01, 0x89, 0xdc, 0x13,
+	0x82, 0x7d, 0x67, 0x5c, 0xb3, 0xa9, 0x69, 0x8b, 0x81, 0x70, 0x2f, 0x37, 0x87, 0x87, 0xf2, 0xb5,
+	0x59, 0x78, 0xfd, 0xda, 0xa0, 0xfb, 0x50, 0x48, 0x0e, 0x57, 0xe6, 0x46, 0x56, 0xcf, 0x69, 0x6b,
+	0x71, 0x8f, 0x26, 0x7e, 0xcb, 0xd7, 0xb7, 0xbc, 0x1d, 0xda, 0xc3, 0x85, 0xe4, 0xd0, 0xfe, 0xe3,
+	0xac, 0x09, 0x5c, 0x35, 0xd6, 0x67, 0xb0, 0xd8, 0xf5, 0xb9, 0xdf, 0x0c, 0xd2, 0xe4, 0xdf, 0x99,
+	0x72, 0xcf, 0x48, 0x96, 0xca, 0x9e, 0xa6, 0xd8, 0x9e, 0xc1, 0x29, 0x1b, 0x7a, 0x02, 0x0b, 0x2c,
+	0x26, 0x9f, 0x74, 0xa8, 0xa9, 0xcd, 0xe6, 0xeb, 0xf0, 0x3e, 0x56, 0x0c, 0xdb, 0x33, 0xd8, 0x70,
+	0x95, 0x7f, 0x67, 0xc1, 0xa2, 0x71, 0x86, 0x3e, 0x82, 0x79, 0x2e, 0x91, 0x46, 0xf8, 0xfa, 0x94,
+	0x0e, 0xb0, 0xb6, 0x46, 0xf7, 0x61, 0x4e, 0x35, 0x45, 0x2d, 0x73, 0x63, 0xba, 0xa6, 0xa8, 0x0e,
+	0x06, 0x65, 0x5f, 0x7e, 0x0c, 0x0b, 0x5a, 0xee, 0x39, 0x09, 0xab, 0x15, 0x01, 0xd4, 0x83, 0xd3,
+	0xf5, 0xe9, 0x91, 0xfd, 0xf3, 0x82, 0x29, 0x5b, 0x23, 0x20, 0x11, 0xaa, 0x19, 0xd1, 0xda, 0x43,
+	0x65, 0x3a, 0xd1, 0x5a, 0x30, 0x2a, 0xc3, 0x85, 0x98, 0x71, 0x5f, 0xae, 0x0d, 0x73, 0x23, 0xc8,
+	0xde, 0xd1, 0x2a, 0x40, 0x42, 0x22, 0x8f, 0x85, 0xfe, 0x8f, 0x69, 0xa2, 0x5a, 0x56, 0x11, 0x0f,
+	0x8c, 0xc8, 0xeb, 0x87, 0x3a, 0x5f, 0x9d, 0x66, 0xe0, 0x47, 0xf2, 0xae, 0xa3, 0x16, 0x66, 0x11,
+	0x97, 0xd4, 0x68, 0xcd, 0x0c, 0xa2, 0x35, 0x78, 0x43, 0xf5, 0xab, 0x0c, 0xe6, 0x24, 0x2b, 0xf3,
+	0x0a, 0xb8, 0xac, 0xc6, 0x53, 0x20, 0x3e, 0x01, 0xc9, 0xd5, 0x6e, 0x19, 0x46, 0xee, 0xda, 0x5f,
+	0x58, 0xb0, 0x60, 0xfa, 0xd3, 0x76, 0xae, 0xdb, 0xdf, 0x9a, 0x3c, 0x0b, 0xda, 0x7e, 0xa0, 0xdd,
+	0x3f, 0x4a, 0xbb, 0x73, 0x61, 0xda, 0xef, 0xd7, 0xdc, 0xc9, 0x97, 0xb6, 0xe7, 0xcf, 0x0a, 0x00,
+	0x7d, 0x1f, 0xe8, 0x39, 0x14, 0x55, 0x1f, 0x8d, 0xf5, 0x45, 0xc0, 0xe8, 0x7d, 0x7f, 0xba, 0xaa,
+	0x99, 0x5b, 0x04, 0x5e, 0x8a, 0x06, 0xae, 0x14, 0x27, 0xf7, 0xad, 0xc2, 0x39, 0xf4, 0xad, 0x35,
+	0x78, 0xe3, 0x28, 0x21, 0x71, 0x4c, 0xe5, 0x97, 0x77, 0xc8, 0xd4, 0xed, 0x42, 0xaf, 0x83, 0x65,
+	0x33, 0xfe, 0x88, 0x86, 0x4c, 0xde, 0x2f, 0x6e, 0xc0, 0x25, 0xd6, 0x3d, 0x74, 0x52, 0xb4, 0x04,
+	0x9a, 0xc5, 0xc0, 0xba, 0x87, 0xcf, 0xf4, 0xe8, 0x0e, 0xed, 0xd9, 0x3f, 0x9d, 0x4b, 0x93, 0xa2,
+	0x3a, 0xcf, 0xf3, 0xe1, 0xce, 0x73, 0x77, 0xda, 0xfa, 0x8d, 0x6b, 0x3d, 0x4f, 0x87, 0x5a, 0xcf,
+	0x9d, 0xd7, 0x22, 0x1e, 0xe9, 0x3d, 0x7f, 0x1b, 0xe8, 0x3d, 0xdb, 0xb0, 0xc0, 0x14, 0xd4, 0x68,
+	0x7f, 0x6f, 0x5a, 0x17, 0xd8, 0xd8, 0x9f, 0x57, 0xfb, 0x41, 0x35, 0x58, 0x32, 0xcb, 0x2b, 0x2b,
+	0xd5, 0xe8, 0x3d, 0x39, 0xbd, 0xd6, 0x9a, 0xe5, 0x23, 0x8f, 0x04, 0x88, 0xb3, 0xe7, 0x32, 0xce,
+	0x5a, 0xd8, 0xb9, 0xc5, 0x57, 0x2b, 0xc1, 0x92, 0x7e, 0xd2, 0x6d, 0xec, 0x37, 0xd9, 0xce, 0x50,
+	0x7d, 0xec, 0xb5, 0xbe, 0x34, 0xb6, 0xa0, 0xe8, 0x51, 0x2e, 0x9c, 0xf4, 0x0a, 0x5f, 0x98, 0xe8,
+	0xc3, 0x62, 0x49, 0xda, 0x98, 0x97, 0xfe, 0x67, 0xc1, 0xec, 0xe0, 0x67, 0xc1, 0xff, 0xb1, 0xab,
+	0xed, 0xc1, 0xca, 0x96, 0x0c, 0x56, 0x7e, 0x8c, 0x7a, 0x44, 0x90, 0x5a, 0xef, 0xa1, 0x87, 0xe9,
+	0x27, 0x1d, 0xca, 0x05, 0xda, 0x84, 0x0b, 0x2a, 0x11, 0x8e, 0xef, 0x99, 0x58, 0xdf, 0x1c, 0x97,
+	0x27, 0xc5, 0xf1, 0xd0, 0xc3, 0x8b, 0x44, 0x3f, 0xd8, 0x1e, 0x7c, 0xfd, 0x04, 0x5e, 0x1e, 0xb3,
+	0x88, 0x53, 0xf4, 0x00, 0x96, 0xd5, 0x8f, 0x36, 0xea, 0xb7, 0x35, 0x39, 0x6b, 0xca, 0x70, 0x6d,
+	0x1c, 0x7d, 0xca, 0x82, 0x4b, 0xca, 0x2e, 0x7d, 0xb5, 0x9f, 0x9d, 0xe0, 0x85, 0x9f, 0x24, 0xdf,
+	0x52, 0x3f, 0x68, 0x4d, 0x2e, 0x9f, 0x42, 0xf9, 0x24, 0xe2, 0x73, 0xd6, 0xbf, 0xf1, 0x97, 0x02,
+	0x14, 0x7f, 0xd4, 0xa1, 0x49, 0x6f, 0x97, 0x26, 0x5d, 0xdf, 0xa5, 0xe8, 0x73, 0x0b, 0x2e, 0x8f,
+	0x38, 0x46, 0xb5, 0xc9, 0x77, 0xc1, 0xb8, 0x62, 0x96, 0xeb, 0x67, 0xe2, 0x30, 0x81, 0x7f, 0x61,
+	0x01, 0x1a, 0xcd, 0x0b, 0x3a, 0x0b, 0x77, 0x5a, 0xae, 0xf2, 0xbd, 0xb3, 0x91, 0x68, 0x85, 0xef,
+	0x59, 0xb5, 0x4f, 0x67, 0xff, 0xf4, 0x72, 0xd5, 0xfa, 0xf2, 0xe5, 0xaa, 0xf5, 0xf7, 0x97, 0xab,
+	0xd6, 0xaf, 0x5e, 0xad, 0xce, 0x7c, 0xf9, 0x6a, 0x75, 0xe6, 0xaf, 0xaf, 0x56, 0x67, 0xe0, 0xbb,
+	0x2e, 0x0b, 0x27, 0xf6, 0x52, 0xbb, 0x9c, 0xfb, 0xfd, 0x34, 0x61, 0x82, 0x35, 0xac, 0x17, 0xde,
+	0x81, 0x2f, 0xda, 0x9d, 0xa6, 0xb4, 0x5b, 0x77, 0x19, 0x0f, 0x19, 0x5f, 0x4f, 0x68, 0x40, 0x7a,
+	0x34, 0x59, 0xef, 0x6e, 0x64, 0x8f, 0x6e, 0x9b, 0xf8, 0x11, 0x5f, 0x9f, 0xf4, 0x8f, 0x0d, 0x77,
+	0x72, 0x03, 0xdd, 0xea, 0xef, 0x0b, 0x73, 0x8d, 0x7a, 0x7d, 0xf7, 0x0f, 0x85, 0xb7, 0x1b, 0xa9,
+	0xd8, 0xba, 0x14, 0x5b, 0xcf, 0xc4, 0x0e, 0x4a, 0xab, 0xec, 0x55, 0xff, 0xdc, 0x47, 0xee, 0x4b,
+	0xe4, 0x7e, 0x86, 0xdc, 0x1f, 0x44, 0xee, 0xef, 0x55, 0x5f, 0x16, 0x6e, 0x4e, 0x88, 0xdc, 0x7f,
+	0xd0, 0xa8, 0xa5, 0x39, 0xfe, 0x57, 0xe1, 0xdd, 0xd4, 0x6a, 0x73, 0x53, 0x9a, 0xc9, 0x7f, 0x8d,
+	0xdd, 0xe6, 0xe6, 0xa0, 0xe1, 0xe6, 0xe6, 0x5e, 0xb5, 0xb9, 0xa0, 0x7e, 0xc2, 0xbf, 0xf9, 0xbf,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0x43, 0xe1, 0xc9, 0xc2, 0x6e, 0x19, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1757,6 +2282,12 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type QueryServiceClient interface {
 	AssetMetadataById(ctx context.Context, in *AssetMetadataByIdRequest, opts ...grpc.CallOption) (*AssetMetadataByIdResponse, error)
+	// Requests a stream of asset metadata, given an array of asset IDs. Responses
+	// may be streamed in a different order from that of the asset IDs in the
+	// request, and asset IDs unknown to the node will not receive any response
+	// objects -- that is, the number of responses may be smaller than the length
+	// of the asset IDs array.
+	AssetMetadataByIds(ctx context.Context, in *AssetMetadataByIdsRequest, opts ...grpc.CallOption) (QueryService_AssetMetadataByIdsClient, error)
 }
 
 type queryServiceClient struct {
@@ -1776,9 +2307,47 @@ func (c *queryServiceClient) AssetMetadataById(ctx context.Context, in *AssetMet
 	return out, nil
 }
 
+func (c *queryServiceClient) AssetMetadataByIds(ctx context.Context, in *AssetMetadataByIdsRequest, opts ...grpc.CallOption) (QueryService_AssetMetadataByIdsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_QueryService_serviceDesc.Streams[0], "/penumbra.core.component.shielded_pool.v1.QueryService/AssetMetadataByIds", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &queryServiceAssetMetadataByIdsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type QueryService_AssetMetadataByIdsClient interface {
+	Recv() (*AssetMetadataByIdsResponse, error)
+	grpc.ClientStream
+}
+
+type queryServiceAssetMetadataByIdsClient struct {
+	grpc.ClientStream
+}
+
+func (x *queryServiceAssetMetadataByIdsClient) Recv() (*AssetMetadataByIdsResponse, error) {
+	m := new(AssetMetadataByIdsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // QueryServiceServer is the server API for QueryService service.
 type QueryServiceServer interface {
 	AssetMetadataById(context.Context, *AssetMetadataByIdRequest) (*AssetMetadataByIdResponse, error)
+	// Requests a stream of asset metadata, given an array of asset IDs. Responses
+	// may be streamed in a different order from that of the asset IDs in the
+	// request, and asset IDs unknown to the node will not receive any response
+	// objects -- that is, the number of responses may be smaller than the length
+	// of the asset IDs array.
+	AssetMetadataByIds(*AssetMetadataByIdsRequest, QueryService_AssetMetadataByIdsServer) error
 }
 
 // UnimplementedQueryServiceServer can be embedded to have forward compatible implementations.
@@ -1787,6 +2356,9 @@ type UnimplementedQueryServiceServer struct {
 
 func (*UnimplementedQueryServiceServer) AssetMetadataById(ctx context.Context, req *AssetMetadataByIdRequest) (*AssetMetadataByIdResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AssetMetadataById not implemented")
+}
+func (*UnimplementedQueryServiceServer) AssetMetadataByIds(req *AssetMetadataByIdsRequest, srv QueryService_AssetMetadataByIdsServer) error {
+	return status.Errorf(codes.Unimplemented, "method AssetMetadataByIds not implemented")
 }
 
 func RegisterQueryServiceServer(s grpc1.Server, srv QueryServiceServer) {
@@ -1811,6 +2383,27 @@ func _QueryService_AssetMetadataById_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _QueryService_AssetMetadataByIds_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AssetMetadataByIdsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(QueryServiceServer).AssetMetadataByIds(m, &queryServiceAssetMetadataByIdsServer{stream})
+}
+
+type QueryService_AssetMetadataByIdsServer interface {
+	Send(*AssetMetadataByIdsResponse) error
+	grpc.ServerStream
+}
+
+type queryServiceAssetMetadataByIdsServer struct {
+	grpc.ServerStream
+}
+
+func (x *queryServiceAssetMetadataByIdsServer) Send(m *AssetMetadataByIdsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _QueryService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "penumbra.core.component.shielded_pool.v1.QueryService",
 	HandlerType: (*QueryServiceServer)(nil),
@@ -1820,7 +2413,13 @@ var _QueryService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _QueryService_AssetMetadataById_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "AssetMetadataByIds",
+			Handler:       _QueryService_AssetMetadataByIds_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "penumbra/core/component/shielded_pool/v1/shielded_pool.proto",
 }
 
@@ -1844,6 +2443,18 @@ func (m *ShieldedPoolParameters) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	_ = i
 	var l int
 	_ = l
+	if m.FmdMetaParams != nil {
+		{
+			size, err := m.FmdMetaParams.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.FixedFmdParams != nil {
 		{
 			size, err := m.FixedFmdParams.MarshalToSizedBuffer(dAtA[:i])
@@ -1958,6 +2569,234 @@ func (m *GenesisContent_Allocation) MarshalToSizedBuffer(dAtA []byte) (int, erro
 		}
 		i--
 		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *FmdMetaParameters) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FmdMetaParameters) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParameters) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Algorithm != nil {
+		{
+			size := m.Algorithm.Size()
+			i -= size
+			if _, err := m.Algorithm.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	if m.FmdGracePeriodBlocks != 0 {
+		i = encodeVarintShieldedPool(dAtA, i, uint64(m.FmdGracePeriodBlocks))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *FmdMetaParameters_FixedPrecisionBits) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParameters_FixedPrecisionBits) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i = encodeVarintShieldedPool(dAtA, i, uint64(m.FixedPrecisionBits))
+	i--
+	dAtA[i] = 0x10
+	return len(dAtA) - i, nil
+}
+func (m *FmdMetaParameters_SlidingWindow) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParameters_SlidingWindow) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.SlidingWindow != nil {
+		{
+			size, err := m.SlidingWindow.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.TargetedDetectionsPerWindow != 0 {
+		i = encodeVarintShieldedPool(dAtA, i, uint64(m.TargetedDetectionsPerWindow))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.WindowUpdatePeriods != 0 {
+		i = encodeVarintShieldedPool(dAtA, i, uint64(m.WindowUpdatePeriods))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *FmdMetaParametersAlgorithmState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FmdMetaParametersAlgorithmState) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParametersAlgorithmState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.State != nil {
+		{
+			size := m.State.Size()
+			i -= size
+			if _, err := m.State.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *FmdMetaParametersAlgorithmState_Fixed) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParametersAlgorithmState_Fixed) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Fixed != nil {
+		{
+			size, err := m.Fixed.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindow) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindow) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.SlidingWindow != nil {
+		{
+			size, err := m.SlidingWindow.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	return len(dAtA) - i, nil
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FmdMetaParametersAlgorithmState_FixedState) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParametersAlgorithmState_FixedState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ApproximateClueCount != 0 {
+		i = encodeVarintShieldedPool(dAtA, i, uint64(m.ApproximateClueCount))
+		i--
+		dAtA[i] = 0x8
 	}
 	return len(dAtA) - i, nil
 }
@@ -2394,6 +3233,53 @@ func (m *EventOutput) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.NoteCommitment != nil {
 		{
 			size, err := m.NoteCommitment.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventBroadcastClue) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventBroadcastClue) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventBroadcastClue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Tx != nil {
+		{
+			size, err := m.Tx.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Clue != nil {
+		{
+			size, err := m.Clue.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -3110,6 +3996,78 @@ func (m *AssetMetadataByIdResponse) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
+func (m *AssetMetadataByIdsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AssetMetadataByIdsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AssetMetadataByIdsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.AssetId) > 0 {
+		for iNdEx := len(m.AssetId) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AssetId[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *AssetMetadataByIdsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AssetMetadataByIdsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AssetMetadataByIdsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.DenomMetadata != nil {
+		{
+			size, err := m.DenomMetadata.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintShieldedPool(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintShieldedPool(dAtA []byte, offset int, v uint64) int {
 	offset -= sovShieldedPool(v)
 	base := offset
@@ -3129,6 +4087,10 @@ func (m *ShieldedPoolParameters) Size() (n int) {
 	_ = l
 	if m.FixedFmdParams != nil {
 		l = m.FixedFmdParams.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	if m.FmdMetaParams != nil {
+		l = m.FmdMetaParams.Size()
 		n += 1 + l + sovShieldedPool(uint64(l))
 	}
 	return n
@@ -3170,6 +4132,114 @@ func (m *GenesisContent_Allocation) Size() (n int) {
 	if m.Address != nil {
 		l = m.Address.Size()
 		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	return n
+}
+
+func (m *FmdMetaParameters) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.FmdGracePeriodBlocks != 0 {
+		n += 1 + sovShieldedPool(uint64(m.FmdGracePeriodBlocks))
+	}
+	if m.Algorithm != nil {
+		n += m.Algorithm.Size()
+	}
+	return n
+}
+
+func (m *FmdMetaParameters_FixedPrecisionBits) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += 1 + sovShieldedPool(uint64(m.FixedPrecisionBits))
+	return n
+}
+func (m *FmdMetaParameters_SlidingWindow) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SlidingWindow != nil {
+		l = m.SlidingWindow.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	return n
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.WindowUpdatePeriods != 0 {
+		n += 1 + sovShieldedPool(uint64(m.WindowUpdatePeriods))
+	}
+	if m.TargetedDetectionsPerWindow != 0 {
+		n += 1 + sovShieldedPool(uint64(m.TargetedDetectionsPerWindow))
+	}
+	return n
+}
+
+func (m *FmdMetaParametersAlgorithmState) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.State != nil {
+		n += m.State.Size()
+	}
+	return n
+}
+
+func (m *FmdMetaParametersAlgorithmState_Fixed) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Fixed != nil {
+		l = m.Fixed.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	return n
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindow) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SlidingWindow != nil {
+		l = m.SlidingWindow.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	return n
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ApproximateClueCount != 0 {
+		n += 1 + sovShieldedPool(uint64(m.ApproximateClueCount))
 	}
 	return n
 }
@@ -3346,6 +4416,23 @@ func (m *EventOutput) Size() (n int) {
 	_ = l
 	if m.NoteCommitment != nil {
 		l = m.NoteCommitment.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	return n
+}
+
+func (m *EventBroadcastClue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Clue != nil {
+		l = m.Clue.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	if m.Tx != nil {
+		l = m.Tx.Size()
 		n += 1 + l + sovShieldedPool(uint64(l))
 	}
 	return n
@@ -3641,6 +4728,34 @@ func (m *AssetMetadataByIdResponse) Size() (n int) {
 	return n
 }
 
+func (m *AssetMetadataByIdsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.AssetId) > 0 {
+		for _, e := range m.AssetId {
+			l = e.Size()
+			n += 1 + l + sovShieldedPool(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *AssetMetadataByIdsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.DenomMetadata != nil {
+		l = m.DenomMetadata.Size()
+		n += 1 + l + sovShieldedPool(uint64(l))
+	}
+	return n
+}
+
 func sovShieldedPool(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
@@ -3709,6 +4824,42 @@ func (m *ShieldedPoolParameters) Unmarshal(dAtA []byte) error {
 				m.FixedFmdParams = &FmdParameters{}
 			}
 			if err := m.FixedFmdParams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FmdMetaParams", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.FmdMetaParams == nil {
+				m.FmdMetaParams = &FmdMetaParameters{}
+			}
+			if err := m.FmdMetaParams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3986,6 +5137,457 @@ func (m *GenesisContent_Allocation) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FmdMetaParameters) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FmdMetaParameters: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FmdMetaParameters: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FmdGracePeriodBlocks", wireType)
+			}
+			m.FmdGracePeriodBlocks = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.FmdGracePeriodBlocks |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FixedPrecisionBits", wireType)
+			}
+			var v uint32
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Algorithm = &FmdMetaParameters_FixedPrecisionBits{v}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SlidingWindow", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &FmdMetaParameters_AlgorithmSlidingWindow{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Algorithm = &FmdMetaParameters_SlidingWindow{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FmdMetaParameters_AlgorithmSlidingWindow) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AlgorithmSlidingWindow: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AlgorithmSlidingWindow: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field WindowUpdatePeriods", wireType)
+			}
+			m.WindowUpdatePeriods = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.WindowUpdatePeriods |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TargetedDetectionsPerWindow", wireType)
+			}
+			m.TargetedDetectionsPerWindow = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TargetedDetectionsPerWindow |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FmdMetaParametersAlgorithmState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FmdMetaParametersAlgorithmState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FmdMetaParametersAlgorithmState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fixed", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &FmdMetaParametersAlgorithmState_FixedState{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.State = &FmdMetaParametersAlgorithmState_Fixed{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SlidingWindow", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &FmdMetaParametersAlgorithmState_SlidingWindowState{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.State = &FmdMetaParametersAlgorithmState_SlidingWindow{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FmdMetaParametersAlgorithmState_FixedState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FixedState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FixedState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FmdMetaParametersAlgorithmState_SlidingWindowState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SlidingWindowState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SlidingWindowState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ApproximateClueCount", wireType)
+			}
+			m.ApproximateClueCount = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ApproximateClueCount |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipShieldedPool(dAtA[iNdEx:])
@@ -5205,6 +6807,128 @@ func (m *EventOutput) Unmarshal(dAtA []byte) error {
 				m.NoteCommitment = &v13.StateCommitment{}
 			}
 			if err := m.NoteCommitment.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventBroadcastClue) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventBroadcastClue: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventBroadcastClue: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Clue", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Clue == nil {
+				m.Clue = &v16.Clue{}
+			}
+			if err := m.Clue.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tx", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Tx == nil {
+				m.Tx = &v17.TransactionId{}
+			}
+			if err := m.Tx.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -7003,6 +8727,176 @@ func (m *AssetMetadataByIdResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: AssetMetadataByIdResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DenomMetadata", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DenomMetadata == nil {
+				m.DenomMetadata = &v12.Metadata{}
+			}
+			if err := m.DenomMetadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AssetMetadataByIdsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AssetMetadataByIdsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AssetMetadataByIdsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AssetId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowShieldedPool
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AssetId = append(m.AssetId, &v12.AssetId{})
+			if err := m.AssetId[len(m.AssetId)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipShieldedPool(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthShieldedPool
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AssetMetadataByIdsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowShieldedPool
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AssetMetadataByIdsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AssetMetadataByIdsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

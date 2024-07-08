@@ -50,6 +50,7 @@ const (
 	flagInitialBlockHistory            = "block-history"
 	flagFlushInterval                  = "flush-interval"
 	flagMemo                           = "memo"
+	flagKeyName                        = "key-name"
 	flagFilterRule                     = "filter-rule"
 	flagFilterChannels                 = "filter-channels"
 	flagSrcChainID                     = "src-chain-id"
@@ -472,6 +473,14 @@ func flushIntervalFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 func memoFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(flagMemo, "", "a memo to include in relayed packets")
 	if err := v.BindPFlag(flagMemo, cmd.Flags().Lookup(flagMemo)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func keyNameFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(flagKeyName, "", "a key from the keychain associated with a particular chain")
+	if err := v.BindPFlag(flagKeyName, cmd.Flags().Lookup(flagKeyName)); err != nil {
 		panic(err)
 	}
 	return cmd

@@ -58,7 +58,7 @@ func (x FeeTier_Tier) String() string {
 }
 
 func (FeeTier_Tier) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{2, 0}
+	return fileDescriptor_80e267509eb0355f, []int{3, 0}
 }
 
 // Specifies fees paid by a transaction.
@@ -117,7 +117,86 @@ func (m *Fee) GetAssetId() *v11.AssetId {
 	return nil
 }
 
+// Gas usage for a transaction.
+//
+// Gas used is multiplied by `GasPrices` to determine a `Fee`.
+type Gas struct {
+	// The amount of block space used.
+	BlockSpace uint64 `protobuf:"varint,1,opt,name=block_space,json=blockSpace,proto3" json:"block_space,omitempty"`
+	// The amount of compact block space used.
+	CompactBlockSpace uint64 `protobuf:"varint,2,opt,name=compact_block_space,json=compactBlockSpace,proto3" json:"compact_block_space,omitempty"`
+	// The amount of verification cost used.
+	Verification uint64 `protobuf:"varint,3,opt,name=verification,proto3" json:"verification,omitempty"`
+	// The amount of execution cost used.
+	Execution uint64 `protobuf:"varint,4,opt,name=execution,proto3" json:"execution,omitempty"`
+}
+
+func (m *Gas) Reset()         { *m = Gas{} }
+func (m *Gas) String() string { return proto.CompactTextString(m) }
+func (*Gas) ProtoMessage()    {}
+func (*Gas) Descriptor() ([]byte, []int) {
+	return fileDescriptor_80e267509eb0355f, []int{1}
+}
+func (m *Gas) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Gas) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Gas.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Gas) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Gas.Merge(m, src)
+}
+func (m *Gas) XXX_Size() int {
+	return m.Size()
+}
+func (m *Gas) XXX_DiscardUnknown() {
+	xxx_messageInfo_Gas.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Gas proto.InternalMessageInfo
+
+func (m *Gas) GetBlockSpace() uint64 {
+	if m != nil {
+		return m.BlockSpace
+	}
+	return 0
+}
+
+func (m *Gas) GetCompactBlockSpace() uint64 {
+	if m != nil {
+		return m.CompactBlockSpace
+	}
+	return 0
+}
+
+func (m *Gas) GetVerification() uint64 {
+	if m != nil {
+		return m.Verification
+	}
+	return 0
+}
+
+func (m *Gas) GetExecution() uint64 {
+	if m != nil {
+		return m.Execution
+	}
+	return 0
+}
+
 type GasPrices struct {
+	// The asset ID of the fee token these prices are for.
+	//
+	// If absent, specifies the staking token implicitly.
+	AssetId *v11.AssetId `protobuf:"bytes,15,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty"`
 	// The price per unit block space in terms of the staking token, with an implicit 1,000 denominator.
 	BlockSpacePrice uint64 `protobuf:"varint,1,opt,name=block_space_price,json=blockSpacePrice,proto3" json:"block_space_price,omitempty"`
 	// The price per unit compact block space in terms of the staking token, with an implicit 1,000 denominator.
@@ -132,7 +211,7 @@ func (m *GasPrices) Reset()         { *m = GasPrices{} }
 func (m *GasPrices) String() string { return proto.CompactTextString(m) }
 func (*GasPrices) ProtoMessage()    {}
 func (*GasPrices) Descriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{1}
+	return fileDescriptor_80e267509eb0355f, []int{2}
 }
 func (m *GasPrices) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -160,6 +239,13 @@ func (m *GasPrices) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GasPrices proto.InternalMessageInfo
+
+func (m *GasPrices) GetAssetId() *v11.AssetId {
+	if m != nil {
+		return m.AssetId
+	}
+	return nil
+}
 
 func (m *GasPrices) GetBlockSpacePrice() uint64 {
 	if m != nil {
@@ -198,7 +284,7 @@ func (m *FeeTier) Reset()         { *m = FeeTier{} }
 func (m *FeeTier) String() string { return proto.CompactTextString(m) }
 func (*FeeTier) ProtoMessage()    {}
 func (*FeeTier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{2}
+	return fileDescriptor_80e267509eb0355f, []int{3}
 }
 func (m *FeeTier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -236,17 +322,28 @@ func (m *FeeTier) GetFeeTier() FeeTier_Tier {
 
 // Fee component configuration data.
 type FeeParameters struct {
-	// Fixed gas prices used to compute transactions' base fees.
+	// Fixed gas prices in the native token used to compute transactions' base
+	// fees.
 	//
-	// In the future, this should be removed and replaced with parameters for dynamic gas pricing.
+	// In the future, this should be removed and replaced with parameters for
+	// dynamic gas pricing.
 	FixedGasPrices *GasPrices `protobuf:"bytes,1,opt,name=fixed_gas_prices,json=fixedGasPrices,proto3" json:"fixed_gas_prices,omitempty"`
+	// Fixed gas prices in other tokens used to compute transactions' base fees.
+	//
+	// In the future, this should be removed and replaced with fixed multiples of
+	// the native token's price (so that there is one set of dynamically
+	// determined gas prices in the native token, and derived gas prices in other
+	// alternative tokens).
+	//
+	// If this is empty, no other tokens are accepted for gas.
+	FixedAltGasPrices []*GasPrices `protobuf:"bytes,2,rep,name=fixed_alt_gas_prices,json=fixedAltGasPrices,proto3" json:"fixed_alt_gas_prices,omitempty"`
 }
 
 func (m *FeeParameters) Reset()         { *m = FeeParameters{} }
 func (m *FeeParameters) String() string { return proto.CompactTextString(m) }
 func (*FeeParameters) ProtoMessage()    {}
 func (*FeeParameters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{3}
+	return fileDescriptor_80e267509eb0355f, []int{4}
 }
 func (m *FeeParameters) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -282,6 +379,13 @@ func (m *FeeParameters) GetFixedGasPrices() *GasPrices {
 	return nil
 }
 
+func (m *FeeParameters) GetFixedAltGasPrices() []*GasPrices {
+	if m != nil {
+		return m.FixedAltGasPrices
+	}
+	return nil
+}
+
 // Fee-specific genesis content.
 type GenesisContent struct {
 	// The FeeParameters present at genesis.
@@ -292,7 +396,7 @@ func (m *GenesisContent) Reset()         { *m = GenesisContent{} }
 func (m *GenesisContent) String() string { return proto.CompactTextString(m) }
 func (*GenesisContent) ProtoMessage()    {}
 func (*GenesisContent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{4}
+	return fileDescriptor_80e267509eb0355f, []int{5}
 }
 func (m *GenesisContent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -335,7 +439,7 @@ func (m *CurrentGasPricesRequest) Reset()         { *m = CurrentGasPricesRequest
 func (m *CurrentGasPricesRequest) String() string { return proto.CompactTextString(m) }
 func (*CurrentGasPricesRequest) ProtoMessage()    {}
 func (*CurrentGasPricesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{5}
+	return fileDescriptor_80e267509eb0355f, []int{6}
 }
 func (m *CurrentGasPricesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -365,15 +469,17 @@ func (m *CurrentGasPricesRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_CurrentGasPricesRequest proto.InternalMessageInfo
 
 type CurrentGasPricesResponse struct {
-	// The current gas prices.
+	// The current gas prices, in the preferred (native) token.
 	GasPrices *GasPrices `protobuf:"bytes,1,opt,name=gas_prices,json=gasPrices,proto3" json:"gas_prices,omitempty"`
+	// Other gas prices for other accepted tokens.
+	AltGasPrices []*GasPrices `protobuf:"bytes,2,rep,name=alt_gas_prices,json=altGasPrices,proto3" json:"alt_gas_prices,omitempty"`
 }
 
 func (m *CurrentGasPricesResponse) Reset()         { *m = CurrentGasPricesResponse{} }
 func (m *CurrentGasPricesResponse) String() string { return proto.CompactTextString(m) }
 func (*CurrentGasPricesResponse) ProtoMessage()    {}
 func (*CurrentGasPricesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_80e267509eb0355f, []int{6}
+	return fileDescriptor_80e267509eb0355f, []int{7}
 }
 func (m *CurrentGasPricesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -409,15 +515,162 @@ func (m *CurrentGasPricesResponse) GetGasPrices() *GasPrices {
 	return nil
 }
 
+func (m *CurrentGasPricesResponse) GetAltGasPrices() []*GasPrices {
+	if m != nil {
+		return m.AltGasPrices
+	}
+	return nil
+}
+
+// Emitted during fee payment.
+type EventPaidFee struct {
+	// The fee paid.
+	Fee *Fee `protobuf:"bytes,1,opt,name=fee,proto3" json:"fee,omitempty"`
+	// The base fee that was required.
+	BaseFee *Fee `protobuf:"bytes,2,opt,name=base_fee,json=baseFee,proto3" json:"base_fee,omitempty"`
+	// The tip that was paid to the proposer.
+	Tip *Fee `protobuf:"bytes,3,opt,name=tip,proto3" json:"tip,omitempty"`
+	// The gas used to compute the base fee.
+	GasUsed *Gas `protobuf:"bytes,4,opt,name=gas_used,json=gasUsed,proto3" json:"gas_used,omitempty"`
+}
+
+func (m *EventPaidFee) Reset()         { *m = EventPaidFee{} }
+func (m *EventPaidFee) String() string { return proto.CompactTextString(m) }
+func (*EventPaidFee) ProtoMessage()    {}
+func (*EventPaidFee) Descriptor() ([]byte, []int) {
+	return fileDescriptor_80e267509eb0355f, []int{8}
+}
+func (m *EventPaidFee) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventPaidFee) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventPaidFee.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventPaidFee) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventPaidFee.Merge(m, src)
+}
+func (m *EventPaidFee) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventPaidFee) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventPaidFee.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventPaidFee proto.InternalMessageInfo
+
+func (m *EventPaidFee) GetFee() *Fee {
+	if m != nil {
+		return m.Fee
+	}
+	return nil
+}
+
+func (m *EventPaidFee) GetBaseFee() *Fee {
+	if m != nil {
+		return m.BaseFee
+	}
+	return nil
+}
+
+func (m *EventPaidFee) GetTip() *Fee {
+	if m != nil {
+		return m.Tip
+	}
+	return nil
+}
+
+func (m *EventPaidFee) GetGasUsed() *Gas {
+	if m != nil {
+		return m.GasUsed
+	}
+	return nil
+}
+
+// Emitted as a summary of fees in the block.
+type EventBlockFees struct {
+	// The total fees, after swapping to the native token.
+	SwappedFeeTotal *Fee `protobuf:"bytes,1,opt,name=swapped_fee_total,json=swappedFeeTotal,proto3" json:"swapped_fee_total,omitempty"`
+	// The total base fees, after swapping to the native token.
+	SwappedBaseFeeTotal *Fee `protobuf:"bytes,2,opt,name=swapped_base_fee_total,json=swappedBaseFeeTotal,proto3" json:"swapped_base_fee_total,omitempty"`
+	// The total tips, after swapping to the native token.
+	SwappedTipTotal *Fee `protobuf:"bytes,3,opt,name=swapped_tip_total,json=swappedTipTotal,proto3" json:"swapped_tip_total,omitempty"`
+}
+
+func (m *EventBlockFees) Reset()         { *m = EventBlockFees{} }
+func (m *EventBlockFees) String() string { return proto.CompactTextString(m) }
+func (*EventBlockFees) ProtoMessage()    {}
+func (*EventBlockFees) Descriptor() ([]byte, []int) {
+	return fileDescriptor_80e267509eb0355f, []int{9}
+}
+func (m *EventBlockFees) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *EventBlockFees) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_EventBlockFees.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *EventBlockFees) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventBlockFees.Merge(m, src)
+}
+func (m *EventBlockFees) XXX_Size() int {
+	return m.Size()
+}
+func (m *EventBlockFees) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventBlockFees.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventBlockFees proto.InternalMessageInfo
+
+func (m *EventBlockFees) GetSwappedFeeTotal() *Fee {
+	if m != nil {
+		return m.SwappedFeeTotal
+	}
+	return nil
+}
+
+func (m *EventBlockFees) GetSwappedBaseFeeTotal() *Fee {
+	if m != nil {
+		return m.SwappedBaseFeeTotal
+	}
+	return nil
+}
+
+func (m *EventBlockFees) GetSwappedTipTotal() *Fee {
+	if m != nil {
+		return m.SwappedTipTotal
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("penumbra.core.component.fee.v1.FeeTier_Tier", FeeTier_Tier_name, FeeTier_Tier_value)
 	proto.RegisterType((*Fee)(nil), "penumbra.core.component.fee.v1.Fee")
+	proto.RegisterType((*Gas)(nil), "penumbra.core.component.fee.v1.Gas")
 	proto.RegisterType((*GasPrices)(nil), "penumbra.core.component.fee.v1.GasPrices")
 	proto.RegisterType((*FeeTier)(nil), "penumbra.core.component.fee.v1.FeeTier")
 	proto.RegisterType((*FeeParameters)(nil), "penumbra.core.component.fee.v1.FeeParameters")
 	proto.RegisterType((*GenesisContent)(nil), "penumbra.core.component.fee.v1.GenesisContent")
 	proto.RegisterType((*CurrentGasPricesRequest)(nil), "penumbra.core.component.fee.v1.CurrentGasPricesRequest")
 	proto.RegisterType((*CurrentGasPricesResponse)(nil), "penumbra.core.component.fee.v1.CurrentGasPricesResponse")
+	proto.RegisterType((*EventPaidFee)(nil), "penumbra.core.component.fee.v1.EventPaidFee")
+	proto.RegisterType((*EventBlockFees)(nil), "penumbra.core.component.fee.v1.EventBlockFees")
 }
 
 func init() {
@@ -425,51 +678,65 @@ func init() {
 }
 
 var fileDescriptor_80e267509eb0355f = []byte{
-	// 689 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x94, 0x4f, 0x6f, 0xd3, 0x4c,
-	0x10, 0xc6, 0x63, 0x37, 0x6a, 0x93, 0x69, 0x9b, 0xa6, 0xd6, 0xab, 0xf7, 0x6d, 0xab, 0x57, 0x06,
-	0xf9, 0x42, 0xa9, 0xa8, 0xad, 0x04, 0x24, 0x20, 0x9c, 0x48, 0x1a, 0xa7, 0x41, 0x2d, 0x98, 0xa4,
-	0x2d, 0x12, 0x8a, 0x88, 0x36, 0xce, 0xa4, 0xb5, 0xa8, 0xed, 0xb0, 0xbb, 0x0e, 0xed, 0x07, 0xe0,
-	0xce, 0x89, 0x23, 0x07, 0x8e, 0xdc, 0xf9, 0x0e, 0xa8, 0xa7, 0x1e, 0x39, 0xa2, 0xf4, 0xc6, 0xa7,
-	0x40, 0xbb, 0x4e, 0xdc, 0x7f, 0xa2, 0x05, 0x71, 0x71, 0x66, 0x67, 0x7f, 0xcf, 0xcc, 0x33, 0xbb,
-	0xd1, 0xc2, 0x72, 0x1f, 0x83, 0xc8, 0xef, 0x50, 0x62, 0xb9, 0x21, 0x45, 0xcb, 0x0d, 0xfd, 0x7e,
-	0x18, 0x60, 0xc0, 0xad, 0x1e, 0xa2, 0x35, 0x28, 0x88, 0x1f, 0xb3, 0x4f, 0x43, 0x1e, 0x6a, 0xfa,
-	0x98, 0x34, 0x05, 0x69, 0x26, 0xa4, 0x29, 0x90, 0x41, 0x61, 0xc9, 0x38, 0x5f, 0x89, 0x30, 0x86,
-	0x5c, 0x54, 0x90, 0x41, 0x5c, 0x63, 0x49, 0x3f, 0xcf, 0x04, 0x91, 0x2f, 0x88, 0x20, 0xf2, 0xe3,
-	0x7d, 0xe3, 0x2d, 0x4c, 0xd8, 0x88, 0xda, 0x3d, 0x98, 0x24, 0x7e, 0x18, 0x05, 0x7c, 0x41, 0xb9,
-	0xa9, 0x2c, 0x4f, 0x17, 0xff, 0x37, 0xcf, 0xf7, 0x16, 0x82, 0x41, 0xc1, 0x7c, 0x2c, 0x99, 0xc6,
-	0x88, 0xd5, 0x4a, 0x90, 0x91, 0xbd, 0xda, 0x5e, 0x77, 0x41, 0x95, 0xba, 0x1b, 0x17, 0x74, 0xb1,
-	0x15, 0xa1, 0x14, 0x41, 0xbd, 0xdb, 0x98, 0x22, 0x71, 0x60, 0x1c, 0x29, 0x90, 0xad, 0x11, 0xe6,
-	0x50, 0xcf, 0x45, 0xa6, 0xad, 0xc0, 0x7c, 0x67, 0x3f, 0x74, 0x5f, 0xb7, 0x59, 0x9f, 0xb8, 0xd8,
-	0xee, 0x8b, 0xac, 0xb4, 0x92, 0x6e, 0xcc, 0xc9, 0x8d, 0xa6, 0xc8, 0x4b, 0x58, 0x7b, 0x08, 0x8b,
-	0xe2, 0x28, 0x88, 0xcb, 0xdb, 0x97, 0x35, 0xaa, 0xd4, 0xfc, 0x3b, 0x02, 0xca, 0x17, 0xa4, 0xab,
-	0xa0, 0x0d, 0x90, 0x7a, 0x3d, 0xcf, 0x25, 0xdc, 0x0b, 0x83, 0x91, 0x66, 0x42, 0x6a, 0xe6, 0xcf,
-	0xee, 0xc4, 0xf8, 0x2d, 0x98, 0xc3, 0x03, 0x74, 0xa3, 0x33, 0x6c, 0x5a, 0xb2, 0xb9, 0x24, 0x2d,
-	0x41, 0xe3, 0xa3, 0x02, 0x53, 0x36, 0xe2, 0x96, 0x87, 0x54, 0xab, 0x41, 0xa6, 0x87, 0xd8, 0xe6,
-	0x1e, 0x52, 0x39, 0x41, 0xae, 0x78, 0xc7, 0xbc, 0xfa, 0x22, 0xcd, 0x91, 0xd4, 0x14, 0x9f, 0xc6,
-	0x54, 0x2f, 0x5e, 0x19, 0x4f, 0x20, 0x2d, 0x0b, 0xfe, 0x03, 0xf9, 0xad, 0x7a, 0xb5, 0xd1, 0xde,
-	0x7e, 0xda, 0x74, 0xaa, 0x95, 0xba, 0x5d, 0xaf, 0xae, 0xe5, 0x53, 0xda, 0x0c, 0x64, 0x64, 0x76,
-	0xe3, 0xd9, 0x8b, 0xbc, 0xa2, 0xcd, 0xc1, 0xb4, 0x5c, 0x6d, 0x56, 0xd7, 0xea, 0xdb, 0x9b, 0x79,
-	0x55, 0x9b, 0x85, 0xac, 0x4c, 0xac, 0xd7, 0x6b, 0xeb, 0xf9, 0x09, 0xa3, 0x0b, 0xb3, 0x36, 0xa2,
-	0x43, 0x28, 0xf1, 0x91, 0x23, 0x65, 0x5a, 0x13, 0xf2, 0x3d, 0xef, 0x00, 0xbb, 0xed, 0x5d, 0xc2,
-	0xe2, 0xd1, 0xd8, 0xe8, 0xea, 0x6f, 0x5f, 0xe7, 0x36, 0xb9, 0xb5, 0x46, 0x4e, 0x96, 0x48, 0xd6,
-	0xc6, 0x2b, 0xc8, 0xd5, 0x30, 0x40, 0xe6, 0xb1, 0x4a, 0x18, 0x70, 0x0c, 0xb8, 0xb6, 0x01, 0x20,
-	0x0e, 0xa3, 0x2f, 0x1a, 0x8f, 0x1b, 0xac, 0xfe, 0xc6, 0x71, 0x9c, 0x3a, 0x6d, 0x64, 0x7b, 0xa3,
-	0x25, 0x33, 0x16, 0xe1, 0xbf, 0x4a, 0x44, 0x29, 0x06, 0xfc, 0xd4, 0x03, 0xbe, 0x89, 0x90, 0x71,
-	0xa3, 0x0b, 0x0b, 0x97, 0xb7, 0x58, 0x3f, 0x0c, 0x18, 0x6a, 0xeb, 0x00, 0x7f, 0x33, 0x65, 0x76,
-	0x77, 0x1c, 0x16, 0x3f, 0x28, 0x30, 0xf3, 0x3c, 0x42, 0x7a, 0xd8, 0x44, 0x3a, 0x10, 0xff, 0x90,
-	0x77, 0x0a, 0xe4, 0x2f, 0xf6, 0xd5, 0xee, 0x5f, 0x57, 0xfb, 0x17, 0x43, 0x2c, 0x3d, 0xf8, 0x73,
-	0x61, 0x3c, 0x62, 0xf9, 0x8b, 0xfa, 0x75, 0xa8, 0x2b, 0xc7, 0x43, 0x5d, 0xf9, 0x3e, 0xd4, 0x95,
-	0xf7, 0x27, 0x7a, 0xea, 0xf8, 0x44, 0x4f, 0x7d, 0x3b, 0xd1, 0x53, 0x60, 0xb8, 0xa1, 0x7f, 0x4d,
-	0xdd, 0x72, 0x46, 0x1c, 0xb9, 0x78, 0x0f, 0x1c, 0xe5, 0xa5, 0xb3, 0xeb, 0xf1, 0xbd, 0xa8, 0x23,
-	0x20, 0xcb, 0x0d, 0x99, 0x1f, 0x32, 0x8b, 0xe2, 0x3e, 0x39, 0x44, 0x6a, 0x0d, 0x8a, 0x49, 0xe8,
-	0xee, 0x11, 0x2f, 0x60, 0xd6, 0xd5, 0x6f, 0xd9, 0xa3, 0x1e, 0xe2, 0xa0, 0xf0, 0x49, 0x4d, 0x3b,
-	0x95, 0x8a, 0xfd, 0x59, 0xd5, 0x9d, 0xb1, 0x8b, 0x8a, 0x70, 0x51, 0x49, 0x5c, 0xd8, 0x88, 0xe6,
-	0x4e, 0xe1, 0xe8, 0x14, 0x68, 0x09, 0xa0, 0x95, 0x00, 0x2d, 0x1b, 0xb1, 0xb5, 0x53, 0x18, 0xaa,
-	0x2b, 0x57, 0x03, 0xad, 0x9a, 0x53, 0xde, 0x44, 0x4e, 0xba, 0x84, 0x93, 0x1f, 0xaa, 0x31, 0x86,
-	0x4b, 0x25, 0x41, 0x8b, 0xef, 0x08, 0x2f, 0x95, 0x6c, 0xc4, 0x52, 0x69, 0xa7, 0xd0, 0x99, 0x94,
-	0xaf, 0xe0, 0xdd, 0x9f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x50, 0x18, 0x19, 0x16, 0x95, 0x05, 0x00,
-	0x00,
+	// 928 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0xcf, 0x8f, 0xdb, 0x44,
+	0x14, 0x5e, 0x3b, 0xab, 0x26, 0x79, 0x9b, 0xe6, 0xc7, 0xb4, 0x2a, 0xdb, 0x55, 0xe5, 0x56, 0xe6,
+	0x40, 0xa9, 0xa8, 0xa3, 0x2c, 0x20, 0x20, 0x48, 0x48, 0x4d, 0x1a, 0x67, 0x83, 0xba, 0xd4, 0x78,
+	0x7f, 0x80, 0xaa, 0x08, 0x6b, 0xe2, 0xbc, 0x6c, 0x2d, 0x12, 0xdb, 0x78, 0xc6, 0x69, 0xfb, 0x07,
+	0xc0, 0x89, 0x03, 0x27, 0xc4, 0x89, 0x03, 0x47, 0xee, 0xbd, 0x73, 0x44, 0x9c, 0x7a, 0xe4, 0x88,
+	0x76, 0x6f, 0xfc, 0x0d, 0x1c, 0xd0, 0x8c, 0x1d, 0x27, 0x69, 0x61, 0x37, 0x51, 0x2f, 0xd9, 0xf1,
+	0x9b, 0xef, 0xfb, 0xde, 0xfb, 0xbe, 0x9d, 0x71, 0x02, 0xb7, 0x43, 0xf4, 0xe3, 0xc9, 0x20, 0xa2,
+	0x75, 0x37, 0x88, 0xb0, 0xee, 0x06, 0x93, 0x30, 0xf0, 0xd1, 0xe7, 0xf5, 0x11, 0x62, 0x7d, 0xda,
+	0x10, 0x7f, 0x8c, 0x30, 0x0a, 0x78, 0x40, 0xb4, 0x19, 0xd2, 0x10, 0x48, 0x23, 0x43, 0x1a, 0x02,
+	0x32, 0x6d, 0xec, 0xe8, 0xcb, 0x4a, 0x94, 0x31, 0xe4, 0x42, 0x41, 0x2e, 0x12, 0x8d, 0x1d, 0x6d,
+	0x19, 0xe3, 0xc7, 0x13, 0x81, 0xf0, 0xe3, 0x49, 0xb2, 0xaf, 0x3f, 0x81, 0x9c, 0x89, 0x48, 0xde,
+	0x83, 0x4b, 0x74, 0x12, 0xc4, 0x3e, 0xdf, 0x56, 0x6e, 0x29, 0xb7, 0xb7, 0x76, 0x6f, 0x18, 0xcb,
+	0xbd, 0x05, 0x61, 0xda, 0x30, 0xee, 0x49, 0x8c, 0x9d, 0x62, 0x49, 0x13, 0x0a, 0xb2, 0x97, 0xe3,
+	0x0d, 0xb7, 0x55, 0xc9, 0xbb, 0xf9, 0x12, 0x2f, 0x19, 0x45, 0x30, 0xc5, 0xa2, 0x37, 0xb4, 0xf3,
+	0x34, 0x59, 0xe8, 0x3f, 0x29, 0x90, 0xeb, 0x52, 0x46, 0x6e, 0xc2, 0xd6, 0x60, 0x1c, 0xb8, 0x5f,
+	0x3b, 0x2c, 0xa4, 0x2e, 0xca, 0xf6, 0x9b, 0x36, 0xc8, 0xd2, 0x81, 0xa8, 0x10, 0x03, 0xae, 0x08,
+	0xe7, 0xd4, 0xe5, 0xce, 0x22, 0x50, 0x95, 0xc0, 0x5a, 0xba, 0xd5, 0x9a, 0xe3, 0x75, 0x28, 0x4d,
+	0x31, 0xf2, 0x46, 0x9e, 0x4b, 0xb9, 0x17, 0xf8, 0xdb, 0x39, 0x09, 0x5c, 0xaa, 0x91, 0x1b, 0x50,
+	0xc4, 0xa7, 0xe8, 0xc6, 0x12, 0xb0, 0x29, 0x01, 0xf3, 0x82, 0xfe, 0x9d, 0x0a, 0xc5, 0x2e, 0x65,
+	0x56, 0xe4, 0xb9, 0xc8, 0x96, 0x4c, 0x56, 0xd6, 0x33, 0x49, 0xee, 0x40, 0x6d, 0x61, 0x66, 0x27,
+	0x14, 0x8a, 0xa9, 0xc5, 0xca, 0xdc, 0xa2, 0x6c, 0x44, 0x3e, 0x82, 0xeb, 0xff, 0xe1, 0x33, 0xe5,
+	0x24, 0x6e, 0xaf, 0xbd, 0xe2, 0x36, 0xa1, 0xde, 0x05, 0xb2, 0x68, 0x2f, 0xe5, 0x24, 0xc6, 0x6b,
+	0x8b, 0x3b, 0x09, 0xfc, 0x2d, 0xa8, 0x64, 0x66, 0x53, 0x6c, 0x92, 0x41, 0x39, 0x2b, 0x4b, 0xa0,
+	0xfe, 0xb3, 0x02, 0x79, 0x13, 0xf1, 0xd0, 0xc3, 0x88, 0x74, 0xa1, 0x30, 0x42, 0x74, 0xb8, 0x87,
+	0x91, 0x74, 0x50, 0xde, 0x7d, 0xc7, 0x38, 0xff, 0x7c, 0x1a, 0x29, 0xd5, 0x10, 0x1f, 0x76, 0x7e,
+	0x94, 0x3c, 0xe9, 0x9f, 0xc2, 0xa6, 0x14, 0xbc, 0x0a, 0xd5, 0xc3, 0x5e, 0xc7, 0x76, 0x8e, 0x3e,
+	0x3b, 0xb0, 0x3a, 0xed, 0x9e, 0xd9, 0xeb, 0xdc, 0xaf, 0x6e, 0x90, 0x12, 0x14, 0x64, 0xf5, 0xc1,
+	0xc3, 0x2f, 0xaa, 0x0a, 0xa9, 0xc0, 0x96, 0x7c, 0xda, 0xef, 0xdc, 0xef, 0x1d, 0xed, 0x57, 0x55,
+	0x72, 0x19, 0x8a, 0xb2, 0xb0, 0xd7, 0xeb, 0xee, 0x55, 0x73, 0xfa, 0x6f, 0x0a, 0x5c, 0x36, 0x11,
+	0x2d, 0x1a, 0xd1, 0x09, 0x72, 0x8c, 0x18, 0x39, 0x80, 0xea, 0xc8, 0x7b, 0x8a, 0x43, 0xe7, 0x84,
+	0xb2, 0xc4, 0x1b, 0x4b, 0x8f, 0xf4, 0xdb, 0x17, 0x8d, 0x9b, 0xfd, 0xcb, 0xed, 0xb2, 0x94, 0x98,
+	0x1f, 0x81, 0x47, 0x70, 0x35, 0x11, 0xa5, 0x63, 0xbe, 0x28, 0xac, 0xde, 0xca, 0xad, 0x27, 0x5c,
+	0x93, 0x32, 0xf7, 0xc6, 0x3c, 0x2b, 0xe9, 0x5f, 0x41, 0xb9, 0x8b, 0x3e, 0x32, 0x8f, 0xb5, 0x03,
+	0x9f, 0xa3, 0xcf, 0xc9, 0x03, 0x00, 0x91, 0x74, 0x28, 0x4c, 0xcd, 0x86, 0xbf, 0xbb, 0x42, 0xd6,
+	0xf3, 0x14, 0xec, 0xe2, 0x28, 0x7d, 0x64, 0xfa, 0x75, 0x78, 0xa3, 0x1d, 0x47, 0x11, 0xfa, 0xf3,
+	0x9e, 0x36, 0x7e, 0x13, 0x23, 0xe3, 0xfa, 0x73, 0x05, 0xb6, 0x5f, 0xdd, 0x63, 0x61, 0xe0, 0x33,
+	0x24, 0x7b, 0x00, 0xaf, 0x13, 0x61, 0xf1, 0x24, 0x4b, 0xef, 0x21, 0x94, 0x5f, 0x37, 0xb7, 0x12,
+	0x5d, 0x8c, 0xec, 0x1f, 0x05, 0x4a, 0x9d, 0x29, 0xfa, 0xdc, 0xa2, 0xde, 0x50, 0xbc, 0xbd, 0xde,
+	0x87, 0xdc, 0x08, 0x31, 0x1d, 0xf2, 0xcd, 0x15, 0xa2, 0xb2, 0x05, 0x9e, 0x7c, 0x02, 0x85, 0x01,
+	0x65, 0xe8, 0x08, 0xae, 0xba, 0x3a, 0x37, 0x2f, 0x48, 0x69, 0x5b, 0xee, 0x85, 0xf2, 0x9e, 0xad,
+	0xda, 0x96, 0x7b, 0xa1, 0x68, 0x2b, 0xb2, 0x88, 0x19, 0x0e, 0xe5, 0xbd, 0x5b, 0x81, 0xdb, 0xa5,
+	0xcc, 0xce, 0x9f, 0x50, 0x76, 0xc4, 0x70, 0xa8, 0x7f, 0xaf, 0x42, 0x59, 0xda, 0x97, 0xaf, 0x01,
+	0x13, 0x65, 0xc4, 0x35, 0xf6, 0x84, 0x86, 0x21, 0x0e, 0x1d, 0x79, 0x49, 0x03, 0x4e, 0xc7, 0xeb,
+	0xc4, 0x51, 0x49, 0xd9, 0xe2, 0xc6, 0x0a, 0x2e, 0xf9, 0x12, 0xae, 0xcd, 0x04, 0x67, 0x11, 0xa5,
+	0xaa, 0x6b, 0x04, 0x75, 0x25, 0x95, 0x68, 0x25, 0x79, 0x25, 0xca, 0x0b, 0xa3, 0x72, 0x2f, 0x4c,
+	0x45, 0x73, 0xeb, 0x8f, 0x7a, 0xe8, 0x85, 0x52, 0x70, 0xf7, 0x47, 0x05, 0x4a, 0x9f, 0xc7, 0x18,
+	0x3d, 0x3b, 0xc0, 0x68, 0x2a, 0x5e, 0x6f, 0xdf, 0x2a, 0x50, 0x7d, 0xf9, 0x58, 0x93, 0x0f, 0x2e,
+	0xd2, 0xfe, 0x9f, 0x4b, 0xb2, 0xf3, 0xe1, 0xfa, 0xc4, 0xe4, 0x06, 0xb5, 0x9e, 0xab, 0xbf, 0x9f,
+	0x6a, 0xca, 0x8b, 0x53, 0x4d, 0xf9, 0xeb, 0x54, 0x53, 0x7e, 0x38, 0xd3, 0x36, 0x5e, 0x9c, 0x69,
+	0x1b, 0x7f, 0x9e, 0x69, 0x1b, 0xa0, 0xbb, 0xc1, 0xe4, 0x02, 0xdd, 0x56, 0x41, 0x5c, 0x69, 0xf1,
+	0x1d, 0x6d, 0x29, 0x8f, 0xac, 0x13, 0x8f, 0x3f, 0x8e, 0x07, 0x02, 0x54, 0x77, 0x03, 0x36, 0x09,
+	0x58, 0x3d, 0xc2, 0x31, 0x7d, 0x86, 0x51, 0x7d, 0xba, 0x9b, 0x2d, 0xdd, 0xc7, 0xd4, 0xf3, 0x59,
+	0xfd, 0xfc, 0xdf, 0x17, 0x1f, 0x8f, 0x10, 0xa7, 0x8d, 0x5f, 0xd4, 0x4d, 0xab, 0xdd, 0x36, 0x7f,
+	0x55, 0x35, 0x6b, 0x36, 0x45, 0x5b, 0x4c, 0xd1, 0xce, 0xa6, 0x30, 0x11, 0x8d, 0xe3, 0xc6, 0x1f,
+	0x73, 0x40, 0x5f, 0x00, 0xfa, 0x19, 0xa0, 0x6f, 0x22, 0xf6, 0x8f, 0x1b, 0xa7, 0xea, 0x9d, 0xf3,
+	0x01, 0xfd, 0xae, 0xd5, 0xda, 0x47, 0x4e, 0x87, 0x94, 0xd3, 0xbf, 0x55, 0x7d, 0x06, 0x6e, 0x36,
+	0x05, 0x5a, 0x7c, 0xa6, 0xf0, 0x66, 0xd3, 0x44, 0x6c, 0x36, 0x8f, 0x1b, 0x83, 0x4b, 0xf2, 0x97,
+	0xc9, 0xbb, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0x81, 0x53, 0x4d, 0xbd, 0x29, 0x09, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -601,6 +868,49 @@ func (m *Fee) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *Gas) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Gas) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Gas) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Execution != 0 {
+		i = encodeVarintFee(dAtA, i, uint64(m.Execution))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Verification != 0 {
+		i = encodeVarintFee(dAtA, i, uint64(m.Verification))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.CompactBlockSpace != 0 {
+		i = encodeVarintFee(dAtA, i, uint64(m.CompactBlockSpace))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.BlockSpace != 0 {
+		i = encodeVarintFee(dAtA, i, uint64(m.BlockSpace))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *GasPrices) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -621,6 +931,18 @@ func (m *GasPrices) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.AssetId != nil {
+		{
+			size, err := m.AssetId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x7a
+	}
 	if m.ExecutionPrice != 0 {
 		i = encodeVarintFee(dAtA, i, uint64(m.ExecutionPrice))
 		i--
@@ -692,6 +1014,20 @@ func (m *FeeParameters) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.FixedAltGasPrices) > 0 {
+		for iNdEx := len(m.FixedAltGasPrices) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.FixedAltGasPrices[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintFee(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
 	if m.FixedGasPrices != nil {
 		{
 			size, err := m.FixedGasPrices.MarshalToSizedBuffer(dAtA[:i])
@@ -785,9 +1121,153 @@ func (m *CurrentGasPricesResponse) MarshalToSizedBuffer(dAtA []byte) (int, error
 	_ = i
 	var l int
 	_ = l
+	if len(m.AltGasPrices) > 0 {
+		for iNdEx := len(m.AltGasPrices) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AltGasPrices[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintFee(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
 	if m.GasPrices != nil {
 		{
 			size, err := m.GasPrices.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventPaidFee) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventPaidFee) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventPaidFee) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.GasUsed != nil {
+		{
+			size, err := m.GasUsed.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Tip != nil {
+		{
+			size, err := m.Tip.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.BaseFee != nil {
+		{
+			size, err := m.BaseFee.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Fee != nil {
+		{
+			size, err := m.Fee.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *EventBlockFees) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *EventBlockFees) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EventBlockFees) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.SwappedTipTotal != nil {
+		{
+			size, err := m.SwappedTipTotal.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.SwappedBaseFeeTotal != nil {
+		{
+			size, err := m.SwappedBaseFeeTotal.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFee(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.SwappedFeeTotal != nil {
+		{
+			size, err := m.SwappedFeeTotal.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -828,6 +1308,27 @@ func (m *Fee) Size() (n int) {
 	return n
 }
 
+func (m *Gas) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.BlockSpace != 0 {
+		n += 1 + sovFee(uint64(m.BlockSpace))
+	}
+	if m.CompactBlockSpace != 0 {
+		n += 1 + sovFee(uint64(m.CompactBlockSpace))
+	}
+	if m.Verification != 0 {
+		n += 1 + sovFee(uint64(m.Verification))
+	}
+	if m.Execution != 0 {
+		n += 1 + sovFee(uint64(m.Execution))
+	}
+	return n
+}
+
 func (m *GasPrices) Size() (n int) {
 	if m == nil {
 		return 0
@@ -845,6 +1346,10 @@ func (m *GasPrices) Size() (n int) {
 	}
 	if m.ExecutionPrice != 0 {
 		n += 1 + sovFee(uint64(m.ExecutionPrice))
+	}
+	if m.AssetId != nil {
+		l = m.AssetId.Size()
+		n += 1 + l + sovFee(uint64(l))
 	}
 	return n
 }
@@ -870,6 +1375,12 @@ func (m *FeeParameters) Size() (n int) {
 	if m.FixedGasPrices != nil {
 		l = m.FixedGasPrices.Size()
 		n += 1 + l + sovFee(uint64(l))
+	}
+	if len(m.FixedAltGasPrices) > 0 {
+		for _, e := range m.FixedAltGasPrices {
+			l = e.Size()
+			n += 1 + l + sovFee(uint64(l))
+		}
 	}
 	return n
 }
@@ -904,6 +1415,58 @@ func (m *CurrentGasPricesResponse) Size() (n int) {
 	_ = l
 	if m.GasPrices != nil {
 		l = m.GasPrices.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	if len(m.AltGasPrices) > 0 {
+		for _, e := range m.AltGasPrices {
+			l = e.Size()
+			n += 1 + l + sovFee(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *EventPaidFee) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Fee != nil {
+		l = m.Fee.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	if m.BaseFee != nil {
+		l = m.BaseFee.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	if m.Tip != nil {
+		l = m.Tip.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	if m.GasUsed != nil {
+		l = m.GasUsed.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	return n
+}
+
+func (m *EventBlockFees) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SwappedFeeTotal != nil {
+		l = m.SwappedFeeTotal.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	if m.SwappedBaseFeeTotal != nil {
+		l = m.SwappedBaseFeeTotal.Size()
+		n += 1 + l + sovFee(uint64(l))
+	}
+	if m.SwappedTipTotal != nil {
+		l = m.SwappedTipTotal.Size()
 		n += 1 + l + sovFee(uint64(l))
 	}
 	return n
@@ -1037,6 +1600,132 @@ func (m *Fee) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *Gas) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFee
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Gas: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Gas: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BlockSpace", wireType)
+			}
+			m.BlockSpace = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BlockSpace |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CompactBlockSpace", wireType)
+			}
+			m.CompactBlockSpace = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CompactBlockSpace |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Verification", wireType)
+			}
+			m.Verification = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Verification |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Execution", wireType)
+			}
+			m.Execution = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Execution |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFee(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthFee
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *GasPrices) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1142,6 +1831,42 @@ func (m *GasPrices) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 15:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AssetId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AssetId == nil {
+				m.AssetId = &v11.AssetId{}
+			}
+			if err := m.AssetId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipFee(dAtA[iNdEx:])
@@ -1294,6 +2019,40 @@ func (m *FeeParameters) Unmarshal(dAtA []byte) error {
 				m.FixedGasPrices = &GasPrices{}
 			}
 			if err := m.FixedGasPrices.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FixedAltGasPrices", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.FixedAltGasPrices = append(m.FixedAltGasPrices, &GasPrices{})
+			if err := m.FixedAltGasPrices[len(m.FixedAltGasPrices)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1516,6 +2275,392 @@ func (m *CurrentGasPricesResponse) Unmarshal(dAtA []byte) error {
 				m.GasPrices = &GasPrices{}
 			}
 			if err := m.GasPrices.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AltGasPrices", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AltGasPrices = append(m.AltGasPrices, &GasPrices{})
+			if err := m.AltGasPrices[len(m.AltGasPrices)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFee(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthFee
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventPaidFee) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFee
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventPaidFee: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventPaidFee: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fee", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Fee == nil {
+				m.Fee = &Fee{}
+			}
+			if err := m.Fee.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BaseFee", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.BaseFee == nil {
+				m.BaseFee = &Fee{}
+			}
+			if err := m.BaseFee.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tip", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Tip == nil {
+				m.Tip = &Fee{}
+			}
+			if err := m.Tip.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GasUsed", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.GasUsed == nil {
+				m.GasUsed = &Gas{}
+			}
+			if err := m.GasUsed.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFee(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthFee
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *EventBlockFees) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFee
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EventBlockFees: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EventBlockFees: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SwappedFeeTotal", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SwappedFeeTotal == nil {
+				m.SwappedFeeTotal = &Fee{}
+			}
+			if err := m.SwappedFeeTotal.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SwappedBaseFeeTotal", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SwappedBaseFeeTotal == nil {
+				m.SwappedBaseFeeTotal = &Fee{}
+			}
+			if err := m.SwappedBaseFeeTotal.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SwappedTipTotal", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFee
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFee
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFee
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SwappedTipTotal == nil {
+				m.SwappedTipTotal = &Fee{}
+			}
+			if err := m.SwappedTipTotal.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

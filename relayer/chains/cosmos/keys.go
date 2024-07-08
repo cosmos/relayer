@@ -180,10 +180,7 @@ func (cc *CosmosProvider) ListAddresses() (map[string]string, error) {
 
 // DeleteKey removes a key from the keystore for the specified name.
 func (cc *CosmosProvider) DeleteKey(name string) error {
-	if err := cc.Keybase.Delete(name); err != nil {
-		return err
-	}
-	return nil
+	return cc.Keybase.Delete(name)
 }
 
 // KeyExists returns true if a key with the specified name exists in the keystore, it returns false otherwise.
