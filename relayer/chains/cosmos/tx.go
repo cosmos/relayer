@@ -1676,10 +1676,7 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 
 	// Set the account number and sequence on the transaction factory and retry if fail
 	if err = retry.Do(func() error {
-		if err = txf.AccountRetriever().EnsureExists(cliCtx, from); err != nil {
-			return err
-		}
-		return err
+		return txf.AccountRetriever().EnsureExists(cliCtx, from)
 	}, rtyAtt, rtyDel, rtyErr); err != nil {
 		return txf, err
 	}
