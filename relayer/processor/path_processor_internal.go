@@ -8,12 +8,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/cosmos/relayer/v2/dymutils/gerr"
-
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
+
+	"github.com/danwt/gerr/gerr"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -1396,8 +1396,17 @@ SeqLoop:
 					return err
 				}
 				/*
-					It's possible that an acknowledgement event was not yet published on the dst chain
+					It's possible that an acknowledgement event was not yet published on the dst chain, in which case
+					we don't want to treat the failure to query the ack as a problem.
+					However, for unknown reasons, this change only works when flushing, so this change is not compatible
+					with normal --no-flush relaying.
 				*/
+				if pp.noFlush {
+					// We are in normal relay mode
+					// (we assume we always run the normal relayer with the --no-flush flag)
+					return err
+				}
+				// We are in flushing mode
 				return nil
 			}
 

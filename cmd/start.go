@@ -150,8 +150,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			}
 
 			noFlush, err := cmd.Flags().GetBool("no-flush")
-			// TODO: us eit
-			_ = noFlush
 			if err != nil {
 				return err
 			}

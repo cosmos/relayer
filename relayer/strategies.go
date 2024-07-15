@@ -49,7 +49,7 @@ func StartRelayer(
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
 	stuckPacket *processor.StuckPacket,
-	noFlush bool,
+	noFlush bool, // if true, will NEVER flush
 ) chan error {
 	// prevent incorrect bech32 address prefixed addresses when calling AccAddress.String()
 	sdk.SetAddrCacheEnabled(false)
