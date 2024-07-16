@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Install and setup go
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
       # setup gopath
       - name: Set PATH

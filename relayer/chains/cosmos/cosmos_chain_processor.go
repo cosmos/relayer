@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -17,6 +18,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/danwt/gerr/gerr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -74,11 +76,11 @@ func NewCosmosChainProcessor(
 }
 
 const (
-	queryTimeout                = 5 * time.Second
-	queryStateTimeout           = 60 * time.Second
-	blockResultsQueryTimeout    = 2 * time.Minute
-	latestHeightQueryRetryDelay = 1 * time.Second
-	latestHeightQueryRetries    = 5
+	queryTimeout                    = 5 * time.Second
+	queryStateTimeout               = 60 * time.Second
+	defaultBlockResultsQueryTimeout = 2 * time.Minute
+	latestHeightQueryRetryDelay     = 1 * time.Second
+	latestHeightQueryRetries        = 5
 
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
@@ -399,51 +401,73 @@ func (ccp *CosmosChainProcessor) queryCycle(
 		firstHeightToQuery++
 	}
 
-	for i := firstHeightToQuery; i <= persistence.latestHeight; i++ {
+	for heightToQuery := firstHeightToQuery; heightToQuery <= persistence.latestHeight; heightToQuery++ {
 		var (
 			eg        errgroup.Group
 			blockRes  *coretypes.ResultBlockResults
 			ibcHeader provider.IBCHeader
 		)
 
-		sI := i
+		heightToQuery := heightToQuery
 
 		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
-			defer cancelQueryCtx()
-
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
+			// there is no need for an explicit timeout here, since the rpc client already embeds a timeout
+			x := time.Now()
+			c := make(chan struct{})
+			go func() {
+				t := time.NewTicker(30 * time.Second)
+				y := time.Now()
+				for {
+					select {
+					case <-t.C:
+						ccp.log.Debug("Long running block results query is still ongoing", zap.Any("elapsed", time.Since(y)), zap.Any("chain", chainID))
+					case <-c:
+						t.Stop()
+						return
+					}
+				}
+			}()
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(ctx, &heightToQuery)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
-
-			return err
+			if err != nil && strings.Contains(err.Error(), "unmarshal") {
+				err = fmt.Errorf("%w:%w", gerr.ErrDataLoss, err)
+			}
+			if err != nil {
+				return fmt.Errorf("block results: elapsed: %s: %w", time.Since(x), err)
+			}
+			close(c)
+			return nil
 		})
 
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
 
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, sI)
+			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, heightToQuery)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "IBC Header")
 			}
 
-			return err
+			if err != nil {
+				return fmt.Errorf("query ibc header: %w", err)
+			}
+			return nil
 		})
 
 		if err := eg.Wait(); err != nil {
-			ccp.log.Debug(
-				"querying block data",
-				zap.Int64("height", i),
+			ccp.log.DPanic(
+				"Querying block data.",
+				zap.Int64("height", heightToQuery),
 				zap.Error(err),
 			)
 
 			persistence.retriesAtLatestQueriedBlock++
-			if persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
-				ccp.log.Error("Reached max retries querying for block, skipping", zap.Int64("height", i))
+			if errors.Is(err, gerr.ErrDataLoss) || persistence.retriesAtLatestQueriedBlock >= blockMaxRetries {
+				ccp.log.Error("Reached max retries or got unrecoverable error querying for block, skipping.", zap.Int64("height", heightToQuery))
 				// skip this block. now depends on flush to pickup anything missed in the block.
-				persistence.latestQueriedBlock = i
+				persistence.latestQueriedBlock = heightToQuery
 				persistence.retriesAtLatestQueriedBlock = 0
 				continue
 			}
@@ -454,17 +478,17 @@ func (ccp *CosmosChainProcessor) queryCycle(
 
 		latestHeader = ibcHeader.(provider.TendermintIBCHeader)
 
-		heightUint64 := uint64(i)
+		heightToQueryU := uint64(heightToQuery)
 
 		ccp.latestBlock = provider.LatestBlock{
-			Height: heightUint64,
+			Height: heightToQueryU,
 			Time:   latestHeader.SignedHeader.Time,
 		}
 
-		ibcHeaderCache[heightUint64] = latestHeader
+		ibcHeaderCache[heightToQueryU] = latestHeader
 		ppChanged = true
 
-		messages := chains.IbcMessagesFromEvents(ccp.log, blockRes.FinalizeBlockEvents, chainID, heightUint64)
+		messages := chains.IbcMessagesFromEvents(ccp.log, blockRes.FinalizeBlockEvents, chainID, heightToQueryU)
 
 		for _, m := range messages {
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
@@ -476,12 +500,12 @@ func (ccp *CosmosChainProcessor) queryCycle(
 				continue
 			}
 
-			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64)
+			messages := chains.IbcMessagesFromEvents(ccp.log, tx.Events, chainID, heightToQueryU)
 
 			for _, m := range messages {
 				switch t := m.Info.(type) {
 				case *chains.PacketInfo:
-					if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID && int64(stuckPacket.StartHeight) <= i && i <= int64(stuckPacket.EndHeight) {
+					if stuckPacket != nil && ccp.chainProvider.ChainId() == stuckPacket.ChainID && int64(stuckPacket.StartHeight) <= heightToQuery && heightToQuery <= int64(stuckPacket.EndHeight) {
 						ccp.log.Info("Found stuck packet message.", zap.Any("seq", t.Sequence), zap.Any("height", t.Height))
 					}
 				}
@@ -490,13 +514,13 @@ func (ccp *CosmosChainProcessor) queryCycle(
 
 		}
 
-		newLatestQueriedBlock = i
+		newLatestQueriedBlock = heightToQuery
 
 		if stuckPacket != nil &&
 			ccp.chainProvider.ChainId() == stuckPacket.ChainID &&
 			newLatestQueriedBlock == int64(stuckPacket.EndHeight) {
 
-			i = persistence.latestHeight
+			heightToQuery = persistence.latestHeight
 
 			newLatestQueriedBlock = afterUnstuck
 			ccp.log.Info("Parsed stuck packet height, skipping to current.", zap.Any("new latest queried block", newLatestQueriedBlock))

@@ -2,12 +2,14 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/danwt/gerr/gerr"
 	"go.uber.org/zap"
 )
 
@@ -400,6 +402,9 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 
 	pp.flushTimer = time.NewTimer(pp.flushInterval)
 
+	relayerSyncedToChain1 := false // path end 1
+	relayerSyncedToChain2 := false // path end 2
+
 	for {
 		// block until we have any signals to process
 		if pp.processAvailableSignals(ctx, cancel) {
@@ -413,7 +418,15 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
-		pp.log.Debug("path processor run: are the chains in sync? ", zap.Bool("pathEnd1", pp.pathEnd1.inSync), zap.Bool("pathEnd2", pp.pathEnd2.inSync))
+		if pp.pathEnd1.inSync != relayerSyncedToChain1 || pp.pathEnd2.inSync != relayerSyncedToChain2 {
+			relayerSyncedToChain1 = pp.pathEnd1.inSync
+			relayerSyncedToChain2 = pp.pathEnd2.inSync
+			pp.log.Debug("Relayer sync status change",
+				zap.Any(fmt.Sprintf("%s synced", pp.pathEnd1.info.ChainID), relayerSyncedToChain1),
+				zap.Any(fmt.Sprintf("%s synced", pp.pathEnd2.info.ChainID), relayerSyncedToChain1),
+			)
+		}
+
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 			continue
 		}
@@ -434,7 +447,13 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 
 		// process latest message cache state from both pathEnds
 		if err := pp.processLatestMessages(ctx, cancel); err != nil {
-			pp.log.Debug("ERROR process latest messages", zap.Error(err))
+			// The original relayer code has so many potential errors here that it doesn't bother logging
+			// we will log when we know it's bad.
+			if errors.Is(err, gerr.ErrNotFound) {
+				pp.log.Error("Process latest messages", zap.Error(err))
+			} else {
+				pp.log.Debug("ERROR processing latest messages.", zap.Error(err))
+			}
 			// in case of IBC message send errors, schedule retry after durationErrorRetry
 			if retryTimer != nil {
 				retryTimer.Stop()

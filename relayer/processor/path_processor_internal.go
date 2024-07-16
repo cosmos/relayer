@@ -12,6 +12,8 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
+
+	"github.com/danwt/gerr/gerr"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -1360,6 +1362,9 @@ SeqLoop:
 		pp.metrics.SetUnrelayedAcks(pp.pathEnd1.info.PathName, src.info.ChainID, dst.info.ChainID, k.ChannelID, k.CounterpartyChannelID, len(unacked))
 	}
 
+	var unackedAndWillAck []uint64
+	var unackedAndWillAckMu sync.Mutex
+
 	for i, seq := range unacked {
 		ck := k.Counterparty()
 
@@ -1387,10 +1392,22 @@ SeqLoop:
 		eg.Go(func() error {
 			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
 			if err != nil {
+				if !errors.Is(err, gerr.ErrNotFound) {
+					return err
+				}
 				/*
-					It's possible that an acknowledgement event was not yet published on the dst chain
+					It's possible that an acknowledgement event was not yet published on the dst chain, in which case
+					we don't want to treat the failure to query the ack as a problem.
+					However, for unknown reasons, this change only works when flushing, so this change is not compatible
+					with normal --no-flush relaying.
 				*/
-				return err
+				if pp.noFlush {
+					// We are in normal relay mode
+					// (we assume we always run the normal relayer with the --no-flush flag)
+					return err
+				}
+				// We are in flushing mode
+				return nil
 			}
 
 			/*
@@ -1405,6 +1422,10 @@ SeqLoop:
 			dstCache.Cache(chantypes.EventTypeWriteAck, ck, seq, recvPacket)
 			dstMu.Unlock()
 
+			unackedAndWillAckMu.Lock()
+			unackedAndWillAck = append(unackedAndWillAck, seq)
+			unackedAndWillAckMu.Unlock()
+
 			return nil
 		})
 	}
@@ -1413,11 +1434,11 @@ SeqLoop:
 		return skipped, err
 	}
 
-	if len(unacked) > 0 {
+	if len(unackedAndWillAck) > 0 {
 		dst.log.Debug(
 			"Will flush MsgAcknowledgement",
 			zap.Object("channel", k),
-			zap.Uint64s("sequences", unacked),
+			zap.Uint64s("sequences", unackedAndWillAck),
 		)
 	}
 

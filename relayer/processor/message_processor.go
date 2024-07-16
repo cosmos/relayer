@@ -114,9 +114,7 @@ func (mp *messageProcessor) processMessages(
 
 	mp.assembleMessages(ctx, messages, src, dst)
 
-	if err := mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate); err != nil {
-		return fmt.Errorf("track and send messages: %w", err)
-	}
+	mp.trackAndSendMessages(ctx, src, dst, needsClientUpdate)
 
 	return nil
 }
@@ -138,9 +136,10 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	var consensusHeightTime time.Time
 
 	if dst.clientState.ConsensusTime.IsZero() {
-		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
+		height := int64(dst.clientState.ConsensusHeight.RevisionHeight)
+		h, err := src.chainProvider.QueryIBCHeader(ctx, height)
 		if err != nil {
-			return false, fmt.Errorf("query ibc header: %w", err)
+			return false, fmt.Errorf("query ibc header: chain id: %s: height: %d: %w", src.chainProvider.ChainId(), height, err)
 		}
 		consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
 	} else {
@@ -239,7 +238,7 @@ func (mp *messageProcessor) assembleMessage(
 		)
 		return
 	}
-	dst.log.Debug(fmt.Sprintf("Assembled %s message", msg.msgType()), zap.Object("msg", msg))
+	dst.log.Debug(fmt.Sprintf("Assembled message: %s", msg.msgType()), zap.Object("msg", msg))
 }
 
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
@@ -260,13 +259,13 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
 		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
 		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
-			return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
+			return fmt.Errorf("observed client trusted height does not equal latest client state height: trusted: %d: latest %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
 
 		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 		if err != nil {
-			return fmt.Errorf("query IBC header at height: %d for chain_id: %s, %w",
+			return fmt.Errorf("query IBC header at height: %d: chain_id: %s, %w",
 				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
 
@@ -317,11 +316,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 // trackAndSendMessages will increment attempt counters for each message and send each message.
 // Messages will be batched if the broadcast mode is configured to 'batch' and there was not an error
 // in a previous batch.
-func (mp *messageProcessor) trackAndSendMessages(
-	ctx context.Context,
-	src, dst *pathEndRuntime,
-	needsClientUpdate bool,
-) error {
+func (mp *messageProcessor) trackAndSendMessages(ctx context.Context, src, dst *pathEndRuntime, needsClientUpdate bool) {
 	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
 	var batch []messageToTrack
 
@@ -349,17 +344,11 @@ func (mp *messageProcessor) trackAndSendMessages(
 		go mp.sendBatchMessages(ctx, src, dst, batch)
 	}
 
-	if mp.assembledCount() > 0 {
-		return nil
-	}
-
-	if needsClientUpdate && mp.msgUpdateClient != nil {
+	if mp.assembledCount() == 0 && needsClientUpdate && mp.msgUpdateClient != nil {
 		go mp.sendClientUpdate(ctx, src, dst)
-		return nil
 	}
 
-	// only msgUpdateClient, don't need to send
-	return errors.New("all messages failed to assemble")
+	return
 }
 
 // sendClientUpdate will send an isolated client update message.
@@ -370,8 +359,6 @@ func (mp *messageProcessor) sendClientUpdate(
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
-	dst.log.Debug("Will relay client update")
-
 	dst.lastClientUpdateHeightMu.Lock()
 	dst.lastClientUpdateHeight = dst.latestBlock.Height
 	dst.lastClientUpdateHeightMu.Unlock()
@@ -379,7 +366,7 @@ func (mp *messageProcessor) sendClientUpdate(
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
 
 	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, nil); err != nil {
-		mp.log.Error("Sending client update message",
+		mp.log.Error("Send client update message.",
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
 			zap.String("dst_chain_id", dst.info.ChainID),
@@ -391,7 +378,7 @@ func (mp *messageProcessor) sendClientUpdate(
 		mp.metricParseTxFailureCatagory(err, src)
 		return
 	}
-	dst.log.Debug("Client update broadcast completed")
+	dst.log.Debug("Client updated.", zap.Any("remote", src.info.ChainID))
 }
 
 type PathProcessorMessageResp struct {

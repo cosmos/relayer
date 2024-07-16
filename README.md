@@ -7,6 +7,7 @@
 - will no longer unnecessarily wait for a block to elapse before syncing (good for slow chains)
 - recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
 - use `start --no-flush` to avoid flushing completely
+- in flush mode, will not expect acks immediately (supports delayedack)
 
 ![banner](./docs/images/comp.gif)
 

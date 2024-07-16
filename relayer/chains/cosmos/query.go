@@ -34,6 +34,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/danwt/gerr/gerr"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
@@ -1064,7 +1065,7 @@ func (cc *CosmosProvider) QueryRecvPacket(
 		}
 	}
 
-	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s", q)
+	return provider.PacketInfo{}, fmt.Errorf("no ibc messages found for write_acknowledgement query: %s: %w", q, gerr.ErrNotFound)
 }
 
 // QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks

@@ -13,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	cometprovider "github.com/cometbft/cometbft/light/provider"
+	"github.com/danwt/gerr/gerr"
+
 	sdkerrors "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store/rootmulti"
@@ -1464,7 +1467,13 @@ func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider
 
 	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, cometprovider.ErrLightBlockNotFound) {
+			err = fmt.Errorf("%w:%w", err, gerr.ErrNotFound)
+		}
+		if errors.Is(err, cometprovider.ErrHeightTooHigh) {
+			err = fmt.Errorf("%w:%w", err, gerr.ErrOutOfRange)
+		}
+		return nil, fmt.Errorf("light provider light block: %w", err)
 	}
 
 	return provider.TendermintIBCHeader{
