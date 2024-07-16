@@ -58,10 +58,8 @@ func (cc *CosmosProvider) GetAccountWithHeight(_ client.Context, addr sdk.AccAdd
 
 // EnsureExists returns an error if no account exists for the given address else nil.
 func (cc *CosmosProvider) EnsureExists(clientCtx client.Context, addr sdk.AccAddress) error {
-	if _, err := cc.GetAccount(clientCtx, addr); err != nil {
-		return err
-	}
-	return nil
+	_, err := cc.GetAccount(clientCtx, addr)
+	return err
 }
 
 // GetAccountNumberSequence returns sequence and account number for the given address.
