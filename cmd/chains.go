@@ -238,7 +238,7 @@ func chainsRegistryList(a *appState) *cobra.Command {
 
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case yml:
 				out, err := yaml.Marshal(chains)
 				if err != nil {
@@ -291,7 +291,7 @@ $ %s ch l`, appName, appName)),
 
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case yml:
 				out, err := yaml.Marshal(configs)
 				if err != nil {
@@ -358,7 +358,7 @@ func chainsAddCmd(a *appState) *cobra.Command {
 			}
 
 			if ok := a.config; ok == nil {
-				return fmt.Errorf("config not initialized, consider running `rly config init`")
+				return errors.New("config not initialized, consider running `rly config init`")
 			}
 
 			return a.performConfigLockingOperation(cmd.Context(), func() error {

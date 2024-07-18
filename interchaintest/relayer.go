@@ -3,6 +3,7 @@ package interchaintest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -254,7 +255,7 @@ func (r *Relayer) UpdateClients(ctx context.Context, _ ibc.RelayerExecReporter, 
 
 func (r *Relayer) StartRelayer(ctx context.Context, _ ibc.RelayerExecReporter, pathNames ...string) error {
 	if r.errCh != nil || r.cancel != nil {
-		panic(fmt.Errorf("StartRelayer called multiple times without being stopped"))
+		panic(errors.New("StartRelayer called multiple times without being stopped"))
 	}
 
 	r.errCh = make(chan error, 1)

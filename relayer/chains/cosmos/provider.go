@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -433,7 +434,7 @@ func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 		return err
 	}
 	if h.SyncInfo.CatchingUp {
-		return fmt.Errorf("chain catching up")
+		return errors.New("chain catching up")
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {

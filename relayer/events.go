@@ -1,7 +1,7 @@
 package relayer
 
 import (
-	"fmt"
+	"errors"
 
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	connectiontypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
@@ -21,7 +21,7 @@ func ParseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("client identifier event attribute not found")
+	return "", errors.New("client identifier event attribute not found")
 }
 
 // ParseConnectionIDFromEvents parses events emitted from a MsgConnectionOpenInit or
@@ -36,7 +36,7 @@ func ParseConnectionIDFromEvents(events []provider.RelayerEvent) (string, error)
 			}
 		}
 	}
-	return "", fmt.Errorf("connection identifier event attribute not found")
+	return "", errors.New("connection identifier event attribute not found")
 }
 
 // ParseChannelIDFromEvents parses events emitted from a MsgChannelOpenInit or
@@ -51,5 +51,5 @@ func ParseChannelIDFromEvents(events []provider.RelayerEvent) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("channel identifier event attribute not found")
+	return "", errors.New("channel identifier event attribute not found")
 }

@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -564,7 +565,7 @@ func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("client identifier event attribute not found")
+	return "", errors.New("client identifier event attribute not found")
 }
 
 type ClientStateInfo struct {

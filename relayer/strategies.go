@@ -245,7 +245,7 @@ func relayerStartLegacy(
 		// at startup but after some time has passed a channel needs opened and relayed on. At this point we
 		// could choose to loop here until some action is needed.
 		if len(srcOpenChannels) == 0 {
-			errCh <- fmt.Errorf("there are no open channels to relay on")
+			errCh <- errors.New("there are no open channels to relay on")
 			return
 		}
 
