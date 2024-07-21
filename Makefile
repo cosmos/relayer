@@ -25,6 +25,7 @@ ldflags := $(strip $(ldflags))
 
 BUILD_FLAGS := -ldflags '$(ldflags)'
 
+#? build: Build the rly binary
 build: go.sum
 ifeq ($(OS),Windows_NT)
 	@echo "building rly binary..."
@@ -34,6 +35,7 @@ else
 	@go build  $(BUILD_FLAGS) -o build/rly main.go
 endif
 
+#? build-zip: Build rly binaries for all supported operating systems
 build-zip: go.sum
 	@echo "building rly binaries for windows, mac and linux"
 	@GOOS=linux GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/linux-amd64-rly main.go
@@ -41,16 +43,20 @@ build-zip: go.sum
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
+#? install: Install rly binary to GOBIN
 install: go.sum
 	@echo "installing rly binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/rly main.go
 
+#? build-gaia-docker: Build Docker image for Gaia
 build-gaia-docker:
 	docker build -t cosmos/gaia:$(GAIA_VERSION) --build-arg VERSION=$(GAIA_VERSION) -f ./docker/gaiad/Dockerfile .
 
+#? build-akash-docker: Build Docker image for Akash
 build-akash-docker:
 	docker build -t ovrclk/akash:$(AKASH_VERSION) --build-arg VERSION=$(AKASH_VERSION) -f ./docker/akash/Dockerfile .
 
+#? build-osmosis-docker: Build Docker image for Osmosis
 build-osmosis-docker:
 	docker build -t osmosis-labs/osmosis:$(OSMOSIS_VERSION) --build-arg VERSION=$(OSMOSIS_VERSION) -f ./docker/osmosis/Dockerfile .
 
@@ -58,46 +64,60 @@ build-osmosis-docker:
 # Tests / CI
 ###############################################################################
 
+#? test: Run all unit tests
 test:
 	@go test -mod=readonly -race ./...
 
+#? interchaintest: Run interchain TestRelayerInProcess tests
 interchaintest:
 	cd interchaintest && go test -race -v -run TestRelayerInProcess .
 
+#? interchaintest-docker: Run interchain TestRelayerDocker tests
 interchaintest-docker:
 	cd interchaintest && go test -race -v -run TestRelayerDocker .
 
+#? interchaintest-docker-events: Run interchain TestRelayerDockerEventProcessor tests
 interchaintest-docker-events:
 	cd interchaintest && go test -race -v -run TestRelayerDockerEventProcessor .
 
+#? interchaintest-docker-legacy: Run interchain TestRelayerDockerLegacyProcessor tests
 interchaintest-docker-legacy:
 	cd interchaintest && go test -race -v -run TestRelayerDockerLegacyProcessor .
 
+#? interchaintest-events: Run interchain TestRelayerEventProcessor tests
 interchaintest-events:
 	cd interchaintest && go test -race -v -run TestRelayerEventProcessor .
 
+#? interchaintest-legacy: Run interchain TestRelayerLegacyProcessor tests
 interchaintest-legacy:
 	cd interchaintest && go test -race -v -run TestRelayerLegacyProcessor .
 
+#? interchaintest-multiple: Run interchain TestRelayerMultiplePathsSingleProcess tests
 interchaintest-multiple:
 	cd interchaintest && go test -race -v -run TestRelayerMultiplePathsSingleProcess .
 
+#? interchaintest-misbehaviour: Run interchain TestRelayerMisbehaviourDetection tests
 interchaintest-misbehaviour:
 	cd interchaintest && go test -race -v -run TestRelayerMisbehaviourDetection .
 
+#? interchaintest-fee-middleware: Run interchain TestRelayerFeeMiddleware tests
 interchaintest-fee-middleware:
 	cd interchaintest && go test -race -v -run TestRelayerFeeMiddleware .
 
+#? interchaintest-fee-grant: Run interchain TestRelayerFeeGrant tests
 interchaintest-fee-grant:
 	cd interchaintest && go test -race -v -run TestRelayerFeeGrant .
 
+#? interchaintest-scenario: Run interchain TestScenario tests
 interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1 validator and no full nodes. They test specific functionality.
 	cd interchaintest && go test -timeout 30m -race -v -run TestScenario ./...
 
+#? coverage: Generate and view test coverage report
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
+#? lint: Run linters and gofmt
 lint:
 	@golangci-lint run
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
@@ -110,10 +130,12 @@ lint:
 CHAIN_CODE := ./chain-code
 GAIA_REPO := $(CHAIN_CODE)/gaia
 
+#? get-gaia: Download the Gaia repository
 get-gaia:
 	@mkdir -p $(CHAIN_CODE)/
 	@git clone --branch $(GAIA_VERSION) --depth=1 https://github.com/cosmos/gaia.git $(GAIA_REPO)
 
+#? build-gaia: Build and install Gaia to GOBIN
 build-gaia:
 	@[ -d $(GAIA_REPO) ] || { echo "Repository for gaia does not exist at $(GAIA_REPO). Try running 'make get-gaia'..." ; exit 1; }
 	@cd $(GAIA_REPO) && \
@@ -129,14 +151,17 @@ SYSROOT_DIR     ?= sysroots
 SYSROOT_ARCHIVE ?= sysroots.tar.bz2
 
 .PHONY: sysroot-pack
+#? sysroot-pack: Pack the sysroot directory into an archive
 sysroot-pack:
 	@tar cf - $(SYSROOT_DIR) -P | pv -s $[$(du -sk $(SYSROOT_DIR) | awk '{print $1}') * 1024] | pbzip2 > $(SYSROOT_ARCHIVE)
 
 .PHONY: sysroot-unpack
+#? sysroot-unpack: Unpack the sysroot archive
 sysroot-unpack:
 	@pv $(SYSROOT_ARCHIVE) | pbzip2 -cd | tar -xf -
 
 .PHONY: release-dry-run
+#? release-dry-run: Perform a dry run of the release process using Docker
 release-dry-run:
 	@docker run \
 		--rm \
@@ -149,6 +174,7 @@ release-dry-run:
 		--rm-dist --skip-validate --skip-publish
 
 .PHONY: release
+#? release: Run goreleaser to build and release cross-platform rly binary version
 release:
 	@if [ ! -f ".release-env" ]; then \
 		echo "\033[91m.release-env is required for release\033[0m";\
@@ -169,14 +195,24 @@ protoVer=0.11.2
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
 
+#? proto-all: Run proto-format proto-lint proto-gen
 proto-all: proto-format proto-lint proto-gen
 
+#? proto-gen: Generate Protobuf files
 proto-gen:
 	@echo "Generating Protobuf files"
 	@$(protoImage) sh ./scripts/protocgen.sh
 
+#? proto-format: Format Protobuf files using clang-format
 proto-format:
 	@$(protoImage) find ./ -name "*.proto" -exec clang-format -i {} \;
 
+#? proto-lint: Lint Protobuf files
 proto-lint:
 	@$(protoImage) buf lint --error-format=json
+
+#? help: Get more info on make commands
+help: Makefile
+	@echo " Available commands:"
+	@sed -n 's/^#?//p' $< | column -t -s ':' |  sort | sed -e 's/^/ /'
+.PHONY: help
