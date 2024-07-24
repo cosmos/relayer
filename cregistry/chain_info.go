@@ -194,7 +194,7 @@ func (c ChainInfo) GetRandomRPCEndpoint(ctx context.Context, forceAdd bool) (str
 
 	if len(rpcs) == 0 {
 		if !forceAdd {
-			return "", fmt.Errorf("no working RPCs found, consider using --force-add")
+			return "", errors.New("no working RPCs found, consider using --force-add")
 		} else {
 			return "", nil
 		}
@@ -227,7 +227,7 @@ func (c ChainInfo) GetBackupRPCEndpoints(ctx context.Context, forceAdd bool, pri
 	// if no rpcs, return error
 	if len(rpcs) == 0 {
 		if !forceAdd {
-			return nil, fmt.Errorf("no working RPCs found, consider using --force-add")
+			return nil, errors.New("no working RPCs found, consider using --force-add")
 		} else {
 			return nil, nil
 		}

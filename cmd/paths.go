@@ -76,7 +76,7 @@ $ %s pth l`, appName, appName, appName)),
 			yml, _ := cmd.Flags().GetBool(flagYAML)
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case yml:
 				out, err := yaml.Marshal(a.config.Paths)
 				if err != nil {
@@ -148,7 +148,7 @@ $ %s pth s path-name`, appName, appName, appName)),
 			pathWithStatus := p.QueryPathStatus(cmd.Context(), chains[p.Src.ChainID], chains[p.Dst.ChainID])
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case yml:
 				out, err := yaml.Marshal(pathWithStatus)
 				if err != nil {
@@ -348,7 +348,7 @@ $ %s paths update demo-path --src-connection-id connection-02 --dst-connection-i
 				}
 
 				if !actionTaken {
-					return fmt.Errorf("at least one flag must be provided")
+					return errors.New("at least one flag must be provided")
 				}
 
 				return nil

@@ -2,7 +2,7 @@ package cosmos
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"reflect"
 	"strconv"
 	"sync"
@@ -87,7 +87,7 @@ func (cc *CosmosProvider) Invoke(ctx context.Context, method string, req, reply 
 
 // NewStream implements the grpc ClientConn.NewStream method
 func (cc *CosmosProvider) NewStream(context.Context, *grpc.StreamDesc, string, ...grpc.CallOption) (grpc.ClientStream, error) {
-	return nil, fmt.Errorf("streaming rpc not supported")
+	return nil, errors.New("streaming rpc not supported")
 }
 
 // RunGRPCQuery runs a gRPC query from the clientCtx, given all necessary
