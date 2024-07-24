@@ -68,3 +68,5 @@ COPY --from=busybox-min --chown=100:1000 /home/relayer /home/relayer
 
 WORKDIR /home/relayer
 USER relayer
+
+ENTRYPOINT ["rly", "start"]
