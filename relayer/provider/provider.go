@@ -266,7 +266,7 @@ type ChainProvider interface {
 	NextSeqRecv(ctx context.Context, msgTransfer PacketInfo, height uint64) (PacketProof, error)
 
 	// MsgTransfer constructs a MsgTransfer message ready to write to the chain.
-	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo) (RelayerMessage, error)
+	MsgTransfer(dstAddr string, amount sdk.Coin, info PacketInfo, memo string) (RelayerMessage, error)
 
 	// MsgRecvPacket takes the packet information from a MsgTransfer along with the packet commitment,
 	// and assembles a full MsgRecvPacket ready to write to the chain.

@@ -999,6 +999,7 @@ func (cc *PenumbraProvider) MsgTransfer(
 	dstAddr string,
 	amount sdk.Coin,
 	info provider.PacketInfo,
+	memo string,
 ) (provider.RelayerMessage, error) {
 	acc, err := cc.Address()
 	if err != nil {
@@ -1011,6 +1012,7 @@ func (cc *PenumbraProvider) MsgTransfer(
 		Sender:           acc,
 		Receiver:         dstAddr,
 		TimeoutTimestamp: info.TimeoutTimestamp,
+		Memo:             memo,
 	}
 
 	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
@@ -2254,7 +2256,7 @@ func (cc *PenumbraProvider) waitForBlockInclusion(
 				return cc.mkTxResult(res)
 			}
 			if strings.Contains(err.Error(), "transaction indexing is disabled") {
-				return nil,errors.New("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+				return nil, errors.New("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
 			}
 		case <-ctx.Done():
 			return nil, ctx.Err()

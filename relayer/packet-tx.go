@@ -109,7 +109,7 @@ func (c *Chain) SendTransferMsg(
 		TimeoutTimestamp: timeoutTimestamp,
 	}
 
-	msg, err := c.ChainProvider.MsgTransfer(dstAddr, amount, pi)
+	msg, err := c.ChainProvider.MsgTransfer(dstAddr, amount, pi, memo)
 	if err != nil {
 		return err
 	}

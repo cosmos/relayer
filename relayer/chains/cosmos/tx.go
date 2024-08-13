@@ -796,6 +796,7 @@ func (cc *CosmosProvider) MsgTransfer(
 	dstAddr string,
 	amount sdk.Coin,
 	info provider.PacketInfo,
+	memo string,
 ) (provider.RelayerMessage, error) {
 	acc, err := cc.Address()
 	if err != nil {
@@ -808,6 +809,7 @@ func (cc *CosmosProvider) MsgTransfer(
 		Sender:           acc,
 		Receiver:         dstAddr,
 		TimeoutTimestamp: info.TimeoutTimestamp,
+		Memo:             memo,
 	}
 
 	// If the timeoutHeight is 0 then we don't need to explicitly set it on the MsgTransfer
@@ -1746,7 +1748,7 @@ func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, e
 	for _, opt := range cc.PCfg.ExtensionOptions {
 		max, ok := sdkmath.NewIntFromString(opt.Value)
 		if !ok {
-			return txf,errors.New("invalid opt value")
+			return txf, errors.New("invalid opt value")
 		}
 		extensionOption := ethermint.ExtensionOptionDynamicFeeTx{
 			MaxPriorityPrice: max,
