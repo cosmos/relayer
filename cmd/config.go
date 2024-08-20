@@ -294,7 +294,7 @@ func rlyMemo(memo string) string {
 	if memo == "" {
 		return defaultMemo
 	}
-	return fmt.Sprintf("%s | %s", memo, defaultMemo)
+	return memo
 }
 
 // memo returns a formatted message memo string,
