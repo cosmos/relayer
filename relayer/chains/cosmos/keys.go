@@ -12,8 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/go-bip39"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
-	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
 )
 
 const ethereumCoinType = uint32(60)
@@ -23,12 +21,12 @@ var (
 	//  - secp256k1     (Cosmos)
 	//  - sr25519		(Cosmos)
 	//  - eth_secp256k1 (Ethereum, Injective)
-	SupportedAlgorithms = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519, ethermint.EthSecp256k1, injective.EthSecp256k1}
+	SupportedAlgorithms = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519}
 	// SupportedAlgorithmsLedger defines the list of signing algorithms used on Evmos for the Ledger device:
 	//  - secp256k1     (Cosmos)
 	//  - sr25519		(Cosmos)
 	//  - eth_secp256k1 (Ethereum, Injective)
-	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519, ethermint.EthSecp256k1, injective.EthSecp256k1}
+	SupportedAlgorithmsLedger = keyring.SigningAlgoList{hd.Secp256k1, sr25519.Sr25519}
 )
 
 // KeyringAlgoOptions defines a function keys options for the ethereum Secp256k1 curve.
@@ -107,15 +105,6 @@ func (cc *CosmosProvider) KeyAddOrRestore(keyName string, coinType uint32, signi
 		mnemonicStr, err = CreateMnemonic()
 		if err != nil {
 			return nil, err
-		}
-	}
-
-	if coinType == ethereumCoinType {
-		algo = keyring.SignatureAlgo(ethermint.EthSecp256k1)
-		for _, codec := range cc.PCfg.ExtraCodecs {
-			if codec == "injective" {
-				algo = keyring.SignatureAlgo(injective.EthSecp256k1)
-			}
 		}
 	}
 

@@ -12,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"go.uber.org/zap"
 )
@@ -141,8 +140,6 @@ func (c *Chain) chainProcessor(
 ) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := c.ChainProvider.(type) {
-	case *penumbraprocessor.PenumbraProvider:
-		return penumbraprocessor.NewPenumbraChainProcessor(log, p)
 	case *cosmos.CosmosProvider:
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	default:

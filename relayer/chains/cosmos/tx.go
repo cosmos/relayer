@@ -14,7 +14,6 @@ import (
 	"time"
 
 	sdkerrors "cosmossdk.io/errors"
-	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -44,7 +43,6 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v8/modules/light-clients/09-localhost"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -1743,23 +1741,6 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 // value is encountered.
 func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, error) {
 	extOpts := make([]*types.Any, 0, len(cc.PCfg.ExtensionOptions))
-	for _, opt := range cc.PCfg.ExtensionOptions {
-		max, ok := sdkmath.NewIntFromString(opt.Value)
-		if !ok {
-			return txf,errors.New("invalid opt value")
-		}
-		extensionOption := ethermint.ExtensionOptionDynamicFeeTx{
-			MaxPriorityPrice: max,
-		}
-		extBytes, err := extensionOption.Marshal()
-		if err != nil {
-			return txf, err
-		}
-		extOpts = append(extOpts, &types.Any{
-			TypeUrl: "/ethermint.types.v1.ExtensionOptionDynamicFeeTx",
-			Value:   extBytes,
-		})
-	}
 	return txf.WithExtensionOptions(extOpts...), nil
 }
 

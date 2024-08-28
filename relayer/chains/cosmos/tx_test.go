@@ -5,15 +5,11 @@ import (
 	"math"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	authTx "github.com/cosmos/cosmos-sdk/x/auth/tx"
-	"github.com/cosmos/relayer/v2/relayer/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,42 +78,6 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 				require.Equal(t, adjustedGas, tc.expectedGas)
 			}
 		})
-	}
-}
-
-func TestSetWithExtensionOptions(t *testing.T) {
-	cc := &CosmosProvider{PCfg: CosmosProviderConfig{
-		ExtensionOptions: []provider.ExtensionOption{
-			{Value: "1000000000"},
-			{Value: "2000000000"},
-		},
-	}}
-
-	cfg := makeMockTxConfig()
-	txf := tx.Factory{}.
-		WithChainID("chainID").
-		WithTxConfig(cfg)
-	updatedTxf, err := cc.SetWithExtensionOptions(txf)
-	require.NoError(t, err)
-	txb, err := updatedTxf.BuildUnsignedTx()
-	require.NoError(t, err)
-	extOptions := txb.(*mockTxBuilder).extOptions
-	actualNumExtOptions := len(extOptions)
-	expectedNumExtOptions := len(cc.PCfg.ExtensionOptions)
-	require.Equal(t, expectedNumExtOptions, actualNumExtOptions)
-	// Check that each extension option was added with the correct type URL and value
-	for i, opt := range cc.PCfg.ExtensionOptions {
-		expectedTypeURL := "/ethermint.types.v1.ExtensionOptionDynamicFeeTx"
-		max, ok := sdkmath.NewIntFromString(opt.Value)
-		require.True(t, ok)
-		expectedValue, err := (&ethermint.ExtensionOptionDynamicFeeTx{
-			MaxPriorityPrice: max,
-		}).Marshal()
-		require.NoError(t, err)
-		actualTypeURL := extOptions[i].TypeUrl
-		actualValue := extOptions[i].Value
-		require.Equal(t, expectedTypeURL, actualTypeURL)
-		require.Equal(t, expectedValue, actualValue)
 	}
 }
 

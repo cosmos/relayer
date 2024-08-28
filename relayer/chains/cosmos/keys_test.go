@@ -49,42 +49,6 @@ func TestKeyRestore(t *testing.T) {
 	require.Equal(t, expectedAddress, address)
 }
 
-// TestKeyRestoreEth restores a test mnemonic
-func TestKeyRestoreEth(t *testing.T) {
-	const (
-		keyName            = "test_key"
-		signatureAlgorithm = "secp256k1"
-		mnemonic           = "three elevator silk family street child flip also leaf inmate call frame shock little legal october vivid enable fetch siege sell burger dolphin green"
-		accountPrefix      = "evmos"
-		expectedAddress    = "evmos1dea7vlekr9e34vugwkvesulglt8fx4e457vk9z"
-		coinType           = uint32(60)
-	)
-
-	p := testProviderWithKeystore(t, accountPrefix, []string{"ethermint"})
-
-	address, err := p.RestoreKey(keyName, mnemonic, coinType, signatureAlgorithm)
-	require.NoError(t, err)
-	require.Equal(t, expectedAddress, address)
-}
-
-// TestKeyRestoreInj restores a test mnemonic
-func TestKeyRestoreInj(t *testing.T) {
-	const (
-		keyName            = "inj_key"
-		signatureAlgorithm = "secp256k1"
-		mnemonic           = "three elevator silk family street child flip also leaf inmate call frame shock little legal october vivid enable fetch siege sell burger dolphin green"
-		accountPrefix      = "inj"
-		expectedAddress    = "inj1dea7vlekr9e34vugwkvesulglt8fx4e4uk2udj"
-		coinType           = uint32(60)
-	)
-
-	p := testProviderWithKeystore(t, accountPrefix, []string{"injective"})
-
-	address, err := p.RestoreKey(keyName, mnemonic, coinType, signatureAlgorithm)
-	require.NoError(t, err)
-	require.Equal(t, expectedAddress, address)
-}
-
 // TestKeyRestoreSr25519 restores a test mnemonic
 func TestKeyRestoreSr25519(t *testing.T) {
 	const (
