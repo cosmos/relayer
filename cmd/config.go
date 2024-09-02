@@ -441,7 +441,7 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 	case "penumbra":
 		iw.Value = new(penumbra.PenumbraProviderConfig)
 	default:
-		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
+		return fmt.Errorf("invalid chain type, check your config file: %s", iw.Type)
 	}
 
 	return obj.Wrapper.Decode(iw.Value)
@@ -500,9 +500,6 @@ type GlobalConfig struct {
 	LogLevel        string `yaml:"log-level" json:"log-level"`
 	ICS20MemoLimit  int    `yaml:"ics20-memo-limit" json:"ics20-memo-limit"`
 	MaxReceiverSize int    `yaml:"max-receiver-size" json:"max-receiver-size"`
-
-	// If relayer is being used to relay between a Dymension rollapp and the Dymension hub
-	Rollapp bool `yaml:"rollapp" json:"rollapp"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set

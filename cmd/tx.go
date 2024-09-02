@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -581,7 +582,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 				override,
 				a.config.memo(cmd),
 				pathName,
-				a.config.Global.Rollapp,
+				isRollapp(c[src], c[dst]),
 			)
 		},
 	}
@@ -592,6 +593,18 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 	cmd = channelParameterFlags(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	return cmd
+}
+
+func isRollapp(src, dst *relayer.Chain) bool {
+	srcP, ok := src.ChainProvider.ProviderConfig().(cosmos.CosmosProviderConfig)
+	if !ok {
+		return false
+	}
+	dstP, ok := dst.ChainProvider.ProviderConfig().(cosmos.CosmosProviderConfig)
+	if !ok {
+		return false
+	}
+	return srcP.DymHub || dstP.DymHub
 }
 
 func closeChannelCmd(a *appState) *cobra.Command {
@@ -818,7 +831,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				override,
 				memo,
 				pathName,
-				a.config.Global.Rollapp,
+				isRollapp(c[src], c[dst]),
 			)
 		},
 	}

@@ -1594,12 +1594,14 @@ func (cc *CosmosProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
+	trust := tmclient.NewFractionFromTm(light.DefaultTrustLevel)
+
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	// Create the ClientState we want on 'c' tracking 'dst'
 	return &tmclient.ClientState{
 		ChainId:         dstChainID,
-		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		TrustLevel:      trust,
 		TrustingPeriod:  dstTrustingPeriod,
 		UnbondingPeriod: dstUbdPeriod,
 		MaxClockDrift:   maxClockDrift,
