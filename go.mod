@@ -2,6 +2,59 @@ module github.com/cosmos/relayer/v2
 
 go 1.21
 
+// TODO: temp gordian only
+// SimApp on main always tests the latest extracted SDK modules importing the sdk
+// replace (
+// 	// Simapp always use the latest version of the cosmos-sdk
+// 	github.com/cosmos/cosmos-sdk => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk
+// 	// other
+// 	cosmossdk.io/client/v2 => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/client/v2
+// 	cosmossdk.io/collections => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/collections
+// 	cosmossdk.io/core => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/core
+// 	cosmossdk.io/tools/confix => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/tools/confix
+// 	cosmossdk.io/x/accounts => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/accounts
+// 	cosmossdk.io/x/accounts/defaults/lockup => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/accounts/defaults/lockup
+// 	cosmossdk.io/x/accounts/defaults/multisig => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/accounts/defaults/multisig
+// 	cosmossdk.io/x/auth => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/auth
+// 	cosmossdk.io/x/authz => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/authz
+// 	cosmossdk.io/x/bank => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/bank
+// 	cosmossdk.io/x/circuit => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/circuit
+// 	cosmossdk.io/x/consensus => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/consensus
+// 	cosmossdk.io/x/distribution => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/distribution
+// 	cosmossdk.io/x/evidence => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/evidence
+// 	cosmossdk.io/x/feegrant => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/feegrant
+// 	cosmossdk.io/x/gov => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/gov
+// 	cosmossdk.io/x/group => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/group
+// 	cosmossdk.io/x/mint => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/mint
+// 	cosmossdk.io/x/nft => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/nft
+// 	cosmossdk.io/x/params => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/params
+// 	cosmossdk.io/x/protocolpool => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/protocolpool
+// 	cosmossdk.io/x/slashing => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/slashing
+// 	cosmossdk.io/x/staking => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/staking
+// 	cosmossdk.io/x/tx => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/tx
+// 	cosmossdk.io/x/upgrade => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/x/upgrade
+// )
+
+// // server v2 integration
+// replace (
+// 	cosmossdk.io/api => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/api
+// 	cosmossdk.io/core/testing => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/core/testing
+// 	cosmossdk.io/runtime/v2 => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/runtime/v2
+// 	cosmossdk.io/server/v2 => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/server/v2
+// 	cosmossdk.io/server/v2/appmanager => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/server/v2/appmanager
+// 	cosmossdk.io/server/v2/cometbft => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/server/v2/cometbft
+// 	cosmossdk.io/server/v2/stf => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/server/v2/stf
+// 	cosmossdk.io/store => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/store
+// 	cosmossdk.io/store/v2 => /home/reece/Desktop/Programming/Go/gordian/gcosmos/_cosmosvendor/cosmos-sdk/store/v2
+// )
+
+// // TODO:
+// // Gordian Integration
+// replace (
+// 	github.com/rollchains/gordian => /home/reece/Desktop/Programming/Go/gordian
+// 	github.com/rollchains/gordian/gcosmos => /home/reece/Desktop/Programming/Go/gordian/gcosmos
+// )
+
 require (
 	cosmossdk.io/api v0.7.3
 	cosmossdk.io/errors v1.0.1
@@ -11,8 +64,6 @@ require (
 	cosmossdk.io/x/tx v0.13.1
 	cosmossdk.io/x/upgrade v0.1.1
 	github.com/avast/retry-go/v4 v4.5.1
-	github.com/btcsuite/btcd v0.24.0
-	github.com/btcsuite/btcd/btcutil v1.1.5
 	github.com/cometbft/cometbft v0.38.6
 	github.com/cosmos/cosmos-proto v1.0.0-beta.4
 	github.com/cosmos/cosmos-sdk v0.50.5
@@ -20,8 +71,6 @@ require (
 	github.com/cosmos/gogoproto v1.4.11
 	github.com/cosmos/ibc-go/modules/capability v1.0.0
 	github.com/cosmos/ibc-go/v8 v8.2.0
-	github.com/cosmos/ics23/go v0.10.0
-	github.com/ethereum/go-ethereum v1.13.15
 	github.com/gofrs/flock v0.8.1
 	github.com/google/go-github/v43 v43.0.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
@@ -31,13 +80,10 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/strangelove-ventures/cometbft-client v0.1.0
 	github.com/stretchr/testify v1.9.0
-	github.com/tyler-smith/go-bip39 v1.1.0
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.6.0
-	golang.org/x/text v0.14.0
 	google.golang.org/grpc v1.62.1
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -73,14 +119,12 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/cometbft/cometbft-db v0.9.1 // indirect
-	github.com/consensys/bavard v0.1.13 // indirect
-	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/cosmos-db v1.0.2 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.0.1 // indirect
+	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.13.3 // indirect
-	github.com/crate-crypto/go-kzg-4844 v0.7.0 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
@@ -91,7 +135,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/emicklei/dot v1.6.1 // indirect
-	github.com/ethereum/c-kzg-4844 v0.4.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
@@ -101,6 +144,7 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -134,7 +178,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/hdevalence/ed25519consensus v0.1.0 // indirect
-	github.com/holiman/uint256 v1.2.4 // indirect
 	github.com/huandu/skiplist v1.2.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
@@ -155,7 +198,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
 	github.com/oklog/run v1.1.0 // indirect
@@ -178,7 +220,6 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/supranational/blst v0.3.11 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tidwall/btree v1.7.0 // indirect
@@ -198,6 +239,7 @@ require (
 	golang.org/x/oauth2 v0.18.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/api v0.162.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
@@ -209,6 +251,5 @@ require (
 	gotest.tools/v3 v3.5.1 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
-	rsc.io/tmplfunc v0.0.3 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
