@@ -121,7 +121,7 @@ func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provide
 		return nil, err
 	}
 
-	// TODO: why proove here if we don't actually use it? does it change the events?
+	// TODO: why prove here if we don't actually use it? does it change the events?
 	resp, err := cc.ConsensusClient.GetTx(ctx, hash, true)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provide
 	events := parseEventsFromResponseDeliverTx(resp.TxResult.Events)
 
 	return &provider.RelayerTxResponse{
-		Height: resp.Height,
+		Height: int64(resp.Height),
 		TxHash: string(hash),
 		Code:   resp.TxResult.Code,
 		Data:   string(resp.TxResult.Data),
