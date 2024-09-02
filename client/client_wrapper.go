@@ -36,8 +36,6 @@ type CometRPCClient struct {
 	c *client.Client
 }
 
-
-
 func NewRPCClient(c *client.Client) CometRPCClient {
 	return CometRPCClient{c: c}
 }
@@ -67,13 +65,12 @@ func (r CometRPCClient) ABCIQuery(
 	path string,
 	data bytes.HexBytes,
 ) (*coretypes.ResultABCIQuery, error) {
-	// res, err := r.c.ABCIQuery(ctx, path, slbytes.HexBytes(data))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	res, err := r.c.ABCIQuery(ctx, path, slbytes.HexBytes(data))
+	if err != nil {
+		return nil, err
+	}
 
-	// return convertResultABCIQuery(res), nil
-	panic("ABCIQuery unimplemented (hardcoded fee_market.go base fee for now)")
+	return convertResultABCIQuery(res), nil
 }
 
 func (r CometRPCClient) ABCIQueryWithOptions(

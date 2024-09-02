@@ -127,7 +127,6 @@ type CosmosProvider struct {
 	PCfg           CosmosProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	// RPCClient      cwrapper.RPCClient
 	ConsensusClient relayerclient.ConsensusRelayerI
 
 	LightProvider provtypes.Provider

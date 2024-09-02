@@ -74,30 +74,54 @@ func (r CometRPCClient) GetBlockSearch(ctx context.Context, query string, page *
 
 // GetCommit implements ConsensusRelayerI.
 func (r CometRPCClient) GetCommit(ctx context.Context, height *int64) (*coretypes.ResultCommit, error) {
-	panic("unimplemented")
+	c, err := r.Commit(ctx, height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit: %w", err)
+	}
+	return c, nil
 }
 
 // GetValidators implements ConsensusRelayerI.
 func (r CometRPCClient) GetValidators(ctx context.Context, height *int64, page *int, perPage *int) (*coretypes.ResultValidators, error) {
-	panic("unimplemented")
+	v, err := r.Validators(ctx, height, page, perPage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get validators: %w", err)
+	}
+	return v, nil
 }
 
 // DoBroadcastTxAsync implements ConsensusRelayerI.
 func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
-	panic("unimplemented")
+	b, err := r.BroadcastTxAsync(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to broadcast tx async: %w", err)
+	}
+	return b, nil
 }
 
 // DoBroadcastTxSync implements ConsensusRelayerI.
 func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
-	panic("unimplemented")
+	b, err := r.BroadcastTxSync(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to broadcast tx sync: %w", err)
+	}
+	return b, nil
 }
 
 // GetABCIQueryWithOptions implements ConsensusRelayerI.
 func (r CometRPCClient) GetABCIQueryWithOptions(ctx context.Context, path string, data bytes.HexBytes, opts rpcclient.ABCIQueryOptions) (*coretypes.ResultABCIQuery, error) {
-	panic("unimplemented")
+	q, err := r.ABCIQueryWithOptions(ctx, path, data, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ABCI query with options: %w", err)
+	}
+	return q, nil
 }
 
 // GetStatus implements ConsensusRelayerI.
 func (r CometRPCClient) GetStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
-	panic("unimplemented")
+	s, err := r.Status(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status: %w", err)
+	}
+	return s, nil
 }
