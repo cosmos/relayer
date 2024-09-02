@@ -32,7 +32,7 @@ func (cc *CosmosProvider) DynamicFee(ctx context.Context) string {
 // QueryBaseFee attempts to make an ABCI query to retrieve the base fee on chains using the Osmosis EIP-1559 implementation.
 // This is currently hardcoded to only work on Osmosis.
 func (cc *CosmosProvider) QueryBaseFee(ctx context.Context) (string, error) {
-	resp, err := cc.RPCClient.ABCIQuery(ctx, queryPath, nil)
+	resp, err := cc.ConsensusClient.GetABCIQuery(ctx, queryPath, nil)
 	if err != nil || resp.Response.Code != 0 {
 		return "", err
 	}

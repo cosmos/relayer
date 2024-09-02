@@ -67,9 +67,7 @@ func feegrantQueryCmd(a *appState) *cobra.Command {
 		Short: "Querying commands for the feegrant module [currently BasicAllowance only]",
 	}
 
-	cmd.AddCommand(
-		feegrantBasicGrantsCmd(a),
-	)
+	cmd.AddCommand()
 	cmd = addOutputFlag(a.viper, cmd)
 	return cmd
 }

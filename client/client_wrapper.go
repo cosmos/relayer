@@ -28,47 +28,55 @@ import (
 	types2 "github.com/strangelove-ventures/cometbft-client/types"
 )
 
-// RPCClient wraps our slimmed down CometBFT client and converts the returned types to the upstream CometBFT types.
+// ------------------------------------
+
+// CometRPCClient wraps our slimmed down CometBFT client and converts the returned types to the upstream CometBFT types.
 // This is useful so that it can be used in any function calls that expect the upstream types.
-type RPCClient struct {
+type CometRPCClient struct {
 	c *client.Client
 }
 
-func NewRPCClient(c *client.Client) RPCClient {
-	return RPCClient{c: c}
+
+
+func NewRPCClient(c *client.Client) CometRPCClient {
+	return CometRPCClient{c: c}
 }
 
-func (r RPCClient) ABCIInfo(ctx context.Context) (*coretypes.ResultABCIInfo, error) {
-	res, err := r.c.ABCIInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
+// TODO: not used anywhere
+func (r CometRPCClient) ABCIInfo(ctx context.Context) (*coretypes.ResultABCIInfo, error) {
+	// res, err := r.c.ABCIInfo(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return &coretypes.ResultABCIInfo{
-		Response: types.ResponseInfo{
-			Data:             res.Response.Data,
-			Version:          res.Response.Version,
-			AppVersion:       res.Response.AppVersion,
-			LastBlockHeight:  res.Response.LastBlockHeight,
-			LastBlockAppHash: res.Response.LastBlockAppHash,
-		},
-	}, nil
+	// return &coretypes.ResultABCIInfo{
+	// 	Response: types.ResponseInfo{
+	// 		Data:             res.Response.Data,
+	// 		Version:          res.Response.Version,
+	// 		AppVersion:       res.Response.AppVersion,
+	// 		LastBlockHeight:  res.Response.LastBlockHeight,
+	// 		LastBlockAppHash: res.Response.LastBlockAppHash,
+	// 	},
+	// }, nil
+	panic("ABCIInfo unimplemented, not used anywhere")
 }
 
-func (r RPCClient) ABCIQuery(
+// TODO: only used for fee_market.go  QueryBaseFee (just hardcode)
+func (r CometRPCClient) ABCIQuery(
 	ctx context.Context,
 	path string,
 	data bytes.HexBytes,
 ) (*coretypes.ResultABCIQuery, error) {
-	res, err := r.c.ABCIQuery(ctx, path, slbytes.HexBytes(data))
-	if err != nil {
-		return nil, err
-	}
+	// res, err := r.c.ABCIQuery(ctx, path, slbytes.HexBytes(data))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return convertResultABCIQuery(res), nil
+	// return convertResultABCIQuery(res), nil
+	panic("ABCIQuery unimplemented (hardcoded fee_market.go base fee for now)")
 }
 
-func (r RPCClient) ABCIQueryWithOptions(
+func (r CometRPCClient) ABCIQueryWithOptions(
 	ctx context.Context,
 	path string,
 	data bytes.HexBytes,
@@ -87,54 +95,58 @@ func (r RPCClient) ABCIQueryWithOptions(
 	return convertResultABCIQuery(res), nil
 }
 
-func (r RPCClient) BroadcastTxCommit(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTxCommit, error) {
-	res, err := r.c.BroadcastTxCommit(ctx, types2.Tx(tx))
-	if err != nil {
-		return nil, err
-	}
+// TODO: not used anywhere
+func (r CometRPCClient) BroadcastTxCommit(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTxCommit, error) {
+	// res, err := r.c.BroadcastTxCommit(ctx, types2.Tx(tx))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return &coretypes.ResultBroadcastTxCommit{
-		CheckTx: types.ResponseCheckTx{
-			Code:      res.CheckTx.Code,
-			Data:      res.CheckTx.Data,
-			Log:       res.CheckTx.Log,
-			Info:      res.CheckTx.Info,
-			GasWanted: res.CheckTx.GasWanted,
-			GasUsed:   res.CheckTx.GasUsed,
-			Events:    convertEvents(res.CheckTx.Events),
-			Codespace: res.CheckTx.Codespace,
-		},
-		TxResult: types.ExecTxResult{
-			Code:      res.TxResult.Code,
-			Data:      res.TxResult.Data,
-			Log:       res.TxResult.Log,
-			Info:      res.TxResult.Info,
-			GasWanted: res.TxResult.GasWanted,
-			GasUsed:   res.TxResult.GasUsed,
-			Events:    convertEvents(res.TxResult.Events),
-			Codespace: res.TxResult.Codespace,
-		},
-		Hash:   bytes.HexBytes(res.Hash),
-		Height: res.Height,
-	}, nil
+	// return &coretypes.ResultBroadcastTxCommit{
+	// 	CheckTx: types.ResponseCheckTx{
+	// 		Code:      res.CheckTx.Code,
+	// 		Data:      res.CheckTx.Data,
+	// 		Log:       res.CheckTx.Log,
+	// 		Info:      res.CheckTx.Info,
+	// 		GasWanted: res.CheckTx.GasWanted,
+	// 		GasUsed:   res.CheckTx.GasUsed,
+	// 		Events:    convertEvents(res.CheckTx.Events),
+	// 		Codespace: res.CheckTx.Codespace,
+	// 	},
+	// 	TxResult: types.ExecTxResult{
+	// 		Code:      res.TxResult.Code,
+	// 		Data:      res.TxResult.Data,
+	// 		Log:       res.TxResult.Log,
+	// 		Info:      res.TxResult.Info,
+	// 		GasWanted: res.TxResult.GasWanted,
+	// 		GasUsed:   res.TxResult.GasUsed,
+	// 		Events:    convertEvents(res.TxResult.Events),
+	// 		Codespace: res.TxResult.Codespace,
+	// 	},
+	// 	Hash:   bytes.HexBytes(res.Hash),
+	// 	Height: res.Height,
+	// }, nil
+	panic("BroadcastTxCommit unimplemented")
 }
 
-func (r RPCClient) BroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
-	res, err := r.c.BroadcastTxAsync(ctx, types2.Tx(tx))
-	if err != nil {
-		return nil, err
-	}
+// TODO: SendMsgsWith looks to be feegranter specific only? not applicable to gordian for concept
+func (r CometRPCClient) BroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
+	// res, err := r.c.BroadcastTxAsync(ctx, types2.Tx(tx))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return &coretypes.ResultBroadcastTx{
-		Code:      res.Code,
-		Data:      bytes.HexBytes(res.Data),
-		Log:       res.Log,
-		Codespace: res.Codespace,
-		Hash:      bytes.HexBytes(res.Hash),
-	}, nil
+	// return &coretypes.ResultBroadcastTx{
+	// 	Code:      res.Code,
+	// 	Data:      bytes.HexBytes(res.Data),
+	// 	Log:       res.Log,
+	// 	Codespace: res.Codespace,
+	// 	Hash:      bytes.HexBytes(res.Hash),
+	// }, nil
+	panic("BroadcastTxAsync unimplemented, feegrant specific")
 }
 
-func (r RPCClient) BroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
+func (r CometRPCClient) BroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*coretypes.ResultBroadcastTx, error) {
 	res, err := r.c.BroadcastTxSync(ctx, types2.Tx(tx))
 	if err != nil {
 		return nil, err
@@ -149,7 +161,7 @@ func (r RPCClient) BroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*coretyp
 	}, nil
 }
 
-func (r RPCClient) Validators(
+func (r CometRPCClient) Validators(
 	ctx context.Context,
 	height *int64,
 	page, perPage *int,
@@ -177,7 +189,7 @@ func (r RPCClient) Validators(
 	}, nil
 }
 
-func (r RPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
+func (r CometRPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
 	res, err := r.c.Status(ctx)
 	if err != nil {
 		return nil, err
@@ -220,7 +232,7 @@ func (r RPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) 
 	}, nil
 }
 
-func (r RPCClient) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
+func (r CometRPCClient) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
 	res, err := r.c.Block(ctx, height)
 	if err != nil {
 		return nil, err
@@ -232,7 +244,7 @@ func (r RPCClient) Block(ctx context.Context, height *int64) (*coretypes.ResultB
 	}, nil
 }
 
-func (r RPCClient) BlockByHash(ctx context.Context, hash []byte) (*coretypes.ResultBlock, error) {
+func (r CometRPCClient) BlockByHash(ctx context.Context, hash []byte) (*coretypes.ResultBlock, error) {
 	res, err := r.c.BlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -244,7 +256,7 @@ func (r RPCClient) BlockByHash(ctx context.Context, hash []byte) (*coretypes.Res
 	}, nil
 }
 
-func (r RPCClient) BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
+func (r CometRPCClient) BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error) {
 	res, err := r.c.BlockResults(ctx, height)
 	if err != nil {
 		return nil, err
@@ -274,7 +286,7 @@ func (r RPCClient) BlockResults(ctx context.Context, height *int64) (*coretypes.
 	}, nil
 }
 
-func (r RPCClient) BlockchainInfo(
+func (r CometRPCClient) BlockchainInfo(
 	ctx context.Context,
 	minHeight, maxHeight int64,
 ) (*coretypes.ResultBlockchainInfo, error) {
@@ -305,7 +317,7 @@ func (r RPCClient) BlockchainInfo(
 	}, nil
 }
 
-func (r RPCClient) Commit(ctx context.Context, height *int64) (*coretypes.ResultCommit, error) {
+func (r CometRPCClient) Commit(ctx context.Context, height *int64) (*coretypes.ResultCommit, error) {
 	res, err := r.c.Commit(ctx, height)
 	if err != nil {
 		return nil, err
@@ -336,7 +348,7 @@ func (r RPCClient) Commit(ctx context.Context, height *int64) (*coretypes.Result
 	}, nil
 }
 
-func (r RPCClient) Tx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error) {
+func (r CometRPCClient) Tx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error) {
 	res, err := r.c.Tx(ctx, hash, prove)
 	if err != nil {
 		return nil, err
@@ -345,7 +357,7 @@ func (r RPCClient) Tx(ctx context.Context, hash []byte, prove bool) (*coretypes.
 	return convertResultTx(res), nil
 }
 
-func (r RPCClient) TxSearch(
+func (r CometRPCClient) TxSearch(
 	ctx context.Context,
 	query string,
 	prove bool,
@@ -368,7 +380,7 @@ func (r RPCClient) TxSearch(
 	}, nil
 }
 
-func (r RPCClient) BlockSearch(
+func (r CometRPCClient) BlockSearch(
 	ctx context.Context,
 	query string,
 	page, perPage *int,

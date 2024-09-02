@@ -20,9 +20,10 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	cwrapper "github.com/cosmos/relayer/v2/client"
+	relayerclient "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/strangelove-ventures/cometbft-client/client"
+	cometbftclient "github.com/strangelove-ventures/cometbft-client/client"
 	"go.uber.org/zap"
 )
 
@@ -126,11 +127,13 @@ type CosmosProvider struct {
 	PCfg           CosmosProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	RPCClient      cwrapper.RPCClient
-	LightProvider  provtypes.Provider
-	Input          io.Reader
-	Output         io.Writer
-	Cdc            Codec
+	// RPCClient      cwrapper.RPCClient
+	ConsensusClient relayerclient.ConsensusRelayerI
+
+	LightProvider provtypes.Provider
+	Input         io.Reader
+	Output        io.Writer
+	Cdc           Codec
 	// TODO: GRPC Client type?
 
 	//nextAccountSeq uint64
@@ -304,7 +307,7 @@ func (cc *CosmosProvider) Init(ctx context.Context) error {
 	}
 
 	// set the RPC client
-	err = cc.setRpcClient(true, cc.PCfg.RPCAddr, timeout)
+	err = cc.setConsensusClient(true, cc.PCfg.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
@@ -349,7 +352,7 @@ func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout tim
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := cc.RPCClient.Status(ctx)
+			_, err := cc.ConsensusClient.GetStatus(ctx)
 			if err != nil {
 				cc.log.Error("RPC client disconnected", zap.String("chain", cc.ChainName()), zap.Error(err))
 
@@ -372,7 +375,7 @@ func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout tim
 					cc.log.Info("Attempting to connect to new RPC", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr))
 
 					// attempt to setup rpc client
-					if err = cc.setRpcClient(false, rpcAddr, timeout); err != nil {
+					if err = cc.setConsensusClient(false, rpcAddr, timeout); err != nil {
 						cc.log.Error("Failed to connect to RPC client", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
 						continue
 					}
@@ -393,20 +396,23 @@ func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout tim
 	}
 }
 
-// setRpcClient sets the RPC client for the chain.
-func (cc *CosmosProvider) setRpcClient(onStartup bool, rpcAddr string, timeout time.Duration) error {
-	c, err := client.NewClient(rpcAddr, timeout)
+// setConsensusClient sets the RPC client for the chain.
+func (cc *CosmosProvider) setConsensusClient(onStartup bool, rpcAddr string, timeout time.Duration) error {
+	c, err := cometbftclient.NewClient(rpcAddr, timeout)
 	if err != nil {
+		// TODO: try gordian here?
 		return err
 	}
 
-	cc.RPCClient = cwrapper.NewRPCClient(c)
+	rpcClient := cwrapper.NewRPCClient(c)
+
+	cc.ConsensusClient = rpcClient
 
 	// Only check status if not on startup, to ensure the relayer will not block on startup.
 	// All subsequent calls will perform the status check to ensure RPC endpoints are rotated
 	// as necessary.
 	if !onStartup {
-		if _, err = cc.RPCClient.Status(context.Background()); err != nil {
+		if _, err = cc.ConsensusClient.GetStatus(context.Background()); err != nil {
 			return err
 		}
 	}
@@ -428,7 +434,7 @@ func (cc *CosmosProvider) setLightProvider(rpcAddr string) error {
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	var initial int64
-	h, err := cc.RPCClient.Status(ctx)
+	h, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return err
 	}
@@ -437,7 +443,7 @@ func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {
-		h, err = cc.RPCClient.Status(ctx)
+		h, err = cc.ConsensusClient.GetStatus(ctx)
 		if err != nil {
 			return err
 		}
@@ -454,11 +460,11 @@ func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 }
 
 func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
-	resultBlock, err := cc.RPCClient.Block(ctx, &height)
+	blockTime, err := cc.ConsensusClient.GetBlockTime(ctx, uint64(height))
 	if err != nil {
 		return time.Time{}, err
 	}
-	return resultBlock.Block.Time, nil
+	return blockTime, nil
 }
 
 func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {

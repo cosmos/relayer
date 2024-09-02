@@ -67,7 +67,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 	)
 
 	eg.Go(func() error {
-		res, err := cc.RPCClient.BlockSearch(ctx, query, &page, &limit, "")
+		res, err := cc.ConsensusClient.GetBlockSearch(ctx, query, &page, &limit, "")
 		if err != nil {
 			return err
 		}
@@ -77,7 +77,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 		for _, b := range res.Blocks {
 			b := b
 			nestedEg.Go(func() error {
-				block, err := cc.RPCClient.BlockResults(ctx, &b.Block.Height)
+				block, err := cc.ConsensusClient.GetBlockResults(ctx, uint64(b.Block.Height))
 				if err != nil {
 					return err
 				}
@@ -93,7 +93,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 	})
 
 	eg.Go(func() error {
-		res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+		res, err := cc.ConsensusClient.GetTxSearch(ctx, query, true, &page, &limit, "")
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provide
 		return nil, err
 	}
 
-	resp, err := cc.RPCClient.Tx(ctx, hash, true)
+	resp, err := cc.ConsensusClient.GetTx(ctx, hash, true)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.ConsensusClient.GetTxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -604,7 +604,7 @@ func (cc *CosmosProvider) QueryUpgradedConsState(ctx context.Context, height int
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
 func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
-	commit, err := cc.RPCClient.Commit(ctx, &height)
+	commit, err := cc.ConsensusClient.GetCommit(ctx, &height)
 	if err != nil {
 		return &tmclient.ConsensusState{}, 0, err
 	}
@@ -613,7 +613,7 @@ func (cc *CosmosProvider) QueryConsensusState(ctx context.Context, height int64)
 	count := 10_000
 
 	nextHeight := height + 1
-	nextVals, err := cc.RPCClient.Validators(ctx, &nextHeight, &page, &count)
+	nextVals, err := cc.ConsensusClient.GetValidators(ctx, &nextHeight, &page, &count)
 	if err != nil {
 		return &tmclient.ConsensusState{}, 0, err
 	}
@@ -1201,7 +1201,7 @@ func (cc *CosmosProvider) QueryPacketReceipt(ctx context.Context, height int64, 
 }
 
 func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	stat, err := cc.RPCClient.Status(ctx)
+	stat, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return -1, err
 	} else if stat.SyncInfo.CatchingUp {
@@ -1212,7 +1212,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 
 // Query current node status
 func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
-	status, err := cc.RPCClient.Status(ctx)
+	status, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query node status: %w", err)
 	}

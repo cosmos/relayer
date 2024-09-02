@@ -403,7 +403,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
+			blockRes, err = ccp.chainProvider.ConsensusClient.GetBlockResults(queryCtx, uint64(sI))
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}

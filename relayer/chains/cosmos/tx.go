@@ -341,7 +341,7 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 		return nil, err
 	}
 
-	res, err := cc.RPCClient.BroadcastTxAsync(ctx, txBytes)
+	res, err := cc.ConsensusClient.DoBroadcastTxAsync(ctx, txBytes)
 	if res != nil {
 		fmt.Printf("TX hash: %s\n", res.Hash)
 	}
@@ -384,7 +384,7 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncCallbacks []func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 	dynamicFee string,
 ) error {
-	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
+	res, err := cc.ConsensusClient.DoBroadcastTxSync(ctx, tx)
 	isErr := err != nil
 	isFailed := res != nil && res.Code != 0
 	if isErr || isFailed {
@@ -495,7 +495,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
 		case <-time.After(time.Millisecond * 100):
-			res, err := cc.RPCClient.Tx(ctx, txHash, false)
+			res, err := cc.ConsensusClient.GetTx(ctx, txHash, false)
 			if err == nil {
 				return cc.mkTxResult(res)
 			}
@@ -1666,7 +1666,8 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 		return tx.Factory{}, err
 	}
 
-	cliCtx := client.Context{}.WithClient(cc.RPCClient).
+	cliCtx := client.Context{}.
+		// WithClient(cc.ConsensusClient). // TODO:
 		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
 		WithChainID(cc.PCfg.ChainID).
 		WithCodec(cc.Cdc.Marshaler).
@@ -1826,7 +1827,7 @@ func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) 
 		Prove:  req.Prove,
 	}
 
-	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
+	result, err := cc.ConsensusClient.GetABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
 		return abci.ResponseQuery{}, err
 	}
