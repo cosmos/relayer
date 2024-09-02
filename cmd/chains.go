@@ -207,9 +207,7 @@ func cmdChainsConfigure(a *appState) *cobra.Command {
 		Short: "manage local chain configurations",
 	}
 
-	cmd.AddCommand(
-		feegrantConfigureBaseCmd(a),
-	)
+	cmd.AddCommand()
 
 	return cmd
 }
@@ -405,7 +403,7 @@ func chainsAddDirCmd(a *appState) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Short:   `Add chain configuration data in bulk from a directory. Example dir: 'configs/demo/chains'`,
 		Long: `Add chain configuration data in bulk from a directory housing individual chain config files. This is useful for spinning up testnets.
-		
+
 		See 'configs/demo/chains' for an example of individual chain config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains add-dir configs/demo/chains

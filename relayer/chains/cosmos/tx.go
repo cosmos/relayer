@@ -572,7 +572,7 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	defer cc.feegrantMu.Unlock()
 
 	// Some messages have feegranting disabled. If any message in the TX disables feegrants, then the TX will not be feegranted.
-	isFeegrantEligible := cc.PCfg.FeeGrants != nil
+	isFeegrantEligible := false
 
 	for _, curr := range msgs {
 		if cMsg, ok := curr.(CosmosMessage); ok {
@@ -586,7 +586,7 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	txSignerKey = cc.PCfg.Key
 
 	if isFeegrantEligible {
-		txSignerKey, feegranterKeyOrAddr = cc.GetTxFeeGrant()
+		// txSignerKey, feegranterKeyOrAddr = cc.GetTxFeeGrant()
 		signerAcc, addrErr := cc.GetKeyAddressForKey(txSignerKey)
 		if addrErr != nil {
 			err = addrErr
