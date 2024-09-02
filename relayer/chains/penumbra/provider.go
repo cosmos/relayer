@@ -142,7 +142,7 @@ type PenumbraProvider struct {
 	PCfg           PenumbraProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	RPCClient      cwrapper.RPCClient
+	RPCClient      cwrapper.CometRPCClient
 	LightProvider  provtypes.Provider
 	Input          io.Reader
 	Output         io.Writer

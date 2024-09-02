@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 
 	sdkmath "cosmossdk.io/math"
 	"go.uber.org/zap"
@@ -32,15 +31,12 @@ func (cc *CosmosProvider) DynamicFee(ctx context.Context) string {
 // QueryBaseFee attempts to make an ABCI query to retrieve the base fee on chains using the Osmosis EIP-1559 implementation.
 // This is currently hardcoded to only work on Osmosis.
 func (cc *CosmosProvider) QueryBaseFee(ctx context.Context) (string, error) {
-	resp, err := cc.RPCClient.ABCIQuery(ctx, queryPath, nil)
-	if err != nil || resp.Response.Code != 0 {
+	resp, err := cc.ConsensusClient.GetABCIQuery(ctx, queryPath, nil)
+	if err != nil || resp.Code != 0 {
 		return "", err
 	}
 
-	// The response value contains the data link escape control character which must be removed before parsing.
-	cleanedString := strings.ReplaceAll(strings.TrimSpace(string(resp.Response.Value)), "\u0010", "")
-
-	decFee, err := sdkmath.LegacyNewDecFromStr(cleanedString)
+	decFee, err := sdkmath.LegacyNewDecFromStr(resp.ValueCleaned())
 	if err != nil {
 		return "", err
 	}

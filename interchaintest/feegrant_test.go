@@ -396,7 +396,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
-							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
+							txResp, err := TxWithRetry(ctx, cProv.ConsensusClient, hash)
 							require.Nil(t, err)
 
 							require.Nil(t, err)
@@ -538,11 +538,11 @@ func TestRelayerFeeGrant(t *testing.T) {
 	}
 }
 
-func TxWithRetry(ctx context.Context, client client.RPCClient, hash []byte) (*coretypes.ResultTx, error) {
+func TxWithRetry(ctx context.Context, client client.ConsensusClient, hash []byte) (*coretypes.ResultTx, error) {
 	var err error
 	var res *coretypes.ResultTx
 	if err = retry.Do(func() error {
-		res, err = client.Tx(ctx, hash, true)
+		res, err = client.GetTx(ctx, hash, true)
 		return err
 	}, retry.Context(ctx), relayer.RtyAtt, relayer.RtyDel, relayer.RtyErr); err != nil {
 		return res, err
@@ -870,7 +870,7 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 
 							hash, err := hex.DecodeString(curr.Response.TxHash)
 							require.Nil(t, err)
-							txResp, err := TxWithRetry(ctx, cProv.RPCClient, hash)
+							txResp, err := TxWithRetry(ctx, cProv.ConsensusClient, hash)
 							require.Nil(t, err)
 
 							require.Nil(t, err)
