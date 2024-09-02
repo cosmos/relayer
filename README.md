@@ -1,14 +1,6 @@
 <div align="center">
   <h1>Relayer</h1>
 
-<h2>A note on Dymension patches:</h2>
-
-- stuck packet search now syncs correctly
-- will no longer unnecessarily wait for a block to elapse before syncing (good for slow chains)
-- recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
-- use `start --no-flush` to avoid flushing completely
-- in flush mode, will not expect acks immediately (supports delayedack)
-
 ![banner](./docs/images/comp.gif)
 
 [![Project Status: Initial Release](https://img.shields.io/badge/repo%20status-active-green.svg?style=flat-square)](https://www.repostatus.org/#active)
@@ -19,6 +11,21 @@
 [![Lines Of Code](https://img.shields.io/tokei/lines/github/cosmos/relayer?style=flat-square)](https://github.com/cosmos/relayer)
 [![Version](https://img.shields.io/github/tag/cosmos/relayer.svg?style=flat-square)](https://github.com/cosmos/relayer/latest)
 </div>
+
+<h1> ⚠️ Dymension patches: ⚠️</h1>
+
+- assumes src is Dymension hub
+- does not create channels until rollapp light client on Hub is canonical
+- accepts argument `http-addr` in config.yaml for http RPC queries (regular, not EVM). If empty, derives from RPC addr.
+- stuck packet search now syncs correctly
+- will no longer unnecessarily wait for a block to elapse before syncing (good for slow chains)
+- recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
+- use `start --no-flush` to avoid flushing completely
+- in flush mode, will not expect acks immediately (supports delayedack)
+
+---
+
+<h1>Intro</h1>
 
 In IBC, blockchains do not directly pass messages to each other over the network. This is where `relayer` comes in. 
 A relayer process monitors for updates on opens paths between sets of [IBC](https://ibcprotocol.org/) enabled chains.

@@ -2,10 +2,12 @@ package cosmos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,9 +29,10 @@ import (
 )
 
 var (
-	_ provider.ChainProvider  = &CosmosProvider{}
-	_ provider.KeyProvider    = &CosmosProvider{}
-	_ provider.ProviderConfig = &CosmosProviderConfig{}
+	_ provider.ChainProvider             = &CosmosProvider{}
+	_ provider.KeyProvider               = &CosmosProvider{}
+	_ provider.DymensionHubQueryProvider = &CosmosProvider{}
+	_ provider.ProviderConfig            = &CosmosProviderConfig{}
 )
 
 const (
@@ -42,6 +45,7 @@ type CosmosProviderConfig struct {
 	Key              string                     `json:"key" yaml:"key"`
 	ChainName        string                     `json:"-" yaml:"-"`
 	ChainID          string                     `json:"chain-id" yaml:"chain-id"`
+	HttpAddr         string                     `json:"http-addr" yaml:"http-addr"` // added to support http queries to Dym Hub
 	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
 	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend   string                     `json:"keyring-backend" yaml:"keyring-backend"`
@@ -87,6 +91,19 @@ func (pc CosmosProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
+}
+
+func (pc CosmosProviderConfig) GetHttpAddr() (string, error) {
+	if pc.HttpAddr == "" {
+		rpc := pc.RPCAddr
+		parts := strings.Split(rpc, ":")
+		if 2 <= len(parts) {
+			host := parts[len(parts)-2]
+			return fmt.Sprintf("http:%s:1318", host), nil
+		}
+		return "", errors.New("http addr not specified in cfg and cannot derive from rpc addr")
+	}
+	return pc.HttpAddr, nil
 }
 
 func (pc CosmosProviderConfig) BroadcastMode() provider.BroadcastMode {

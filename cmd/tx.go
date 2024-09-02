@@ -581,6 +581,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 				override,
 				a.config.memo(cmd),
 				pathName,
+				a.config.Global.Rollapp,
 			)
 		},
 	}
@@ -805,7 +806,6 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				}
 			}
 
-			// create channel if it isn't already created
 			return c[src].CreateOpenChannels(
 				cmd.Context(),
 				c[dst],
@@ -818,6 +818,7 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 				override,
 				memo,
 				pathName,
+				a.config.Global.Rollapp,
 			)
 		},
 	}

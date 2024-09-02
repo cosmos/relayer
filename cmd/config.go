@@ -500,6 +500,9 @@ type GlobalConfig struct {
 	LogLevel        string `yaml:"log-level" json:"log-level"`
 	ICS20MemoLimit  int    `yaml:"ics20-memo-limit" json:"ics20-memo-limit"`
 	MaxReceiverSize int    `yaml:"max-receiver-size" json:"max-receiver-size"`
+
+	// If relayer is being used to relay between a Dymension rollapp and the Dymension hub
+	Rollapp bool `yaml:"rollapp" json:"rollapp"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set

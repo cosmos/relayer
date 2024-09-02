@@ -2,15 +2,47 @@ package relayer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
+
+// Adhering to the dymension canonical light client protocol, we wait
+// until the client has been designated canonical on the Hub.
+// Assumes c is the Hub.
+// Blocks the thread
+func (c *Chain) blockUntilClientIsCanonical(ctx context.Context, rollappID string) error {
+	expClient := c.PathEnd.ClientID
+	c.log.Info("blockUntilClientIsCanonical comparing to expected", zap.Any("expected client id", expClient)) // TODO: debug
+	return retry.Do(func() error {
+		gotClient, err := QueryCanonicalClient(ctx, c, rollappID)                                     // TODO: check if ctx has deadline
+		c.log.Info("query canonical client got client", zap.Any("client", gotClient), zap.Error(err)) // TODO: debug
+		if gotClient == expClient {
+			return nil
+		}
+		if err != nil {
+			// TODO: disambiguate more errors
+			return retry.Unrecoverable(err)
+		}
+		if gotClient != "" {
+			return retry.Unrecoverable(fmt.Errorf("different canonical client set: %s", gotClient))
+		}
+		return errors.New("canonical client not set")
+	},
+		retry.Attempts(0), // forever
+		retry.Delay(20*time.Second),
+		retry.OnRetry(func(n uint, err error) {
+			c.log.Info("Query canonical client.", zap.Any("attempt", n), zap.Error(err))
+		}),
+	)
+}
 
 // CreateOpenChannels runs the channel creation messages on timeout until they pass.
 func (c *Chain) CreateOpenChannels(
@@ -22,6 +54,7 @@ func (c *Chain) CreateOpenChannels(
 	override bool,
 	memo string,
 	pathName string,
+	blockUntilClientIsCanonical bool,
 ) error {
 	// client and connection identifiers must be filled in
 	if err := ValidateConnectionPaths(c, dst); err != nil {
@@ -43,6 +76,17 @@ func (c *Chain) CreateOpenChannels(
 		if err == nil && channel != nil {
 			return fmt.Errorf("channel {%s} with port {%s} already exists on chain {%s}", channel.ChannelId, channel.PortId, dst.ChainID())
 		}
+	}
+
+	if blockUntilClientIsCanonical {
+		c.log.Info("Blocking until client is canonical.")
+		err := c.blockUntilClientIsCanonical(ctx, dst.ChainID())
+		if err != nil {
+			return fmt.Errorf("blockUntilClientIsCanonical: %w", err)
+		}
+		c.log.Info("Client is canonical. Continuing.")
+	} else {
+		c.log.Info("Continuing without querying for canonical status of client.")
 	}
 
 	// Timeout is per message. Four channel handshake messages, allowing maxRetries for each.

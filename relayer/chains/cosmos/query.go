@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -336,6 +339,43 @@ func (cc *CosmosProvider) queryParamsSubspaceTime(ctx context.Context, subspace 
 	}
 
 	return time.Duration(unbondingValue), nil
+}
+
+func (cc *CosmosProvider) QueryCanonicalLightClient(ctx context.Context, rollappID string) (string, error) {
+	httpBase, err := cc.PCfg.GetHttpAddr()
+	if err != nil {
+		return "", fmt.Errorf("cfg get http addr err: %w", err)
+	}
+	// Define the URL for the GET request
+	template := "%s/dymensionxyz/dymension/lightclient/lightclient/%s"
+	url := fmt.Sprintf(template, httpBase, rollappID)
+
+	// Create a new HTTP GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("get: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read: %w", err)
+	}
+
+	type Response struct {
+		ClientID string `json:"client_id"`
+	}
+
+	// Create an instance of the Response struct
+	var response Response
+
+	// Decode the JSON data into the struct
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return "", fmt.Errorf("unmarshal: body: %s: %w", body, err)
+	}
+	return response.ClientID, nil
 }
 
 // QueryUnbondingPeriod returns the unbonding period of the chain

@@ -13,9 +13,6 @@ import (
 	"sync"
 	"time"
 
-	cometprovider "github.com/cometbft/cometbft/light/provider"
-	"github.com/danwt/gerr/gerr"
-
 	sdkerrors "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store/rootmulti"
@@ -23,6 +20,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
+	cometprovider "github.com/cometbft/cometbft/light/provider"
 	client2 "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
@@ -49,6 +47,7 @@ import (
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/danwt/gerr/gerr"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -733,6 +732,7 @@ func (cc *CosmosProvider) MsgCreateClient(
 		ConsensusState: anyConsensusState,
 		Signer:         signer,
 	}
+	cc.log.Info("MsgCreateClient", zap.Any("target chain", cc.PCfg.ChainID), zap.Any("msg", msg))
 
 	return NewCosmosMessage(msg, func(signer string) {
 		msg.Signer = signer
