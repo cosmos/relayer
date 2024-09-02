@@ -18,7 +18,7 @@ type ConsensusRelayerI interface {
 	// DONE: (gordian /Block, just returns time.Now() for now. Need to impl proposer setting time)
 	GetBlockTime(ctx context.Context, height uint64) (time.Time, error) // resultBlock.Block.Time (return the header annotation time.Time)
 
-	GetStatus(ctx context.Context) (*coretypes.ResultStatus, error) // TODO:
+	GetStatus(ctx context.Context) (*Status, error) // TODO:
 
 	GetBlockResults(ctx context.Context, height uint64) (*coretypes.ResultBlockResults, error)                   // in (d *Driver) handleFinalization
 	GetABCIQuery(ctx context.Context, queryPath string, data bytes.HexBytes) (*coretypes.ResultABCIQuery, error) // err != nil || resp.Response.Code != 0 // TODO: make this through baseapp `(app *BaseApp) Query` now? the store should handle
@@ -64,7 +64,7 @@ type ConsensusRelayerI interface {
 // 	Time   time.Time
 // }
 
-// type Status struct {
-// 	CatchingUp        bool
-// 	LatestBlockHeight uint64
-// }
+type Status struct {
+	CatchingUp        bool
+	LatestBlockHeight uint64
+}

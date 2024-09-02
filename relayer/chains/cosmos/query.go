@@ -16,7 +16,6 @@ import (
 	"cosmossdk.io/x/feegrant"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	abci "github.com/cometbft/cometbft/abci/types"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -33,6 +32,7 @@ import (
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	relayerclient "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -121,6 +121,7 @@ func (cc *CosmosProvider) QueryTx(ctx context.Context, hashHex string) (*provide
 		return nil, err
 	}
 
+	// TODO: why proove here if we don't actually use it? does it change the events?
 	resp, err := cc.ConsensusClient.GetTx(ctx, hash, true)
 	if err != nil {
 		return nil, err
@@ -1204,14 +1205,14 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 	stat, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return -1, err
-	} else if stat.SyncInfo.CatchingUp {
+	} else if stat.CatchingUp {
 		return -1, fmt.Errorf("node at %s running chain %s not caught up", cc.PCfg.RPCAddr, cc.PCfg.ChainID)
 	}
-	return stat.SyncInfo.LatestBlockHeight, nil
+	return int64(stat.LatestBlockHeight), nil
 }
 
 // Query current node status
-func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
+func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*relayerclient.Status, error) {
 	status, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query node status: %w", err)

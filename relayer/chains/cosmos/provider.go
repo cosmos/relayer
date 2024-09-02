@@ -124,9 +124,9 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg           CosmosProviderConfig
-	Keybase        keyring.Keyring
-	KeyringOptions []keyring.Option
+	PCfg            CosmosProviderConfig
+	Keybase         keyring.Keyring
+	KeyringOptions  []keyring.Option
 	ConsensusClient relayerclient.ConsensusRelayerI
 
 	LightProvider provtypes.Provider
@@ -432,21 +432,21 @@ func (cc *CosmosProvider) setLightProvider(rpcAddr string) error {
 
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
-	var initial int64
+	var initial uint64
 	h, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return err
 	}
-	if h.SyncInfo.CatchingUp {
+	if h.CatchingUp {
 		return errors.New("chain catching up")
 	}
-	initial = h.SyncInfo.LatestBlockHeight
+	initial = h.LatestBlockHeight
 	for {
 		h, err = cc.ConsensusClient.GetStatus(ctx)
 		if err != nil {
 			return err
 		}
-		if h.SyncInfo.LatestBlockHeight > initial+n {
+		if h.LatestBlockHeight > initial+uint64(n) {
 			return nil
 		}
 		select {

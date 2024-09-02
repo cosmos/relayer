@@ -118,10 +118,13 @@ func (r CometRPCClient) GetABCIQueryWithOptions(ctx context.Context, path string
 }
 
 // GetStatus implements ConsensusRelayerI.
-func (r CometRPCClient) GetStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
+func (r CometRPCClient) GetStatus(ctx context.Context) (*Status, error) {
 	s, err := r.Status(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get status: %w", err)
 	}
-	return s, nil
+	return &Status{
+		CatchingUp:        s.SyncInfo.CatchingUp,
+		LatestBlockHeight: uint64(s.SyncInfo.LatestBlockHeight),
+	}, nil
 }
