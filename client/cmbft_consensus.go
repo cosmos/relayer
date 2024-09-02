@@ -98,18 +98,8 @@ func (r CometRPCClient) GetValidators(ctx context.Context, height *int64, page *
 		return nil, fmt.Errorf("failed to get validators: %w", err)
 	}
 
-	vals := make([]*tmtypes.Validator, len(v.Validators))
-	for i, val := range v.Validators {
-		vals[i] = &tmtypes.Validator{
-			Address:          val.Address,
-			PubKey:           val.PubKey,
-			VotingPower:      val.VotingPower,
-			ProposerPriority: val.ProposerPriority,
-		}
-	}
-
 	return &ResultValidators{
-		Validators: vals,
+		Validators: v.Validators,
 	}, nil
 }
 

@@ -15,7 +15,7 @@ import (
 	rbytes "github.com/cosmos/relayer/v2/client/bytes"
 )
 
-// TODO(reece): get off CometBFT types into internal relayer.
+// TODO(reece): get off cometbft types into internal relayer.
 type ConsensusClient interface {
 	GetBlockTime(ctx context.Context, height uint64) (time.Time, error)
 	GetStatus(ctx context.Context) (*Status, error)
@@ -79,7 +79,6 @@ type ResultTxSearch struct {
 
 type ResultValidators struct {
 	Validators []*tmtypes.Validator `json:"validators"`
-	// Validators []Validator // TODO: requires some helper methods on the gordian side for the query to update set
 }
 
 type Validator struct {
