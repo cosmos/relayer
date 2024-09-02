@@ -1,4 +1,4 @@
-package client
+package rclient
 
 import (
 	"context"
@@ -12,10 +12,9 @@ import (
 	rbytes "github.com/cosmos/relayer/v2/client/bytes"
 )
 
-// ConsensusRelayerI is the itnerface we will use across the relayer so we can swap out the underlying consensus engine client.
 var _ ConsensusClient = (*CometRPCClient)(nil)
 
-// GetBlock implements ConsensusRelayerI.
+// GetBlock implements ConsensusClient.
 func (r CometRPCClient) GetBlockTime(ctx context.Context, height uint64) (time.Time, error) {
 	h := int64(height)
 
@@ -27,7 +26,7 @@ func (r CometRPCClient) GetBlockTime(ctx context.Context, height uint64) (time.T
 	return b.Block.Header.Time, nil
 }
 
-// GetBlockResults implements ConsensusRelayerI.
+// GetBlockResults implements ConsensusClient.
 func (r CometRPCClient) GetBlockResults(ctx context.Context, height uint64) (*BlockResults, error) {
 	h := int64(height)
 	br, err := r.BlockResults(ctx, &h)
@@ -40,7 +39,7 @@ func (r CometRPCClient) GetBlockResults(ctx context.Context, height uint64) (*Bl
 	}, nil
 }
 
-// GetABCIQuery implements ConsensusRelayerI.
+// GetABCIQuery implements ConsensusClient.
 func (r CometRPCClient) GetABCIQuery(ctx context.Context, queryPath string, data bytes.HexBytes) (*ABCIQueryResponse, error) {
 	resp, err := r.ABCIQuery(ctx, queryPath, data)
 	if err != nil {
@@ -52,23 +51,16 @@ func (r CometRPCClient) GetABCIQuery(ctx context.Context, queryPath string, data
 	}, nil
 }
 
-// GetTx implements ConsensusRelayerI.
+// GetTx implements ConsensusClient.
 func (r CometRPCClient) GetTx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error) {
 	resp, err := r.Tx(ctx, hash, prove)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tx: %w", err)
 	}
-	// return &Transaction{
-	// 	Height: uint64(resp.Height),
-	// 	TxHash: resp.Hash,
-	// 	Code:   resp.TxResult.Code,
-	// 	Data:  string(resp.TxResult.Data),
-	// 	Events: resp.TxResult.Events,
-	// }, nil
 	return resp, nil
 }
 
-// GetTxSearch implements ConsensusRelayerI.
+// GetTxSearch implements ConsensusClient.
 func (r CometRPCClient) GetTxSearch(ctx context.Context, query string, prove bool, page *int, perPage *int, orderBy string) (*ResultTxSearch, error) {
 	resp, err := r.TxSearch(ctx, query, prove, page, perPage, orderBy)
 	if err != nil {
@@ -80,7 +72,7 @@ func (r CometRPCClient) GetTxSearch(ctx context.Context, query string, prove boo
 	}, nil
 }
 
-// GetBlockSearch implements ConsensusRelayerI.
+// GetBlockSearch implements ConsensusClient.
 func (r CometRPCClient) GetBlockSearch(ctx context.Context, query string, page *int, perPage *int, orderBy string) (*coretypes.ResultBlockSearch, error) {
 	resp, err := r.BlockSearch(ctx, query, page, perPage, orderBy)
 	if err != nil {
@@ -89,7 +81,7 @@ func (r CometRPCClient) GetBlockSearch(ctx context.Context, query string, page *
 	return resp, nil
 }
 
-// GetCommit implements ConsensusRelayerI.
+// GetCommit implements ConsensusClient.
 func (r CometRPCClient) GetCommit(ctx context.Context, height uint64) (*coretypes.ResultCommit, error) {
 	h := int64(height)
 	c, err := r.Commit(ctx, &h)
@@ -99,7 +91,7 @@ func (r CometRPCClient) GetCommit(ctx context.Context, height uint64) (*coretype
 	return c, nil
 }
 
-// GetValidators implements ConsensusRelayerI.
+// GetValidators implements ConsensusClient.
 func (r CometRPCClient) GetValidators(ctx context.Context, height *int64, page *int, perPage *int) (*ResultValidators, error) {
 	v, err := r.Validators(ctx, height, page, perPage)
 	if err != nil {
@@ -121,7 +113,7 @@ func (r CometRPCClient) GetValidators(ctx context.Context, height *int64, page *
 	}, nil
 }
 
-// DoBroadcastTxAsync implements ConsensusRelayerI.
+// DoBroadcastTxAsync implements ConsensusClient.
 func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error) {
 	b, err := r.BroadcastTxAsync(ctx, tx)
 	if err != nil {
@@ -136,7 +128,7 @@ func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (
 	}, nil
 }
 
-// DoBroadcastTxSync implements ConsensusRelayerI.
+// DoBroadcastTxSync implements ConsensusClient.
 func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error) {
 	b, err := r.BroadcastTxSync(ctx, tx)
 	if err != nil {
@@ -151,7 +143,7 @@ func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*
 	}, nil
 }
 
-// GetABCIQueryWithOptions implements ConsensusRelayerI.
+// GetABCIQueryWithOptions implements ConsensusClient.
 func (r CometRPCClient) GetABCIQueryWithOptions(ctx context.Context, path string, data bytes.HexBytes, opts rpcclient.ABCIQueryOptions) (*coretypes.ResultABCIQuery, error) {
 	q, err := r.ABCIQueryWithOptions(ctx, path, data, opts)
 	if err != nil {
@@ -160,7 +152,7 @@ func (r CometRPCClient) GetABCIQueryWithOptions(ctx context.Context, path string
 	return q, nil
 }
 
-// GetStatus implements ConsensusRelayerI.
+// GetStatus implements ConsensusClient.
 func (r CometRPCClient) GetStatus(ctx context.Context) (*Status, error) {
 	s, err := r.Status(ctx)
 	if err != nil {

@@ -22,7 +22,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	cwrapper "github.com/cosmos/relayer/v2/client"
+	rclient "github.com/cosmos/relayer/v2/client"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/strangelove-ventures/cometbft-client/client"
@@ -142,7 +142,7 @@ type PenumbraProvider struct {
 	PCfg           PenumbraProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	RPCClient      cwrapper.CometRPCClient
+	RPCClient      rclient.CometRPCClient
 	LightProvider  provtypes.Provider
 	Input          io.Reader
 	Output         io.Writer
@@ -354,7 +354,7 @@ func (cc *PenumbraProvider) setRpcClient(onStartup bool, rpcAddr string, timeout
 		return err
 	}
 
-	cc.RPCClient = cwrapper.NewRPCClient(c)
+	cc.RPCClient = rclient.NewRPCClient(c)
 
 	// Only check status if not on startup, to ensure the relayer will not block on startup.
 	// All subsequent calls will perform the status check to ensure RPC endpoints are rotated

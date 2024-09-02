@@ -1,4 +1,4 @@
-package client
+package rclient
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	rbytes "github.com/cosmos/relayer/v2/client/bytes"
 )
 
+// TODO(reece): get off CometBFT types into internal relayer.
 type ConsensusClient interface {
 	GetBlockTime(ctx context.Context, height uint64) (time.Time, error)
 	GetStatus(ctx context.Context) (*Status, error)
@@ -34,17 +35,13 @@ type ConsensusClient interface {
 	) (*ResultTxSearch, error)
 	DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error)
 	DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error)
-
-	// TODO: migrate with v2
-	GetTx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error) // resp (Events), err != nil - does this need its own tm store? or does the manager have context to this
-
+	GetTx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error)
 	GetBlockSearch(
 		ctx context.Context,
 		query string,
 		page, perPage *int,
 		orderBy string,
 	) (*coretypes.ResultBlockSearch, error)
-
 	GetCommit(ctx context.Context, height uint64) (*coretypes.ResultCommit, error)
 	GetABCIQueryWithOptions(
 		ctx context.Context,
@@ -60,7 +57,6 @@ type Status struct {
 }
 
 type BlockResults struct {
-	// TODO: ideally we get off of this into our own internal type. Then the ConsensusRelayerI can have methods to convert
 	FinalizeBlockEvents []abci.Event         `json:"finalize_block_events"`
 	TxsResults          []*abci.ExecTxResult `json:"txs_results"`
 }
@@ -74,16 +70,6 @@ type ABCIQueryResponse struct {
 func (q ABCIQueryResponse) ValueCleaned() string {
 	return strings.ReplaceAll(strings.TrimSpace(string(q.Value)), "\u0010", "")
 }
-
-// TODO: can't do this yet as the cosmos-sdk side in v0.50 is tied to cometbft
-// type Transaction struct {
-// 	Height uint64
-// 	TxHash []byte
-// 	Code   uint32
-// 	Data   string
-// 	Events []abci.Event // TODO: []provider.RelayerEvent
-// 	Tx     cmtypes.Tx   `json:"tx"`
-// }
 
 // coretypes.ResultTxSearch
 type ResultTxSearch struct {
