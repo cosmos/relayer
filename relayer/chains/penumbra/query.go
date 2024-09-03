@@ -42,7 +42,7 @@ func (cc *PenumbraProvider) QueryTx(ctx context.Context, hashHex string) (*provi
 		return nil, err
 	}
 
-	resp, err := cc.RPCClient.Tx(ctx, hash, true)
+	resp, err := cc.ConsensusClient.Tx(ctx, hash, true)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (cc *PenumbraProvider) QueryTxs(ctx context.Context, page, limit int, event
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
+	res, err := cc.ConsensusClient.TxSearch(ctx, strings.Join(events, " AND "), true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +380,7 @@ func (cc *PenumbraProvider) QueryUpgradedConsState(ctx context.Context, height i
 // QueryConsensusState returns a consensus state for a given chain to be used as a
 // client in another chain, fetches latest height when passed 0 as arg
 func (cc *PenumbraProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
-	commit, err := cc.RPCClient.Commit(ctx, &height)
+	commit, err := cc.ConsensusClient.Commit(ctx, &height)
 	if err != nil {
 		return &tmclient.ConsensusState{}, 0, err
 	}
@@ -389,7 +389,7 @@ func (cc *PenumbraProvider) QueryConsensusState(ctx context.Context, height int6
 	count := 10_000
 
 	nextHeight := height + 1
-	nextVals, err := cc.RPCClient.Validators(ctx, &nextHeight, &page, &count)
+	nextVals, err := cc.ConsensusClient.Validators(ctx, &nextHeight, &page, &count)
 	if err != nil {
 		return &tmclient.ConsensusState{}, 0, err
 	}
@@ -787,7 +787,7 @@ func (cc *PenumbraProvider) QueryPacketReceipt(ctx context.Context, height int64
 }
 
 func (cc *PenumbraProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	stat, err := cc.RPCClient.Status(ctx)
+	stat, err := cc.ConsensusClient.Status(ctx)
 	if err != nil {
 		return -1, err
 	} else if stat.SyncInfo.CatchingUp {
@@ -806,12 +806,12 @@ func (cc *PenumbraProvider) QueryHeaderAtHeight(ctx context.Context, height int6
 		return nil, fmt.Errorf("must pass in valid height, %d not valid", height)
 	}
 
-	res, err := cc.RPCClient.Commit(ctx, &height)
+	res, err := cc.ConsensusClient.Commit(ctx, &height)
 	if err != nil {
 		return nil, err
 	}
 
-	val, err := cc.RPCClient.Validators(ctx, &height, &page, &perPage)
+	val, err := cc.ConsensusClient.Validators(ctx, &height, &page, &perPage)
 	if err != nil {
 		return nil, err
 	}
@@ -922,7 +922,7 @@ func (cc *PenumbraProvider) queryIBCMessages(ctx context.Context, log *zap.Logge
 		return nil, errors.New("limit must greater than 0")
 	}
 
-	res, err := cc.RPCClient.TxSearch(ctx, query, true, &page, &limit, "")
+	res, err := cc.ConsensusClient.TxSearch(ctx, query, true, &page, &limit, "")
 	if err != nil {
 		return nil, err
 	}
@@ -1004,7 +1004,7 @@ func (cc *PenumbraProvider) QueryRecvPacket(
 
 // QueryStatus queries the current node status.
 func (cc *PenumbraProvider) QueryStatus(ctx context.Context) (*coretypes.ResultStatus, error) {
-	status, err := cc.RPCClient.Status(ctx)
+	status, err := cc.ConsensusClient.Status(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query node status: %w", err)
 	}

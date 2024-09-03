@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	rclient "github.com/cosmos/relayer/v2/client"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -127,7 +127,7 @@ type CosmosProvider struct {
 	PCfg            CosmosProviderConfig
 	Keybase         keyring.Keyring
 	KeyringOptions  []keyring.Option
-	ConsensusClient rclient.ConsensusClient
+	ConsensusClient cclient.ConsensusClient
 	LightProvider   provtypes.Provider
 	Input           io.Reader
 	Output          io.Writer
@@ -401,7 +401,7 @@ func (cc *CosmosProvider) setRpcClient(onStartup bool, rpcAddr string, timeout t
 		return err
 	}
 
-	cc.ConsensusClient = rclient.NewRPCClient(c)
+	cc.ConsensusClient = cclient.NewCometRPCClient(c)
 
 	// Only check status if not on startup, to ensure the relayer will not block on startup.
 	// All subsequent calls will perform the status check to ensure RPC endpoints are rotated

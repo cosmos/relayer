@@ -337,7 +337,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 
-			blockRes, err = pcp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			blockRes, err = pcp.chainProvider.ConsensusClient.BlockResults(queryCtx, &i)
 			return err
 		})
 

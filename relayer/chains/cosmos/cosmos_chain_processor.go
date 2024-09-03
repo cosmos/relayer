@@ -13,7 +13,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	rclient "github.com/cosmos/relayer/v2/client"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -149,7 +149,7 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 
 // nodeStatusWithRetry will query for the latest node status, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *rclient.Status, err error) {
+func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *cclient.Status, err error) {
 	return status, retry.Do(func() error {
 		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
 		defer cancelLatestHeightQueryCtx()
@@ -393,7 +393,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var (
 			eg        errgroup.Group
-			blockRes  *rclient.BlockResults
+			blockRes  *cclient.BlockResults
 			ibcHeader provider.IBCHeader
 		)
 

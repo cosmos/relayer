@@ -1,4 +1,4 @@
-package rclient
+package cclient
 
 import (
 	"context"
@@ -71,8 +71,7 @@ func (q ABCIQueryResponse) ValueCleaned() string {
 
 // coretypes.ResultTxSearch
 type ResultTxSearch struct {
-	Txs        []*coretypes.ResultTx `json:"txs"`
-	TotalCount int                   `json:"total_count"`
+	Txs []*coretypes.ResultTx `json:"txs"`
 }
 
 type ResultValidators struct {

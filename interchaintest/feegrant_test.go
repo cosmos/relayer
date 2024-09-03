@@ -18,7 +18,7 @@ import (
 	"github.com/cosmos/go-bip39"
 	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	rclient "github.com/cosmos/relayer/v2/client"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -538,7 +538,7 @@ func TestRelayerFeeGrant(t *testing.T) {
 	}
 }
 
-func TxWithRetry(ctx context.Context, client rclient.ConsensusClient, hash []byte) (*coretypes.ResultTx, error) {
+func TxWithRetry(ctx context.Context, client cclient.ConsensusClient, hash []byte) (*coretypes.ResultTx, error) {
 	var err error
 	var res *coretypes.ResultTx
 	if err = retry.Do(func() error {

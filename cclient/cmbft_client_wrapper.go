@@ -1,4 +1,4 @@
-package rclient
+package cclient
 
 import (
 	"context"
@@ -34,7 +34,7 @@ type CometRPCClient struct {
 	c *client.Client
 }
 
-func NewRPCClient(c *client.Client) CometRPCClient {
+func NewCometRPCClient(c *client.Client) CometRPCClient {
 	return CometRPCClient{c: c}
 }
 
@@ -388,8 +388,7 @@ func (r CometRPCClient) BlockSearch(
 	}
 
 	return &coretypes.ResultBlockSearch{
-		Blocks:     blocks,
-		TotalCount: res.TotalCount,
+		Blocks: blocks,
 	}, nil
 }
 

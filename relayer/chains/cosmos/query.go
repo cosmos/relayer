@@ -32,7 +32,7 @@ import (
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	rclient "github.com/cosmos/relayer/v2/client"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -1212,7 +1212,7 @@ func (cc *CosmosProvider) QueryLatestHeight(ctx context.Context) (int64, error) 
 }
 
 // Query current node status
-func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*rclient.Status, error) {
+func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*cclient.Status, error) {
 	status, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query node status: %w", err)

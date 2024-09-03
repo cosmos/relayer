@@ -1,4 +1,4 @@
-package rclient
+package cclient
 
 import (
 	"context"
@@ -66,8 +66,7 @@ func (r CometRPCClient) GetTxSearch(ctx context.Context, query string, prove boo
 		return nil, fmt.Errorf("failed to get tx search: %w", err)
 	}
 	return &ResultTxSearch{
-		Txs:        resp.Txs,
-		TotalCount: resp.TotalCount,
+		Txs: resp.Txs,
 	}, nil
 }
 
