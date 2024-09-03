@@ -9,7 +9,6 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
-	rbytes "github.com/cosmos/relayer/v2/client/bytes"
 )
 
 var _ ConsensusClient = (*CometRPCClient)(nil)
@@ -111,10 +110,10 @@ func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (
 	}
 	return &ResultBroadcastTx{
 		Code:      b.Code,
-		Data:      rbytes.ConvertCometBFTToHexBytes(b.Data),
+		Data:      b.Data,
 		Log:       b.Log,
 		Codespace: b.Codespace,
-		Hash:      rbytes.ConvertCometBFTToHexBytes(b.Hash),
+		Hash:      b.Hash,
 	}, nil
 }
 
@@ -126,10 +125,10 @@ func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*
 	}
 	return &ResultBroadcastTx{
 		Code:      b.Code,
-		Data:      rbytes.ConvertCometBFTToHexBytes(b.Data),
+		Data:      b.Data,
 		Log:       b.Log,
 		Codespace: b.Codespace,
-		Hash:      rbytes.ConvertCometBFTToHexBytes(b.Hash),
+		Hash:      b.Hash,
 	}, nil
 }
 

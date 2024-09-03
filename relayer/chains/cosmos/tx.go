@@ -18,6 +18,7 @@ import (
 	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/light"
 	client2 "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -43,7 +44,6 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v8/modules/light-clients/09-localhost"
 	rclient "github.com/cosmos/relayer/v2/client"
-	rbytes "github.com/cosmos/relayer/v2/client/bytes"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -234,7 +234,7 @@ func (cc *CosmosProvider) SubmitTxAwaitResponse(ctx context.Context, msgs []sdk.
 }
 
 // Get the TX by hash, waiting for it to be included in a block
-func (cc *CosmosProvider) AwaitTx(txHash rbytes.HexBytes, timeout time.Duration) (*txtypes.GetTxResponse, error) {
+func (cc *CosmosProvider) AwaitTx(txHash bytes.HexBytes, timeout time.Duration) (*txtypes.GetTxResponse, error) {
 	var txByHash *txtypes.GetTxResponse
 	var txLookupErr error
 	startTime := time.Now()

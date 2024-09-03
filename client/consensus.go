@@ -7,12 +7,10 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto"
+	bytes "github.com/cometbft/cometbft/libs/bytes"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
-
-	bytes "github.com/cometbft/cometbft/libs/bytes"
-	rbytes "github.com/cosmos/relayer/v2/client/bytes"
 )
 
 // TODO(reece): get off cometbft types into internal relayer.
@@ -89,9 +87,9 @@ type Validator struct {
 }
 
 type ResultBroadcastTx struct {
-	Code      uint32          `json:"code"`
-	Data      rbytes.HexBytes `json:"data"`
-	Log       string          `json:"log"`
-	Codespace string          `json:"codespace"`
-	Hash      rbytes.HexBytes `json:"hash"`
+	Code      uint32         `json:"code"`
+	Data      bytes.HexBytes `json:"data"`
+	Log       string         `json:"log"`
+	Codespace string         `json:"codespace"`
+	Hash      bytes.HexBytes `json:"hash"`
 }
