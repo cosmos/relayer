@@ -6,7 +6,6 @@ import (
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/crypto"
 	bytes "github.com/cometbft/cometbft/libs/bytes"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -31,7 +30,7 @@ type ConsensusClient interface {
 		page, perPage *int,
 		orderBy string,
 	) (*ResultTxSearch, error)
-	DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error)
+	DoBroadcastTxSync(ctx context.Context, tx []byte) (*TxResultResponse, error) // TODO: is tx []byte fine or does it need to be tx tmtypes.Tx?
 	DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error)
 	GetTx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error)
 	GetBlockSearch(
@@ -78,12 +77,12 @@ type ResultValidators struct {
 	Validators []*tmtypes.Validator `json:"validators"`
 }
 
-type Validator struct {
-	Address          crypto.Address `json:"address"`
-	PubKey           crypto.PubKey  `json:"pub_key"`
-	VotingPower      int64          `json:"voting_power"`
-	ProposerPriority int64          `json:"proposer_priority"`
-}
+// type Validator struct {
+// 	Address          crypto.Address `json:"address"`
+// 	PubKey           crypto.PubKey  `json:"pub_key"`
+// 	VotingPower      int64          `json:"voting_power"`
+// 	ProposerPriority int64          `json:"proposer_priority"`
+// }
 
 type ResultBroadcastTx struct {
 	Code      uint32         `json:"code"`

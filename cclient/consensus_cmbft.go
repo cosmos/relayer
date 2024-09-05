@@ -117,17 +117,17 @@ func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (
 }
 
 // DoBroadcastTxSync implements ConsensusClient.
-func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error) {
+func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx []byte) (*TxResultResponse, error) {
 	b, err := r.BroadcastTxSync(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to broadcast tx sync: %w", err)
 	}
-	return &ResultBroadcastTx{
+	return &TxResultResponse{
 		Code:      b.Code,
 		Data:      b.Data,
 		Log:       b.Log,
 		Codespace: b.Codespace,
-		Hash:      b.Hash,
+		TxHash:    string(b.Hash),
 	}, nil
 }
 

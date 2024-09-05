@@ -397,10 +397,10 @@ func (cc *CosmosProvider) broadcastTx(
 			return err
 		}
 		rlyResp := &provider.RelayerTxResponse{
-			TxHash:    res.Hash.String(),
+			TxHash:    res.TxHash,
 			Codespace: res.Codespace,
 			Code:      res.Code,
-			Data:      res.Data.String(),
+			Data:      string(res.Data),
 		}
 		if isFailed {
 			err = cc.sdkError(res.Codespace, res.Code)
@@ -421,7 +421,7 @@ func (cc *CosmosProvider) broadcastTx(
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
 
-	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallbacks)
+	go cc.waitForTx(asyncCtx, []byte(res.TxHash), msgs, asyncTimeout, asyncCallbacks)
 
 	return nil
 }
