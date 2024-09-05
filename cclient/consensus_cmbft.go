@@ -102,17 +102,17 @@ func (r CometRPCClient) GetValidators(ctx context.Context, height *int64, page *
 }
 
 // DoBroadcastTxAsync implements ConsensusClient.
-func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error) {
+func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*TxResultResponse, error) {
 	b, err := r.BroadcastTxAsync(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to broadcast tx async: %w", err)
 	}
-	return &ResultBroadcastTx{
+	return &TxResultResponse{
 		Code:      b.Code,
 		Data:      b.Data,
 		Log:       b.Log,
 		Codespace: b.Codespace,
-		Hash:      b.Hash,
+		TxHash:    string(b.Hash),
 	}, nil
 }
 

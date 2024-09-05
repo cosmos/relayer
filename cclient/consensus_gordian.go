@@ -15,7 +15,6 @@ import (
 	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
 	"github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	"github.com/cometbft/cometbft/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 )
 
@@ -77,8 +76,10 @@ type EventAttribute struct {
 //  -----
 
 // DoBroadcastTxAsync implements ConsensusClient.
-func (g *GordianConsensus) DoBroadcastTxAsync(ctx context.Context, tx types.Tx) (*ResultBroadcastTx, error) {
-	panic("unimplemented")
+func (g *GordianConsensus) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*TxResultResponse, error) {
+	// TODO: fix me to be async
+	// panic("unimplemented")
+	return g.DoBroadcastTxSync(ctx, tx)
 }
 
 // DoBroadcastTxSync implements ConsensusClient.
@@ -103,7 +104,6 @@ func (g *GordianConsensus) DoBroadcastTxSync(ctx context.Context, tx []byte) (*T
 	}
 
 	return &resp, nil
-
 }
 
 // GetABCIQuery implements ConsensusClient.

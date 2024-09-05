@@ -346,20 +346,28 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 
 	res, err := cc.ConsensusClient.DoBroadcastTxAsync(ctx, txBytes)
 	if res != nil {
-		fmt.Printf("TX hash: %s\n", res.Hash)
+		fmt.Printf("TX hash: %s\n", res.TxHash)
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	resp := &cclient.ResultBroadcastTx{
+		Code:      res.Code,
+		Data:      res.Data,
+		Log:       res.Log,
+		Codespace: res.Codespace,
+		Hash:      bytes.HexBytes([]byte(res.TxHash)),
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
 	// NOTE: error is nil, logic should use the returned error to determine if the
 	// transaction was successfully executed.
 	if res.Code != 0 {
-		return res, fmt.Errorf("transaction failed with code: %d", res.Code)
+		return resp, fmt.Errorf("transaction failed with code: %d", res.Code)
 	}
 
-	return res, nil
+	return resp, nil
 }
 
 // sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
