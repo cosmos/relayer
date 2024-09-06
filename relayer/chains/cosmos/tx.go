@@ -1792,30 +1792,17 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 		return txtypes.SimulateResponse{}, 0, err
 	}
 
-	simQuery := abci.RequestQuery{
-		Path: "/cosmos.tx.v1beta1.Service/Simulate",
-		Data: txBytes,
-	}
-
-	var res abci.ResponseQuery
-	if err := retry.Do(func() error {
-		var err error
-		res, err = cc.QueryABCI(ctx, simQuery)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+	gasInfo, err := cc.ConsensusClient.SimulateTransaction(ctx, txBytes, &cclient.SimTxConfig{
+		QueryABCIFunc: cc.QueryABCI,
+	})
+	if err != nil {
 		return txtypes.SimulateResponse{}, 0, err
 	}
 
-	var simRes txtypes.SimulateResponse
-	if err := simRes.Unmarshal(res.Value); err != nil {
-		return txtypes.SimulateResponse{}, 0, err
-	}
-
-	gas, err := cc.AdjustEstimatedGas(simRes.GasInfo.GasUsed)
-	return simRes, gas, err
+	gas, err := cc.AdjustEstimatedGas(gasInfo.GasUsed)
+	return txtypes.SimulateResponse{
+		GasInfo: &gasInfo,
+	}, gas, err
 }
 
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.

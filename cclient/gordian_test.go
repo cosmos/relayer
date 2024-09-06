@@ -27,6 +27,11 @@ func TestGordian(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(bt)
 
+	gasInfo, err := gc.SimulateTransaction(ctx, []byte(tx), nil)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, gasInfo.GasUsed, uint64(1))
+	t.Log(gasInfo)
+
 	resp, err := gc.DoBroadcastTxSync(ctx, []byte(tx))
 	fmt.Println("resp", resp)
 	require.NoError(t, err)

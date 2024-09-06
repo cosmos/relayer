@@ -16,6 +16,7 @@ import (
 	"github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/types"
 )
 
 var _ ConsensusClient = (*GordianConsensus)(nil)
@@ -29,48 +30,6 @@ func NewGordianConsensus(addr string) *GordianConsensus {
 	return &GordianConsensus{
 		addr: addr,
 	}
-}
-
-type TxResultResponse struct {
-	Events []*Event `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
-	// bytes resp = 2; //  []transaction.Msg
-	Error     string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	Code      uint32 `protobuf:"varint,4,opt,name=code,proto3" json:"code,omitempty"`
-	Data      []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
-	Log       string `protobuf:"bytes,6,opt,name=log,proto3" json:"log,omitempty"`
-	Info      string `protobuf:"bytes,7,opt,name=info,proto3" json:"info,omitempty"`
-	GasWanted uint64 `protobuf:"varint,8,opt,name=gas_wanted,proto3" json:"gas_wanted,omitempty"`
-	GasUsed   uint64 `protobuf:"varint,9,opt,name=gas_used,proto3" json:"gas_used,omitempty"`
-	Codespace string `protobuf:"bytes,10,opt,name=codespace,proto3" json:"codespace,omitempty"`
-	TxHash    string `protobuf:"bytes,11,opt,name=tx_hash,proto3" json:"tx_hash,omitempty"`
-}
-type Event struct {
-	Type       string            `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	Attributes []*EventAttribute `protobuf:"bytes,2,rep,name=attributes,proto3" json:"attributes,omitempty"`
-}
-
-func convertConsensusEvents(e []*Event) []abci.Event {
-	events := make([]abci.Event, len(e))
-	for _, ev := range e {
-		attributes := make([]abci.EventAttribute, len(ev.Attributes))
-		for idx, attr := range ev.Attributes {
-			attributes[idx] = abci.EventAttribute{
-				Key:   attr.Key,
-				Value: attr.Value,
-			}
-		}
-
-		events = append(events, abci.Event{
-			Type:       ev.Type,
-			Attributes: attributes,
-		})
-	}
-	return events
-}
-
-type EventAttribute struct {
-	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 //  -----
@@ -106,8 +65,44 @@ func (g *GordianConsensus) DoBroadcastTxSync(ctx context.Context, tx []byte) (*T
 	return &resp, nil
 }
 
+// SimulateTransaction implements ConsensusClient.
+func (g *GordianConsensus) SimulateTransaction(ctx context.Context, tx []byte, cfg *SimTxConfig) (types.GasInfo, error) {
+	var body io.Reader
+	if tx != nil {
+		body = bytes.NewReader(tx)
+	} else {
+		return types.GasInfo{}, fmt.Errorf("SimulateTransaction tx is nil")
+	}
+
+	res, err := http.Post(fmt.Sprintf("%s/debug/simulate_tx", g.addr), "application/json", body)
+	if err != nil {
+		fmt.Printf("error making http request: %s\n", err)
+		os.Exit(1)
+	}
+
+	var resp TxResultResponse
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		fmt.Printf("error decoding response: %s\n", err)
+		return types.GasInfo{}, err
+	}
+
+	return types.GasInfo{
+		GasWanted: resp.GasWanted,
+		GasUsed:   resp.GasUsed,
+	}, nil
+}
+
 // GetABCIQuery implements ConsensusClient.
 func (g *GordianConsensus) GetABCIQuery(ctx context.Context, queryPath string, data cmtbytes.HexBytes) (*ABCIQueryResponse, error) {
+	// res, err := cc.QueryABCI(ctx, abci.RequestQuery{
+	// Path:   "store/upgrade/key",
+	// Height: int64(height - 1),
+	// Data:   key,
+	// Prove:  true,
+	// })
+	// if err != nil {
+	// return nil, clienttypes.Height{}, err
+	// }
 	panic("unimplemented")
 }
 

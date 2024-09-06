@@ -5,13 +5,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go/v4"
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 var _ ConsensusClient = (*CometRPCClient)(nil)
+
+var (
+	// originally from relayer/chains/cosmos/tx.go
+	rtyAttNum = uint(5)
+	rtyAtt    = retry.Attempts(rtyAttNum)
+	rtyDel    = retry.Delay(time.Millisecond * 400)
+	rtyErr    = retry.LastErrorOnly(true)
+)
 
 // GetBlock implements ConsensusClient.
 func (r CometRPCClient) GetBlockTime(ctx context.Context, height uint64) (time.Time, error) {
@@ -128,6 +140,40 @@ func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx []byte) (*TxRe
 		Log:       b.Log,
 		Codespace: b.Codespace,
 		TxHash:    string(b.Hash),
+	}, nil
+}
+
+// SimulateTransaction implements ConsensusClient.
+func (r CometRPCClient) SimulateTransaction(ctx context.Context, tx []byte, cfg *SimTxConfig) (sdk.GasInfo, error) {
+	simQuery := abci.RequestQuery{
+		Path: "/cosmos.tx.v1beta1.Service/Simulate",
+		Data: tx,
+	}
+
+	if cfg == nil {
+		return sdk.GasInfo{}, fmt.Errorf("BUG: SimulateTransaction cfg is nil, cfg.QueryABCIFunc is required for CometRPCClient")
+	}
+
+	var res abci.ResponseQuery
+	if err := retry.Do(func() error {
+		var err error
+		res, err = cfg.QueryABCIFunc(ctx, simQuery)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+		return sdk.GasInfo{}, err
+	}
+
+	var simRes txtypes.SimulateResponse
+	if err := simRes.Unmarshal(res.Value); err != nil {
+		return sdk.GasInfo{}, err
+	}
+
+	return sdk.GasInfo{
+		GasWanted: simRes.GasInfo.GasWanted,
+		GasUsed:   simRes.GasInfo.GasUsed,
 	}, nil
 }
 
