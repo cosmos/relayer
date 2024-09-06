@@ -5,13 +5,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go/v4"
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 var _ ConsensusClient = (*CometRPCClient)(nil)
+
+var (
+	// originally from relayer/chains/cosmos/tx.go
+	rtyAttNum = uint(5)
+	rtyAtt    = retry.Attempts(rtyAttNum)
+	rtyDel    = retry.Delay(time.Millisecond * 400)
+	rtyErr    = retry.LastErrorOnly(true)
+)
 
 // GetBlock implements ConsensusClient.
 func (r CometRPCClient) GetBlockTime(ctx context.Context, height uint64) (time.Time, error) {
@@ -80,13 +92,16 @@ func (r CometRPCClient) GetBlockSearch(ctx context.Context, query string, page *
 }
 
 // GetCommit implements ConsensusClient.
-func (r CometRPCClient) GetCommit(ctx context.Context, height uint64) (*coretypes.ResultCommit, error) {
+func (r CometRPCClient) GetCommit(ctx context.Context, height uint64) (*ResultCommit, error) {
 	h := int64(height)
 	c, err := r.Commit(ctx, &h)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get commit: %w", err)
 	}
-	return c, nil
+	return &ResultCommit{
+		AppHash: c.AppHash,
+		Time:    c.Time,
+	}, nil
 }
 
 // GetValidators implements ConsensusClient.
@@ -102,32 +117,66 @@ func (r CometRPCClient) GetValidators(ctx context.Context, height *int64, page *
 }
 
 // DoBroadcastTxAsync implements ConsensusClient.
-func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error) {
+func (r CometRPCClient) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*TxResultResponse, error) {
 	b, err := r.BroadcastTxAsync(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to broadcast tx async: %w", err)
 	}
-	return &ResultBroadcastTx{
+	return &TxResultResponse{
 		Code:      b.Code,
 		Data:      b.Data,
 		Log:       b.Log,
 		Codespace: b.Codespace,
-		Hash:      b.Hash,
+		TxHash:    string(b.Hash),
 	}, nil
 }
 
 // DoBroadcastTxSync implements ConsensusClient.
-func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx tmtypes.Tx) (*ResultBroadcastTx, error) {
+func (r CometRPCClient) DoBroadcastTxSync(ctx context.Context, tx []byte) (*TxResultResponse, error) {
 	b, err := r.BroadcastTxSync(ctx, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to broadcast tx sync: %w", err)
 	}
-	return &ResultBroadcastTx{
+	return &TxResultResponse{
 		Code:      b.Code,
 		Data:      b.Data,
 		Log:       b.Log,
 		Codespace: b.Codespace,
-		Hash:      b.Hash,
+		TxHash:    string(b.Hash),
+	}, nil
+}
+
+// SimulateTransaction implements ConsensusClient.
+func (r CometRPCClient) SimulateTransaction(ctx context.Context, tx []byte, cfg *SimTxConfig) (sdk.GasInfo, error) {
+	simQuery := abci.RequestQuery{
+		Path: "/cosmos.tx.v1beta1.Service/Simulate",
+		Data: tx,
+	}
+
+	if cfg == nil {
+		return sdk.GasInfo{}, fmt.Errorf("BUG: SimulateTransaction cfg is nil, cfg.QueryABCIFunc is required for CometRPCClient")
+	}
+
+	var res abci.ResponseQuery
+	if err := retry.Do(func() error {
+		var err error
+		res, err = cfg.QueryABCIFunc(ctx, simQuery)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+		return sdk.GasInfo{}, err
+	}
+
+	var simRes txtypes.SimulateResponse
+	if err := simRes.Unmarshal(res.Value); err != nil {
+		return sdk.GasInfo{}, err
+	}
+
+	return sdk.GasInfo{
+		GasWanted: simRes.GasInfo.GasWanted,
+		GasUsed:   simRes.GasInfo.GasUsed,
 	}, nil
 }
 

@@ -346,20 +346,28 @@ func (cc *CosmosProvider) SendMsgsWith(ctx context.Context, msgs []sdk.Msg, memo
 
 	res, err := cc.ConsensusClient.DoBroadcastTxAsync(ctx, txBytes)
 	if res != nil {
-		fmt.Printf("TX hash: %s\n", res.Hash)
+		fmt.Printf("TX hash: %s\n", res.TxHash)
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	resp := &cclient.ResultBroadcastTx{
+		Code:      res.Code,
+		Data:      res.Data,
+		Log:       res.Log,
+		Codespace: res.Codespace,
+		Hash:      bytes.HexBytes([]byte(res.TxHash)),
 	}
 
 	// transaction was executed, log the success or failure using the tx response code
 	// NOTE: error is nil, logic should use the returned error to determine if the
 	// transaction was successfully executed.
 	if res.Code != 0 {
-		return res, fmt.Errorf("transaction failed with code: %d", res.Code)
+		return resp, fmt.Errorf("transaction failed with code: %d", res.Code)
 	}
 
-	return res, nil
+	return resp, nil
 }
 
 // sdkError will return the Cosmos SDK registered error for a given codespace/code combo if registered, otherwise nil.
@@ -397,10 +405,10 @@ func (cc *CosmosProvider) broadcastTx(
 			return err
 		}
 		rlyResp := &provider.RelayerTxResponse{
-			TxHash:    res.Hash.String(),
+			TxHash:    res.TxHash,
 			Codespace: res.Codespace,
 			Code:      res.Code,
-			Data:      res.Data.String(),
+			Data:      string(res.Data),
 		}
 		if isFailed {
 			err = cc.sdkError(res.Codespace, res.Code)
@@ -421,7 +429,7 @@ func (cc *CosmosProvider) broadcastTx(
 	// TODO: maybe we need to check if the node has tx indexing enabled?
 	// if not, we need to find a new way to block until inclusion in a block
 
-	go cc.waitForTx(asyncCtx, res.Hash, msgs, asyncTimeout, asyncCallbacks)
+	go cc.waitForTx(asyncCtx, []byte(res.TxHash), msgs, asyncTimeout, asyncCallbacks)
 
 	return nil
 }
@@ -1784,30 +1792,17 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 		return txtypes.SimulateResponse{}, 0, err
 	}
 
-	simQuery := abci.RequestQuery{
-		Path: "/cosmos.tx.v1beta1.Service/Simulate",
-		Data: txBytes,
-	}
-
-	var res abci.ResponseQuery
-	if err := retry.Do(func() error {
-		var err error
-		res, err = cc.QueryABCI(ctx, simQuery)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+	gasInfo, err := cc.ConsensusClient.SimulateTransaction(ctx, txBytes, &cclient.SimTxConfig{
+		QueryABCIFunc: cc.QueryABCI,
+	})
+	if err != nil {
 		return txtypes.SimulateResponse{}, 0, err
 	}
 
-	var simRes txtypes.SimulateResponse
-	if err := simRes.Unmarshal(res.Value); err != nil {
-		return txtypes.SimulateResponse{}, 0, err
-	}
-
-	gas, err := cc.AdjustEstimatedGas(simRes.GasInfo.GasUsed)
-	return simRes, gas, err
+	gas, err := cc.AdjustEstimatedGas(gasInfo.GasUsed)
+	return txtypes.SimulateResponse{
+		GasInfo: &gasInfo,
+	}, gas, err
 }
 
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.
