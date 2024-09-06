@@ -380,6 +380,13 @@ func (cc *CosmosProvider) QueryCanonicalLightClient(ctx context.Context, rollapp
 
 // QueryUnbondingPeriod returns the unbonding period of the chain
 func (cc *CosmosProvider) QueryUnbondingPeriod(ctx context.Context) (time.Duration, error) {
+	if cc.PCfg.DymRollapp {
+		ret, err := cc.queryParamsSubspaceTime(ctx, "sequencers", "UnbondingTime")
+		if err == nil {
+			return ret, nil
+		}
+	}
+
 	// Attempt ICS query
 	consumerUnbondingPeriod, consumerErr := cc.queryParamsSubspaceTime(ctx, "ccvconsumer", "UnbondingPeriod")
 	if consumerErr == nil {
