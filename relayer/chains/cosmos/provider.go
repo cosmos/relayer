@@ -45,10 +45,11 @@ type CosmosProviderConfig struct {
 	Key              string                     `json:"key" yaml:"key"`
 	ChainName        string                     `json:"-" yaml:"-"`
 	ChainID          string                     `json:"chain-id" yaml:"chain-id"`
-	HttpAddr         string                     `json:"http-addr" yaml:"http-addr"`           // added to support http queries to Dym Hub
-	DymHub           bool                       `json:"is-dym-hub" yaml:"is-dym-hub"`         // added to force wait for canonical client with Hub
-	DymRollapp       bool                       `json:"is-dym-rollapp" yaml:"is-dym-rollapp"` // added to support custom trust levels
-	TrustPeriod      time.Duration              `json:"trust-period" yaml:"trust-period"`     // added to specify exact trust
+	HttpAddr         string                     `json:"http-addr" yaml:"http-addr"`               // added to support http queries to Dym Hub
+	DymHub           bool                       `json:"is-dym-hub" yaml:"is-dym-hub"`             // added to force wait for canonical client with Hub
+	DymRollapp       bool                       `json:"is-dym-rollapp" yaml:"is-dym-rollapp"`     // added to support custom trust levels
+	TrustPeriod      time.Duration              `json:"trust-period" yaml:"trust-period"`         // added to specify exact trust
+	UnbondingPeriod  time.Duration              `json:"unbonding-period" yaml:"unbonding-period"` // added to specify exact unbonding
 	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
 	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend   string                     `json:"keyring-backend" yaml:"keyring-backend"`
