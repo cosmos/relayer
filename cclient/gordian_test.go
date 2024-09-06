@@ -3,6 +3,7 @@ package cclient_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -13,7 +14,13 @@ import (
 // cat example-tx-signed.json
 const tx = `{"body":{"messages":[{"@type":"/cosmos.bank.v1beta1.MsgSend","from_address":"cosmos1r5v5srda7xfth3hn2s26txvrcrntldjumt8mhl","to_address":"cosmos10r39fueph9fq7a6lgswu4zdsg8t3gxlqvvvyvn","amount":[{"denom":"stake","amount":"1"}]}],"memo":"","timeout_height":"0","unordered":false,"timeout_timestamp":"0001-01-01T00:00:00Z","extension_options":[],"non_critical_extension_options":[]},"auth_info":{"signer_infos":[{"public_key":{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"ArpmqEz3g5rxcqE+f8n15wCMuLyhWF+PO6+zA57aPB/d"},"mode_info":{"single":{"mode":"SIGN_MODE_DIRECT"}},"sequence":"1"}],"fee":{"amount":[],"gas_limit":"200000","payer":"cosmos1r5v5srda7xfth3hn2s26txvrcrntldjumt8mhl","granter":""},"tip":null},"signatures":["CeyHZH8itZikoY8mWtfCzM46qZfOLkncHRe8CxludOUpgvxklTcy4+EetVN++OzBgxxXUMG/B5DIuJAFQ4G6cg=="]}`
 
+// go test -timeout 3000s -run ^TestGordian$ github.com/cosmos/relayer/v2/cclient -v
 func TestGordian(t *testing.T) {
+	// TODO: this test is only local for now. Will add CI in the future
+	if os.Getenv("IS_LOCAL_TESTING_GORDIAN") == "" {
+		t.Skip("skipping test; set IS_LOCAL_TESTING_GORDIAN to run this test")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
