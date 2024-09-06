@@ -92,13 +92,16 @@ func (r CometRPCClient) GetBlockSearch(ctx context.Context, query string, page *
 }
 
 // GetCommit implements ConsensusClient.
-func (r CometRPCClient) GetCommit(ctx context.Context, height uint64) (*coretypes.ResultCommit, error) {
+func (r CometRPCClient) GetCommit(ctx context.Context, height uint64) (*ResultCommit, error) {
 	h := int64(height)
 	c, err := r.Commit(ctx, &h)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get commit: %w", err)
 	}
-	return c, nil
+	return &ResultCommit{
+		AppHash: c.AppHash,
+		Time:    c.Time,
+	}, nil
 }
 
 // GetValidators implements ConsensusClient.

@@ -144,8 +144,45 @@ func (g *GordianConsensus) GetBlockTime(ctx context.Context, height uint64) (tim
 }
 
 // GetCommit implements ConsensusClient.
-func (g *GordianConsensus) GetCommit(ctx context.Context, height uint64) (*coretypes.ResultCommit, error) {
-	panic("unimplemented")
+func (g *GordianConsensus) GetCommit(ctx context.Context, height uint64) (*ResultCommit, error) {
+	// looks like we just need the apphash. returning just this for gordian to see how it goes.
+	// get latest header from the network
+
+	res, err := http.Get(fmt.Sprintf("%s/commit", g.addr))
+	if err != nil {
+		fmt.Printf("error making http request: %s\n", err)
+		os.Exit(1)
+	}
+
+	// tmconsensus.CommittedBlock
+	type GetCommitResponse struct {
+		BlockHash         []byte `protobuf:"bytes,1,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
+		BlockHashPrevious []byte `protobuf:"bytes,2,opt,name=block_hash_previous,json=blockHashPrevious,proto3" json:"block_hash_previous,omitempty"`
+		Height            uint64 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
+		// PreviousCommitProof *CommitProof  `protobuf:"bytes,4,opt,name=previous_commit_proof,json=previousCommitProof,proto3" json:"previous_commit_proof,omitempty"`
+		// ValidatorSet        *ValidatorSet `protobuf:"bytes,5,opt,name=validator_set,json=validatorSet,proto3" json:"validator_set,omitempty"`
+		// ValidatorSetNext    *ValidatorSet `protobuf:"bytes,6,opt,name=validator_set_next,json=validatorSetNext,proto3" json:"validator_set_next,omitempty"`
+		DataId           []byte `protobuf:"bytes,7,opt,name=data_id,json=dataId,proto3" json:"data_id,omitempty"`
+		AppStatePrevHash []byte `protobuf:"bytes,8,opt,name=app_state_prev_hash,json=appStatePrevHash,proto3" json:"app_state_prev_hash,omitempty"` // annotations
+	}
+
+	var resp GetCommitResponse
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		fmt.Printf("error decoding response: %s\n", err)
+		os.Exit(1)
+	}
+
+	// Get this from the header annotation directly?
+	bt, err := g.GetBlockTime(ctx, resp.Height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block time: %w", err)
+	}
+
+	// TODO: do we need the full coretypes.NewResultCommit ? Does not seem like it
+	return &ResultCommit{
+		AppHash: resp.AppStatePrevHash,
+		Time:    bt,
+	}, nil
 }
 
 // GetStatus implements ConsensusClient.
@@ -206,7 +243,8 @@ func (g *GordianConsensus) GetTx(ctx context.Context, hash []byte, prove bool) (
 
 // GetTxSearch implements ConsensusClient.
 func (g *GordianConsensus) GetTxSearch(ctx context.Context, query string, prove bool, page *int, perPage *int, orderBy string) (*ResultTxSearch, error) {
-	panic("unimplemented")
+	// TODO:
+	return nil, nil
 }
 
 // TODO: GetValidators needs pubkey -> address conversions

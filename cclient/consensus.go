@@ -40,7 +40,7 @@ type ConsensusClient interface {
 		page, perPage *int,
 		orderBy string,
 	) (*coretypes.ResultBlockSearch, error)
-	GetCommit(ctx context.Context, height uint64) (*coretypes.ResultCommit, error)
+	GetCommit(ctx context.Context, height uint64) (*ResultCommit, error)
 	GetABCIQueryWithOptions(
 		ctx context.Context,
 		path string,
@@ -49,6 +49,11 @@ type ConsensusClient interface {
 	) (*coretypes.ResultABCIQuery, error)
 
 	SimulateTransaction(ctx context.Context, tx []byte, cfg *SimTxConfig) (types.GasInfo, error)
+}
+
+type ResultCommit struct {
+	Time    time.Time `json:"time"`
+	AppHash []byte    `json:"app_hash"`
 }
 
 type SimTxConfig struct {
