@@ -254,7 +254,7 @@ func (cc *CosmosProvider) AccountFromKeyOrAddress(keyOrAddress string) (out sdk.
 }
 
 func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingPeriod time.Duration, percentage int64) (time.Duration, error) {
-	if val := cc.PCfg.TrustPeriod; val != 0 {
+	if val := cc.PCfg.TrustPeriod; val != 0 { // legacy way of setting trust period for rollapp
 		cc.log.Info("Using trust period from config.", zap.Any("chain", cc.ChainId()), zap.Any("trust", val))
 		return cc.PCfg.TrustPeriod, nil
 	}
@@ -266,6 +266,11 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 		if err != nil {
 			return 0, err
 		}
+	}
+
+	if cc.PCfg.DymRollapp {
+		temp := unbondingTime / 100 * 65 // hardcoded 0.65 multiplier TODO: https://github.com/dymensionxyz/dymension/issues/1209
+		return temp.Truncate(time.Second), nil
 	}
 
 	// We want the trusting period to be `percentage` of the unbonding time.
