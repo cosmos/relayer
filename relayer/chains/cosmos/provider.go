@@ -268,6 +268,11 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 		}
 	}
 
+	if cc.PCfg.DymRollapp {
+		temp := unbondingTime / 100 * 65 // hardcoded 0.65 multiplier TODO: https://github.com/dymensionxyz/dymension/issues/1209
+		return temp.Truncate(time.Second), nil
+	}
+
 	// We want the trusting period to be `percentage` of the unbonding time.
 	// Go mentions that the time.Duration type can track approximately 290 years.
 	// We don't want to lose precision if the duration is a very long duration
@@ -279,7 +284,7 @@ func (cc *CosmosProvider) TrustingPeriod(ctx context.Context, overrideUnbondingP
 	// And we only want the trusting period to be whole hours.
 	// But avoid rounding if the time is less than 1 hour
 	//  (otherwise the trusting period will go to 0)
-	if tp > time.Hour && !cc.PCfg.DymRollapp {
+	if tp > time.Hour {
 		tp = tp.Truncate(time.Hour)
 	}
 	return tp, nil
