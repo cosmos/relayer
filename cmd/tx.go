@@ -604,7 +604,7 @@ func isRollapp(src, dst *relayer.Chain) bool {
 	if !ok {
 		return false
 	}
-	return srcP.DymHub || dstP.DymHub
+	return srcP.DymRollapp || dstP.DymRollapp
 }
 
 func closeChannelCmd(a *appState) *cobra.Command {
