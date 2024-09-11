@@ -38,6 +38,7 @@ const (
 	flagDstPort                        = "dst-port"
 	flagOrder                          = "order"
 	flagVersion                        = "version"
+	flagEnableDebugServer              = "enable-debug-server"
 	flagDebugAddr                      = "debug-addr"
 	flagOverwriteConfig                = "overwrite"
 	flagLimit                          = "limit"
@@ -426,6 +427,16 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	)
 
 	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
+		panic(err)
+	}
+
+	cmd.Flags().Bool(
+		flagEnableDebugServer,
+		false,
+		"enables debug server. By default, the debug server is disabled due to security concerns.",
+	)
+
+	if err := v.BindPFlag(flagEnableDebugServer, cmd.Flags().Lookup(flagEnableDebugServer)); err != nil {
 		panic(err)
 	}
 
