@@ -46,8 +46,7 @@ type CosmosProviderConfig struct {
 	ChainName        string                     `json:"-" yaml:"-"`
 	ChainID          string                     `json:"chain-id" yaml:"chain-id"`
 	HttpAddr         string                     `json:"http-addr" yaml:"http-addr"`           // added to support http queries to Dym Hub
-	DymHub           bool                       `json:"is-dym-hub" yaml:"is-dym-hub"`         // added to force wait for canonical client with Hub
-	DymRollapp       bool                       `json:"is-dym-rollapp" yaml:"is-dym-rollapp"` // added to support custom trust levels
+	DymRollapp       bool                       `json:"is-dym-rollapp" yaml:"is-dym-rollapp"` // added to support custom trust levels, blocking for canon client
 	TrustPeriod      time.Duration              `json:"trust-period" yaml:"trust-period"`     // added to specify exact trust
 	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
 	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
