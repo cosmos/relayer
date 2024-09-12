@@ -87,7 +87,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 			}
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case jsn:
 				out, err := json.Marshal(a.config.Wrapped())
 				if err != nil {
@@ -513,7 +513,7 @@ func newDefaultGlobalConfig(memo string) GlobalConfig {
 func (c *Config) AddChain(chain *relayer.Chain) (err error) {
 	chainId := chain.ChainProvider.ChainId()
 	if chainId == "" {
-		return fmt.Errorf("chain ID cannot be empty")
+		return errors.New("chain ID cannot be empty")
 	}
 	chn, err := c.Chains.Get(chainId)
 	if chn != nil || err == nil {

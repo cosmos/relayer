@@ -409,6 +409,7 @@ type ChainProvider interface {
 	Sprint(toPrint proto.Message) (string, error)
 
 	SetRpcAddr(rpcAddr string) error
+	SetBackupRpcAddrs(rpcAddrs []string) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?

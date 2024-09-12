@@ -15,7 +15,7 @@ var (
 		Key:              "default",
 		ChainName:        "osmosis",
 		ChainID:          "osmosis-1",
-		RPCAddr:          "https://rpc.osmosis.strange.love:443",
+		RPCAddr:          "https://osmosis-rpc.polkachu.com:443",
 		AccountPrefix:    "osmo",
 		KeyringBackend:   "test",
 		DynamicGasPrice:  true,

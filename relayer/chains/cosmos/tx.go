@@ -502,7 +502,7 @@ func (cc *CosmosProvider) waitForBlockInclusion(
 				return cc.mkTxResult(res)
 			}
 			if strings.Contains(err.Error(), "transaction indexing is disabled") {
-				return nil, fmt.Errorf("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+				return nil, errors.New("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
 			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -1038,7 +1038,7 @@ func (cc *CosmosProvider) ConnectionHandshakeProof(
 		// If the connection state proof is empty, there is no point in returning the next message.
 		// We are not using (*conntypes.MsgConnectionOpenTry).ValidateBasic here because
 		// that chokes on cross-chain bech32 details in ibc-go.
-		return provider.ConnectionProof{}, fmt.Errorf("received invalid zero-length connection state proof")
+		return provider.ConnectionProof{}, errors.New("received invalid zero-length connection state proof")
 	}
 
 	return provider.ConnectionProof{
@@ -1474,7 +1474,7 @@ func (cc *CosmosProvider) AcknowledgementFromSequence(ctx context.Context, dst p
 // QueryIBCHeader returns the IBC compatible block header (TendermintIBCHeader) at a specific height.
 func (cc *CosmosProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	if h == 0 {
-		return nil, fmt.Errorf("height cannot be 0")
+		return nil, errors.New("height cannot be 0")
 	}
 
 	lightBlock, err := cc.LightProvider.LightBlock(ctx, h)
@@ -1498,7 +1498,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	// make copy of header stored in mop
 	h, ok := header.(*tmclient.Header)
 	if !ok {
-		return nil, fmt.Errorf("trying to inject fields into non-tendermint headers")
+		return nil, errors.New("trying to inject fields into non-tendermint headers")
 	}
 
 	// retrieve dst client from src chain
@@ -1676,10 +1676,7 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 
 	// Set the account number and sequence on the transaction factory and retry if fail
 	if err = retry.Do(func() error {
-		if err = txf.AccountRetriever().EnsureExists(cliCtx, from); err != nil {
-			return err
-		}
-		return err
+		return txf.AccountRetriever().EnsureExists(cliCtx, from)
 	}, rtyAtt, rtyDel, rtyErr); err != nil {
 		return txf, err
 	}
@@ -1732,7 +1729,7 @@ func (cc *CosmosProvider) AdjustEstimatedGas(gasUsed uint64) (uint64, error) {
 	}
 	gas := cc.PCfg.GasAdjustment * float64(gasUsed)
 	if math.IsInf(gas, 1) {
-		return 0, fmt.Errorf("infinite gas used")
+		return 0, errors.New("infinite gas used")
 	}
 	return uint64(gas), nil
 }
@@ -1749,7 +1746,7 @@ func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, e
 	for _, opt := range cc.PCfg.ExtensionOptions {
 		max, ok := sdkmath.NewIntFromString(opt.Value)
 		if !ok {
-			return txf, fmt.Errorf("invalid opt value")
+			return txf,errors.New("invalid opt value")
 		}
 		extensionOption := ethermint.ExtensionOptionDynamicFeeTx{
 			MaxPriorityPrice: max,
@@ -1929,7 +1926,7 @@ func BuildSimTx(info *keyring.Record, txf tx.Factory, msgs ...sdk.Msg) ([]byte, 
 
 	protoProvider, ok := txb.(protoTxProvider)
 	if !ok {
-		return nil, fmt.Errorf("cannot simulate amino tx")
+		return nil, errors.New("cannot simulate amino tx")
 	}
 
 	simReq := txtypes.SimulateRequest{Tx: protoProvider.GetProtoTx()}

@@ -199,6 +199,10 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
     [[TROUBLESHOOTING](docs/troubleshooting.md)]
 ---
 
+## Production deployment recomendations
+
+- Make sure the debug server is disabled in production.
+
 ## Security Notice
 
 If you would like to report a security bug related to the relayer repo,

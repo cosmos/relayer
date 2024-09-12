@@ -37,7 +37,7 @@ jobs:
 
       # upload resulting binaries
       - name: upload binaries
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: rly
           path: ./build/rly

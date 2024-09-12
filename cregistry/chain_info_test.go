@@ -1,7 +1,7 @@
 package cregistry
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,7 +51,7 @@ func TestGetAllRPCEndpoints(t *testing.T) {
 		"unsupported or invalid url scheme error": {
 			chainInfo:         ChainInfoWithRPCEndpoint("ftp://test.com/rpc"),
 			expectedEndpoints: nil,
-			expectedError:     fmt.Errorf("invalid or unsupported url scheme: ftp"),
+			expectedError:     errors.New("invalid or unsupported url scheme: ftp"),
 		},
 	}
 

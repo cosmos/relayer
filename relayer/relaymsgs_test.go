@@ -2,7 +2,7 @@ package relayer_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/cosmos/relayer/v2/relayer"
@@ -147,7 +147,7 @@ func TestRelayMsgs_Send_Success(t *testing.T) {
 
 func TestRelayMsgs_Send_Errors(t *testing.T) {
 	t.Run("one batch and one error", func(t *testing.T) {
-		srcErr := fmt.Errorf("source error")
+		srcErr := errors.New("source error")
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
 			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -155,7 +155,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			},
 		}
 
-		dstErr := fmt.Errorf("dest error")
+		dstErr := errors.New("dest error")
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
 			SendMessages: func(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -179,7 +179,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 	})
 
 	t.Run("multiple batches and all errors", func(t *testing.T) {
-		srcErr1, srcErr2 := fmt.Errorf("source error 1"), fmt.Errorf("source error 2")
+		srcErr1, srcErr2 := errors.New("source error 1"), errors.New("source error 2")
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
@@ -196,7 +196,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			},
 		}
 
-		dstErr1, dstErr2 := fmt.Errorf("dest error 1"), fmt.Errorf("dest error 2")
+		dstErr1, dstErr2 := errors.New("dest error 1"), errors.New("dest error 2")
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",
@@ -233,7 +233,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 	})
 
 	t.Run("two batches with success then error", func(t *testing.T) {
-		srcErr := fmt.Errorf("source error")
+		srcErr := errors.New("source error")
 		var srcCalls int
 		src := relayer.RelayMsgSender{
 			ChainID: "src",
@@ -250,7 +250,7 @@ func TestRelayMsgs_Send_Errors(t *testing.T) {
 			},
 		}
 
-		dstErr := fmt.Errorf("dest error")
+		dstErr := errors.New("dest error")
 		var dstCalls int
 		dst := relayer.RelayMsgSender{
 			ChainID: "dst",

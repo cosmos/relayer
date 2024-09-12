@@ -2,6 +2,7 @@ package penumbra
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,6 +46,7 @@ type PenumbraProviderConfig struct {
 	ChainName        string                     `json:"-" yaml:"-"`
 	ChainID          string                     `json:"chain-id" yaml:"chain-id"`
 	RPCAddr          string                     `json:"rpc-addr" yaml:"rpc-addr"`
+	BackupRPCAddrs   []string                   `json:"backup-rpc-addrs" yaml:"backup-rpc-addrs"`
 	AccountPrefix    string                     `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend   string                     `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment    float64                    `json:"gas-adjustment" yaml:"gas-adjustment"`
@@ -234,6 +236,12 @@ func (cc *PenumbraProvider) SetRpcAddr(rpcAddr string) error {
 	return nil
 }
 
+// SetBackupRpcAddrs implements provider.ChainProvider.
+func (cc *PenumbraProvider) SetBackupRpcAddrs(rpcAddrs []string) error {
+	cc.PCfg.BackupRPCAddrs = rpcAddrs
+	return nil
+}
+
 // Init initializes the keystore, RPC client, amd light client provider.
 // Once initialization is complete an attempt to query the underlying node's tendermint version is performed.
 // NOTE: Init must be called after creating a new instance of CosmosProvider.
@@ -249,20 +257,125 @@ func (cc *PenumbraProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	lightprovider, err := prov.New(cc.PCfg.ChainID, cc.PCfg.RPCAddr)
+	// set the RPC client
+	err = cc.setRpcClient(true, cc.PCfg.RPCAddr, timeout)
 	if err != nil {
 		return err
 	}
 
-	c, err := client.NewClient(cc.PCfg.RPCAddr, timeout)
+	// set the light client provider
+	err = cc.setLightProvider(cc.PCfg.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	// set keybase
+	cc.Keybase = keybase
+
+	// go routine to monitor RPC liveliness
+	go cc.startLivelinessChecks(ctx, timeout)
+
+	return nil
+}
+
+// startLivelinessChecks frequently checks the liveliness of an RPC client and resorts to backup rpcs if the active rpc is down.
+// This is a blocking function; call this within a go routine.
+func (cc *PenumbraProvider) startLivelinessChecks(ctx context.Context, timeout time.Duration) {
+	// list of rpcs & index to keep track of active rpc
+	rpcs := append([]string{cc.PCfg.RPCAddr}, cc.PCfg.BackupRPCAddrs...)
+
+	// exit routine if there is only one rpc client
+	if len(rpcs) <= 1 {
+		if cc.log != nil {
+			cc.log.Debug("No backup RPCs defined", zap.String("chain", cc.ChainName()))
+		}
+		return
+	}
+
+	// log the number of available rpcs
+	cc.log.Debug("Available RPC clients", zap.String("chain", cc.ChainName()), zap.Int("count", len(rpcs)))
+
+	// tick every 10s to ensure rpc liveliness
+	ticker := time.NewTicker(10 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, err := cc.RPCClient.Status(ctx)
+			if err != nil {
+				cc.log.Error("RPC client disconnected", zap.String("chain", cc.ChainName()), zap.Error(err))
+
+				index := -1
+				attempts := 0
+
+				// attempt to connect to the backup RPC client
+				for {
+
+					attempts++
+					if attempts > len(rpcs) {
+						cc.log.Error("All configured RPC endpoints return non-200 response", zap.String("chain", cc.ChainName()), zap.Error(err))
+						break
+					}
+
+					// get next rpc
+					index = (index + 1) % len(rpcs)
+					rpcAddr := rpcs[index]
+
+					cc.log.Info("Attempting to connect to new RPC", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr))
+
+					// attempt to setup rpc client
+					if err = cc.setRpcClient(false, rpcAddr, timeout); err != nil {
+						cc.log.Debug("Failed to connect to RPC client", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
+						continue
+					}
+
+					// attempt to setup light client
+					if err = cc.setLightProvider(rpcAddr); err != nil {
+						cc.log.Debug("Failed to connect to light client provider", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr), zap.Error(err))
+						continue
+					}
+
+					cc.log.Info("Successfully connected to new RPC", zap.String("chain", cc.ChainName()), zap.String("rpc", rpcAddr))
+
+					// rpc found, escape
+					break
+				}
+			}
+		}
+	}
+}
+
+// setRpcClient sets the RPC client for the chain.
+func (cc *PenumbraProvider) setRpcClient(onStartup bool, rpcAddr string, timeout time.Duration) error {
+	c, err := client.NewClient(rpcAddr, timeout)
 	if err != nil {
 		return err
 	}
 
 	cc.RPCClient = cwrapper.NewRPCClient(c)
-	cc.LightProvider = lightprovider
-	cc.Keybase = keybase
 
+	// Only check status if not on startup, to ensure the relayer will not block on startup.
+	// All subsequent calls will perform the status check to ensure RPC endpoints are rotated
+	// as necessary.
+	if !onStartup {
+		if _, err = cc.RPCClient.Status(context.Background()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// setLightProvider sets the light client provider for the chain.
+func (cc *PenumbraProvider) setLightProvider(rpcAddr string) error {
+	lightprovider, err := prov.New(cc.PCfg.ChainID, rpcAddr)
+	if err != nil {
+		return err
+	}
+
+	cc.LightProvider = lightprovider
 	return nil
 }
 
@@ -274,7 +387,7 @@ func (cc *PenumbraProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 		return err
 	}
 	if h.SyncInfo.CatchingUp {
-		return fmt.Errorf("chain catching up")
+		return errors.New("chain catching up")
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {

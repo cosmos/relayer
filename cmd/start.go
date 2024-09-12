@@ -105,9 +105,15 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				debugAddr = debugAddrFlag
 			}
 
-			if debugAddr == "" {
+			flagEnableDebugServer, err := cmd.Flags().GetBool(flagEnableDebugServer)
+			if err != nil {
+				return err
+			}
+
+			if flagEnableDebugServer == false || debugAddr == "" {
 				a.log.Info("Skipping debug server due to empty debug address flag")
 			} else {
+				a.log.Warn("SECURITY WARNING! Debug server is enabled. It should only be used for non-production deployments.")
 				ln, err := net.Listen("tcp", debugAddr)
 				if err != nil {
 					a.log.Error(

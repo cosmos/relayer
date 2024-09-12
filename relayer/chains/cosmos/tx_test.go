@@ -1,7 +1,7 @@
 package cosmos
 
 import (
-	"fmt"
+	"errors"
 	"math"
 	"testing"
 
@@ -48,7 +48,7 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 			gasAdjustment: math.Inf(1),
 			maxGasAmount:  0,
 			expectedGas:   0,
-			expectedErr:   fmt.Errorf("infinite gas used"),
+			expectedErr:   errors.New("infinite gas used"),
 		},
 		{
 			name:          "gas used is non-zero with zero max gas amount as default",
@@ -64,7 +64,7 @@ func TestCosmosProvider_AdjustEstimatedGas(t *testing.T) {
 			gasAdjustment: 1.5,
 			maxGasAmount:  70000,
 			expectedGas:   75000,
-			expectedErr:   fmt.Errorf("estimated gas 75000 is higher than max gas 70000"),
+			expectedErr:   errors.New("estimated gas 75000 is higher than max gas 70000"),
 		},
 	}
 

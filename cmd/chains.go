@@ -41,6 +41,7 @@ func chainsCmd(a *appState) *cobra.Command {
 		chainsAddDirCmd(a),
 		cmdChainsConfigure(a),
 		cmdChainsUseRpcAddr(a),
+		cmdChainsUseBackupRpcAddr(a),
 	)
 
 	return cmd
@@ -48,9 +49,9 @@ func chainsCmd(a *appState) *cobra.Command {
 
 func cmdChainsUseRpcAddr(a *appState) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "set-rpc-addr chain_name  valid_rpc_url",
+		Use:     "set-rpc-addr chain_name valid_rpc_url",
 		Aliases: []string{"rpc"},
-		Short:   "Sets  chain's rpc address",
+		Short:   "Sets chain's rpc address",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains set-rpc-addr ibc-0 https://abc.xyz.com:443
@@ -63,6 +64,37 @@ $ %s ch set-rpc-addr ibc-0 https://abc.xyz.com:443`, appName, appName)),
 			}
 
 			return a.useRpcAddr(chainName, rpc_address)
+		},
+	}
+
+	return cmd
+}
+
+func cmdChainsUseBackupRpcAddr(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "set-backup-rpc-addrs chain_name comma_separated_valid_rpc_urls",
+		Aliases: []string{"set-backup-rpcs"},
+		Short:   "Sets chain's backup rpc addresses",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains set-backup-rpc-addr ibc-0 https://abc.xyz.com:443,https://123.456.com:443
+$ %s ch set-backup-rpc-addr ibc-0 https://abc.xyz.com:443,https://123.456.com:443`, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainName := args[0]
+			rpc_addresses := args[1]
+
+			// split rpc_addresses by ','
+			rpc_addresses_list := strings.Split(rpc_addresses, ",")
+
+			// loop through and ensure valid
+			for _, rpc_address := range rpc_addresses_list {
+				rpc_address := rpc_address
+				if !isValidURL(rpc_address) {
+					return invalidRpcAddr(rpc_address)
+				}
+			}
+
+			return a.useBackupRpcAddrs(chainName, rpc_addresses_list)
 		},
 	}
 
@@ -206,7 +238,7 @@ func chainsRegistryList(a *appState) *cobra.Command {
 
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case yml:
 				out, err := yaml.Marshal(chains)
 				if err != nil {
@@ -259,7 +291,7 @@ $ %s ch l`, appName, appName)),
 
 			switch {
 			case yml && jsn:
-				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+				return errors.New("can't pass both --json and --yaml, must pick one")
 			case yml:
 				out, err := yaml.Marshal(configs)
 				if err != nil {
@@ -326,7 +358,7 @@ func chainsAddCmd(a *appState) *cobra.Command {
 			}
 
 			if ok := a.config; ok == nil {
-				return fmt.Errorf("config not initialized, consider running `rly config init`")
+				return errors.New("config not initialized, consider running `rly config init`")
 			}
 
 			return a.performConfigLockingOperation(cmd.Context(), func() error {
