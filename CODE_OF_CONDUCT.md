@@ -59,9 +59,9 @@ representative at an online or offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
+Instances of abusive, harassing, or otherwise unacceptable behavior should be
 reported to the community leaders responsible for enforcement at
-support@strange.love.
+community@interchain.io first and foremost, and can optionally include support@strange.love as a secondary contact point.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
