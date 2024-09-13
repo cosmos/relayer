@@ -1,4 +1,4 @@
-project_name: Cosmos Relayer
+project_name: go-relayer
 
 builds:
   - id: darwin-amd64
@@ -65,9 +65,9 @@ archives:
       - darwin-arm64
       - linux-amd64
       - linux-arm64
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: '{{ .ProjectName }}_{{- title .Os }}_{{ .Arch }}'
     format: tar.gz
-    wrap_in_directory: true
+    wrap_in_directory: false
 
 checksum:
   name_template: SHA256SUMS-{{.Version}}.txt
