@@ -601,6 +601,8 @@ func (cc *CosmosProvider) buildSignerConfig(msgs []provider.RelayerMessage) (
 	return
 }
 
+const defaultRollappGas = 20_000_000
+
 func (cc *CosmosProvider) buildMessages(
 	ctx context.Context,
 	msgs []provider.RelayerMessage,
@@ -659,7 +661,12 @@ func (cc *CosmosProvider) buildMessages(
 	if gas == 0 {
 		_, adjusted, err = cc.CalculateGas(ctx, txf, txSignerKey, cMsgs...)
 		if err != nil {
-			return nil, 0, sdk.Coins{}, err
+			// if rollapp, we can hardcode gas (calculation can fail if there is no existing account)
+			if cc.PCfg.DymRollapp {
+				adjusted = defaultRollappGas
+			} else {
+				return nil, 0, sdk.Coins{}, err
+			}
 		}
 	}
 
@@ -1665,14 +1672,14 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 		WithCodec(cc.Cdc.Marshaler).
 		WithFromAddress(from)
 
-	// Set the account number and sequence on the transaction factory and retry if fail
-	if err = retry.Do(func() error {
-		if err = txf.AccountRetriever().EnsureExists(cliCtx, from); err != nil {
-			return err
+	// if rollapp, we know that the account might not exist at this point
+	if !cc.PCfg.DymRollapp {
+		// Set the account number and sequence on the transaction factory and retry if fail
+		if err = retry.Do(func() error {
+			return txf.AccountRetriever().EnsureExists(cliCtx, from)
+		}, rtyAtt, rtyDel, rtyErr); err != nil {
+			return txf, err
 		}
-		return err
-	}, rtyAtt, rtyDel, rtyErr); err != nil {
-		return txf, err
 	}
 
 	// TODO: why this code? this may potentially require another query when we don't want one
@@ -1680,10 +1687,11 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 	if initNum == 0 || initSeq == 0 {
 		if err = retry.Do(func() error {
 			num, seq, err = txf.AccountRetriever().GetAccountNumberSequence(cliCtx, from)
-			if err != nil {
+			// if rollapp, we know that the account might not exist at this point
+			if err != nil && !cc.PCfg.DymRollapp {
 				return err
 			}
-			return err
+			return nil
 		}, rtyAtt, rtyDel, rtyErr); err != nil {
 			return txf, err
 		}

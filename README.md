@@ -22,6 +22,7 @@
 - recommended to use fast query loop for fast rollapp chains (`min-loop-duration: 100ms`)
 - use `start --no-flush` to avoid flushing completely
 - in flush mode, will not expect acks immediately (supports delayedack)
+- allows rollapp key to not have an account, ignores failed gas calculation because of it
 
 ---
 
