@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
+	"github.com/cosmos/relayer/v2/internal/relayermetrics"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -92,10 +93,9 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			var prometheusMetrics *processor.PrometheusMetrics
-
 			debugAddr := a.config.Global.APIListenPort
 
+			// debug server
 			debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
 			if err != nil {
 				return err
@@ -126,8 +126,45 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				}
 				log := a.log.With(zap.String("sys", "debughttp"))
 				log.Info("Debug server listening", zap.String("addr", debugAddr))
+				relaydebug.StartDebugServer(cmd.Context(), log, ln)
+			}
+
+			// metrics server
+			var prometheusMetrics *processor.PrometheusMetrics
+
+			metricsAddr := a.config.Global.MetricsListenPort
+
+			metricsAddrFlag, err := cmd.Flags().GetString(flagMetricsAddr)
+			if err != nil {
+				return err
+			}
+
+			if metricsAddrFlag != "" {
+				metricsAddr = metricsAddrFlag
+			}
+
+			flagEnableMetricsServer, err := cmd.Flags().GetBool(flagEnableMetricsServer)
+			if err != nil {
+				return err
+			}
+
+			if flagEnableMetricsServer == false || metricsAddr == "" {
+				a.log.Info("Skipping metrics server due to empty metrics address flag")
+			} else {
+				ln, err := net.Listen("tcp", metricsAddr)
+				if err != nil {
+					a.log.Error(
+						"Failed to listen on metrics address. If you have another relayer process open, use --" +
+							flagMetricsAddr +
+							" to pick a different address.",
+					)
+
+					return fmt.Errorf("failed to listen on metrics address %q: %w", debugAddr, err)
+				}
+				log := a.log.With(zap.String("sys", "metricshttp"))
+				log.Info("Metrics server listening", zap.String("addr", metricsAddr))
 				prometheusMetrics = processor.NewPrometheusMetrics()
-				relaydebug.StartDebugServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
+				relayermetrics.StartMetricsServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
 				for _, chain := range chains {
 					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
 						ccp.SetMetrics(prometheusMetrics)
@@ -195,6 +232,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = updateTimeFlags(a.viper, cmd)
 	cmd = strategyFlag(a.viper, cmd)
 	cmd = debugServerFlags(a.viper, cmd)
+	cmd = metricsServerFlags(a.viper, cmd)
 	cmd = processorFlag(a.viper, cmd)
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
