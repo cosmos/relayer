@@ -1670,7 +1670,6 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 	}
 
 	cliCtx := client.Context{}.
-		// WithClient(cc.RPCClient). // TODO(reece): will this break gordian? hwo does server/v2 handle this?
 		WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
 		WithChainID(cc.PCfg.ChainID).
 		WithCodec(cc.Cdc.Marshaler).
