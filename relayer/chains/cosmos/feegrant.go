@@ -332,7 +332,7 @@ func (cc *CosmosProvider) EnsureBasicGrants(ctx context.Context, memo string, ga
 	}
 
 	if len(msgs) > 0 {
-		cliCtx := client.Context{}.WithClient(cc.RPCClient).
+		cliCtx := client.Context{}.
 			WithInterfaceRegistry(cc.Cdc.InterfaceRegistry).
 			WithChainID(cc.PCfg.ChainID).
 			WithCodec(cc.Cdc.Marshaler).

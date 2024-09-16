@@ -22,7 +22,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	cwrapper "github.com/cosmos/relayer/v2/client"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/strangelove-ventures/cometbft-client/client"
@@ -139,15 +139,15 @@ func (h PenumbraIBCHeader) NextValidatorsHash() []byte {
 type PenumbraProvider struct {
 	log *zap.Logger
 
-	PCfg           PenumbraProviderConfig
-	Keybase        keyring.Keyring
-	KeyringOptions []keyring.Option
-	RPCClient      cwrapper.RPCClient
-	LightProvider  provtypes.Provider
-	Input          io.Reader
-	Output         io.Writer
-	Codec          Codec
-	RPCCaller      jsonrpcclient.Caller
+	PCfg            PenumbraProviderConfig
+	Keybase         keyring.Keyring
+	KeyringOptions  []keyring.Option
+	ConsensusClient cclient.CometRPCClient
+	LightProvider   provtypes.Provider
+	Input           io.Reader
+	Output          io.Writer
+	Codec           Codec
+	RPCCaller       jsonrpcclient.Caller
 }
 
 func (cc *PenumbraProvider) ProviderConfig() provider.ProviderConfig {
@@ -303,7 +303,7 @@ func (cc *PenumbraProvider) startLivelinessChecks(ctx context.Context, timeout t
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := cc.RPCClient.Status(ctx)
+			_, err := cc.ConsensusClient.Status(ctx)
 			if err != nil {
 				cc.log.Error("RPC client disconnected", zap.String("chain", cc.ChainName()), zap.Error(err))
 
@@ -354,13 +354,13 @@ func (cc *PenumbraProvider) setRpcClient(onStartup bool, rpcAddr string, timeout
 		return err
 	}
 
-	cc.RPCClient = cwrapper.NewRPCClient(c)
+	cc.ConsensusClient = cclient.NewCometRPCClient(c)
 
 	// Only check status if not on startup, to ensure the relayer will not block on startup.
 	// All subsequent calls will perform the status check to ensure RPC endpoints are rotated
 	// as necessary.
 	if !onStartup {
-		if _, err = cc.RPCClient.Status(context.Background()); err != nil {
+		if _, err = cc.ConsensusClient.Status(context.Background()); err != nil {
 			return err
 		}
 	}
@@ -382,7 +382,7 @@ func (cc *PenumbraProvider) setLightProvider(rpcAddr string) error {
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *PenumbraProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	var initial int64
-	h, err := cc.RPCClient.Status(ctx)
+	h, err := cc.ConsensusClient.Status(ctx)
 	if err != nil {
 		return err
 	}
@@ -391,7 +391,7 @@ func (cc *PenumbraProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	}
 	initial = h.SyncInfo.LatestBlockHeight
 	for {
-		h, err = cc.RPCClient.Status(ctx)
+		h, err = cc.ConsensusClient.Status(ctx)
 		if err != nil {
 			return err
 		}
@@ -408,7 +408,7 @@ func (cc *PenumbraProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 }
 
 func (cc *PenumbraProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
-	resultBlock, err := cc.RPCClient.Block(ctx, &height)
+	resultBlock, err := cc.ConsensusClient.Block(ctx, &height)
 	if err != nil {
 		return time.Time{}, err
 	}

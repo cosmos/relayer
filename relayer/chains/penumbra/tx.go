@@ -248,7 +248,7 @@ type ValidatorUpdate struct {
 }
 
 func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.MerkleRoot, error) {
-	status, err := cc.RPCClient.Status(ctx)
+	status, err := cc.ConsensusClient.Status(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (cc *PenumbraProvider) sendMessagesInner(ctx context.Context, msgs []provid
 		return nil, err
 	}
 
-	return cc.RPCClient.BroadcastTxSync(ctx, txBytes)
+	return cc.ConsensusClient.BroadcastTxSync(ctx, txBytes)
 }
 
 // SendMessages attempts to sign, encode, & send a slice of RelayerMessages
@@ -372,7 +372,7 @@ func (cc *PenumbraProvider) SendMessages(ctx context.Context, msgs []provider.Re
 		ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 		defer cancel()
 
-		res, err := cc.RPCClient.Tx(ctx, syncRes.Hash, false)
+		res, err := cc.ConsensusClient.Tx(ctx, syncRes.Hash, false)
 		if err != nil {
 			return err
 		}
@@ -2078,7 +2078,7 @@ func (cc *PenumbraProvider) QueryABCI(ctx context.Context, req abci.RequestQuery
 		Prove:  req.Prove,
 	}
 
-	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
+	result, err := cc.ConsensusClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
 		return abci.ResponseQuery{}, err
 	}
@@ -2153,7 +2153,7 @@ func (cc *PenumbraProvider) broadcastTx(
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
-	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
+	res, err := cc.ConsensusClient.BroadcastTxSync(ctx, tx)
 	isErr := err != nil
 	isFailed := res != nil && res.Code != 0
 	if isErr || isFailed {
@@ -2249,12 +2249,12 @@ func (cc *PenumbraProvider) waitForBlockInclusion(
 			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		// This fixed poll is fine because it's only for logging and updating prometheus metrics currently.
 		case <-time.After(time.Millisecond * 100):
-			res, err := cc.RPCClient.Tx(ctx, txHash, false)
+			res, err := cc.ConsensusClient.Tx(ctx, txHash, false)
 			if err == nil {
 				return cc.mkTxResult(res)
 			}
 			if strings.Contains(err.Error(), "transaction indexing is disabled") {
-				return nil,errors.New("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+				return nil, errors.New("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
 			}
 		case <-ctx.Done():
 			return nil, ctx.Err()

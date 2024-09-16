@@ -19,7 +19,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	cwrapper "github.com/cosmos/relayer/v2/client"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -124,14 +124,14 @@ func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, deb
 type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg           CosmosProviderConfig
-	Keybase        keyring.Keyring
-	KeyringOptions []keyring.Option
-	RPCClient      cwrapper.RPCClient
-	LightProvider  provtypes.Provider
-	Input          io.Reader
-	Output         io.Writer
-	Cdc            Codec
+	PCfg            CosmosProviderConfig
+	Keybase         keyring.Keyring
+	KeyringOptions  []keyring.Option
+	ConsensusClient cclient.ConsensusClient
+	LightProvider   provtypes.Provider
+	Input           io.Reader
+	Output          io.Writer
+	Cdc             Codec
 	// TODO: GRPC Client type?
 
 	//nextAccountSeq uint64
@@ -350,7 +350,7 @@ func (cc *CosmosProvider) startLivelinessChecks(ctx context.Context, timeout tim
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := cc.RPCClient.Status(ctx)
+			_, err := cc.ConsensusClient.GetStatus(ctx)
 			if err != nil {
 				cc.log.Error("RPC client disconnected", zap.String("chain", cc.ChainName()), zap.Error(err))
 
@@ -401,13 +401,13 @@ func (cc *CosmosProvider) setRpcClient(onStartup bool, rpcAddr string, timeout t
 		return err
 	}
 
-	cc.RPCClient = cwrapper.NewRPCClient(c)
+	cc.ConsensusClient = cclient.NewCometRPCClient(c)
 
 	// Only check status if not on startup, to ensure the relayer will not block on startup.
 	// All subsequent calls will perform the status check to ensure RPC endpoints are rotated
 	// as necessary.
 	if !onStartup {
-		if _, err = cc.RPCClient.Status(context.Background()); err != nil {
+		if _, err = cc.ConsensusClient.GetStatus(context.Background()); err != nil {
 			return err
 		}
 	}
@@ -428,21 +428,21 @@ func (cc *CosmosProvider) setLightProvider(rpcAddr string) error {
 
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
-	var initial int64
-	h, err := cc.RPCClient.Status(ctx)
+	var initial uint64
+	h, err := cc.ConsensusClient.GetStatus(ctx)
 	if err != nil {
 		return err
 	}
-	if h.SyncInfo.CatchingUp {
+	if h.CatchingUp {
 		return errors.New("chain catching up")
 	}
-	initial = h.SyncInfo.LatestBlockHeight
+	initial = h.LatestBlockHeight
 	for {
-		h, err = cc.RPCClient.Status(ctx)
+		h, err = cc.ConsensusClient.GetStatus(ctx)
 		if err != nil {
 			return err
 		}
-		if h.SyncInfo.LatestBlockHeight > initial+n {
+		if h.LatestBlockHeight > initial+uint64(n) {
 			return nil
 		}
 		select {
@@ -455,11 +455,11 @@ func (cc *CosmosProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 }
 
 func (cc *CosmosProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
-	resultBlock, err := cc.RPCClient.Block(ctx, &height)
+	bt, err := cc.ConsensusClient.GetBlockTime(ctx, uint64(height))
 	if err != nil {
 		return time.Time{}, err
 	}
-	return resultBlock.Block.Time, nil
+	return bt, nil
 }
 
 func (cc *CosmosProvider) SetMetrics(m *processor.PrometheusMetrics) {

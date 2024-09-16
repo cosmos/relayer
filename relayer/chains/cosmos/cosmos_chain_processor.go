@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -149,7 +149,7 @@ func (ccp *CosmosChainProcessor) latestHeightWithRetry(ctx context.Context) (lat
 
 // nodeStatusWithRetry will query for the latest node status, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *coretypes.ResultStatus, err error) {
+func (ccp *CosmosChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *cclient.Status, err error) {
 	return status, retry.Do(func() error {
 		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
 		defer cancelLatestHeightQueryCtx()
@@ -239,7 +239,7 @@ func (ccp *CosmosChainProcessor) Run(ctx context.Context, initialBlockHistory ui
 			}
 			continue
 		}
-		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		persistence.latestHeight = int64(status.LatestBlockHeight)
 		break
 	}
 
@@ -351,7 +351,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 		return nil
 	}
 
-	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+	persistence.latestHeight = int64(status.LatestBlockHeight)
 
 	// This debug log is very noisy, but is helpful when debugging new chains.
 	// ccp.log.Debug("Queried latest height",
@@ -393,7 +393,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var (
 			eg        errgroup.Group
-			blockRes  *coretypes.ResultBlockResults
+			blockRes  *cclient.BlockResults
 			ibcHeader provider.IBCHeader
 		)
 
@@ -403,7 +403,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &sI)
+			blockRes, err = ccp.chainProvider.ConsensusClient.GetBlockResults(queryCtx, uint64(i))
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
