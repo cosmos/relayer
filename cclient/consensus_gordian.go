@@ -32,8 +32,6 @@ func NewGordianConsensus(addr string) *GordianConsensus {
 	}
 }
 
-//  -----
-
 // DoBroadcastTxAsync implements ConsensusClient.
 func (g *GordianConsensus) DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*TxResultResponse, error) {
 	// TODO: fix me to be async
@@ -90,35 +88,6 @@ func (g *GordianConsensus) SimulateTransaction(ctx context.Context, tx []byte, c
 		GasWanted: resp.GasWanted,
 		GasUsed:   resp.GasUsed,
 	}, nil
-}
-
-// GetABCIQuery implements ConsensusClient.
-func (g *GordianConsensus) GetABCIQuery(ctx context.Context, queryPath string, data cmtbytes.HexBytes) (*ABCIQueryResponse, error) {
-	// res, err := cc.QueryABCI(ctx, abci.RequestQuery{
-	// Path:   "store/upgrade/key",
-	// Height: int64(height - 1),
-	// Data:   key,
-	// Prove:  true,
-	// })
-	// if err != nil {
-	// return nil, clienttypes.Height{}, err
-	// }
-	panic("unimplemented")
-}
-
-// GetABCIQueryWithOptions implements ConsensusClient.
-func (g *GordianConsensus) GetABCIQueryWithOptions(ctx context.Context, path string, data cmtbytes.HexBytes, opts client.ABCIQueryOptions) (*coretypes.ResultABCIQuery, error) {
-	panic("unimplemented")
-}
-
-// GetBlockResults implements ConsensusClient.
-func (g *GordianConsensus) GetBlockResults(ctx context.Context, height uint64) (*BlockResults, error) {
-	panic("unimplemented")
-}
-
-// GetBlockSearch implements ConsensusClient.
-func (g *GordianConsensus) GetBlockSearch(ctx context.Context, query string, page *int, perPage *int, orderBy string) (*coretypes.ResultBlockSearch, error) {
-	panic("unimplemented")
 }
 
 // GetBlockTime implements ConsensusClient.
@@ -241,16 +210,10 @@ func (g *GordianConsensus) GetTx(ctx context.Context, hash []byte, prove bool) (
 	}, nil
 }
 
-// GetTxSearch implements ConsensusClient.
-func (g *GordianConsensus) GetTxSearch(ctx context.Context, query string, prove bool, page *int, perPage *int, orderBy string) (*ResultTxSearch, error) {
-	// TODO:
-	return nil, nil
-}
-
 // TODO: GetValidators needs pubkey -> address conversions
 // GetValidators implements ConsensusClient.
 func (g *GordianConsensus) GetValidators(ctx context.Context, height *int64, page *int, perPage *int) (*ResultValidators, error) {
-	// coppied & modified namespace to GordianValidator
+	// copied & modified namespace to GordianValidator
 	type GordianValidator struct {
 		EncodedPubKey []byte `protobuf:"bytes,1,opt,name=encoded_pub_key,json=encodedPubKey,proto3" json:"encoded_pub_key,omitempty"`
 		Power         uint64 `protobuf:"varint,2,opt,name=power,proto3" json:"power,omitempty"`
@@ -320,5 +283,33 @@ func (t *tmPubKeyHack) Type() string {
 
 // VerifySignature implements crypto.PubKey.
 func (t *tmPubKeyHack) VerifySignature(msg []byte, sig []byte) bool {
+	panic("unimplemented")
+}
+
+// --- Gordian Unimplimented ---
+
+// GetABCIQuery implements ConsensusClient.
+func (g *GordianConsensus) GetABCIQuery(ctx context.Context, queryPath string, data cmtbytes.HexBytes) (*ABCIQueryResponse, error) {
+	panic("unimplemented")
+}
+
+// GetABCIQueryWithOptions implements ConsensusClient.
+func (g *GordianConsensus) GetABCIQueryWithOptions(ctx context.Context, path string, data cmtbytes.HexBytes, opts client.ABCIQueryOptions) (*coretypes.ResultABCIQuery, error) {
+	panic("unimplemented")
+}
+
+// GetTxSearch implements ConsensusClient.
+func (g *GordianConsensus) GetTxSearch(ctx context.Context, query string, prove bool, page *int, perPage *int, orderBy string) (*ResultTxSearch, error) {
+	// TODO:
+	return nil, nil
+}
+
+// GetBlockResults implements ConsensusClient.
+func (g *GordianConsensus) GetBlockResults(ctx context.Context, height uint64) (*BlockResults, error) {
+	panic("unimplemented")
+}
+
+// GetBlockSearch implements ConsensusClient.
+func (g *GordianConsensus) GetBlockSearch(ctx context.Context, query string, page *int, perPage *int, orderBy string) (*coretypes.ResultBlockSearch, error) {
 	panic("unimplemented")
 }

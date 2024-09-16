@@ -33,7 +33,7 @@ type ConsensusClient interface {
 	) (*ResultTxSearch, error)
 	DoBroadcastTxSync(ctx context.Context, tx []byte) (*TxResultResponse, error) // TODO: is tx []byte fine or does it need to be tx tmtypes.Tx?
 	DoBroadcastTxAsync(ctx context.Context, tx tmtypes.Tx) (*TxResultResponse, error)
-	GetTx(ctx context.Context, hash []byte, prove bool) (*coretypes.ResultTx, error)
+	GetTx(ctx context.Context, hash []byte, psrove bool) (*coretypes.ResultTx, error)
 	GetBlockSearch(
 		ctx context.Context,
 		query string,
