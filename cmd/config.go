@@ -488,24 +488,26 @@ func DefaultConfig(memo string) *Config {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	APIListenPort   string `yaml:"api-listen-addr" json:"api-listen-addr"`
-	Timeout         string `yaml:"timeout" json:"timeout"`
-	Memo            string `yaml:"memo" json:"memo"`
-	LightCacheSize  int    `yaml:"light-cache-size" json:"light-cache-size"`
-	LogLevel        string `yaml:"log-level" json:"log-level"`
-	ICS20MemoLimit  int    `yaml:"ics20-memo-limit" json:"ics20-memo-limit"`
-	MaxReceiverSize int    `yaml:"max-receiver-size" json:"max-receiver-size"`
+	APIListenPort     string `yaml:"api-listen-addr" json:"api-listen-addr"`
+	MetricsListenPort string `yaml:"metrics-listen-addr" json:"metrics-listen-addr"`
+	Timeout           string `yaml:"timeout" json:"timeout"`
+	Memo              string `yaml:"memo" json:"memo"`
+	LightCacheSize    int    `yaml:"light-cache-size" json:"light-cache-size"`
+	LogLevel          string `yaml:"log-level" json:"log-level"`
+	ICS20MemoLimit    int    `yaml:"ics20-memo-limit" json:"ics20-memo-limit"`
+	MaxReceiverSize   int    `yaml:"max-receiver-size" json:"max-receiver-size"`
 }
 
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig(memo string) GlobalConfig {
 	return GlobalConfig{
-		APIListenPort:   ":5183",
-		Timeout:         "10s",
-		LightCacheSize:  20,
-		Memo:            memo,
-		LogLevel:        "info",
-		MaxReceiverSize: 150,
+		APIListenPort:     "127.0.0.1:5183",
+		MetricsListenPort: "127.0.0.1:9100",
+		Timeout:           "10s",
+		LightCacheSize:    20,
+		Memo:              memo,
+		LogLevel:          "info",
+		MaxReceiverSize:   150,
 	}
 }
 
