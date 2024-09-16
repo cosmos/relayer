@@ -40,6 +40,8 @@ const (
 	flagVersion                        = "version"
 	flagEnableDebugServer              = "enable-debug-server"
 	flagDebugAddr                      = "debug-addr"
+	flagEnableMetricsServer            = "enable-metrics-server"
+	flagMetricsAddr                    = "metrics-addr"
 	flagOverwriteConfig                = "overwrite"
 	flagLimit                          = "limit"
 	flagHeight                         = "height"
@@ -437,6 +439,31 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	)
 
 	if err := v.BindPFlag(flagEnableDebugServer, cmd.Flags().Lookup(flagEnableDebugServer)); err != nil {
+		panic(err)
+	}
+
+	return cmd
+}
+
+func metricsServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(
+		flagMetricsAddr,
+		"",
+		"address to use for metrics server. By default, "+
+			"will be the metrics-listen-addr parameter in the global config.",
+	)
+
+	if err := v.BindPFlag(flagMetricsAddr, cmd.Flags().Lookup(flagMetricsAddr)); err != nil {
+		panic(err)
+	}
+
+	cmd.Flags().Bool(
+		flagEnableMetricsServer,
+		false,
+		"enables metrics server. By default, the metrics server is disabled due to security concerns.",
+	)
+
+	if err := v.BindPFlag(flagEnableMetricsServer, cmd.Flags().Lookup(flagEnableMetricsServer)); err != nil {
 		panic(err)
 	}
 
