@@ -502,7 +502,7 @@ type GlobalConfig struct {
 func newDefaultGlobalConfig(memo string) GlobalConfig {
 	return GlobalConfig{
 		APIListenPort:     "127.0.0.1:5183",
-		MetricsListenPort: "127.0.0.1:9100",
+		MetricsListenPort: "127.0.0.1:5184",
 		Timeout:           "10s",
 		LightCacheSize:    20,
 		Memo:              memo,
