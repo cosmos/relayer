@@ -631,11 +631,17 @@ func (cc *CosmosProvider) buildMessages(
 		txf = txf.WithMemo(memo)
 	}
 
-	sequence = txf.Sequence()
-	cc.updateNextAccountSequence(sequenceGuard, sequence)
-	if sequence < sequenceGuard.NextAccountSequence {
-		sequence = sequenceGuard.NextAccountSequence
-		txf = txf.WithSequence(sequence)
+	// Dymension specific:
+	// Since the relayer is now able to register on the rollapp without any funds or account for its key,
+	// the account creation is handled in the ante handler. However, the local account sequence guard assumes that
+	// the account already exists at this point. This is a workaround to ensure that the sequence is not incremented when
+	// the account does not yet exist.
+	if sequence = txf.Sequence(); sequence > 0 {
+		cc.updateNextAccountSequence(sequenceGuard, sequence)
+		if sequence < sequenceGuard.NextAccountSequence {
+			sequence = sequenceGuard.NextAccountSequence
+			txf = txf.WithSequence(sequence)
+		}
 	}
 
 	// Cannot feegrant your own TX
