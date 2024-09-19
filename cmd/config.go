@@ -488,7 +488,7 @@ func DefaultConfig(memo string) *Config {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	APIListenPort     string `yaml:"api-listen-addr" json:"api-listen-addr"`
+	DebugListenPort   string `yaml:"debug-listen-addr" json:"debug-listen-addr"`
 	MetricsListenPort string `yaml:"metrics-listen-addr" json:"metrics-listen-addr"`
 	Timeout           string `yaml:"timeout" json:"timeout"`
 	Memo              string `yaml:"memo" json:"memo"`
@@ -501,7 +501,7 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig(memo string) GlobalConfig {
 	return GlobalConfig{
-		APIListenPort:     "127.0.0.1:5183",
+		DebugListenPort:   "127.0.0.1:5183",
 		MetricsListenPort: "127.0.0.1:5184",
 		Timeout:           "10s",
 		LightCacheSize:    20,
