@@ -39,9 +39,7 @@ const (
 	flagOrder                          = "order"
 	flagVersion                        = "version"
 	flagEnableDebugServer              = "enable-debug-server"
-	flagDebugAddr                      = "debug-addr"
 	flagEnableMetricsServer            = "enable-metrics-server"
-	flagMetricsAddr                    = "metrics-addr"
 	flagOverwriteConfig                = "overwrite"
 	flagLimit                          = "limit"
 	flagHeight                         = "height"
@@ -421,17 +419,6 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().String(
-		flagDebugAddr,
-		"",
-		"address to use for debug and metrics server. By default, "+
-			"will be the api-listen-addr parameter in the global config.",
-	)
-
-	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
-		panic(err)
-	}
-
 	cmd.Flags().Bool(
 		flagEnableDebugServer,
 		false,
@@ -446,17 +433,6 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func metricsServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().String(
-		flagMetricsAddr,
-		"",
-		"address to use for metrics server. By default, "+
-			"will be the metrics-listen-addr parameter in the global config.",
-	)
-
-	if err := v.BindPFlag(flagMetricsAddr, cmd.Flags().Lookup(flagMetricsAddr)); err != nil {
-		panic(err)
-	}
-
 	cmd.Flags().Bool(
 		flagEnableMetricsServer,
 		false,

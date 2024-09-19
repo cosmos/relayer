@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const DebugServerPort = 5183
+
 // StartDebugServer starts a debug server in a background goroutine,
 // accepting connections on the given listener.
 // Any HTTP logging will be written at info level to the given logger.
