@@ -93,83 +93,14 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			debugAddr := a.config.Global.APIListenPort
-
-			// debug server
-			debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
+			err = setupDebugServer(cmd, a, err)
 			if err != nil {
 				return err
 			}
 
-			if debugAddrFlag != "" {
-				debugAddr = debugAddrFlag
-			}
-
-			flagEnableDebugServer, err := cmd.Flags().GetBool(flagEnableDebugServer)
+			prometheusMetrics, err := setupMetricsServer(cmd, a, err, chains)
 			if err != nil {
 				return err
-			}
-
-			if flagEnableDebugServer == false || debugAddr == "" {
-				a.log.Info("Skipping debug server due to empty debug address flag")
-			} else {
-				a.log.Warn("SECURITY WARNING! Debug server is enabled. It should only be used for non-production deployments.")
-				ln, err := net.Listen("tcp", debugAddr)
-				if err != nil {
-					a.log.Error(
-						"Failed to listen on debug address. If you have another relayer process open, use --" +
-							flagDebugAddr +
-							" to pick a different address.",
-					)
-
-					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
-				}
-				log := a.log.With(zap.String("sys", "debughttp"))
-				log.Info("Debug server listening", zap.String("addr", debugAddr))
-				relaydebug.StartDebugServer(cmd.Context(), log, ln)
-			}
-
-			// metrics server
-			var prometheusMetrics *processor.PrometheusMetrics
-
-			metricsAddr := a.config.Global.MetricsListenPort
-
-			metricsAddrFlag, err := cmd.Flags().GetString(flagMetricsAddr)
-			if err != nil {
-				return err
-			}
-
-			if metricsAddrFlag != "" {
-				metricsAddr = metricsAddrFlag
-			}
-
-			flagEnableMetricsServer, err := cmd.Flags().GetBool(flagEnableMetricsServer)
-			if err != nil {
-				return err
-			}
-
-			if flagEnableMetricsServer == false || metricsAddr == "" {
-				a.log.Info("Skipping metrics server due to empty metrics address flag")
-			} else {
-				ln, err := net.Listen("tcp", metricsAddr)
-				if err != nil {
-					a.log.Error(
-						"Failed to listen on metrics address. If you have another relayer process open, use --" +
-							flagMetricsAddr +
-							" to pick a different address.",
-					)
-
-					return fmt.Errorf("failed to listen on metrics address %q: %w", debugAddr, err)
-				}
-				log := a.log.With(zap.String("sys", "metricshttp"))
-				log.Info("Metrics server listening", zap.String("addr", metricsAddr))
-				prometheusMetrics = processor.NewPrometheusMetrics()
-				relayermetrics.StartMetricsServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
-				for _, chain := range chains {
-					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-						ccp.SetMetrics(prometheusMetrics)
-					}
-				}
 			}
 
 			processorType, err := cmd.Flags().GetString(flagProcessor)
@@ -239,4 +170,70 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = memoFlag(a.viper, cmd)
 	cmd = stuckPacketFlags(a.viper, cmd)
 	return cmd
+}
+
+func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[string]*relayer.Chain) (*processor.PrometheusMetrics, error) {
+	var prometheusMetrics *processor.PrometheusMetrics
+
+	metricsAddr := a.config.Global.MetricsListenPort
+
+	flagEnableMetricsServer, err := cmd.Flags().GetBool(flagEnableMetricsServer)
+	if err != nil {
+		return nil, err
+	}
+
+	if flagEnableMetricsServer == false || metricsAddr == "" {
+		a.log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file.")
+	} else {
+		a.log.Info("Metrics server is enabled.")
+		ln, err := net.Listen("tcp", metricsAddr)
+		if err != nil {
+			a.log.Error(
+				"Failed to listen on metrics address. If you have another relayer process open, use --" +
+					metricsAddr +
+					" to pick a different address or port.",
+			)
+
+			return nil, fmt.Errorf("failed to listen on metrics address %q: %w", metricsAddr, err)
+		}
+		log := a.log.With(zap.String("sys", "metricshttp"))
+		log.Info("Metrics server listening", zap.String("addr", metricsAddr))
+		prometheusMetrics = processor.NewPrometheusMetrics()
+		relayermetrics.StartMetricsServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
+		for _, chain := range chains {
+			if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+				ccp.SetMetrics(prometheusMetrics)
+			}
+		}
+	}
+	return prometheusMetrics, nil
+}
+
+func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
+	debugAddr := a.config.Global.APIListenPort
+
+	flagEnableDebugServer, err := cmd.Flags().GetBool(flagEnableDebugServer)
+	if err != nil {
+		return err
+	}
+
+	if flagEnableDebugServer == false || debugAddr == "" {
+		a.log.Warn("Disabled debug server due to missing api-listen-addr setting in config file.")
+	} else {
+		a.log.Warn("SECURITY WARNING! Debug server is enabled. It should only be used with caution and proper security.")
+		ln, err := net.Listen("tcp", debugAddr)
+		if err != nil {
+			a.log.Error(
+				"Failed to listen on debug address. If you have another relayer process open, use --" +
+					debugAddr +
+					" to pick a different address or port.",
+			)
+
+			return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
+		}
+		log := a.log.With(zap.String("sys", "debughttp"))
+		log.Info("Debug server listening", zap.String("addr", debugAddr))
+		relaydebug.StartDebugServer(cmd.Context(), log, ln)
+	}
+	return nil
 }
