@@ -23,14 +23,22 @@ func TestMetricsServerFlag(t *testing.T) {
 
 	tests := []struct {
 		args          []string
+		wantedPort    int
 		wantedRunning bool
 	}{
 		{
 			[]string{"start"},
+			0,
 			false,
 		},
 		{
 			[]string{"start", "--enable-metrics-server"},
+			relayermetrics.MetricsServerPort,
+			true,
+		},
+		{
+			[]string{"start", "--enable-metrics-server", "--metrics-listen-addr", "127.0.0.1:7778"},
+			7778,
 			true,
 		},
 	}
@@ -43,9 +51,9 @@ func TestMetricsServerFlag(t *testing.T) {
 			sys.MustRunWithLogger(t, logger, tt.args...)
 
 			if tt.wantedRunning == true {
-				requireRunningMetricsServer(t, logs, relayermetrics.MetricsServerPort)
+				requireRunningMetricsServer(t, logs, tt.wantedPort)
 			} else {
-				requireDisabledMetricsServer(t, logs, relayermetrics.MetricsServerPort)
+				requireDisabledMetricsServer(t, logs, tt.wantedPort)
 			}
 		})
 	}
@@ -70,6 +78,12 @@ func TestMetricsServerConfig(t *testing.T) {
 			[]string{"start", "--enable-metrics-server"},
 			"metrics-listen-addr: 127.0.0.1:6184",
 			6184,
+			true,
+		},
+		{
+			[]string{"start", "--enable-metrics-server", "--metrics-listen-addr", "127.0.0.1:7184"},
+			"",
+			7184,
 			true,
 		},
 	}
@@ -98,14 +112,22 @@ func TestDebugServerFlag(t *testing.T) {
 
 	tests := []struct {
 		args          []string
+		wantedPort    int
 		wantedRunning bool
 	}{
 		{
 			[]string{"start"},
+			0,
 			false,
 		},
 		{
 			[]string{"start", "--enable-debug-server"},
+			relaydebug.DebugServerPort,
+			true,
+		},
+		{
+			[]string{"start", "--enable-debug-server", "--debug-listen-addr", "127.0.0.1:7777"},
+			7777,
 			true,
 		},
 	}
@@ -118,9 +140,9 @@ func TestDebugServerFlag(t *testing.T) {
 			sys.MustRunWithLogger(t, logger, tt.args...)
 
 			if tt.wantedRunning == true {
-				requireRunningDebugServer(t, logs, relaydebug.DebugServerPort)
+				requireRunningDebugServer(t, logs, tt.wantedPort)
 			} else {
-				requireDisabledDebugServer(t, logs, relaydebug.DebugServerPort)
+				requireDisabledDebugServer(t, logs, tt.wantedPort)
 			}
 		})
 	}
