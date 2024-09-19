@@ -191,10 +191,12 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 		return nil, err
 	}
 
-	if flagEnableMetricsServer == false || metricsListenAddr == "" {
-		a.log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file.")
+	if flagEnableMetricsServer == false {
+		a.log.Info("Metrics server is disabled. You can enable it using --enable-metrics-server flag.")
+	} else if metricsListenAddr == "" {
+		a.log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag.")
 	} else {
-		a.log.Info("Metrics server is enabled.")
+		a.log.Info("Metrics server is enabled")
 		ln, err := net.Listen("tcp", metricsListenAddr)
 		if err != nil {
 			a.log.Error(
@@ -235,10 +237,13 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 		return err
 	}
 
-	if flagEnableDebugServer == false || debugListenAddr == "" {
-		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file.")
+	if flagEnableDebugServer == false {
+		a.log.Info("Debug server is disabled. You can enable it using --enable-debug-server flag.")
+	} else if debugListenAddr == "" {
+		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag.")
 	} else {
-		a.log.Warn("SECURITY WARNING! Debug server is enabled. It should only be used with caution and proper security.")
+		a.log.Info("Debug server is enabled")
+		a.log.Warn("SECURITY WARNING! Debug server should only be run with caution and proper security in place.")
 		ln, err := net.Listen("tcp", debugListenAddr)
 		if err != nil {
 			a.log.Error(
