@@ -143,7 +143,7 @@ func TestDebugServerConfig(t *testing.T) {
 		},
 		{
 			[]string{"start", "--enable-debug-server"},
-			"api-listen-addr: 127.0.0.1:6183",
+			"debug-listen-addr: 127.0.0.1:6183",
 			6183,
 			true,
 		},
@@ -153,7 +153,7 @@ func TestDebugServerConfig(t *testing.T) {
 		t.Run(strings.Join(tt.args, " "), func(t *testing.T) {
 			sys := setupRelayer(t)
 
-			updateConfig(t, sys, "api-listen-addr: 127.0.0.1:5183", tt.newSetting)
+			updateConfig(t, sys, "debug-listen-addr: 127.0.0.1:5183", tt.newSetting)
 
 			logs, logger := setupLogger()
 
@@ -174,7 +174,7 @@ func requireDisabledMetricsServer(t *testing.T, logs *observer.ObservedLogs, por
 		defer conn.Close()
 	}
 	require.Error(t, err, "Server should be disabled")
-	require.Len(t, logs.FilterMessage("Disabled debug server due to missing api-listen-addr setting in config file.").All(), 1)
+	require.Len(t, logs.FilterMessage("Disabled debug server due to missing debug-listen-addr setting in config file.").All(), 1)
 }
 
 func requireRunningMetricsServer(t *testing.T, logs *observer.ObservedLogs, port int) {
@@ -196,7 +196,7 @@ func requireDisabledDebugServer(t *testing.T, logs *observer.ObservedLogs, port 
 		defer conn.Close()
 	}
 	require.Error(t, err, "Server should be disabled")
-	require.Len(t, logs.FilterMessage("Disabled debug server due to missing api-listen-addr setting in config file.").All(), 1)
+	require.Len(t, logs.FilterMessage("Disabled debug server due to missing debug-listen-addr setting in config file.").All(), 1)
 }
 
 func requireRunningDebugServer(t *testing.T, logs *observer.ObservedLogs, port int) {

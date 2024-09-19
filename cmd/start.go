@@ -210,7 +210,7 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 }
 
 func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
-	debugAddr := a.config.Global.APIListenPort
+	debugAddr := a.config.Global.DebugListenPort
 
 	flagEnableDebugServer, err := cmd.Flags().GetBool(flagEnableDebugServer)
 	if err != nil {
@@ -218,7 +218,7 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 	}
 
 	if flagEnableDebugServer == false || debugAddr == "" {
-		a.log.Warn("Disabled debug server due to missing api-listen-addr setting in config file.")
+		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file.")
 	} else {
 		a.log.Warn("SECURITY WARNING! Debug server is enabled. It should only be used with caution and proper security.")
 		ln, err := net.Listen("tcp", debugAddr)
