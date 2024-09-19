@@ -425,7 +425,8 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		flagDebugListenAddr,
 		"",
 		"address to use for debug and metrics server. By default, "+
-			"will be the debug-listen-addr parameter in the global config.",
+			"will be the debug-listen-addr parameter in the global config. "+
+			"Make sure to enable debug server using --enable-debug-server flag.",
 	)
 
 	if err := v.BindPFlag(flagDebugListenAddr, cmd.Flags().Lookup(flagDebugListenAddr)); err != nil {
@@ -450,7 +451,8 @@ func metricsServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 		flagMetricsListenAddr,
 		"",
 		"address to use for metrics server. By default, "+
-			"will be the metrics-listen-addr parameter in the global config.",
+			"will be the metrics-listen-addr parameter in the global config. "+
+			"Make sure to enable metrics server using --enable-metrics-server flag.",
 	)
 
 	if err := v.BindPFlag(flagMetricsListenAddr, cmd.Flags().Lookup(flagMetricsListenAddr)); err != nil {
