@@ -424,7 +424,7 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(
 		flagDebugListenAddr,
 		"",
-		"address to use for debug and metrics server. By default, "+
+		"address to use for debug server. By default, "+
 			"will be the debug-listen-addr parameter in the global config. "+
 			"Make sure to enable debug server using --enable-debug-server flag.",
 	)

@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-func TestMetricsServerFlag(t *testing.T) {
+func TestMetricsServerFlags(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -136,7 +136,7 @@ func TestMissingMetricsListenAddr(t *testing.T) {
 	requireMessage(t, logs, "Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag.")
 }
 
-func TestDebugServerFlag(t *testing.T) {
+func TestDebugServerFlags(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -182,19 +182,6 @@ func TestDebugServerFlag(t *testing.T) {
 	}
 }
 
-func TestMissingDebugListenAddr(t *testing.T) {
-	sys := setupRelayer(t)
-
-	logs, logger := setupLogger()
-
-	updateConfig(t, sys, "debug-listen-addr: 127.0.0.1:5183", "")
-
-	sys.MustRunWithLogger(t, logger, []string{"start", "--enable-debug-server"}...)
-
-	requireDisabledMetricsServer(t, logs, 0)
-	requireMessage(t, logs, "Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag.")
-}
-
 func TestDebugServerConfig(t *testing.T) {
 	t.Parallel()
 
@@ -235,6 +222,19 @@ func TestDebugServerConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMissingDebugListenAddr(t *testing.T) {
+	sys := setupRelayer(t)
+
+	logs, logger := setupLogger()
+
+	updateConfig(t, sys, "debug-listen-addr: 127.0.0.1:5183", "")
+
+	sys.MustRunWithLogger(t, logger, []string{"start", "--enable-debug-server"}...)
+
+	requireDisabledMetricsServer(t, logs, 0)
+	requireMessage(t, logs, "Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag.")
 }
 
 func requireDisabledMetricsServer(t *testing.T, logs *observer.ObservedLogs, port int) {
