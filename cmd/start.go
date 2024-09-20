@@ -199,11 +199,7 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 		a.log.Info("Metrics server is enabled")
 		ln, err := net.Listen("tcp", metricsListenAddr)
 		if err != nil {
-			a.log.Error(
-				"Failed to listen on metrics address. If you have another relayer process open, use --" +
-					metricsListenAddr +
-					" to pick a different address or port.",
-			)
+			a.log.Error(fmt.Sprintf("Failed to start metrics server. You can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag."))
 
 			return nil, fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
 		}
@@ -246,11 +242,7 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 		a.log.Warn("SECURITY WARNING! Debug server should only be run with caution and proper security in place.")
 		ln, err := net.Listen("tcp", debugListenAddr)
 		if err != nil {
-			a.log.Error(
-				"Failed to listen on debug address. If you have another relayer process open, use --" +
-					debugListenAddr +
-					" to pick a different address or port.",
-			)
+			a.log.Error(fmt.Sprintf("Failed to start debug server. You can change the address and port using debug-listen-addr config settingh or --debug-listen-flag."))
 
 			return fmt.Errorf("failed to listen on debug address %q: %w", debugListenAddr, err)
 		}
