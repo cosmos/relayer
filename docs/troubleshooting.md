@@ -65,11 +65,11 @@ $ rly query clients-expiration <PATH-NAME>
 
 ## Inspect Go runtime debug data
 
-If you started `rly` with the default `--debug-addr` argument,
-you can open `http://localhost:7597` in your browser to explore details from the Go runtime.
+If you started `rly` with `--enable-debug-server` argument,
+you can open `http://127.0.0.1:5183` in your browser to explore details from the Go runtime.
 
 If you need active assistance from the Relayer development team regarding an unresponsive Relayer instance,
-it will be helpful to provide the output from `http://localhost:7597/debug/pprof/goroutine?debug=2` at a minimum.
+it will be helpful to provide the output from `http://127.0.0.1:7597/debug/pprof/goroutine?debug=2` at a minimum.
 
 <br>
 
