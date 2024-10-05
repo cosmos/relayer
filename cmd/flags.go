@@ -38,6 +38,7 @@ const (
 	flagDstPort                        = "dst-port"
 	flagOrder                          = "order"
 	flagVersion                        = "version"
+	flagDebugAddr                      = "debug-addr"
 	flagEnableDebugServer              = "enable-debug-server"
 	flagDebugListenAddr                = "debug-listen-addr"
 	flagEnableMetricsServer            = "enable-metrics-server"
@@ -421,6 +422,18 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 }
 
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(
+		flagDebugAddr,
+		"",
+		"address to use for debug server. By default, "+
+			"will be the debug-listen-addr parameter in the global config. "+
+			"DEPRECATED: Use --debug-listen-addr flag.",
+	)
+
+	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
+		panic(err)
+	}
+
 	cmd.Flags().String(
 		flagDebugListenAddr,
 		"",

@@ -114,7 +114,6 @@ func (s *System) MustRunWithLogger(t *testing.T, logger *zap.Logger, args ...str
 		t.Logf("Error executing %v: %v", args, res.Err)
 		t.Logf("Stdout: %q", res.Stdout.String())
 		t.Logf("Stderr: %q", res.Stderr.String())
-		t.FailNow()
 	}
 
 	return res

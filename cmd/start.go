@@ -219,9 +219,19 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 	debugListenAddr := a.config.Global.DebugListenPort
 
+	debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
+	if err != nil {
+		return err
+	}
+
 	debugListenAddrFlag, err := cmd.Flags().GetString(flagDebugListenAddr)
 	if err != nil {
 		return err
+	}
+
+	if debugAddrFlag != "" {
+		debugListenAddr = debugAddrFlag
+		a.log.Warn("DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead.")
 	}
 
 	if debugListenAddrFlag != "" {
@@ -233,7 +243,9 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 		return err
 	}
 
-	if flagEnableDebugServer == false {
+	enableDebugServer := flagEnableDebugServer == true || debugAddrFlag != ""
+
+	if enableDebugServer == false {
 		a.log.Info("Debug server is disabled. You can enable it using --enable-debug-server flag.")
 	} else if debugListenAddr == "" {
 		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag.")
