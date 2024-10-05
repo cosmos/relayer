@@ -332,6 +332,7 @@ func requireRunningMetricsServer(t *testing.T, logs *observer.ObservedLogs, port
 	require.NoError(t, err, fmt.Sprintf("Metrics server should be running on port %d", port))
 	res, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/metrics", port))
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, res.StatusCode, 200)
 }
 
@@ -351,6 +352,7 @@ func requireRunningDebugServer(t *testing.T, logs *observer.ObservedLogs, port i
 	require.NoError(t, err, fmt.Sprintf("Server should be running on port %d", port))
 	res, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/debug/pprof/goroutine", port))
 	require.NoError(t, err)
+	defer res.Body.Close()
 	require.Equal(t, res.StatusCode, 200)
 }
 
