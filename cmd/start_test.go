@@ -269,10 +269,17 @@ func TestDebugServerConfig(t *testing.T) {
 			true,
 		},
 		{
-			"should start debug server on custom address and port set via legacy flag",
+			"should start debug server on custom address and port set via deprecated flag",
 			[]string{"start", "--enable-debug-server", "--debug-addr", "127.0.0.1:9183"},
 			"debug-listen-addr: 127.0.0.1:6183",
 			9183,
+			true,
+		},
+		{
+			"should start debug server on custom address and port set via deprecated config",
+			[]string{"start", "--enable-debug-server"},
+			"api-listen-addr: 127.0.0.1:10183",
+			10183,
 			true,
 		},
 	}

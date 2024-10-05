@@ -39,6 +39,10 @@ func TestDefaultConfig(t *testing.T) {
 			"metrics-listen-addr: 127.0.0.1:5184",
 			true,
 		},
+		{
+			"api-listen-addr: 127.0.0.1:5184",
+			false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -50,7 +54,11 @@ func TestDefaultConfig(t *testing.T) {
 			require.NoError(t, err)
 			config := string(data)
 
-			require.Contains(t, config, tt.setting)
+			if tt.wantedPresent {
+				require.Contains(t, config, tt.setting)
+			} else {
+				require.NotContains(t, config, tt.setting)
+			}
 		})
 	}
 }

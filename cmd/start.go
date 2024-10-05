@@ -219,6 +219,13 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 	debugListenAddr := a.config.Global.DebugListenPort
 
+	if debugListenAddr == "" {
+		debugListenAddr = a.config.Global.ApiListenPort
+		if debugListenAddr != "" {
+			a.log.Warn("DEPRECATED: api-listen-addr config setting is deprecated use debug-listen-addr instead.")
+		}
+	}
+
 	debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
 	if err != nil {
 		return err
