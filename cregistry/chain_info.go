@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
@@ -87,6 +88,12 @@ type ChainInfo struct {
 	MaxGasAmount     uint64                     `json:"max_gas_amount"`
 	ExtraCodecs      []string                   `json:"extra_codecs"`
 	ExtensionOptions []provider.ExtensionOption `json:"extension_options"`
+	Fees             struct {
+		FeeTokens []struct {
+			Denom       string  `json:"denom"`
+			LowGasPrice float64 `json:"low_gas_price"`
+		} `json:"fee_tokens"`
+	} `json:"fees"`
 }
 
 // NewChainInfo returns a ChainInfo that is uninitialized other than the provided zap.Logger.
@@ -292,14 +299,18 @@ func (c ChainInfo) GetChainConfig(ctx context.Context, forceAdd, testnet bool, n
 	debug := viper.GetBool("debug")
 	home := viper.GetString("home")
 
-	assetList, err := c.GetAssetList(ctx, testnet, name)
-	if err != nil {
-		return nil, err
-	}
-
 	var gasPrices string
-	if len(assetList.Assets) > 0 {
-		gasPrices = fmt.Sprintf("%.2f%s", 0.01, assetList.Assets[0].Base)
+	if len(c.Fees.FeeTokens) > 0 {
+		gasPrices = strconv.FormatFloat(c.Fees.FeeTokens[0].LowGasPrice, 'f', -1, 64) + c.Fees.FeeTokens[0].Denom
+	} else {
+		assetList, err := c.GetAssetList(ctx, testnet, name)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(assetList.Assets) > 0 {
+			gasPrices = fmt.Sprintf("%.2f%s", 0.01, assetList.Assets[0].Base)
+		}
 	}
 
 	rpc, err := c.GetRandomRPCEndpoint(ctx, forceAdd)
