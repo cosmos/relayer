@@ -39,7 +39,9 @@ const (
 	flagOrder                          = "order"
 	flagVersion                        = "version"
 	flagEnableDebugServer              = "enable-debug-server"
-	flagDebugAddr                      = "debug-addr"
+	flagDebugListenAddr                = "debug-listen-addr"
+	flagEnableMetricsServer            = "enable-metrics-server"
+	flagMetricsListenAddr              = "metrics-listen-addr"
 	flagOverwriteConfig                = "overwrite"
 	flagLimit                          = "limit"
 	flagHeight                         = "height"
@@ -420,13 +422,14 @@ func dstPortFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 
 func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().String(
-		flagDebugAddr,
+		flagDebugListenAddr,
 		"",
-		"address to use for debug and metrics server. By default, "+
-			"will be the api-listen-addr parameter in the global config.",
+		"address to use for debug server. By default, "+
+			"will be the debug-listen-addr parameter in the global config. "+
+			"Make sure to enable debug server using --enable-debug-server flag.",
 	)
 
-	if err := v.BindPFlag(flagDebugAddr, cmd.Flags().Lookup(flagDebugAddr)); err != nil {
+	if err := v.BindPFlag(flagDebugListenAddr, cmd.Flags().Lookup(flagDebugListenAddr)); err != nil {
 		panic(err)
 	}
 
@@ -437,6 +440,32 @@ func debugServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	)
 
 	if err := v.BindPFlag(flagEnableDebugServer, cmd.Flags().Lookup(flagEnableDebugServer)); err != nil {
+		panic(err)
+	}
+
+	return cmd
+}
+
+func metricsServerFlags(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().String(
+		flagMetricsListenAddr,
+		"",
+		"address to use for metrics server. By default, "+
+			"will be the metrics-listen-addr parameter in the global config. "+
+			"Make sure to enable metrics server using --enable-metrics-server flag.",
+	)
+
+	if err := v.BindPFlag(flagMetricsListenAddr, cmd.Flags().Lookup(flagMetricsListenAddr)); err != nil {
+		panic(err)
+	}
+
+	cmd.Flags().Bool(
+		flagEnableMetricsServer,
+		false,
+		"enables metrics server. By default, the metrics server is disabled due to security concerns.",
+	)
+
+	if err := v.BindPFlag(flagEnableMetricsServer, cmd.Flags().Lookup(flagEnableMetricsServer)); err != nil {
 		panic(err)
 	}
 

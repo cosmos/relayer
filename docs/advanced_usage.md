@@ -4,8 +4,10 @@
 
 **Prometheus exporter**
 
-If you started `rly` with the default `--debug-addr` argument,
-you can use `http://$IP:5183/relayer/metrics` as a target for your prometheus scraper.
+If you started `rly` with `--enable-metrics-server` argument,
+you can use `http://127.0.0.1:5184/relayer/metrics` as a target for your prometheus scraper.
+
+You can use `--metrics-listen-addr $IP:7777` to customize the address and port where the metrics server. 
 
 
 Exported metrics:
