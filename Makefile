@@ -18,7 +18,7 @@ all: lint install
 
 ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION) \
 					-X github.com/cosmos/relayer/v2/cmd.Commit=$(COMMIT) \
-					-X github.com/cosmos/relayer/v2/cmd.Dirty=$(DIRTY)
+					-X github.com/cosmos/relayer/v2/cmd.Dirty=$(DIRTY) -s -w
 
 ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
