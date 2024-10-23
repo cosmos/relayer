@@ -35,7 +35,7 @@ func TestMetricsServerFlags(t *testing.T) {
 			[]string{"start"},
 			0,
 			false,
-			[]string{"Metrics server is disabled. You can enable it using --enable-metrics-server flag."},
+			[]string{"Metrics server is disabled you can enable it using --enable-metrics-server flag"},
 			nil,
 		},
 		{
@@ -59,7 +59,7 @@ func TestMetricsServerFlags(t *testing.T) {
 			[]string{"start", "--metrics-listen-addr", "127.0.0.1:7778"},
 			0,
 			false,
-			[]string{"Metrics server is disabled. You can enable it using --enable-metrics-server flag."},
+			[]string{"Metrics server is disabled you can enable it using --enable-metrics-server flag"},
 			nil,
 		},
 		{
@@ -154,7 +154,7 @@ func TestMissingMetricsListenAddr(t *testing.T) {
 	sys.MustRunWithLogger(t, logger, []string{"start", "--enable-metrics-server"}...)
 
 	requireDisabledMetricsServer(t, logs, 0)
-	requireMessage(t, logs, "Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag.")
+	requireMessage(t, logs, "Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag")
 }
 
 func TestDebugServerFlags(t *testing.T) {
@@ -173,7 +173,7 @@ func TestDebugServerFlags(t *testing.T) {
 			[]string{"start"},
 			0,
 			false,
-			[]string{"Debug server is disabled. You can enable it using --enable-debug-server flag."},
+			[]string{"Debug server is disabled you can enable it using --enable-debug-server flag"},
 			nil,
 		},
 		{
@@ -190,8 +190,8 @@ func TestDebugServerFlags(t *testing.T) {
 			7777,
 			true,
 			[]string{
-				"Debug server is enabled", "SECURITY WARNING! Debug server should only be run with caution and proper security in place.",
-				"DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead.",
+				"Debug server is enabled", "SECURITY WARNING! Debug server should only be run with caution and proper security in place",
+				"DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead",
 			},
 			nil,
 		},
@@ -200,7 +200,7 @@ func TestDebugServerFlags(t *testing.T) {
 			[]string{"start", "--enable-debug-server"},
 			relaydebug.DebugServerPort,
 			true,
-			[]string{"Debug server is enabled", "SECURITY WARNING! Debug server should only be run with caution and proper security in place."},
+			[]string{"Debug server is enabled", "SECURITY WARNING! Debug server should only be run with caution and proper security in place"},
 			nil,
 		},
 		{
@@ -208,7 +208,7 @@ func TestDebugServerFlags(t *testing.T) {
 			[]string{"start", "--enable-debug-server", "--debug-listen-addr", "127.0.0.1:7779"},
 			7779,
 			true,
-			[]string{"Debug server is enabled", "SECURITY WARNING! Debug server should only be run with caution and proper security in place."},
+			[]string{"Debug server is enabled", "SECURITY WARNING! Debug server should only be run with caution and proper security in place"},
 			nil,
 		},
 		{
@@ -313,7 +313,7 @@ func TestMissingDebugListenAddr(t *testing.T) {
 	sys.MustRunWithLogger(t, logger, []string{"start", "--enable-debug-server"}...)
 
 	requireDisabledMetricsServer(t, logs, 0)
-	requireMessage(t, logs, "Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag.")
+	requireMessage(t, logs, "Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag")
 }
 
 func requireDisabledMetricsServer(t *testing.T, logs *observer.ObservedLogs, port int) {
