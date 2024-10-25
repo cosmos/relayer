@@ -106,6 +106,19 @@ func (s *System) MustRunWithInput(t *testing.T, in io.Reader, args ...string) Ru
 	return res
 }
 
+func (s *System) MustRunWithLogger(t *testing.T, logger *zap.Logger, args ...string) RunResult {
+	t.Helper()
+
+	res := s.RunWithInput(logger, bytes.NewReader(nil), args...)
+	if res.Err != nil {
+		t.Logf("Error executing %v: %v", args, res.Err)
+		t.Logf("Stdout: %q", res.Stdout.String())
+		t.Logf("Stderr: %q", res.Stderr.String())
+	}
+
+	return res
+}
+
 // MustAddChain serializes pcw to disk and calls "chains add --file".
 func (s *System) MustAddChain(t *testing.T, chainName string, pcw cmd.ProviderConfigWrapper) {
 	t.Helper()

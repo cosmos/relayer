@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
+	"github.com/cosmos/relayer/v2/internal/relayermetrics"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -92,47 +93,14 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			var prometheusMetrics *processor.PrometheusMetrics
-
-			debugAddr := a.config.Global.APIListenPort
-
-			debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
+			err = setupDebugServer(cmd, a, err)
 			if err != nil {
 				return err
 			}
 
-			if debugAddrFlag != "" {
-				debugAddr = debugAddrFlag
-			}
-
-			flagEnableDebugServer, err := cmd.Flags().GetBool(flagEnableDebugServer)
+			prometheusMetrics, err := setupMetricsServer(cmd, a, err, chains)
 			if err != nil {
 				return err
-			}
-
-			if flagEnableDebugServer == false || debugAddr == "" {
-				a.log.Info("Skipping debug server due to empty debug address flag")
-			} else {
-				a.log.Warn("SECURITY WARNING! Debug server is enabled. It should only be used for non-production deployments.")
-				ln, err := net.Listen("tcp", debugAddr)
-				if err != nil {
-					a.log.Error(
-						"Failed to listen on debug address. If you have another relayer process open, use --" +
-							flagDebugAddr +
-							" to pick a different address.",
-					)
-
-					return fmt.Errorf("failed to listen on debug address %q: %w", debugAddr, err)
-				}
-				log := a.log.With(zap.String("sys", "debughttp"))
-				log.Info("Debug server listening", zap.String("addr", debugAddr))
-				prometheusMetrics = processor.NewPrometheusMetrics()
-				relaydebug.StartDebugServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
-				for _, chain := range chains {
-					if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
-						ccp.SetMetrics(prometheusMetrics)
-					}
-				}
 			}
 
 			processorType, err := cmd.Flags().GetString(flagProcessor)
@@ -195,10 +163,111 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = updateTimeFlags(a.viper, cmd)
 	cmd = strategyFlag(a.viper, cmd)
 	cmd = debugServerFlags(a.viper, cmd)
+	cmd = metricsServerFlags(a.viper, cmd)
 	cmd = processorFlag(a.viper, cmd)
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
 	cmd = stuckPacketFlags(a.viper, cmd)
 	return cmd
+}
+
+func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[string]*relayer.Chain) (*processor.PrometheusMetrics, error) {
+	var prometheusMetrics *processor.PrometheusMetrics
+
+	metricsListenAddr := a.config.Global.MetricsListenPort
+
+	metricsListenAddrFlag, err := cmd.Flags().GetString(flagMetricsListenAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	if metricsListenAddrFlag != "" {
+		metricsListenAddr = metricsListenAddrFlag
+	}
+
+	flagEnableMetricsServer, err := cmd.Flags().GetBool(flagEnableMetricsServer)
+	if err != nil {
+		return nil, err
+	}
+
+	if flagEnableMetricsServer == false {
+		a.log.Info("Metrics server is disabled you can enable it using --enable-metrics-server flag")
+	} else if metricsListenAddr == "" {
+		a.log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag")
+	} else {
+		a.log.Info("Metrics server is enabled")
+		ln, err := net.Listen("tcp", metricsListenAddr)
+		if err != nil {
+			a.log.Error(fmt.Sprintf("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag"))
+
+			return nil, fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
+		}
+		log := a.log.With(zap.String("sys", "metricshttp"))
+		log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
+		prometheusMetrics = processor.NewPrometheusMetrics()
+		relayermetrics.StartMetricsServer(cmd.Context(), log, ln, prometheusMetrics.Registry)
+		for _, chain := range chains {
+			if ccp, ok := chain.ChainProvider.(*cosmos.CosmosProvider); ok {
+				ccp.SetMetrics(prometheusMetrics)
+			}
+		}
+	}
+	return prometheusMetrics, nil
+}
+
+func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
+	debugListenAddr := a.config.Global.DebugListenPort
+
+	if debugListenAddr == "" {
+		debugListenAddr = a.config.Global.ApiListenPort
+		if debugListenAddr != "" {
+			a.log.Warn("DEPRECATED: api-listen-addr config setting is deprecated use debug-listen-addr instead")
+		}
+	}
+
+	debugAddrFlag, err := cmd.Flags().GetString(flagDebugAddr)
+	if err != nil {
+		return err
+	}
+
+	debugListenAddrFlag, err := cmd.Flags().GetString(flagDebugListenAddr)
+	if err != nil {
+		return err
+	}
+
+	if debugAddrFlag != "" {
+		debugListenAddr = debugAddrFlag
+		a.log.Warn("DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead")
+	}
+
+	if debugListenAddrFlag != "" {
+		debugListenAddr = debugListenAddrFlag
+	}
+
+	flagEnableDebugServer, err := cmd.Flags().GetBool(flagEnableDebugServer)
+	if err != nil {
+		return err
+	}
+
+	enableDebugServer := flagEnableDebugServer == true || debugAddrFlag != ""
+
+	if enableDebugServer == false {
+		a.log.Info("Debug server is disabled you can enable it using --enable-debug-server flag")
+	} else if debugListenAddr == "" {
+		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag")
+	} else {
+		a.log.Info("Debug server is enabled")
+		a.log.Warn("SECURITY WARNING! Debug server should only be run with caution and proper security in place")
+		ln, err := net.Listen("tcp", debugListenAddr)
+		if err != nil {
+			a.log.Error(fmt.Sprintf("Failed to start debug server you can change the address and port using debug-listen-addr config settingh or --debug-listen-flag"))
+
+			return fmt.Errorf("failed to listen on debug address %q: %w", debugListenAddr, err)
+		}
+		log := a.log.With(zap.String("sys", "debughttp"))
+		log.Info("Debug server listening", zap.String("addr", debugListenAddr))
+		relaydebug.StartDebugServer(cmd.Context(), log, ln)
+	}
+	return nil
 }
