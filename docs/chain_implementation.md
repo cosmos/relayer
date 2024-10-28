@@ -108,7 +108,7 @@ For Comet BFT chains, the IBC messages are parsed in the `CosmosChainProcessor` 
 
 - For client IBC messages (e.g. MsgCreateClient, MsgUpdateClient, MsgUpgradeClient, MsgSubmitMisbehaviour), message should be parsed into `provider.ClientState`.
 - For connection handshake IBC messages (e.g. MsgConnectionOpenInit, MsgConnectionOpenTry, MsgConnectionOpenAck, MsgConnectionOpenConfirm), message should be parsed into `provider.ConnectionInfo`
-- For channel handshake IBC messages (e.g. MsgChannelOpenInit, MsgChannelOpenTry, MsgChannelOpenAck, MsgChannelOpenConfirm, MsgChannelCloseInit, MsgChannelCloseConfim), message should be parsed into `provider.ChannelInfo`
+- For channel handshake IBC messages (e.g. MsgChannelOpenInit, MsgChannelOpenTry, MsgChannelOpenAck, MsgChannelOpenConfirm, MsgChannelCloseInit, MsgChannelCloseConfirm), message should be parsed into `provider.ChannelInfo`
 - For packet-flow IBC messages (e.g. MsgTransfer, MsgRecvPacket, MsgAcknowledgement), message should be parsed into `provider.PacketInfo`
 
 #### Message Handlers
