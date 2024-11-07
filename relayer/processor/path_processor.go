@@ -407,7 +407,11 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			return
 		}
 
-		for len(pp.pathEnd1.incomingCacheData) > 0 || len(pp.pathEnd2.incomingCacheData) > 0 || len(pp.retryProcess) > 0 || len(pp.pathEnd1.finishedProcessing) > 0 || len(pp.pathEnd2.finishedProcessing) > 0 {
+		for len(pp.pathEnd1.incomingCacheData) > 0 ||
+			len(pp.pathEnd2.incomingCacheData) > 0 ||
+			len(pp.retryProcess) > 0 ||
+			len(pp.pathEnd1.finishedProcessing) > 0 ||
+			len(pp.pathEnd2.finishedProcessing) > 0 {
 			// signals are available, so this will not need to block.
 			if pp.processAvailableSignals(ctx, cancel) {
 				return
