@@ -1096,65 +1096,27 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	return eg.Wait()
 }
 
-type TrustProblemHandler interface {
-	NotifyRotateTrustError()
-}
+// called by other threads when they get an error
+func (pp *PathProcessor) NotifyTrustError(err error) {
+	needle := "cant trust new val set"
+	if strings.Contains(err.Error(), needle) {
+		if !pp.pathEnd2.chainProvider.IsDymensionRollapp() {
+			pp.log.Error("Rotation only supported for Cosmos chains: config.")
+			return
 
-func (pp *PathProcessor) RotationThread(ctx context.Context) {
-	//p1, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
-	//p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
-	//if !(ok1 && ok2) {
-	//	pp.log.Error("Rotation only supported for Cosmos chains: type conv")
-	//	return
-	//}
-	//relayingBetweenHubAndRollapp := p2.PCfg.DymRollapp
-	if !pp.pathEnd2.chainProvider.IsDymensionRollapp() {
-		pp.log.Error("Rotation only supported for Cosmos chains: config")
-		return
-	}
-	for {
-		<-pp.rotErr
-		solver := rotationSolver{
-			hub: pp.pathEnd1,
-			ra:  pp.pathEnd2,
 		}
-		if err := solver.solve(ctx); err != nil {
-			pp.log.Error("Rotation solver", zap.Error(err))
-		}
+		pp.log.Info("Val set trust error, fixing.")
+		pp.DoRotationAdjacentUpdates(context.Background())
 	}
 }
 
-func (pp *PathProcessor) Rotation(ctx context.Context) {
-	if !pp.pathEnd2.chainProvider.IsDymensionRollapp() {
-		pp.log.Error("Rotation only supported for Cosmos chains: config")
-		return
-	}
+func (pp *PathProcessor) DoRotationAdjacentUpdates(ctx context.Context) {
 	solver := rotationSolver{
 		hub: pp.pathEnd1,
 		ra:  pp.pathEnd2,
 	}
 	if err := solver.solve(ctx); err != nil {
-		pp.log.Error("Rotation solver", zap.Error(err))
-	}
-}
-
-// called by other threads when they get an error
-func (pp *PathProcessor) NotifyRotateTrustError(err error) {
-	needle := "cant trust new val set"
-	if strings.Contains(err.Error(), needle) {
-		pp.log.Info("Val set trust error, fixing.")
-
-		pp.Rotation(context.Background())
-
-		/*
-			select {
-			case pp.rotErr <- struct{}{}:
-			default:
-				// don't block. if it's busy, it's busy.
-				// TODO: correct assumption?
-			}
-
-		*/
+		pp.log.Error("Rotation solver.", zap.Error(err))
 	}
 }
 

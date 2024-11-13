@@ -499,7 +499,7 @@ func (mp *messageProcessor) sendBatchMessages(
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			return
 		}
-		mp.pp.NotifyRotateTrustError(err)
+		mp.pp.NotifyTrustError(err)
 		mp.log.Error("Sending messages from batch to mempool.", errFields...)
 		return
 	}
