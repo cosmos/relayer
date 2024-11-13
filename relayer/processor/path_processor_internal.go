@@ -1109,6 +1109,7 @@ func (pp *PathProcessor) DoRotationAdjacentUpdates(ctx context.Context) {
 	solver := rotationSolver{
 		hub: pp.pathEnd1,
 		ra:  pp.pathEnd2,
+		log: pp.log,
 	}
 	if err := solver.solve(ctx); err != nil {
 		pp.log.Error("Rotation solver.", zap.Error(err))

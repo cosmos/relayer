@@ -8,11 +8,13 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"go.uber.org/zap"
 )
 
 type rotationSolver struct {
 	hub *pathEndRuntime
 	ra  *pathEndRuntime
+	log *zap.Logger
 }
 
 var errFalsePositive = fmt.Errorf("false positive (there is a bug): hub has latest valset")
@@ -246,5 +248,14 @@ func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) e
 func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.RelayerMessage) error {
 	broadcastCtx, cancel := c.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
-	return s.hub.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, " ", ctx, nil)
+	cbs := make([]func(*provider.RelayerTxResponse, error), 0)
+	cbs = append(cbs, func(r *provider.RelayerTxResponse, err error) {
+		if err != nil {
+			s.log.Error("Broadcast update", zap.Error(err))
+		}
+		if r.Code != 0 {
+			s.log.Error("Broadcast update", zap.Any("code", r.Code))
+		}
+	})
+	return s.hub.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, " ", ctx, cbs)
 }
