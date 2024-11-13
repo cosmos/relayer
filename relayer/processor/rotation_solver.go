@@ -130,10 +130,10 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 
 	// ans will be the first height on the hub where nextValidatorsHash changes
 	ans, err := search(time.Millisecond*50, hHub+1, s.ra.latestHeader.Height(), check)
-
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
+
 	a, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(ans))
 	if err != nil {
 		return nil, fmt.Errorf("query ibc header a : h: %d: %w", ans, err)
