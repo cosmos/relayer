@@ -41,7 +41,7 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 		return fmt.Errorf("search for two rollapp headers: %w", err)
 	}
 
-	err = s.sendUpdates(ctx, rollappHeaders[0], rollappHeaders[1])
+	err = s.sendUpdatesV2(ctx, rollappHeaders[0], rollappHeaders[1])
 	if err != nil {
 		return fmt.Errorf("send the two headers in updates: %w", err)
 	}
@@ -135,7 +135,7 @@ func search(sleep time.Duration, l, r uint64, direction func(uint64) (int, error
 }
 
 // a = h, b = h+1 where valhash changes in between
-func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) error {
+func (s *rotationSolver) sendUpdatesV1(ctx c.Context, a, b provider.IBCHeader) error {
 
 	u1, err := s.ra.chainProvider.MsgUpdateClientHeader(
 		a, // header to send in update
@@ -179,28 +179,52 @@ func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) err
 	return nil
 }
 
-func (s *rotationSolver) getUpdateForHeader(ctx c.Context, h provider.IBCHeader) (provider.RelayerMessage, error) {
+// a = h, b = h+1 where valhash changes in between
+func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) error {
 
 	trusted, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(s.hub.clientState.LatestHeight.GetRevisionHeight())+1)
 	if err != nil {
-		return nil, fmt.Errorf("query ibc header: %w", err)
+		return fmt.Errorf("query ibc header: %w", err)
 	}
 
-	u, err := s.ra.chainProvider.MsgUpdateClientHeader(
-		h,
+	u1, err := s.ra.chainProvider.MsgUpdateClientHeader(
+		a,
 		s.hub.clientState.LatestHeight,
 		trusted, // latest+1
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("create msg update client header: %w", err)
+		return fmt.Errorf("create msg update client header: %w", err)
 	}
 
-	m, err := s.hub.chainProvider.MsgUpdateClient(s.hub.info.ClientID, u)
+	mu1, err := s.hub.chainProvider.MsgUpdateClient(s.hub.info.ClientID, u1)
 	if err != nil {
-		return nil, fmt.Errorf("create msg update client: update one %w", err)
+		return fmt.Errorf("create msg update client: update one %w", err)
 	}
-	return m, nil
+
+	aHeight := clienttypes.Height{
+		RevisionNumber: s.hub.clientState.LatestHeight.RevisionNumber,
+		RevisionHeight: a.Height(),
+	}
+
+	u2, err := s.ra.chainProvider.MsgUpdateClientHeader(
+		b,       // header to send in update
+		aHeight, // trusted height is now the height of the first header
+		b,       // use b as a trust basis for itself, pretty sure this should work!
+	)
+	if err != nil {
+		return fmt.Errorf("create msg update client header: %w", err)
+	}
+
+	mu2, err := s.hub.chainProvider.MsgUpdateClient(s.hub.info.ClientID, u2)
+	if err != nil {
+		return fmt.Errorf("create msg update client: update two : %w", err)
+	}
+
+	if err := s.broadcastUpdates(ctx, []provider.RelayerMessage{mu1, mu2}); err != nil {
+		return fmt.Errorf("broadcast both updates: %w", err)
+	}
+	return nil
 }
 
 func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.RelayerMessage) error {
