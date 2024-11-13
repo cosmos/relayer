@@ -69,6 +69,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 
 	check := func(ansCandidate uint64) (int, error) {
 		// Contract: return 0 if it's the FIRST header with a different nextValidatorsHash
+		// In other words: the last header with the same (curr) val hash
 
 		hQ := int64(ansCandidate) - 1
 		headerSub1, err := s.ra.chainProvider.QueryIBCHeader(ctx, hQ)
@@ -134,51 +135,6 @@ func search(sleep time.Duration, l, r uint64, direction func(uint64) (int, error
 		time.Sleep(sleep)
 	}
 	return 0, fmt.Errorf("%w: l: %d, r: %d, ", errTargetNotFound, l, r)
-}
-
-// a = h, b = h+1 where valhash changes in between
-func (s *rotationSolver) sendUpdatesV1(ctx c.Context, a, b provider.IBCHeader) error {
-
-	u1, err := s.ra.chainProvider.MsgUpdateClientHeader(
-		a, // header to send in update
-
-		// here we assume by this code we can reconstruct the trust
-		// https://github.com/dymensionxyz/go-relayer/blob/838f324793473de99cbf285f66537580c4158f39/relayer/processor/message_processor.go#L309-L316
-		s.hub.clientState.LatestHeight,     // trust height
-		s.hub.clientTrustedState.IBCHeader, // trust header. Should be trust height + 1 in theory
-	)
-	if err != nil {
-		return fmt.Errorf("create msg update client header: %w", err)
-	}
-
-	mu1, err := s.hub.chainProvider.MsgUpdateClient(s.hub.info.ClientID, u1)
-	if err != nil {
-		return fmt.Errorf("create msg update client: update one %w", err)
-	}
-
-	aHeight := clienttypes.Height{
-		RevisionNumber: s.hub.clientState.LatestHeight.RevisionNumber,
-		RevisionHeight: a.Height(),
-	}
-
-	u2, err := s.ra.chainProvider.MsgUpdateClientHeader(
-		b,       // header to send in update
-		aHeight, // trusted height is now the height of the first header
-		b,       // use b as a trust basis for itself, pretty sure this should work!
-	)
-	if err != nil {
-		return fmt.Errorf("create msg update client header: %w", err)
-	}
-
-	mu2, err := s.hub.chainProvider.MsgUpdateClient(s.hub.info.ClientID, u2)
-	if err != nil {
-		return fmt.Errorf("create msg update client: update two : %w", err)
-	}
-
-	if err := s.broadcastUpdates(ctx, []provider.RelayerMessage{mu1, mu2}); err != nil {
-		return fmt.Errorf("broadcast both updates: %w", err)
-	}
-	return nil
 }
 
 // a = h, b = h+1 where valhash changes in between
