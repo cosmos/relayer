@@ -1125,8 +1125,23 @@ func (pp *PathProcessor) Rotation(ctx context.Context) {
 	}
 	for {
 		<-pp.rotErr
-
+		solver := rotationSolver{
+			hub: p1,
+			ra:  p2,
+		}
+		if err := solver.solve(); err != nil {
+			pp.log.Error("Rotation solver", zap.Error(err))
+		}
 	}
+}
+
+type rotationSolver struct {
+	hub *cosmos.CosmosProvider
+	ra  *cosmos.CosmosProvider
+}
+
+func (s *rotationSolver) solve() error {
+
 }
 
 func (pp *PathProcessor) NotifyRotateTrustError(err error) {
