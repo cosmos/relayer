@@ -123,13 +123,7 @@ func NewPathProcessor(
 		memoLimit:                 memoLimit,
 		maxReceiverSize:           maxReceiverSize,
 		noFlush:                   noFlush,
-		rotErr:                    make(chan struct{}),
 	}
-
-	// Dymension: hack
-	ctx := context.Background()
-	//go pp.RotationThread(ctx)
-	_ = ctx
 
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
