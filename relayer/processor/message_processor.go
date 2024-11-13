@@ -144,7 +144,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	var consensusHeightTime time.Time
 
 	if dst.clientState.ConsensusTime.IsZero() {
-		height := int64(dst.clientState.ConsensusHeight.RevisionHeight)
+		height := int64(dst.clientState.LatestHeight.RevisionHeight)
 		h, err := src.chainProvider.QueryIBCHeader(ctx, height)
 		if err != nil {
 			return false, fmt.Errorf("query ibc header: chain id: %s: height: %d: %w", src.chainProvider.ChainId(), height, err)
@@ -253,8 +253,8 @@ func (mp *messageProcessor) assembleMessage(
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
 	clientID := dst.info.ClientID
-	clientLatestHeight := dst.clientState.ConsensusHeight
-	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+	clientLatestHeight := dst.clientState.LatestHeight
+	trustedConsensusHeight := dst.clientTrustedState.ClientState.LatestHeight
 
 	var trustedNextValidatorsHash []byte
 	if dst.clientTrustedState.IBCHeader != nil {

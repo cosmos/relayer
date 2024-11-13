@@ -50,7 +50,7 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 
 func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) {
 
-	h := s.hub.clientState.ConsensusHeight.GetRevisionHeight()
+	h := s.hub.clientState.LatestHeight.GetRevisionHeight()
 	header, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h))
 	if err != nil {
 		return 0, nil, fmt.Errorf("query ibc header: %w", err)
@@ -142,7 +142,7 @@ func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) err
 
 		// here we assume by this code we can reconstruct the trust
 		// https://github.com/dymensionxyz/go-relayer/blob/838f324793473de99cbf285f66537580c4158f39/relayer/processor/message_processor.go#L309-L316
-		s.hub.clientState.ConsensusHeight,  // trust height
+		s.hub.clientState.LatestHeight,     // trust height
 		s.hub.clientTrustedState.IBCHeader, // trust header. Should be trust height + 1 in theory
 	)
 	if err != nil {
@@ -155,7 +155,7 @@ func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) err
 	}
 
 	aHeight := clienttypes.Height{
-		RevisionNumber: s.hub.clientState.ConsensusHeight.RevisionNumber,
+		RevisionNumber: s.hub.clientState.LatestHeight.RevisionNumber,
 		RevisionHeight: a.Height(),
 	}
 

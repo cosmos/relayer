@@ -99,7 +99,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo chains.ClientI
 	existingClientInfo, ok := l[clientInfo.ClientID]
 	var trustingPeriod time.Duration
 	if ok {
-		if clientInfo.ConsensusHeight.LT(existingClientInfo.ConsensusHeight) {
+		if clientInfo.ConsensusHeight.LT(existingClientInfo.LatestHeight) {
 			// height is less than latest, so no-op
 			return
 		}
@@ -186,8 +186,8 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 			return provider.ClientState{}, err
 		}
 		clientState = provider.ClientState{
-			ClientID:        clientID,
-			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+			ClientID:     clientID,
+			LatestHeight: cs.GetLatestHeight().(clienttypes.Height),
 		}
 	} else {
 		cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
@@ -195,9 +195,9 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 			return provider.ClientState{}, err
 		}
 		clientState = provider.ClientState{
-			ClientID:        clientID,
-			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
-			TrustingPeriod:  cs.TrustingPeriod,
+			ClientID:       clientID,
+			LatestHeight:   cs.GetLatestHeight().(clienttypes.Height),
+			TrustingPeriod: cs.TrustingPeriod,
 		}
 	}
 

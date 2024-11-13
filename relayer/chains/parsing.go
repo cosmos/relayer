@@ -128,10 +128,10 @@ func NewClientInfo(
 
 func (c ClientInfo) ClientState(trustingPeriod time.Duration) provider.ClientState {
 	return provider.ClientState{
-		ClientID:        c.ClientID,
-		ConsensusHeight: c.ConsensusHeight,
-		TrustingPeriod:  trustingPeriod,
-		Header:          c.Header,
+		ClientID:       c.ClientID,
+		LatestHeight:   c.ConsensusHeight,
+		TrustingPeriod: trustingPeriod,
+		Header:         c.Header,
 	}
 }
 

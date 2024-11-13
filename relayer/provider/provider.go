@@ -67,8 +67,8 @@ type IBCHeader interface {
 type ClientState struct {
 	ClientID string
 	// This is latest height known to the light client
-	ConsensusHeight clienttypes.Height
-	TrustingPeriod  time.Duration
+	LatestHeight   clienttypes.Height
+	TrustingPeriod time.Duration
 	// NOTE: not populated
 	ConsensusTime time.Time
 	// NOTE: not populated
