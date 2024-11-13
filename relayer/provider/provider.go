@@ -229,6 +229,9 @@ type ChainProvider interface {
 	QueryProvider
 	KeyProvider
 
+	// Nasty hack to avoid import cycle
+	IsDymensionRollapp() bool
+
 	Init(ctx context.Context) error
 
 	// [Begin] Client IBC message assembly functions

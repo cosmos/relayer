@@ -11,7 +11,6 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 
@@ -1102,14 +1101,14 @@ type TrustProblemHandler interface {
 }
 
 func (pp *PathProcessor) RotationThread(ctx context.Context) {
-	p1, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
-	p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
-	if !(ok1 && ok2) {
-		pp.log.Error("Rotation only supported for Cosmos chains: type conv")
-		return
-	}
-	relayingBetweenHubAndRollapp := p2.PCfg.DymRollapp
-	if !relayingBetweenHubAndRollapp {
+	//p1, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
+	//p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
+	//if !(ok1 && ok2) {
+	//	pp.log.Error("Rotation only supported for Cosmos chains: type conv")
+	//	return
+	//}
+	//relayingBetweenHubAndRollapp := p2.PCfg.DymRollapp
+	if !pp.pathEnd2.chainProvider.IsDymensionRollapp() {
 		pp.log.Error("Rotation only supported for Cosmos chains: config")
 		return
 	}
@@ -1126,14 +1125,7 @@ func (pp *PathProcessor) RotationThread(ctx context.Context) {
 }
 
 func (pp *PathProcessor) Rotation(ctx context.Context) {
-	_, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
-	p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
-	if !(ok1 && ok2) {
-		pp.log.Error("Rotation only supported for Cosmos chains: type conv")
-		return
-	}
-	relayingBetweenHubAndRollapp := p2.PCfg.DymRollapp
-	if !relayingBetweenHubAndRollapp {
+	if !pp.pathEnd2.chainProvider.IsDymensionRollapp() {
 		pp.log.Error("Rotation only supported for Cosmos chains: config")
 		return
 	}

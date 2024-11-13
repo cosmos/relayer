@@ -4,9 +4,9 @@ import (
 	"bytes"
 	c "context"
 	"fmt"
+	"time"
 
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
@@ -15,15 +15,8 @@ type rotationSolver struct {
 	ra  *pathEndRuntime
 }
 
-func (s *rotationSolver) hubProvider() *cosmos.CosmosProvider {
-	return s.hub.chainProvider.(*cosmos.CosmosProvider)
-}
-
-func (s *rotationSolver) raProvider() *cosmos.CosmosProvider {
-	return s.ra.chainProvider.(*cosmos.CosmosProvider)
-}
-
 var errFalsePositive = fmt.Errorf("false positive (there is a bug): hub has latest valset")
+var errTargetNotFound = fmt.Errorf("target not found")
 
 // guaranteed to run on same thread as message processor
 func (s *rotationSolver) solve(ctx c.Context) error {
@@ -136,7 +129,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 	}
 
 	// ans will be the first height on the hub where nextValidatorsHash changes
-	ans, err := search(hHub+1, s.ra.latestHeader.Height(), check)
+	ans, err := search(time.Millisecond*50, hHub+1, s.ra.latestHeader.Height(), check)
 
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
@@ -154,7 +147,8 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 }
 
 // search in [l, r]
-func search(l, r uint64, direction func(uint64) (int, error)) (uint64, error) {
+// optional sleep: nasty hack to avoid spamming the rpc
+func search(sleep time.Duration, l, r uint64, direction func(uint64) (int, error)) (uint64, error) {
 	for l < r {
 		m := (l + r) / 2
 		d, err := direction(m)
@@ -170,8 +164,9 @@ func search(l, r uint64, direction func(uint64) (int, error)) (uint64, error) {
 		if 0 < d {
 			l = m
 		}
+		time.Sleep(sleep)
 	}
-	return 0, fmt.Errorf("didnt find target")
+	return 0, fmt.Errorf("%w: l: %d, r: %d, ", errTargetNotFound, l, r)
 }
 
 func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) {

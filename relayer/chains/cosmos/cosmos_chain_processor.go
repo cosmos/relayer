@@ -72,8 +72,11 @@ func NewCosmosChainProcessor(
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
-		rotErr:               make(chan struct{}),
 	}
+}
+
+func (ccp *CosmosChainProcessor) IsDymensionRollapp() bool {
+	return ccp.chainProvider.PCfg.DymRollapp
 }
 
 const (

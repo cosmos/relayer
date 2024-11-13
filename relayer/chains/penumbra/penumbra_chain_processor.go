@@ -50,6 +50,10 @@ type PenumbraChainProcessor struct {
 	channelConnections map[string]string
 }
 
+func (ccp *PenumbraChainProcessor) IsDymensionRollapp() bool {
+	return false
+}
+
 func NewPenumbraChainProcessor(log *zap.Logger, provider *PenumbraProvider) *PenumbraChainProcessor {
 	return &PenumbraChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
