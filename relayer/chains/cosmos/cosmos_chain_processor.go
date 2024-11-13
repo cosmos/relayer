@@ -212,6 +212,19 @@ type queryCyclePersistence struct {
 	balanceUpdateWaitDuration   time.Duration
 }
 
+func (ccp *CosmosChainProcessor) Rotation() {
+	/*
+		Brainstorm
+
+		Current workings
+			The relayer just always tries to update the client based on the last trusted height and the latest counterparty header.
+
+		We need to recognize when
+		What if we just loop, and check when the validator set between the last trusted height and the latest counterparty header is different
+		Then we can binary search to find the place where it changes, and update the client to that height
+	*/
+}
+
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
