@@ -26,16 +26,21 @@ type pathEndRuntime struct {
 	chainProvider provider.ChainProvider
 
 	// cached data
-	latestBlock          provider.LatestBlock
-	messageCache         IBCMessagesCache
-	clientState          provider.ClientState
-	clientTrustedState   provider.ClientTrustedState
+	latestBlock  provider.LatestBlock
+	messageCache IBCMessagesCache
+
+	// This is the actual state of the light client for the counterparty
+	clientState provider.ClientState // TODO: docstrings
+	// I think this is a copy of the client state, but with the actual header as well
+	clientTrustedState   provider.ClientTrustedState // TODO: docstrings
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
 	channelStateCacheMu  sync.RWMutex
 	channelOrderCache    map[string]chantypes.Order
-	latestHeader         provider.IBCHeader
-	ibcHeaderCache       IBCHeaderCache
+
+	// The actual latest header of the chain known to the relayer by constant querying
+	latestHeader   provider.IBCHeader
+	ibcHeaderCache IBCHeaderCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData

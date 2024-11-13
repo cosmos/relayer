@@ -272,6 +272,10 @@ func CreateClient(
 	return clientID, nil
 }
 
+// Update dst. Get the entire (latest) client state on the destination
+// get a header from source at h, and the trusted header from the destination client
+// and build an update for them.
+//
 // MsgUpdateClient queries for the current client state on dst,
 // then queries for the latest and trusted headers on src
 // in order to build a MsgUpdateClient message for dst.

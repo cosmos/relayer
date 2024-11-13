@@ -1299,7 +1299,9 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	}), nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+// creates an update to trust latest header, using trusted header as a trust basis
+func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
+	trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)

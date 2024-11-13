@@ -691,7 +691,8 @@ ClientICQLoop:
 	return res
 }
 
-// updateClientTrustedState combines the counterparty chains trusted IBC header
+// updateClientTrustedState adjusts client trusted state for SRC
+// combines the counterparty chains trusted IBC header
 // with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
 	if src.clientTrustedState.ClientState.ConsensusHeight.GTE(src.clientState.ConsensusHeight) {
@@ -699,11 +700,19 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 		return
 	}
 	// need to assemble new trusted state
-	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
+
+	// TODO: what on earth is this code doing?
+
+	// We see if header for H+1 exists because the client trusts H and has the nextValidatorsHash of it (+1)
+	// If so, we use it
+	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1] // TODO: why + 1
 	if !ok {
+
+		// TODO: this makes no sense
 		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
-			dst.clientTrustedState.IBCHeader != nil &&
+			dst.clientTrustedState.IBCHeader != nil && // TODO: why this check?
 			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+
 			src.clientTrustedState = provider.ClientTrustedState{
 				ClientState: src.clientState,
 				IBCHeader:   ibcHeaderCurrent,
