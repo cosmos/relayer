@@ -18,13 +18,14 @@ type rotationSolver struct {
 var errFalsePositive = fmt.Errorf("false positive (there is a bug): hub has latest valset")
 var errTargetNotFound = fmt.Errorf("target not found")
 
-// guaranteed to run on same thread as message processor
+// must be sure to run on same thread as message processor
 func (s *rotationSolver) solve(ctx c.Context) error {
 	/*
 		1. Get nextValidatorsHash, height of client state on hub
-		2. Binary search rollapp to find change heights
+		2. Binary search rollapp to find valset change heights
 		3. Send updates to hub
 	*/
+
 	h, preRotationValhash, err := s.hubClientValset(ctx)
 	if err != nil {
 		return fmt.Errorf("hub client valset: %w", err)
@@ -48,13 +49,12 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 
 // a = h, b = h+1 where valhash changes in between
 func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) error {
-	// here we assume by this code we can reconstruct the trust
-	// https://github.com/dymensionxyz/go-relayer/blob/838f324793473de99cbf285f66537580c4158f39/relayer/processor/message_processor.go#L309-L316
 
-	// TODO: this is very sus
-	// uses the validator set of the
 	u1, err := s.ra.chainProvider.MsgUpdateClientHeader(
-		a,
+		a, // header to send in update
+
+		// here we assume by this code we can reconstruct the trust
+		// https://github.com/dymensionxyz/go-relayer/blob/838f324793473de99cbf285f66537580c4158f39/relayer/processor/message_processor.go#L309-L316
 		s.hub.clientState.ConsensusHeight,  // trust height
 		s.hub.clientTrustedState.IBCHeader, // trust header. Should be trust height + 1 in theory
 	)
