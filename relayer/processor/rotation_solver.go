@@ -94,7 +94,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 	}
 
 	// ans will be the first height on the hub where nextValidatorsHash changes
-	ans, err := search(time.Millisecond*50, hHub+1, s.ra.latestHeader.Height(), check)
+	ans, err := search(time.Millisecond*50, hHub, s.ra.latestHeader.Height(), check)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
@@ -164,22 +164,6 @@ func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) e
 		RevisionNumber: s.hub.clientState.LatestHeight.RevisionNumber,
 		RevisionHeight: a.Height(),
 	}
-
-	/*
-		Trying to understand this , looking at IBC client code:
-		To trigger adjacent, need untrusted header height to be trusted height + 1
-
-		h   nextVals=X, vals=X
-		h+1 nextVals=Y, vals=X
-		h+2 nextVals=Y, vals=Y
-
-		IBC: you pass it a trusted height and the vals of trusted height + 1 ('trusted validators')
-		it creates a 'trusted header' using the trusted height
-
-		So we pass it h+1 as trusted height, with vals of h+2 as trusted validators
-
-
-	*/
 
 	u2, err := s.ra.chainProvider.MsgUpdateClientHeader(
 		b,       // header to send in update
