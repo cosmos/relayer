@@ -81,6 +81,9 @@ type PathProcessor struct {
 	memoLimit, maxReceiverSize int
 
 	metrics *PrometheusMetrics
+
+	// Rotation error chan
+	rotErr chan struct{}
 }
 
 // PathProcessors is a slice of PathProcessor instances
@@ -123,7 +126,13 @@ func NewPathProcessor(
 		memoLimit:                 memoLimit,
 		maxReceiverSize:           maxReceiverSize,
 		noFlush:                   noFlush,
+		rotErr:                    make(chan struct{}),
 	}
+
+	// Dymension: hack
+	ctx := context.Background()
+	go pp.Rotation(ctx)
+
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
 	}

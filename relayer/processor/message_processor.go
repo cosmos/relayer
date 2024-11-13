@@ -32,6 +32,9 @@ type messageProcessor struct {
 	clientICQMsgs []clientICQMessageToTrack
 
 	isLocalhost bool
+
+	// Dymension: added for rotation hack
+	pp *PathProcessor
 }
 
 // catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
@@ -80,6 +83,7 @@ func newMessageProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	isLocalhost bool,
+	pp *PathProcessor,
 ) *messageProcessor {
 	return &messageProcessor{
 		log:                       log,
@@ -87,6 +91,7 @@ func newMessageProcessor(
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 		isLocalhost:               isLocalhost,
+		pp:                        pp,
 	}
 }
 
@@ -321,7 +326,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 }
 
 // trackAndSendMessages will increment attempt counters for each message and send each message.
-// Messages will be batched if the broadcast mode is configured to 'batch' and there was not an error
+// Messages will be batchNotifyRotateTrustErrored if the broadcast mode is configured to 'batch' and there was not an error
 // in a previous batch.
 func (mp *messageProcessor) trackAndSendMessages(ctx context.Context, src, dst *pathEndRuntime, needsClientUpdate bool) {
 	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
@@ -494,6 +499,7 @@ func (mp *messageProcessor) sendBatchMessages(
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			return
 		}
+		mp.pp.NotifyRotateTrustError(err)
 		mp.log.Error("Sending messages from batch to mempool.", errFields...)
 		return
 	}

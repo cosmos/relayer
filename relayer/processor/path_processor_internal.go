@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
@@ -1079,20 +1080,54 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost, pp)
 		if err := mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1); err != nil {
 			return fmt.Errorf("process path end 1 messages: dst: %s: %w", pp.pathEnd1.info.ChainID, err)
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost, pp)
 		if err := mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2); err != nil {
 			return fmt.Errorf("process path end 2 messages: dst: %s: %w", pp.pathEnd2.info.ChainID, err)
 		}
 		return nil
 	})
 	return eg.Wait()
+}
+
+type TrustProblemHandler interface {
+	NotifyRotateTrustError()
+}
+
+func (pp *PathProcessor) Rotation(ctx context.Context) {
+	/*
+		Brainstorm
+
+		Current workings
+			The relayer just always tries to update the client based on the last trusted height and the latest counterparty header.
+
+		We need to recognize when
+		What if we just loop, and check when the validator set between the last trusted height and the latest counterparty header is different
+		Then we can binary search to find the place where it changes, and update the client to that height
+	*/
+	for {
+		<-pp.rotErr
+		
+	}
+}
+
+func (pp *PathProcessor) NotifyRotateTrustError(err error) {
+	needle := "cant trust new val set"
+	if strings.Contains(err.Error(), needle) {
+		pp.log.Info("Val set trust error, fixing.")
+		select {
+		case pp.rotErr <- struct{}{}:
+		default:
+			// don't block. if it's busy, it's busy.
+			// TODO: correct assumption?
+		}
+	}
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {
