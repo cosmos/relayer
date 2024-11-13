@@ -1102,16 +1102,6 @@ type TrustProblemHandler interface {
 }
 
 func (pp *PathProcessor) Rotation(ctx context.Context) {
-	/*
-		Brainstorm
-
-		Current workings
-			The relayer just always tries to update the client based on the last trusted height and the latest counterparty header.
-
-		We need to recognize when
-		What if we just loop, and check when the validator set between the last trusted height and the latest counterparty header is different
-		Then we can binary search to find the place where it changes, and update the client to that height
-	*/
 	p1, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
 	p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
 	if !(ok1 && ok2) {
@@ -1126,8 +1116,8 @@ func (pp *PathProcessor) Rotation(ctx context.Context) {
 	for {
 		<-pp.rotErr
 		solver := rotationSolver{
-			hub: p1,
-			ra:  p2,
+			hub: pp.pathEnd1,
+			ra:  pp.pathEnd2,
 		}
 		if err := solver.solve(); err != nil {
 			pp.log.Error("Rotation solver", zap.Error(err))
@@ -1135,15 +1125,7 @@ func (pp *PathProcessor) Rotation(ctx context.Context) {
 	}
 }
 
-type rotationSolver struct {
-	hub *cosmos.CosmosProvider
-	ra  *cosmos.CosmosProvider
-}
-
-func (s *rotationSolver) solve() error {
-
-}
-
+// called by other threads when they get an error
 func (pp *PathProcessor) NotifyRotateTrustError(err error) {
 	needle := "cant trust new val set"
 	if strings.Contains(err.Error(), needle) {
