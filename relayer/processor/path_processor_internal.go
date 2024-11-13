@@ -1119,7 +1119,7 @@ func (pp *PathProcessor) Rotation(ctx context.Context) {
 			hub: pp.pathEnd1,
 			ra:  pp.pathEnd2,
 		}
-		if err := solver.solve(); err != nil {
+		if err := solver.solve(ctx); err != nil {
 			pp.log.Error("Rotation solver", zap.Error(err))
 		}
 	}
