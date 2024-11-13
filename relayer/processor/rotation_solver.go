@@ -207,10 +207,10 @@ func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.Relayer
 	cbs := make([]func(*provider.RelayerTxResponse, error), 0)
 	cbs = append(cbs, func(r *provider.RelayerTxResponse, err error) {
 		if err != nil {
-			s.log.Error("Broadcast update", zap.Error(err))
+			s.log.Error("Broadcast rotation solver update", zap.Error(err))
 		}
 		if r.Code != 0 {
-			s.log.Error("Broadcast update", zap.Any("code", r.Code))
+			s.log.Error("Broadcast rotation solver update", zap.Any("code", r.Code))
 		}
 	})
 	return s.hub.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, " ", ctx, cbs)
