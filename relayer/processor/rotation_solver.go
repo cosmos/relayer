@@ -179,6 +179,30 @@ func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) err
 	return nil
 }
 
+func (s *rotationSolver) getUpdateForHeader(ctx c.Context, h provider.IBCHeader) (provider.RelayerMessage, error) {
+
+	trusted, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(s.hub.clientState.LatestHeight.GetRevisionHeight())+1)
+	if err != nil {
+		return nil, fmt.Errorf("query ibc header: %w", err)
+	}
+
+	u, err := s.ra.chainProvider.MsgUpdateClientHeader(
+		h,
+		s.hub.clientState.LatestHeight,
+		trusted, // latest+1
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("create msg update client header: %w", err)
+	}
+
+	m, err := s.hub.chainProvider.MsgUpdateClient(s.hub.info.ClientID, u)
+	if err != nil {
+		return nil, fmt.Errorf("create msg update client: update one %w", err)
+	}
+	return m, nil
+}
+
 func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.RelayerMessage) error {
 	broadcastCtx, cancel := c.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()

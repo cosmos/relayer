@@ -254,26 +254,26 @@ func (mp *messageProcessor) assembleMessage(
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
 	clientID := dst.info.ClientID
 	clientLatestHeight := dst.clientState.LatestHeight
-	trustedConsensusHeight := dst.clientTrustedState.ClientState.LatestHeight
+	trustedHeight := dst.clientTrustedState.ClientState.LatestHeight
 
-	var trustedNextValidatorsHash []byte
+	var trustedNextValHash []byte
 	if dst.clientTrustedState.IBCHeader != nil {
-		trustedNextValidatorsHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
+		trustedNextValHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
 	}
 
 	// If the client state height is not equal to the client trusted state height and the client state height is
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
-	if !trustedConsensusHeight.EQ(clientLatestHeight) {
+	if !trustedHeight.EQ(clientLatestHeight) {
 		// TODO: looks like dupe code with updateClientTrustedState
 
-		deltaConsensusHeight := int64(clientLatestHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
-		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
+		deltaConsensusHeight := int64(clientLatestHeight.RevisionHeight) - int64(trustedHeight.RevisionHeight)
+		if trustedHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
 			return fmt.Errorf("observed client trusted height does not equal latest client state height: trusted: %d: latest %d",
-				trustedConsensusHeight.RevisionHeight, clientLatestHeight.RevisionHeight)
+				trustedHeight.RevisionHeight, clientLatestHeight.RevisionHeight)
 		}
 
-		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientLatestHeight.RevisionHeight+1)) // TODO: why +1
+		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientLatestHeight.RevisionHeight+1))
 		if err != nil {
 			return fmt.Errorf("query IBC header at height: %d: chain_id: %s, %w",
 				clientLatestHeight.RevisionHeight+1, src.info.ChainID, err)
@@ -293,22 +293,22 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 			IBCHeader:   header,
 		}
 
-		trustedConsensusHeight = clientLatestHeight
-		trustedNextValidatorsHash = header.NextValidatorsHash()
+		trustedHeight = clientLatestHeight
+		trustedNextValHash = header.NextValidatorsHash()
 	}
 
-	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
+	if src.latestHeader.Height() == trustedHeight.RevisionHeight &&
 		// TODO: wth?
-		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
+		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValHash) {
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
-			trustedConsensusHeight.RevisionHeight)
+			trustedHeight.RevisionHeight)
 	}
 
 	// get the header to update with a new trusted, base on what we have for trusted
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
-		trustedConsensusHeight,
+		trustedHeight,
 		dst.clientTrustedState.IBCHeader,
 	)
 	if err != nil {
