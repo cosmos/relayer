@@ -53,7 +53,7 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 	return nil
 }
 
-// a = h, b = h+1
+// a = h, b = h+1 where valhash changes in between
 func (s *rotationSolver) sendUpdates(ctx c.Context, a, b provider.IBCHeader) error {
 	// here we assume by this code we can reconstruct the trust
 	// https://github.com/dymensionxyz/go-relayer/blob/838f324793473de99cbf285f66537580c4158f39/relayer/processor/message_processor.go#L309-L316
@@ -106,9 +106,49 @@ func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.Relayer
 	return s.hub.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, " ", ctx, nil)
 }
 
+// finds the two headers where it changes from hValhash to a different one
 func (s *rotationSolver) rollappHeaders(ctx c.Context, h uint64, hValhash []byte) ([]provider.IBCHeader, error) {
 	// we know a height h that the hub has with an old valhash, need to find where valhash changes
 
+	check := func(h uint64) (int, error) {
+
+	}
+
+	ans, err := search(h+1, s.ra.latestHeader.Height(), check)
+
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
+	}
+	a, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h))
+	if err != nil {
+		return nil, fmt.Errorf("query ibc header a : h: %d: %w", h, err)
+	}
+	b, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h+1))
+	if err != nil {
+		return nil, fmt.Errorf("query ibc header b : h: %d: %w", h, err)
+	}
+
+}
+
+// search in [l, r]
+func search(l, r uint64, direction func(uint64) (int, error)) (uint64, error) {
+	for l < r {
+		m := (l + r) / 2
+		d, err := direction(m)
+		if err != nil {
+			return 0, fmt.Errorf("direction: l: %d, m: %d, r: %d, : %w", l, m, r, err)
+		}
+		if d < 0 {
+			r = m
+		}
+		if d == 0 {
+			return m, nil
+		}
+		if 0 < d {
+			l = m
+		}
+	}
+	return 0, fmt.Errorf("didnt find target")
 }
 
 func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) {
