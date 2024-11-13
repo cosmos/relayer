@@ -11,8 +11,8 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 
 	"github.com/danwt/gerr/gerr"
@@ -1112,12 +1112,19 @@ func (pp *PathProcessor) Rotation(ctx context.Context) {
 		What if we just loop, and check when the validator set between the last trusted height and the latest counterparty header is different
 		Then we can binary search to find the place where it changes, and update the client to that height
 	*/
-	cfg1 := pp.pathEnd1.chainProvider.(cosmos.Provider)
-	if pp.cfg
-	hub := pp.
+	p1, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
+	p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
+	if !(ok1 && ok2) {
+		pp.log.Error("Rotation only supported for Cosmos chains: type conv")
+		return
+	}
+	relayingBetweenHubAndRollapp := p2.PCfg.DymRollapp
+	if !relayingBetweenHubAndRollapp {
+		pp.log.Error("Rotation only supported for Cosmos chains: config")
+		return
+	}
 	for {
 		<-pp.rotErr
-
 
 	}
 }
