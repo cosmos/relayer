@@ -18,7 +18,7 @@ type rotationSolver struct {
 
 var errFalsePositive = fmt.Errorf("false positive (there is a bug): hub has latest valset")
 
-// guaranteed to run on same thread as message proccessor
+// guaranteed to run on same thread as message processor
 func (s *rotationSolver) solve(ctx c.Context) error {
 	/*
 		1. Get nextValidatorsHash, height of client state on hub
@@ -34,6 +34,13 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 		return errFalsePositive
 	}
 	// we know there's a problem, search to find appropriate update heights
+
+	// NOTE: VERY IMPORTANT - TRUSTED HEIGHT IS PRIOR TO TRUSTED HEADER
+	// TODO:
+
+	// now send the updates
+	trusted := s.hub.clientTrustedState.IBCHeader
+	trustedHeight := s.hub.clientTrustedState.IBCHeader.Height()
 
 
 }
