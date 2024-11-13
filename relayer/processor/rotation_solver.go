@@ -107,27 +107,29 @@ func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.Relayer
 }
 
 // finds the two headers where it changes from hValhash to a different one
-func (s *rotationSolver) rollappHeaders(ctx c.Context, h uint64, hValhash []byte) ([]provider.IBCHeader, error) {
+func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hValhash []byte) ([]provider.IBCHeader, error) {
 	// we know a height h that the hub has with an old valhash, need to find where valhash changes
 
 	check := func(h uint64) (int, error) {
 
 	}
 
-	ans, err := search(h+1, s.ra.latestHeader.Height(), check)
+	// ans will be the first height on the hub where nextValidatorsHash changes
+	ans, err := search(hHub+1, s.ra.latestHeader.Height(), check)
 
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	a, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h))
+	a, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(ans))
 	if err != nil {
-		return nil, fmt.Errorf("query ibc header a : h: %d: %w", h, err)
+		return nil, fmt.Errorf("query ibc header a : h: %d: %w", ans, err)
 	}
-	b, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h+1))
+	b, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(ans+1))
 	if err != nil {
-		return nil, fmt.Errorf("query ibc header b : h: %d: %w", h, err)
+		return nil, fmt.Errorf("query ibc header b : h: %d: %w", ans+1, err)
 	}
 
+	return []provider.IBCHeader{a, b}, nil
 }
 
 // search in [l, r]
