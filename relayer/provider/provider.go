@@ -65,11 +65,14 @@ type IBCHeader interface {
 
 // ClientState holds the current state of a client from a single chain's perspective
 type ClientState struct {
-	ClientID        string
+	ClientID string
+	// This is latest height known to the light client
 	ConsensusHeight clienttypes.Height
 	TrustingPeriod  time.Duration
-	ConsensusTime   time.Time
-	Header          []byte
+	// NOTE: not populated
+	ConsensusTime time.Time
+	// NOTE: not populated
+	Header []byte
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,
