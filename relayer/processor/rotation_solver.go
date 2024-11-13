@@ -207,10 +207,26 @@ func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) e
 		RevisionHeight: a.Height(),
 	}
 
+	/*
+		Trying to understand this , looking at IBC client code:
+		To trigger adjacent, need untrusted header height to be trusted height + 1
+
+		h   nextVals=X, vals=X
+		h+1 nextVals=Y, vals=X
+		h+2 nextVals=Y, vals=Y
+
+		IBC: you pass it a trusted height and the vals of trusted height + 1 ('trusted validators')
+		it creates a 'trusted header' using the trusted height
+
+		So we pass it h+1 as trusted height, with vals of h+2 as trusted validators
+
+
+	*/
+
 	u2, err := s.ra.chainProvider.MsgUpdateClientHeader(
 		b,       // header to send in update
 		aHeight, // trusted height is now the height of the first header
-		b,       // use b as a trust basis for itself, pretty sure this should work!
+		b,       // use b trust validators aHeight
 	)
 	if err != nil {
 		return fmt.Errorf("create msg update client header: %w", err)
