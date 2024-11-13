@@ -131,7 +131,8 @@ func NewPathProcessor(
 
 	// Dymension: hack
 	ctx := context.Background()
-	go pp.Rotation(ctx)
+	//go pp.RotationThread(ctx)
+	_ = ctx
 
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()

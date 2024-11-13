@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"bytes"
 	c "context"
 	"fmt"
 
@@ -15,12 +16,25 @@ type rotationSolver struct {
 	ra  *pathEndRuntime
 }
 
+var errFalsePositive = fmt.Errorf("false positive (there is a bug): hub has latest valset")
+
+// guaranteed to run on same thread as message proccessor
 func (s *rotationSolver) solve(ctx c.Context) error {
 	/*
 		1. Get nextValidatorsHash, height of client state on hub
 		2. Binary search rollapp to find change heights
 		3. Send updates to hub
 	*/
+	h, preRotationValhash, err := s.hubClientValset(ctx)
+	if err!=nil{
+		return fmt.Errorf("hub client valset: %w", err)
+	}
+	// sanity check to make sure that the rollapp actually has a different val set (confirm there is a problem)
+	if bytes.Equal(s.ra.latestHeader.NextValidatorsHash(), preRotationValhash){
+		return errFalsePositive
+	}
+	// we know there's a problem, search to find appropriate update heights
+
 
 }
 
@@ -32,25 +46,17 @@ func (s *rotationSolver) raProvider() *cosmos.CosmosProvider {
 	return s.ra.chainProvider.(*cosmos.CosmosProvider)
 }
 
-func (s *rotationSolver) hubClientValset(ctx c.Context) error {
+func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) {
 
-	s.hub.latestHeader
-	clientStateRes, err := s.hubProvider().QueryClientStateResponse(ctx, srch, srcClientId)
-	if err != nil {
-		return &tmclient.ClientState{}, err
+	h := s.hub.clientState.ConsensusHeight.GetRevisionHeight()
+	header, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h))
+	if err!=nil{
+		return 0, nil, fmt.Errorf("query ibc header: %w", err)
 	}
-
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return &tmclient.ClientState{}, err
+	if header.Height()!=h{
+		return 0, nil, fmt.Errorf("header height mismatch: got %d, expected %d", header.Height(), h)
 	}
-
-	clientState, ok := clientStateExported.(*tmclient.ClientState)
-	if !ok {
-		return &tmclient.ClientState{},
-			fmt.Errorf("when casting exported clientstate to tendermint type, got(%T)", clientStateExported)
-	}
-
+	return header.Height(), header.NextValidatorsHash(), nil
 }
 
 func (s *rotationSolver) rollappValset(ctx context.Context, h uint64) error {

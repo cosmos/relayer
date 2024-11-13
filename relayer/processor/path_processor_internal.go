@@ -1101,7 +1101,7 @@ type TrustProblemHandler interface {
 	NotifyRotateTrustError()
 }
 
-func (pp *PathProcessor) Rotation(ctx context.Context) {
+func (pp *PathProcessor) RotationThread(ctx context.Context) {
 	p1, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
 	p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
 	if !(ok1 && ok2) {
@@ -1125,17 +1125,44 @@ func (pp *PathProcessor) Rotation(ctx context.Context) {
 	}
 }
 
+func (pp *PathProcessor) Rotation(ctx context.Context) {
+	_, ok1 := pp.pathEnd1.chainProvider.(*cosmos.CosmosProvider)
+	p2, ok2 := pp.pathEnd2.chainProvider.(*cosmos.CosmosProvider)
+	if !(ok1 && ok2) {
+		pp.log.Error("Rotation only supported for Cosmos chains: type conv")
+		return
+	}
+	relayingBetweenHubAndRollapp := p2.PCfg.DymRollapp
+	if !relayingBetweenHubAndRollapp {
+		pp.log.Error("Rotation only supported for Cosmos chains: config")
+		return
+	}
+	solver := rotationSolver{
+		hub: pp.pathEnd1,
+		ra:  pp.pathEnd2,
+	}
+	if err := solver.solve(ctx); err != nil {
+		pp.log.Error("Rotation solver", zap.Error(err))
+	}
+}
+
 // called by other threads when they get an error
 func (pp *PathProcessor) NotifyRotateTrustError(err error) {
 	needle := "cant trust new val set"
 	if strings.Contains(err.Error(), needle) {
 		pp.log.Info("Val set trust error, fixing.")
-		select {
-		case pp.rotErr <- struct{}{}:
-		default:
-			// don't block. if it's busy, it's busy.
-			// TODO: correct assumption?
-		}
+
+		pp.Rotation(context.Background())
+
+		/*
+			select {
+			case pp.rotErr <- struct{}{}:
+			default:
+				// don't block. if it's busy, it's busy.
+				// TODO: correct assumption?
+			}
+
+		*/
 	}
 }
 
