@@ -32,6 +32,9 @@ type messageProcessor struct {
 	clientICQMsgs []clientICQMessageToTrack
 
 	isLocalhost bool
+
+	// Dymension: added for rotation hack
+	pp *PathProcessor
 }
 
 // catagories of tx errors for a Prometheus counter. If the error doesnt fall into one of the below categories, it is labeled as "Tx Failure"
@@ -80,6 +83,7 @@ func newMessageProcessor(
 	memo string,
 	clientUpdateThresholdTime time.Duration,
 	isLocalhost bool,
+	pp *PathProcessor,
 ) *messageProcessor {
 	return &messageProcessor{
 		log:                       log,
@@ -87,6 +91,7 @@ func newMessageProcessor(
 		memo:                      memo,
 		clientUpdateThresholdTime: clientUpdateThresholdTime,
 		isLocalhost:               isLocalhost,
+		pp:                        pp,
 	}
 }
 
@@ -102,11 +107,14 @@ func (mp *messageProcessor) processMessages(
 	// Localhost IBC does not permit client updates
 	if !isLocalhostClient(src.clientState.ClientID, dst.clientState.ClientID) {
 		var err error
+
+		// need to update dst with a more recent view of src first?
 		needsClientUpdate, err = mp.shouldUpdateClientNow(ctx, src, dst)
 		if err != nil {
 			return fmt.Errorf("should update client now: %w", err)
 		}
 
+		// Will create an update with the LATEST header from src known to the relayer
 		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
 			return fmt.Errorf("assemble message update client: %w", err)
 		}
@@ -136,7 +144,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	var consensusHeightTime time.Time
 
 	if dst.clientState.ConsensusTime.IsZero() {
-		height := int64(dst.clientState.ConsensusHeight.RevisionHeight)
+		height := int64(dst.clientState.LatestHeight.RevisionHeight)
 		h, err := src.chainProvider.QueryIBCHeader(ctx, height)
 		if err != nil {
 			return false, fmt.Errorf("query ibc header: chain id: %s: height: %d: %w", src.chainProvider.ChainId(), height, err)
@@ -245,28 +253,30 @@ func (mp *messageProcessor) assembleMessage(
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
 	clientID := dst.info.ClientID
-	clientConsensusHeight := dst.clientState.ConsensusHeight
-	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+	clientLatestHeight := dst.clientState.LatestHeight
+	trustedHeight := dst.clientTrustedState.ClientState.LatestHeight
 
-	var trustedNextValidatorsHash []byte
+	var trustedNextValHash []byte
 	if dst.clientTrustedState.IBCHeader != nil {
-		trustedNextValidatorsHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
+		trustedNextValHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
 	}
 
 	// If the client state height is not equal to the client trusted state height and the client state height is
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
-	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
-		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
-		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
+	if !trustedHeight.EQ(clientLatestHeight) {
+		// TODO: looks like dupe code with updateClientTrustedState
+
+		deltaConsensusHeight := int64(clientLatestHeight.RevisionHeight) - int64(trustedHeight.RevisionHeight)
+		if trustedHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
 			return fmt.Errorf("observed client trusted height does not equal latest client state height: trusted: %d: latest %d",
-				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
+				trustedHeight.RevisionHeight, clientLatestHeight.RevisionHeight)
 		}
 
-		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
+		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientLatestHeight.RevisionHeight+1))
 		if err != nil {
 			return fmt.Errorf("query IBC header at height: %d: chain_id: %s, %w",
-				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
+				clientLatestHeight.RevisionHeight+1, src.info.ChainID, err)
 		}
 
 		mp.log.Debug("Queried for client trusted IBC header",
@@ -274,7 +284,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
 			zap.String("counterparty_client_id", clientID),
-			zap.Uint64("height", clientConsensusHeight.RevisionHeight+1),
+			zap.Uint64("height", clientLatestHeight.RevisionHeight+1),
 			zap.Uint64("latest_height", src.latestBlock.Height),
 		)
 
@@ -283,20 +293,22 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 			IBCHeader:   header,
 		}
 
-		trustedConsensusHeight = clientConsensusHeight
-		trustedNextValidatorsHash = header.NextValidatorsHash()
+		trustedHeight = clientLatestHeight
+		trustedNextValHash = header.NextValidatorsHash()
 	}
 
-	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
-		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
+	if src.latestHeader.Height() == trustedHeight.RevisionHeight &&
+		// TODO: wth?
+		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValHash) {
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
-			trustedConsensusHeight.RevisionHeight)
+			trustedHeight.RevisionHeight)
 	}
 
+	// get the header to update with a new trusted, base on what we have for trusted
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
-		trustedConsensusHeight,
+		trustedHeight,
 		dst.clientTrustedState.IBCHeader,
 	)
 	if err != nil {
@@ -314,7 +326,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 }
 
 // trackAndSendMessages will increment attempt counters for each message and send each message.
-// Messages will be batched if the broadcast mode is configured to 'batch' and there was not an error
+// Messages will be batchNotifyRotateTrustErrored if the broadcast mode is configured to 'batch' and there was not an error
 // in a previous batch.
 func (mp *messageProcessor) trackAndSendMessages(ctx context.Context, src, dst *pathEndRuntime, needsClientUpdate bool) {
 	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
@@ -487,6 +499,7 @@ func (mp *messageProcessor) sendBatchMessages(
 		if errors.Is(err, chantypes.ErrRedundantTx) {
 			return
 		}
+		mp.pp.NotifyTrustError(err)
 		mp.log.Error("Sending messages from batch to mempool.", errFields...)
 		return
 	}

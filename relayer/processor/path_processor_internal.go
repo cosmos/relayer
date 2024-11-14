@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
@@ -691,29 +692,33 @@ ClientICQLoop:
 	return res
 }
 
-// updateClientTrustedState combines the counterparty chains trusted IBC header
-// with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
-	if src.clientTrustedState.ClientState.ConsensusHeight.GTE(src.clientState.ConsensusHeight) {
-		// current height already trusted
+	if src.clientTrustedState.ClientState.LatestHeight.GTE(src.clientState.LatestHeight) {
 		return
 	}
 	// need to assemble new trusted state
-	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
+	// We see if header for H+1 exists because the client trusts H and has the nextValidatorsHash of it (+1)
+	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.LatestHeight.RevisionHeight+1]
 	if !ok {
-		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
-			dst.clientTrustedState.IBCHeader != nil &&
-			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
-			src.clientTrustedState = provider.ClientTrustedState{
-				ClientState: src.clientState,
-				IBCHeader:   ibcHeaderCurrent,
+
+		// We dont have H+1
+		// Maybe we can use H?
+
+		// DYMENSION: changed from upstream. Think there was a bug there. Now looking at src.clientTrustedState
+
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.LatestHeight.RevisionHeight]; ok {
+			if src.clientTrustedState.IBCHeader != nil && bytes.Equal(src.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+				src.clientTrustedState = provider.ClientTrustedState{
+					ClientState: src.clientState,
+					IBCHeader:   ibcHeaderCurrent,
+				}
+				return
 			}
-			return
 		}
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
-			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
+			zap.Uint64("height", src.clientState.LatestHeight.RevisionHeight+1),
 		)
 		return
 
@@ -1070,20 +1075,45 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost, pp)
 		if err := mp.processMessages(ctx, pathEnd1Messages, pp.pathEnd2, pp.pathEnd1); err != nil {
 			return fmt.Errorf("process path end 1 messages: dst: %s: %w", pp.pathEnd1.info.ChainID, err)
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost)
+		mp := newMessageProcessor(pp.log, pp.metrics, pp.memo, pp.clientUpdateThresholdTime, pp.isLocalhost, pp)
 		if err := mp.processMessages(ctx, pathEnd2Messages, pp.pathEnd1, pp.pathEnd2); err != nil {
 			return fmt.Errorf("process path end 2 messages: dst: %s: %w", pp.pathEnd2.info.ChainID, err)
 		}
 		return nil
 	})
 	return eg.Wait()
+}
+
+// called by other threads when they get an error
+func (pp *PathProcessor) NotifyTrustError(err error) {
+	needle := "cant trust new val set"
+	if strings.Contains(err.Error(), needle) {
+		if !pp.pathEnd2.chainProvider.IsDymensionRollapp() {
+			pp.log.Error("Rotation only supported for Cosmos chains: config.")
+			return
+
+		}
+		pp.log.Info("Val set trust error, fixing.")
+		pp.DoRotationAdjacentUpdates(context.Background())
+	}
+}
+
+func (pp *PathProcessor) DoRotationAdjacentUpdates(ctx context.Context) {
+	solver := rotationSolver{
+		hub: pp.pathEnd1,
+		ra:  pp.pathEnd2,
+		log: pp.log,
+	}
+	if err := solver.solve(ctx); err != nil {
+		pp.log.Error("Rotation solver.", zap.Error(err))
+	}
 }
 
 func (pp *PathProcessor) channelMessagesToSend(pathEnd1ChannelHandshakeRes, pathEnd2ChannelHandshakeRes, pathEnd1ChannelCloseRes, pathEnd2ChannelCloseRes pathEndChannelHandshakeResponse) ([]channelIBCMessage, []channelIBCMessage) {

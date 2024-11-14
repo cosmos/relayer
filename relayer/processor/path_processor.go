@@ -124,6 +124,7 @@ func NewPathProcessor(
 		maxReceiverSize:           maxReceiverSize,
 		noFlush:                   noFlush,
 	}
+
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()
 	}

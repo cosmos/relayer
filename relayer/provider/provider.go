@@ -65,11 +65,14 @@ type IBCHeader interface {
 
 // ClientState holds the current state of a client from a single chain's perspective
 type ClientState struct {
-	ClientID        string
-	ConsensusHeight clienttypes.Height
-	TrustingPeriod  time.Duration
-	ConsensusTime   time.Time
-	Header          []byte
+	ClientID string
+	// This is latest height known to the light client
+	LatestHeight   clienttypes.Height
+	TrustingPeriod time.Duration
+	// NOTE: not populated
+	ConsensusTime time.Time
+	// NOTE: not populated
+	Header []byte
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,
@@ -228,6 +231,9 @@ type KeyProvider interface {
 type ChainProvider interface {
 	QueryProvider
 	KeyProvider
+
+	// Nasty hack to avoid import cycle
+	IsDymensionRollapp() bool
 
 	Init(ctx context.Context) error
 

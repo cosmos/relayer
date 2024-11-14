@@ -176,6 +176,10 @@ type CosmosProvider struct {
 	cometLegacyBlockResults bool
 }
 
+func (cc *CosmosProvider) IsDymensionRollapp() bool {
+	return cc.PCfg.DymRollapp
+}
+
 type WalletState struct {
 	NextAccountSequence uint64
 	Mu                  sync.Mutex

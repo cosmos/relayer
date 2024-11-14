@@ -26,16 +26,22 @@ type pathEndRuntime struct {
 	chainProvider provider.ChainProvider
 
 	// cached data
-	latestBlock          provider.LatestBlock
-	messageCache         IBCMessagesCache
-	clientState          provider.ClientState
+	latestBlock  provider.LatestBlock
+	messageCache IBCMessagesCache
+
+	// This is the actual state of the light client for the counterparty
+	clientState provider.ClientState
+	// This is a copy of clientState but it also might have a header which can be used as a trusted header
+	// when submitted updates.
 	clientTrustedState   provider.ClientTrustedState
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
 	channelStateCacheMu  sync.RWMutex
 	channelOrderCache    map[string]chantypes.Order
-	latestHeader         provider.IBCHeader
-	ibcHeaderCache       IBCHeaderCache
+
+	// The actual latest header of the chain known to the relayer by constant querying
+	latestHeader   provider.IBCHeader
+	ibcHeaderCache IBCHeaderCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData
@@ -438,7 +444,7 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 	state provider.ClientState,
 	counterparty *pathEndRuntime,
 ) (bool, error) {
-	cachedHeader := counterparty.ibcHeaderCache[state.ConsensusHeight.RevisionHeight]
+	cachedHeader := counterparty.ibcHeaderCache[state.LatestHeight.RevisionHeight]
 
 	misbehaviour, err := provider.CheckForMisbehaviour(ctx, counterparty.chainProvider, pathEnd.info.ClientID, state.Header, cachedHeader)
 	if err != nil {
@@ -493,9 +499,9 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 		)
 	}
 
-	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
+	if d.ClientState.LatestHeight != pathEnd.clientState.LatestHeight {
 		pathEnd.clientState = d.ClientState
-		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.ConsensusHeight.RevisionHeight]
+		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.LatestHeight.RevisionHeight]
 		if ok {
 			pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
 		}
