@@ -405,9 +405,10 @@ func (ccp *CosmosChainProcessor) queryCycle(
 		firstHeightToQuery++
 	}
 
-	ccp.log.Info("Starting query cycle", zap.Any("chain", chainID), zap.Any("first height", firstHeightToQuery))
-
 	for heightToQuery := firstHeightToQuery; heightToQuery <= persistence.latestHeight; heightToQuery++ {
+		if heightToQuery == firstHeightToQuery {
+			ccp.log.Debug("Starting query cycle", zap.Any("chain", chainID), zap.Any("first height", firstHeightToQuery))
+		}
 		var (
 			eg        errgroup.Group
 			blockRes  *coretypes.ResultBlockResults
