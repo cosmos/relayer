@@ -38,6 +38,7 @@ func (c *Chain) blockUntilClientIsCanonical(ctx context.Context, rollappID strin
 	},
 		retry.Attempts(0), // forever
 		retry.Delay(20*time.Second),
+		retry.DelayType(retry.FixedDelay),
 		retry.OnRetry(func(n uint, err error) {
 			c.log.Info("Query canonical client.", zap.Any("attempt", n), zap.Error(err))
 		}),
