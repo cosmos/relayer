@@ -11,6 +11,22 @@ import (
 	"go.uber.org/zap"
 )
 
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
+/// ~~ THIS IS DYMENSION FUNCTIONALITY ~~ ///
+/// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
+
+/*
+This can be required in case of
+1. Rotation
+	In this case, it's expected there are two headers h,h+1 where h.nextValidatorsHash != h.validatorsHash.
+	We will enter the flow because the relayer will first naively try to update the client with the latest header
+	using the last trusted one, which will return a trust error.
+	Solution: we just need to find these two headers and send them to the hub.
+2. Hard fork (which also induces a rotation)
+	In this case, there will be a header h where h.validatorsHash != h.nextValidatorsHash, but the hub will have
+	already updated the light client by itself, so that we just need to use the latest header to update the client, like normal.
+*/
+
 type rotationSolver struct {
 	hub *pathEndRuntime
 	ra  *pathEndRuntime
@@ -93,7 +109,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 		return 1, nil
 	}
 
-	// ans will be the first height on the hub where nextValidatorsHash changes
+	// ans will be the first height on the hub where nextValidatorsHash changes to something different than hubValHash
 	ans, err := search(time.Millisecond*50, hHub, s.ra.latestHeader.Height(), check)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
