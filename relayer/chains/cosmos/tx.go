@@ -622,10 +622,11 @@ func (cc *CosmosProvider) buildMessages(
 
 	cMsgs := CosmosMsgs(msgs...)
 
-	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey)
+	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey, sequenceGuard.ForceRequery)
 	if err != nil {
 		return nil, 0, sdk.Coins{}, err
 	}
+	sequenceGuard.ForceRequery = false
 
 	if memo != "" {
 		txf = txf.WithMemo(memo)
@@ -708,6 +709,7 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *Wall
 	if sequenceGuard == nil {
 		panic("sequence guard not configured")
 	}
+	sequenceGuard.ForceRequery = true
 
 	matches := accountSeqRegex.FindStringSubmatch(err.Error())
 	if len(matches) == 0 {
@@ -1656,7 +1658,7 @@ func (cc *CosmosProvider) MsgRegisterCounterpartyPayee(portID, channelID, relaye
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
-func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.Factory, error) {
+func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string, forceRequery bool) (tx.Factory, error) {
 	var (
 		err      error
 		from     sdk.AccAddress
@@ -1680,19 +1682,23 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 		WithCodec(cc.Cdc.Marshaler).
 		WithFromAddress(from)
 
-	// if rollapp, we know that the account might not exist at this point
-	if !cc.PCfg.DymRollapp {
-		// Set the account number and sequence on the transaction factory and retry if fail
-		if err = retry.Do(func() error {
-			return txf.AccountRetriever().EnsureExists(cliCtx, from)
-		}, rtyAtt, rtyDel, rtyErr); err != nil {
+	accountExists := true
+	if err = retry.Do(func() error {
+		return txf.AccountRetriever().EnsureExists(cliCtx, from)
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
+		accountExists = false
+		if !cc.PCfg.DymRollapp {
+			// for the hub, we know it must exist
 			return txf, err
 		}
+		// for rollapp, it's OK, due to whitelist relayers
 	}
+
+	forceRequery = forceRequery && accountExists
 
 	// TODO: why this code? this may potentially require another query when we don't want one
 	initNum, initSeq := txf.AccountNumber(), txf.Sequence()
-	if initNum == 0 || initSeq == 0 {
+	if forceRequery || initNum == 0 || initSeq == 0 {
 		if err = retry.Do(func() error {
 			num, seq, err = txf.AccountRetriever().GetAccountNumberSequence(cliCtx, from)
 			// if rollapp, we know that the account might not exist at this point
@@ -1704,11 +1710,11 @@ func (cc *CosmosProvider) PrepareFactory(txf tx.Factory, signingKey string) (tx.
 			return txf, err
 		}
 
-		if initNum == 0 {
+		if initNum == 0 || forceRequery {
 			txf = txf.WithAccountNumber(num)
 		}
 
-		if initSeq == 0 {
+		if initSeq == 0 || forceRequery {
 			txf = txf.WithSequence(seq)
 		}
 	}

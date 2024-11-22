@@ -182,7 +182,12 @@ func (cc *CosmosProvider) IsDymensionRollapp() bool {
 
 type WalletState struct {
 	NextAccountSequence uint64
-	Mu                  sync.Mutex
+
+	// If true, will definitely requery the account sequence before sending a TX.
+	ForceRequery bool
+
+	// It's taken before creating the TX, and released after the TX is submitted.
+	Mu sync.Mutex
 }
 
 func (cc *CosmosProvider) ProviderConfig() provider.ProviderConfig {
