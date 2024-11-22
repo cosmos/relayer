@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -420,23 +421,30 @@ func (ccp *CosmosChainProcessor) queryCycle(
 		eg.Go(func() (err error) {
 			// there is no need for an explicit timeout here, since the rpc client already embeds a timeout
 			x := time.Now()
-			c := make(chan struct{})
 			h := heightToQuery
+			deadline := time.Minute * 5
+			qCtx, cancel := context.WithTimeout(ctx, deadline)
+			defer cancel()
+			ok := atomic.Bool{}
 			go func() {
 				t := time.NewTicker(30 * time.Second)
+				defer t.Stop()
 				y := time.Now()
 				for {
 					select {
 					case <-t.C:
 						ccp.log.Debug("Long running block results query is still ongoing",
 							zap.Any("elapsed", time.Since(y)), zap.Any("chain", chainID), zap.Any("height", h))
-					case <-c:
-						t.Stop()
+					case <-qCtx.Done():
+						if !ok.Load() {
+							ccp.log.Debug("Long running block results query abandoned (timeout)",
+								zap.Any("elapsed", time.Since(y)), zap.Any("chain", chainID), zap.Any("height", h))
+						}
 						return
 					}
 				}
 			}()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(ctx, &h)
+			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(qCtx, &h)
 			if err != nil && ccp.metrics != nil {
 				ccp.metrics.IncBlockQueryFailure(chainID, "RPC Client")
 			}
@@ -446,7 +454,7 @@ func (ccp *CosmosChainProcessor) queryCycle(
 			if err != nil {
 				return fmt.Errorf("block results: elapsed: %s: %w", time.Since(x), err)
 			}
-			close(c)
+			ok.Store(true)
 			return nil
 		})
 

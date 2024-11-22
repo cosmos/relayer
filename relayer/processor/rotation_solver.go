@@ -38,6 +38,7 @@ var errTargetNotFound = fmt.Errorf("target not found")
 
 // must be sure to run on same thread as message processor
 func (s *rotationSolver) solve(ctx c.Context) error {
+
 	/*
 		1. Get nextValidatorsHash, height of client state on hub
 		2. Binary search rollapp to find valset change heights
@@ -227,4 +228,8 @@ func (s *rotationSolver) broadcastUpdates(ctx c.Context, msgs []provider.Relayer
 		}
 	})
 	return s.hub.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, " ", ctx, cbs)
+}
+
+func (s *rotationSolver) maybeForceUpdate(ctx c.Context) error {
+
 }

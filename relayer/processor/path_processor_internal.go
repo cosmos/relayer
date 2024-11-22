@@ -1100,7 +1100,7 @@ func (pp *PathProcessor) NotifyTrustError(err error) {
 			return
 
 		}
-		pp.log.Info("Val set trust error, will try to fix.", zap.Error(err))
+		pp.log.Info("Val set trust error, will try to fix. Triggering error:", zap.Error(err))
 		pp.DoRotationAdjacentUpdates(context.Background())
 	}
 }
