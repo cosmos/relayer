@@ -44,17 +44,24 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 		3. Send updates to hub
 	*/
 
-	h, preRotationValhash, err := s.hubClientValset(ctx)
+	h, preRotNextValHash, err := s.hubClientValset(ctx)
 	if err != nil {
 		return fmt.Errorf("get initial hub client valset: %w", err)
 	}
 
+	s.log.Info("Relayer state.",
+		zap.Any("hub client latest height", h),
+		zap.Any("hub client next val hash", preRotNextValHash),
+		zap.Any("rollapp latest height", s.ra.latestHeader.Height()),
+		zap.Any("rollapp latest next val hash", s.ra.latestHeader.NextValidatorsHash()),
+	)
+
 	// sanity check to make sure that the rollapp actually has a different val set (confirm there is a problem)
-	if bytes.Equal(s.ra.latestHeader.NextValidatorsHash(), preRotationValhash) {
+	if bytes.Equal(s.ra.latestHeader.NextValidatorsHash(), preRotNextValHash) {
 		return errFalsePositive
 	}
 
-	rollappHeaders, err := s.rollappHeaders(ctx, h, preRotationValhash)
+	rollappHeaders, err := s.rollappHeaders(ctx, h, preRotNextValHash)
 	if err != nil {
 		return fmt.Errorf("search for two rollapp headers: %w", err)
 	}
@@ -80,7 +87,7 @@ func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) 
 }
 
 // finds the two headers where it changes from hValhash to a different one
-func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash []byte) ([]provider.IBCHeader, error) {
+func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubNextValHash []byte) ([]provider.IBCHeader, error) {
 	// we know a height h that the hub has with an old valhash, need to find where valhash changes
 
 	check := func(ansCandidate uint64) (int, error) {
@@ -92,7 +99,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 		if err != nil {
 			return 0, fmt.Errorf("query ibc header candidate h sub 1: %d: %w", hQ, err)
 		}
-		if !bytes.Equal(headerSub1.NextValidatorsHash(), hubValHash) {
+		if !bytes.Equal(headerSub1.NextValidatorsHash(), hubNextValHash) {
 			// too high
 			return -1, nil
 		}
@@ -101,7 +108,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 		if err != nil {
 			return 0, fmt.Errorf("query ibc header candidate h: %d: %w", hQ, err)
 		}
-		if !bytes.Equal(header.NextValidatorsHash(), hubValHash) {
+		if !bytes.Equal(header.NextValidatorsHash(), hubNextValHash) {
 			// perfect: this is the FIRST header with a different nextValidatorsHash
 			return 0, nil
 		}
@@ -109,7 +116,7 @@ func (s *rotationSolver) rollappHeaders(ctx c.Context, hHub uint64, hubValHash [
 		return 1, nil
 	}
 
-	// ans will be the first height on the hub where nextValidatorsHash changes to something different than hubValHash
+	// ans will be the first height on the hub where nextValidatorsHash changes to something different than hubNextValHash
 	ans, err := search(time.Millisecond*50, hHub, s.ra.latestHeader.Height(), check)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
