@@ -477,7 +477,6 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 	counterParty *pathEndRuntime,
 	memoLimit, maxReceiverSize int,
 ) {
-	pathEnd.log.Debug("Merge cache data.", zap.Any("data", d), zap.Any("path end chain id", pathEnd.info.ChainID))
 
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	var zeroType provider.LatestBlock
