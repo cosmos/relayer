@@ -449,6 +449,7 @@ $ %s tx conn demo-path --timeout 5s`,
 			}
 
 			// ensure that the clients exist
+			// On Dymension: this is using src = Hub, dst = Rollapp
 			clientSrc, clientDst, err := c[src].CreateClients(
 				cmd.Context(),
 				c[dst],
@@ -461,7 +462,7 @@ $ %s tx conn demo-path --timeout 5s`,
 				memo,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("create clients: src: %s: dst: %s: %w", clientSrc, clientDst, err)
 			}
 
 			if clientSrc != "" || clientDst != "" {

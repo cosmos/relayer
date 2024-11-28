@@ -87,6 +87,7 @@ func (c *Chain) CreateClients(ctx context.Context,
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
+		// For Dymension: this is creating the rollapp client on the Hub
 		clientDst, err = CreateClient(egCtx, dst, c,
 			dstUpdateHeader, srcUpdateHeader,
 			allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour,
@@ -101,7 +102,7 @@ func (c *Chain) CreateClients(ctx context.Context,
 
 	if err := eg.Wait(); err != nil {
 		// If one completed successfully and the other didn't, we can still report modified.
-		return clientSrc, clientDst, err
+		return clientSrc, clientDst, fmt.Errorf("create clients: %w", err)
 	}
 
 	c.log.Info(
@@ -118,6 +119,8 @@ func (c *Chain) CreateClients(ctx context.Context,
 // CreateClient creates client tracking dst on src.
 func CreateClient(
 	ctx context.Context,
+
+	// Src is the one to create a client ON, Dst is the one to query the info from
 	src, dst *Chain,
 	srcUpdateHeader, dstUpdateHeader provider.IBCHeader,
 	allowUpdateAfterExpiry,
