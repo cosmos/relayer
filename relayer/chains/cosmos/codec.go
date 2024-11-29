@@ -29,6 +29,7 @@ import (
 	"github.com/cosmos/ibc-go/v8/modules/apps/transfer"
 	ibc "github.com/cosmos/ibc-go/v8/modules/core"
 
+	dymtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/dym/lightclient/types"
 	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	ethermintcodecs "github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
@@ -87,6 +88,11 @@ func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string, accBe
 			encodingConfig.Amino.RegisterConcrete(&injectivecodecs.PubKey{}, injectivecodecs.PubKeyName, nil)
 			encodingConfig.Amino.RegisterConcrete(&injectivecodecs.PrivKey{}, injectivecodecs.PrivKeyName, nil)
 		}
+	}
+	{
+		// DYMENSION
+		dymtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+		encodingConfig.Amino.RegisterConcrete(&dymtypes.MsgSetCanonicalClient{}, "/lightclient.SetCanonicalClient", nil)
 	}
 
 	return encodingConfig

@@ -44,10 +44,12 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v8/modules/light-clients/09-localhost"
+	dymtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/dym/lightclient/types"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/danwt/gerr/gerr"
+	"github.com/dymensionxyz/gerr-cosmos/gerrc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -137,7 +139,7 @@ func (cc *CosmosProvider) SendMessages(ctx context.Context, msgs []provider.Rela
 			zap.Error(err),
 		)
 	})); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("send messages to mempool: %w", err)
 	}
 
 	wg.Wait()
@@ -624,7 +626,7 @@ func (cc *CosmosProvider) buildMessages(
 
 	txf, err := cc.PrepareFactory(cc.TxFactory(), txSignerKey)
 	if err != nil {
-		return nil, 0, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, fmt.Errorf("prepare factory: %w", err)
 	}
 
 	if memo != "" {
@@ -671,7 +673,7 @@ func (cc *CosmosProvider) buildMessages(
 			if cc.PCfg.DymRollapp {
 				adjusted = defaultRollappGas
 			} else {
-				return nil, 0, sdk.Coins{}, err
+				return nil, 0, sdk.Coins{}, fmt.Errorf("calculate gas: %w", err)
 			}
 		}
 	}
@@ -682,11 +684,11 @@ func (cc *CosmosProvider) buildMessages(
 	// Build the transaction builder
 	txb, err := txf.BuildUnsignedTx(cMsgs...)
 	if err != nil {
-		return nil, 0, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, fmt.Errorf("build unsigned tx: %w", err)
 	}
 
 	if err = tx.Sign(ctx, txf, txSignerKey, txb, false); err != nil {
-		return nil, 0, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, fmt.Errorf("sign tx: %w", err)
 	}
 
 	tx := txb.GetTx()
@@ -695,7 +697,7 @@ func (cc *CosmosProvider) buildMessages(
 	// Generate the transaction bytes
 	txBytes, err = cc.Cdc.TxConfig.TxEncoder()(tx)
 	if err != nil {
-		return nil, 0, sdk.Coins{}, err
+		return nil, 0, sdk.Coins{}, fmt.Errorf("tx encoder: %w", err)
 	}
 
 	return txBytes, txf.Sequence(), fees, nil
@@ -718,6 +720,46 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(sequenceGuard *Wall
 		return
 	}
 	sequenceGuard.NextAccountSequence = nextSeq
+}
+
+func (cc *CosmosProvider) TrySetCanonicalClient(ctx context.Context, clientID string) error {
+	// old http query canonical client code is here https://github.com/dymensionxyz/go-relayer/blob/7405c3f4331e7c62683368b5ed89419c9bceedf8/relayer/chains/cosmos/query.go#L345-L378
+	signer, err := cc.Address()
+	if err != nil {
+		return fmt.Errorf("relayer bech32 wallet address: %w", err)
+	}
+	msg := &dymtypes.MsgSetCanonicalClient{
+		ClientId: clientID,
+		Signer:   signer,
+	}
+
+	m := NewCosmosMessage(msg, func(signer string) {
+		msg.Signer = signer
+	})
+
+	res, ok, err := cc.SendMessage(ctx, m, "")
+
+	var code uint32
+	var data string
+	var txHash string
+	var height int64
+	var errs string
+
+	if res != nil {
+		code = res.Code
+		data = res.Data
+		txHash = res.TxHash
+		height = res.Height
+	}
+	if err != nil {
+		errs = err.Error()
+	}
+	if !ok || err != nil {
+		return gerrc.ErrUnknown.Wrapf(
+			"send message: %s: code: %d, data: %s, txHash: %s, height: %d", errs, code, data, txHash, height,
+		)
+	}
+	return nil
 }
 
 // MsgCreateClient creates an sdk.Msg to update the client on src with consensus state from dst
@@ -1777,7 +1819,7 @@ func (cc *CosmosProvider) SetWithExtensionOptions(txf tx.Factory) (tx.Factory, e
 func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, signingKey string, msgs ...sdk.Msg) (txtypes.SimulateResponse, uint64, error) {
 	keyInfo, err := cc.Keybase.Key(signingKey)
 	if err != nil {
-		return txtypes.SimulateResponse{}, 0, err
+		return txtypes.SimulateResponse{}, 0, fmt.Errorf("keybase key: %w", err)
 	}
 
 	var txBytes []byte
@@ -1785,7 +1827,7 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 		var err error
 		txBytes, err = BuildSimTx(keyInfo, txf, msgs...)
 		if err != nil {
-			return err
+			return fmt.Errorf("build sim tx: %w", err)
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
@@ -1802,7 +1844,7 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 		var err error
 		res, err = cc.QueryABCI(ctx, simQuery)
 		if err != nil {
-			return err
+			return fmt.Errorf("query abci: %w", err)
 		}
 		return nil
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
@@ -1815,7 +1857,10 @@ func (cc *CosmosProvider) CalculateGas(ctx context.Context, txf tx.Factory, sign
 	}
 
 	gas, err := cc.AdjustEstimatedGas(simRes.GasInfo.GasUsed)
-	return simRes, gas, err
+	if err != nil {
+		return simRes, gas, fmt.Errorf("adjust estimated gas: %w", err)
+	}
+	return simRes, gas, nil
 }
 
 // TxFactory instantiates a new tx factory with the appropriate configuration settings for this chain.
@@ -1851,11 +1896,11 @@ func (cc *CosmosProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) 
 
 	result, err := cc.RPCClient.ABCIQueryWithOptions(ctx, req.Path, req.Data, opts)
 	if err != nil {
-		return abci.ResponseQuery{}, err
+		return abci.ResponseQuery{}, fmt.Errorf("abci query with options: %w", err)
 	}
 
 	if !result.Response.IsOK() {
-		return abci.ResponseQuery{}, sdkErrorToGRPCError(result.Response)
+		return abci.ResponseQuery{}, fmt.Errorf("abci query with options res: %s", sdkErrorToGRPCError(result.Response))
 	}
 
 	// data from trusted node or subspace query doesn't need verification
@@ -1905,14 +1950,14 @@ func isQueryStoreWithProof(path string) bool {
 func BuildSimTx(info *keyring.Record, txf tx.Factory, msgs ...sdk.Msg) ([]byte, error) {
 	txb, err := txf.BuildUnsignedTx(msgs...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build unsigned tx: %w", err)
 	}
 
 	var pk cryptotypes.PubKey = &secp256k1.PubKey{} // use default public key type
 
 	pk, err = info.GetPubKey()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get pubkey: %w", err)
 	}
 
 	// Create an empty signature literal as the ante handler will populate with a
@@ -1925,7 +1970,7 @@ func BuildSimTx(info *keyring.Record, txf tx.Factory, msgs ...sdk.Msg) ([]byte, 
 		Sequence: txf.Sequence(),
 	}
 	if err := txb.SetSignatures(sig); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("set signatures: %w", err)
 	}
 
 	protoProvider, ok := txb.(protoTxProvider)

@@ -2,8 +2,8 @@ package relayer
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -18,29 +18,27 @@ import (
 // until the client has been designated canonical on the Hub.
 // Assumes c is the Hub.
 // Blocks the thread
-func (c *Chain) blockUntilClientIsCanonical(ctx context.Context, rollappID string) error {
+func (c *Chain) blockUntilClientIsCanonical(ctx context.Context) error {
 	expClient := c.PathEnd.ClientID
-	c.log.Info("blockUntilClientIsCanonical comparing to expected", zap.Any("expected client id", expClient)) // TODO: debug
+	c.log.Info("blockUntilClientIsCanonical ", zap.Any("client id", expClient))
 	return retry.Do(func() error {
-		gotClient, err := QueryCanonicalClient(ctx, c, rollappID)                                     // TODO: check if ctx has deadline
-		c.log.Info("query canonical client got client", zap.Any("client", gotClient), zap.Error(err)) // TODO: debug
-		if gotClient == expClient {
-			return nil
-		}
+		err := TrySetCanonicalClient(ctx, c, expClient) // TODO: check if ctx has deadline
 		if err != nil {
-			// TODO: disambiguate more errors
-			return retry.Unrecoverable(err)
+			needle := "not at least one cons state matches the rollapp state" // hacky :(
+			if !strings.Contains(err.Error(), needle) {
+				// something really wrong
+				c.log.Info("BlockUntilClientIsCanonical try set canonical client.", zap.Error(err))
+				return retry.Unrecoverable(err)
+			}
+			// just need to wait for sequencer to catch up
 		}
-		if gotClient != "" {
-			return retry.Unrecoverable(fmt.Errorf("different canonical client set: %s", gotClient))
-		}
-		return errors.New("canonical client not set")
+		return err
 	},
 		retry.Attempts(0), // forever
 		retry.Delay(20*time.Second),
-		retry.DelayType(retry.FixedDelay),
+		retry.MaxDelay(time.Minute),
 		retry.OnRetry(func(n uint, err error) {
-			c.log.Info("Query canonical client.", zap.Any("attempt", n), zap.Error(err))
+			c.log.Info("Try set canonical client.", zap.Any("attempt", n), zap.Error(err))
 		}),
 	)
 }
@@ -81,7 +79,7 @@ func (c *Chain) CreateOpenChannels(
 
 	if blockUntilClientIsCanonical {
 		c.log.Info("Blocking until client is canonical.")
-		err := c.blockUntilClientIsCanonical(ctx, dst.ChainID())
+		err := c.blockUntilClientIsCanonical(ctx)
 		if err != nil {
 			return fmt.Errorf("blockUntilClientIsCanonical: %w", err)
 		}

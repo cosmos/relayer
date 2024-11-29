@@ -36,14 +36,14 @@ func QueryLatestHeights(ctx context.Context, src, dst *Chain) (srch, dsth int64,
 	return
 }
 
-// QueryCanonicalClient returns the canonical client for the rollapp. Empty if none set.
+// Returns the canonical client for the rollapp. Empty if none set.
 // Passed chain must be Dymension hub.
-func QueryCanonicalClient(ctx context.Context, c *Chain, rollappID string) (string, error) {
-	hub, ok := c.ChainProvider.(provider.DymensionHubQueryProvider)
+func TrySetCanonicalClient(ctx context.Context, c *Chain, clientID string) error {
+	hub, ok := c.ChainProvider.(provider.DymensionHubProvider)
 	if !ok {
-		return "", errors.New("not hub query provider")
+		return errors.New("not hub provider")
 	}
-	return hub.QueryCanonicalLightClient(ctx, rollappID)
+	return hub.TrySetCanonicalClient(ctx, clientID)
 }
 
 // QueryClientStates queries the client state of multiple chains at once

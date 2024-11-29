@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cometbft/cometbft/abci/types"
 	cometcrypto "github.com/cometbft/cometbft/crypto"
@@ -81,7 +82,7 @@ func (r RPCClient) ABCIQueryWithOptions(
 
 	res, err := r.c.ABCIQueryWithOptions(ctx, path, slbytes.HexBytes(data), o)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("raw client ABCIQueryWithOptions: %w", err)
 	}
 
 	return convertResultABCIQuery(res), nil

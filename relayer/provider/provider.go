@@ -417,8 +417,8 @@ type ChainProvider interface {
 	SetRpcAddr(rpcAddr string) error
 }
 
-type DymensionHubQueryProvider interface {
-	QueryCanonicalLightClient(ctx context.Context, rollappID string) (string, error)
+type DymensionHubProvider interface {
+	TrySetCanonicalClient(ctx context.Context, clientID string) error
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?

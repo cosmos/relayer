@@ -22,8 +22,8 @@ require (
 	github.com/cosmos/gogoproto v1.4.11
 	github.com/cosmos/ibc-go/modules/capability v1.0.0
 	github.com/cosmos/ibc-go/v8 v8.0.0
-	github.com/cosmos/ics23/go v0.10.0
 	github.com/danwt/gerr v1.0.2
+	github.com/dymensionxyz/gerr-cosmos v1.1.0
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/gofrs/flock v0.8.1
 	github.com/google/go-github/v43 v43.0.0
@@ -82,6 +82,7 @@ require (
 	github.com/cosmos/cosmos-db v1.0.0 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v1.0.1 // indirect
+	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.13.3 // indirect
 	github.com/crate-crypto/go-kzg-4844 v0.7.0 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
