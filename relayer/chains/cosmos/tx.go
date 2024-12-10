@@ -45,6 +45,8 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	localhost "github.com/cosmos/ibc-go/v8/modules/light-clients/09-localhost"
 	dymtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/dym/lightclient/types"
+	rdktypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/rollapp/rdk/hub-genesis/types"
+
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -733,10 +735,28 @@ func (cc *CosmosProvider) TrySetCanonicalClient(ctx context.Context, clientID st
 		Signer:   signer,
 	}
 
-	m := NewCosmosMessage(msg, func(signer string) {
+	return cc.simpleSend(ctx, msg, func(signer string) {
 		msg.Signer = signer
 	})
+}
 
+func (cc *CosmosProvider) TrySendGenesisTransfer(ctx context.Context, channelID string) error {
+	signer, err := cc.Address()
+	if err != nil {
+		return fmt.Errorf("relayer bech32 wallet address: %w", err)
+	}
+	msg := &rdktypes.MsgSendTransfer{
+		ChannelId: channelID,
+		Signer:    signer,
+	}
+
+	return cc.simpleSend(ctx, msg, func(signer string) {
+		msg.Signer = signer
+	})
+}
+
+func (cc *CosmosProvider) simpleSend(ctx context.Context, msg sdk.Msg, f func(string)) error {
+	m := NewCosmosMessage(msg, f)
 	res, ok, err := cc.SendMessage(ctx, m, "")
 
 	var code uint32
@@ -1343,7 +1363,8 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 
 // creates an update to trust latest header, using trusted header as a trust basis
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
-	trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+	trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader,
+) (ibcexported.ClientMessage, error) {
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)

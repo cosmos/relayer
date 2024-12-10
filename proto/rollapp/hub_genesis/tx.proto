@@ -1,0 +1,24 @@
+syntax = "proto3";
+package rollapp.hub_genesis;
+
+import "cosmos/msg/v1/msg.proto";
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/cosmos/relayer/relayer/chains/cosmos/rollapp/rdk/hub-genesis/types";
+
+
+service Msg {
+  rpc SendTransfer(MsgSendTransfer) returns (MsgSendTransferResponse);
+}
+
+// Try to send the genesis transfer
+// Must be whitelisted relayer, and channel must be open
+// Must have tokens available to send
+message MsgSendTransfer {
+  option (cosmos.msg.v1.signer) = "signer";
+  string signer = 1;
+  // ID of the canonical channel, as queried from the hub
+  string channel_id = 2;
+}
+
+message MsgSendTransferResponse {}
