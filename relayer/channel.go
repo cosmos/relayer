@@ -24,21 +24,15 @@ func (c *Chain) blockUntilClientIsCanonical(ctx context.Context) error {
 	return retry.Do(func() error {
 		err := TrySetCanonicalClient(ctx, c, expClient) // TODO: check if ctx has deadline
 		if err != nil {
-			acceptable := []string{
-				"latest rollapp height: not found",
-				"not at least one cons state matches the rollapp state",
+			needle := "not at least one cons state matches the rollapp state" // hacky :(
+			if !strings.Contains(err.Error(), needle) {
+				// something really wrong
+				c.log.Info("BlockUntilClientIsCanonical try set canonical client.", zap.Error(err))
+				return retry.Unrecoverable(err)
 			}
-			for _, needle := range acceptable {
-				if strings.Contains(err.Error(), needle) {
-					// just need to wait for sequencer to catch up
-					return err
-				}
-			}
-			// something really wrong
-			c.log.Info("BlockUntilClientIsCanonical try set canonical client.", zap.Error(err))
-			return retry.Unrecoverable(err)
+			// just need to wait for sequencer to catch up
 		}
-		return nil
+		return err
 	},
 		retry.Attempts(0), // forever
 		retry.Delay(20*time.Second),

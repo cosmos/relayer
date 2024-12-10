@@ -11,6 +11,7 @@ func TestRotationSolverSearch(t *testing.T) {
 	// our search function is looking for the first index in the array where the value changes from needle
 
 	t.Run("basic 1", func(t *testing.T) {
+
 		haystack := []int{0, 0, 0, 1, 1, 1}
 		l := 1
 		r := len(haystack) - 1
@@ -20,6 +21,7 @@ func TestRotationSolverSearch(t *testing.T) {
 	})
 
 	t.Run("basic 2", func(t *testing.T) {
+
 		haystack := []int{0, 0, 0, 1, 1, 1, 2, 2, 2}
 		l := 4
 		r := len(haystack) - 1
@@ -27,6 +29,7 @@ func TestRotationSolverSearch(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 6, int(ans))
 	})
+
 }
 
 func createCheckFun(lowerLimit int, haystack []int, needle int) func(uint64) (int, error) {

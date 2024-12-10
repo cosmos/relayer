@@ -17,10 +17,8 @@ type rotationSolver struct {
 	log *zap.Logger
 }
 
-var (
-	errFalsePositive  = fmt.Errorf("false positive (there is a bug): hub has latest valset")
-	errTargetNotFound = fmt.Errorf("target not found")
-)
+var errFalsePositive = fmt.Errorf("false positive (there is a bug): hub has latest valset")
+var errTargetNotFound = fmt.Errorf("target not found")
 
 // must be sure to run on same thread as message processor
 func (s *rotationSolver) solve(ctx c.Context) error {
@@ -53,6 +51,7 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 }
 
 func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) {
+
 	h := s.hub.clientState.LatestHeight.GetRevisionHeight()
 	header, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h))
 	if err != nil {
@@ -140,6 +139,7 @@ func search(sleep time.Duration, l, r uint64, direction func(uint64) (int, error
 
 // a = h, b = h+1 where valhash changes in between
 func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) error {
+
 	trusted, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(s.hub.clientState.LatestHeight.GetRevisionHeight())+1)
 	if err != nil {
 		return fmt.Errorf("query ibc header: %w", err)
@@ -150,6 +150,7 @@ func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) e
 		s.hub.clientState.LatestHeight,
 		trusted, // latest+1
 	)
+
 	if err != nil {
 		return fmt.Errorf("create msg update client header: %w", err)
 	}
