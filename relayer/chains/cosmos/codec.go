@@ -31,6 +31,7 @@ import (
 
 	dymtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/dym/lightclient/types"
 	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
+	rdktypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/rollapp/rdk/hub-genesis/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	ethermintcodecs "github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	injectivecodecs "github.com/cosmos/relayer/v2/relayer/codecs/injective"
@@ -91,8 +92,12 @@ func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string, accBe
 	}
 	{
 		// DYMENSION
+		// hub
 		dymtypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 		encodingConfig.Amino.RegisterConcrete(&dymtypes.MsgSetCanonicalClient{}, "/lightclient.SetCanonicalClient", nil)
+		// rollapp TODO: finish
+		rdktypes.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+		// encodingConfig.Amino.RegisterConcrete(&rdktypes.MsgSendTransfer{}, "/lightclient.SetCanonicalClient", nil)
 	}
 
 	return encodingConfig

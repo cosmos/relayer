@@ -119,7 +119,6 @@ func TestSetWithExtensionOptions(t *testing.T) {
 		require.Equal(t, expectedTypeURL, actualTypeURL)
 		require.Equal(t, expectedValue, actualValue)
 	}
-
 }
 
 type mockTxConfig struct {

@@ -33,6 +33,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains"
+	dymtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/dym/lightclient/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/danwt/gerr/gerr"
 	"go.uber.org/zap"
@@ -1300,4 +1301,13 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 		Proof:          proofBz,
 		ProofHeight:    proofHeight,
 	}, nil
+}
+
+func (cc *CosmosProvider) GetCanonicalChan(ctx context.Context, rollappID string) (string, error) {
+	c := dymtypes.NewQueryClient(cc)
+	res, err := c.RollappCanonChannel(ctx, &dymtypes.QueryRollappCanonChannelRequest{RollappId: rollappID})
+	if err != nil {
+		return "", fmt.Errorf("query: %w", err)
+	}
+	return res.RollappChannelId, nil
 }

@@ -49,6 +49,7 @@ Most of these commands take a [path] argument. Make sure:
 		upgradeClientsCmd(a),
 		createConnectionCmd(a),
 		createChannelCmd(a),
+		sendGenesisTransfer(a),
 		closeChannelCmd(a),
 		lineBreakCommand(),
 		registerCounterpartyCmd(a),
@@ -584,6 +585,47 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 				a.config.memo(cmd),
 				pathName,
 				isRollapp(c[src], c[dst]),
+			)
+		},
+	}
+
+	cmd = timeoutFlag(a.viper, cmd)
+	cmd = retryFlag(a.viper, cmd)
+	cmd = overrideFlag(a.viper, cmd)
+	cmd = channelParameterFlags(a.viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
+	return cmd
+}
+
+func sendGenesisTransfer(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "rollapp-send-genesis-transfer <path>",
+		Aliases: []string{},
+		Short:   "Send a genesis transfer from the rollapp to the hub.",
+		Long:    "Send a genesis transfer from the rollapp to the hub - intended for recovery/retry. Relayer will try automatically the first time during channel creation.",
+		Args:    withUsage(cobra.ExactArgs(1)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pathName := args[0]
+
+			c, src, dst, err := a.config.ChainsFromPath(pathName)
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if exists := c[src].ChainProvider.KeyExists(c[src].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on src chain %s", c[src].ChainProvider.Key(), c[src].ChainID())
+			}
+
+			if exists := c[dst].ChainProvider.KeyExists(c[dst].ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
+			}
+
+			// create channel if it isn't already created
+			return processor.SendGenesisTransfer(
+				cmd.Context(),
+				c[src].ChainProvider, // must be hub
+				c[dst].ChainProvider, // must be rollapp
 			)
 		},
 	}

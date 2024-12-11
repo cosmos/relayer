@@ -35,7 +35,7 @@ func (p Paths) Get(name string) (path *Path, err error) {
 	if pth, ok := p[name]; ok {
 		path = pth
 	} else {
-		err = fmt.Errorf("path with name %s does not exist", name)
+		err = fmt.Errorf("path with name does not exist: name: %s", name)
 	}
 	return
 }

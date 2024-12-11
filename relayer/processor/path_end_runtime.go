@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -287,6 +288,44 @@ func (pathEnd *pathEndRuntime) handleCallbacks(c IBCMessagesCache) {
 	}
 }
 
+func SendGenesisTransfer(
+	ctx context.Context,
+	hubC provider.ChainProvider,
+	raC provider.ChainProvider,
+) error {
+
+	hub, ok := hubC.(provider.DymensionHubProvider)
+	if !ok {
+		return errors.New("not dymension hub provider")
+	}
+
+	channelID, err := hub.GetCanonicalChan(ctx, raC.ChainId())
+	if err != nil {
+		return fmt.Errorf("get canonical chan: %w", err)
+	}
+
+	ra, ok := raC.(provider.RollappProvider)
+	if !ok {
+		return errors.New("not rollapp provider")
+	}
+	return ra.TrySendGenesisTransfer(ctx, channelID)
+}
+
+// DYMENSION
+func (pathEnd *pathEndRuntime) handleDymensionCallbacks(ctx context.Context, counterParty *pathEndRuntime, c IBCMessagesCache) {
+	if pathEnd.chainProvider.IsDymensionRollapp() {
+		_, ok := c.ChannelHandshake[chantypes.EventTypeChannelOpenConfirm]
+		if !ok {
+			return
+		}
+		pathEnd.log.Debug("Handling dymension callbacks: open confirm.")
+		err := SendGenesisTransfer(ctx, counterParty.chainProvider, pathEnd.chainProvider)
+		if err != nil {
+			pathEnd.log.Error("Send rollapp genesis transfer to hub. Operator should retry using CLI.", zap.Error(err))
+		}
+	}
+}
+
 func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache, messageLifecycle MessageLifecycle) bool {
 	if messageLifecycle == nil {
 		return false
@@ -476,6 +515,7 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 	messageLifecycle MessageLifecycle,
 	counterParty *pathEndRuntime,
 	memoLimit, maxReceiverSize int,
+	counterparty *pathEndRuntime,
 ) {
 	pathEnd.lastClientUpdateHeightMu.Lock()
 	var zeroType provider.LatestBlock
@@ -508,6 +548,8 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 	}
 
 	pathEnd.handleCallbacks(d.IBCMessagesCache)
+
+	pathEnd.handleDymensionCallbacks(ctx, counterparty, d.IBCMessagesCache)
 
 	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) || terminate {
 		cancel()

@@ -342,6 +342,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 			pp.pathEnd2,
 			pp.memoLimit,
 			pp.maxReceiverSize,
+			pp.pathEnd2,
 		)
 
 	case d := <-pp.pathEnd2.incomingCacheData:
@@ -356,6 +357,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 			pp.pathEnd1,
 			pp.memoLimit,
 			pp.maxReceiverSize,
+			pp.pathEnd1,
 		)
 
 	case <-pp.retryProcess:
@@ -374,6 +376,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 				pp.pathEnd2,
 				pp.memoLimit,
 				pp.maxReceiverSize,
+				pp.pathEnd2,
 			)
 		}
 		for len(pp.pathEnd2.incomingCacheData) > 0 {
@@ -389,6 +392,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 				pp.pathEnd1,
 				pp.memoLimit,
 				pp.maxReceiverSize,
+				pp.pathEnd1,
 			)
 		}
 		// Periodic flush to clear out any old packets
