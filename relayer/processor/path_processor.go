@@ -410,6 +410,25 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	relayerSyncedToChain1 := false // path end 1
 	relayerSyncedToChain2 := false // path end 2
 
+	/*
+		DYMENSION:
+		We need to send a genesis transfer when the rollapp hub channel is open.
+		We want to do it when we start normal relayer processing, because otherwise it won't get flushed.
+	*/
+	if pp.pathEnd2.chainProvider.IsDymensionRollapp() {
+		isStartCmd := pp.messageLifecycle == nil // other cmds have lifecycles, we only want to do it on normal start
+		if isStartCmd {
+			pp.log.Debug("Handling dymension callbacks: open confirm. Sending genesis transfer to hub.")
+			// This should trigger a packet send, which will get caught by the monitoring thread, and trigger the relaying
+			err := SendGenesisTransfer(ctx, pp.pathEnd1.chainProvider, pp.pathEnd2.chainProvider)
+			if err != nil {
+				pp.log.Error("Send rollapp genesis transfer to hub. Operator can retry using CLI.", zap.Error(err))
+			} else {
+				pp.log.Info("Successfully sent rollapp genesis transfer to hub.")
+			}
+		}
+	}
+
 	for {
 		// block until we have any signals to process
 		if pp.processAvailableSignals(ctx, cancel) {

@@ -740,6 +740,28 @@ func (cc *CosmosProvider) TrySetCanonicalClient(ctx context.Context, clientID st
 	})
 }
 
+// query to rollapp
+func (cc *CosmosProvider) ShouldSendGenesisTransfer(ctx context.Context) error {
+	c := rdktypes.NewQueryClient(cc)
+	var res *rdktypes.QueryStateResponse
+	var err error
+	if err = retry.Do(func() error {
+		res, err = c.State(ctx, &rdktypes.QueryStateRequest{})
+		return err
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
+		return fmt.Errorf("query state: %w", err)
+	}
+
+	if res.State.OutboundTransfersEnabled {
+		return gerrc.ErrCancelled.Wrap("not necessary: outbound transfers are already enabled")
+	}
+	if res.State.InFlight {
+		return gerrc.ErrCancelled.Wrap("outbound transfer is in flight, try later")
+	}
+	return nil
+}
+
+// tx to rollapp
 func (cc *CosmosProvider) TrySendGenesisTransfer(ctx context.Context, channelID string) error {
 	signer, err := cc.Address()
 	if err != nil {

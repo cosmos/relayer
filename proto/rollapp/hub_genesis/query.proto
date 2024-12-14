@@ -1,0 +1,48 @@
+syntax = "proto3";
+package rollapp.hub_genesis;
+
+import "cosmos/msg/v1/msg.proto";
+import "google/protobuf/any.proto";
+import "google/api/annotations.proto";
+import "gogoproto/gogo.proto";
+
+
+option go_package = "github.com/cosmos/relayer/relayer/chains/cosmos/rollapp/rdk/hub-genesis/types";
+
+service Query {
+  // State returns the state of the genesis event.
+  rpc State(QueryStateRequest) returns (QueryStateResponse) {
+    option (google.api.http).get =
+        "/dymensionxyz/dymension-rdk/hub-genesis/state";
+  }
+}
+
+// QueryStateRequest is the request type for the Query/State RPC method.
+message QueryStateRequest {}
+
+// QueryStateResponse is the response type for the Query/State RPC method.
+message QueryStateResponse {
+  // state holds the state of the genesis event
+  State state = 1 [(gogoproto.nullable) = false];
+}
+
+// State holds the state of the genesis event
+message State {
+  reserved 1 to 5;
+
+  // are outboundTransfersEnabled? This is only true if the genesis protocol has
+  // finished
+  bool outbound_transfers_enabled = 6;
+  // the canonical transfer port and channel for the hub
+  PortAndChannel hub_port_and_channel = 7;
+
+  // are we awaiting a timeout or ack for the sent genesis transfer?
+  bool in_flight = 8;
+}
+
+message PortAndChannel {
+  // port
+  string port = 1;
+  // channel
+  string channel = 2;
+}

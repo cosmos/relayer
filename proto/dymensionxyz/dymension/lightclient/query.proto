@@ -26,3 +26,5 @@ message QueryRollappCanonChannelResponse {
   // rollapp side ('counterparty')
   string rollapp_channel_id = 2;
 }
+
+
