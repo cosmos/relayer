@@ -3,6 +3,7 @@ package penumbra
 import (
 	"context"
 	"errors"
+	"google.golang.org/grpc/mem"
 	"reflect"
 	"strconv"
 	"sync"
@@ -27,7 +28,7 @@ import (
 
 var _ gogogrpc.ClientConn = &PenumbraProvider{}
 
-var protoCodec = encoding.GetCodec(proto.Name)
+var protoCodec = encoding.GetCodecV2(proto.Name)
 
 // Invoke implements the grpc ClientConn.Invoke method
 func (cc *PenumbraProvider) Invoke(ctx context.Context, method string, req, reply interface{}, opts ...grpc.CallOption) (err error) {
@@ -65,7 +66,7 @@ func (cc *PenumbraProvider) Invoke(ctx context.Context, method string, req, repl
 		return err
 	}
 
-	if err = protoCodec.Unmarshal(abciRes.Value, reply); err != nil {
+	if err = protoCodec.Unmarshal([]mem.Buffer{mem.NewBuffer(&abciRes.Value, nil)}, reply); err != nil {
 		return err
 	}
 
@@ -126,7 +127,7 @@ func (cc *PenumbraProvider) RunGRPCQuery(ctx context.Context, method string, req
 
 	abciReq := abci.RequestQuery{
 		Path:   method,
-		Data:   reqBz,
+		Data:   reqBz.Materialize(),
 		Height: height,
 		Prove:  prove,
 	}

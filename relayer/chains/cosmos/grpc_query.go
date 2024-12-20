@@ -3,6 +3,7 @@ package cosmos
 import (
 	"context"
 	"errors"
+	"google.golang.org/grpc/mem"
 	"reflect"
 	"strconv"
 	"sync"
@@ -27,14 +28,13 @@ import (
 
 var _ gogogrpc.ClientConn = &CosmosProvider{}
 
-var protoCodec = encoding.GetCodec(proto.Name)
+var protoCodec = encoding.GetCodecV2(proto.Name)
 
 // Invoke implements the grpc ClientConn.Invoke method
 func (cc *CosmosProvider) Invoke(ctx context.Context, method string, req, reply interface{}, opts ...grpc.CallOption) (err error) {
 	// Two things can happen here:
 	// 1. either we're broadcasting a Tx, in which call we call Tendermint's broadcast endpoint directly,
 	// 2. or we are querying for state, in which case we call ABCI's Querier.
-
 	// In both cases, we don't allow empty request req (it will panic unexpectedly).
 	if reflect.ValueOf(req).IsNil() {
 		return sdkerrors.Wrap(legacyerrors.ErrInvalidRequest, "request cannot be nil")
@@ -65,7 +65,7 @@ func (cc *CosmosProvider) Invoke(ctx context.Context, method string, req, reply 
 		return err
 	}
 
-	if err = protoCodec.Unmarshal(abciRes.Value, reply); err != nil {
+	if err = protoCodec.Unmarshal([]mem.Buffer{mem.NewBuffer(&abciRes.Value, nil)}, reply); err != nil {
 		return err
 	}
 
@@ -126,7 +126,7 @@ func (cc *CosmosProvider) RunGRPCQuery(ctx context.Context, method string, req i
 
 	abciReq := abci.RequestQuery{
 		Path:   method,
-		Data:   reqBz,
+		Data:   reqBz.Materialize(),
 		Height: height,
 		Prove:  prove,
 	}
