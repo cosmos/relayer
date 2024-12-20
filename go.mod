@@ -2,8 +2,6 @@ module github.com/cosmos/relayer/v2
 
 go 1.21
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.64.1
-
 require (
 	cosmossdk.io/api v0.7.6
 	cosmossdk.io/errors v1.0.1
