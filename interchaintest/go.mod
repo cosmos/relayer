@@ -18,7 +18,7 @@ require (
 	github.com/docker/docker v25.0.6+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
-	github.com/moby/moby v24.0.9+incompatible
+	github.com/moby/moby v26.1.0+incompatible
 	github.com/strangelove-ventures/interchaintest/v8 v8.0.1-0.20231114192524-e3719592933b
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
@@ -101,7 +101,6 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
