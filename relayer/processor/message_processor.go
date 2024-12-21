@@ -330,6 +330,10 @@ func (mp *messageProcessor) trackAndSendMessages(
 	needsClientUpdate bool,
 ) error {
 	broadcastBatch := dst.chainProvider.ProviderConfig().BroadcastMode() == provider.BroadcastModeBatch
+	maxMsgNum := dst.chainProvider.ProviderConfig().BroadcastMaxMsgNum()
+	if maxMsgNum < 2 && maxMsgNum != 0 {
+		maxMsgNum = 2
+	}
 	var batch []messageToTrack
 
 	for _, t := range mp.trackers() {
@@ -347,6 +351,10 @@ func (mp *messageProcessor) trackAndSendMessages(
 
 		if broadcastBatch && (retries == 0 || ordered) {
 			batch = append(batch, t)
+			if len(batch) >= int(maxMsgNum) && maxMsgNum != 0 {
+				go mp.sendBatchMessages(ctx, src, dst, batch)
+				batch = nil
+			}
 			continue
 		}
 		go mp.sendSingleMessage(ctx, src, dst, t)
