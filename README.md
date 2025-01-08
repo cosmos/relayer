@@ -112,6 +112,13 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
    $ rly keys restore cosmoshub [key-name] "mnemonic words here"
    $ rly keys restore osmosis [key-name] "mnemonic words here"
    ```
+   Some projects require specifying the `--coin-type` in decimal format for the key to be restored correctly.
+   Always ensure to verify the `--coin-type` when restoring an account.
+
+   For example, in the case of Injective, the `--coin-type` should be set to `60`.
+   ```shell
+   $ rly keys restore injective [key-name] "mnemonic words here" --coin-type 60
+   ```
 
 5. **Use the `key-name` created above.**
 
