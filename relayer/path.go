@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
@@ -152,12 +153,7 @@ func (p *Path) ValidateChannelFilterRule() error {
 
 // InChannelList returns true if the channelID argument is in the ChannelFilter's ChannelList or false otherwise.
 func (cf *ChannelFilter) InChannelList(channelID string) bool {
-	for _, channel := range cf.ChannelList {
-		if channel == channelID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cf.ChannelList, channelID)
 }
 
 // End returns the proper end given a chainID.
