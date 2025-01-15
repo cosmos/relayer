@@ -829,29 +829,29 @@ func (cc *PenumbraProvider) QueryHeaderAtHeight(ctx context.Context, height int6
 	}, nil
 }
 
-// QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cc *PenumbraProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
-		&transfertypes.QueryDenomTraceRequest{
+// QueryDenom takes a denom from IBC and queries the information about it
+func (cc *PenumbraProvider) QueryDenom(ctx context.Context, denom string) (*transfertypes.Denom, error) {
+	transfers, err := transfertypes.NewQueryV2Client(cc).Denom(ctx,
+		&transfertypes.QueryDenomRequest{
 			Hash: denom,
 		})
 	if err != nil {
 		return nil, err
 	}
-	return transfers.DenomTrace, nil
+	return transfers.Denom, nil
 }
 
-// QueryDenomTraces returns all the denom traces from a given chain
+// QueryDenoms returns all the denom traces from a given chain
 // TODO add pagination support
-func (cc *PenumbraProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(ctx,
-		&transfertypes.QueryDenomTracesRequest{
+func (cc *PenumbraProvider) QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error) {
+	transfers, err := transfertypes.NewQueryV2Client(cc).Denoms(ctx,
+		&transfertypes.QueryDenomsRequest{
 			Pagination: DefaultPageRequest(),
 		})
 	if err != nil {
 		return nil, err
 	}
-	return transfers.DenomTraces, nil
+	return transfers.Denoms, nil
 }
 
 func (cc *PenumbraProvider) QueryDenomHash(ctx context.Context, trace string) (string, error) {

@@ -1220,27 +1220,27 @@ func (cc *CosmosProvider) QueryStatus(ctx context.Context) (*cclient.Status, err
 	return status, nil
 }
 
-// QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
-		&transfertypes.QueryDenomTraceRequest{
+// QueryDenom takes a denom from IBC and queries the information about it
+func (cc *CosmosProvider) QueryDenom(ctx context.Context, denom string) (*transfertypes.Denom, error) {
+	transfers, err := transfertypes.NewQueryV2Client(cc).Denom(ctx,
+		&transfertypes.QueryDenomRequest{
 			Hash: denom,
 		})
 	if err != nil {
 		return nil, err
 	}
 
-	return transfers.DenomTrace, nil
+	return transfers.Denom, nil
 }
 
-// QueryDenomTraces returns all the denom traces from a given chain
-func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	qc := transfertypes.NewQueryClient(cc)
+// QueryDenoms returns all the denom traces from a given chain
+func (cc *CosmosProvider) QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error) {
+	qc := transfertypes.NewQueryV2Client(cc)
 	p := DefaultPageRequest()
-	transfers := []transfertypes.DenomTrace{}
+	transfers := []transfertypes.Denom{}
 	for {
-		res, err := qc.DenomTraces(ctx,
-			&transfertypes.QueryDenomTracesRequest{
+		res, err := qc.Denoms(ctx,
+			&transfertypes.QueryDenomsRequest{
 				Pagination: p,
 			})
 
@@ -1248,7 +1248,7 @@ func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit ui
 			return nil, err
 		}
 
-		transfers = append(transfers, res.DenomTraces...)
+		transfers = append(transfers, res.Denoms...)
 		next := res.GetPagination().GetNextKey()
 		if len(next) == 0 {
 			break

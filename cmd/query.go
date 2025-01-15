@@ -95,7 +95,7 @@ $ %s q ibc-denoms ibc-0`,
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, h)
+			res, err := chain.ChainProvider.QueryDenoms(cmd.Context(), 0, 100, h)
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ $ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D9
 				return errChainNotFound(args[0])
 			}
 
-			res, err := c.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
+			res, err := c.ChainProvider.QueryDenom(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}

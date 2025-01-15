@@ -467,8 +467,8 @@ type QueryProvider interface {
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
 
 	// ics 20 - transfer
-	QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error)
-	QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
+	QueryDenom(ctx context.Context, denom string) (*transfertypes.Denom, error)
+	QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error)
 	QueryDenomHash(ctx context.Context, trace string) (string, error)
 }
 

@@ -1112,13 +1112,13 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 					srcChannelID, src, pathConnectionID)
 			}
 
-			dts, err := src.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, srch)
+			dts, err := src.ChainProvider.QueryDenoms(cmd.Context(), 0, 100, srch)
 			if err != nil {
 				return err
 			}
 
 			for _, d := range dts {
-				if amount.Denom == d.GetFullDenomPath() {
+				if amount.Denom == d.Path() {
 					amount = sdk.NewCoin(d.IBCDenom(), amount.Amount)
 				}
 			}
