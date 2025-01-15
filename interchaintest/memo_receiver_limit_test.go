@@ -206,12 +206,13 @@ func TestMemoAndReceiverLimit(t *testing.T) {
 	require.NoError(t, testutil.WaitForBlocks(ctx, 5, chainA, chainB))
 
 	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
-	denom := transfertypes.GetPrefixedDenom(
-		channel.Counterparty.PortID,
-		channel.Counterparty.ChannelID,
+	trace := transfertypes.NewDenom(
 		chainA.Config().Denom,
+		transfertypes.NewHop(
+			channel.Counterparty.PortID,
+			channel.Counterparty.ChannelID,
+		),
 	)
-	trace := transfertypes.ParseDenomTrace(denom)
 
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)

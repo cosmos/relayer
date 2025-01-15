@@ -18,6 +18,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/std"
+	"github.com/cosmos/cosmos-sdk/testutil/mock"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -27,7 +28,6 @@ import (
 	ibctypes "github.com/cosmos/ibc-go/v9/modules/core/types"
 	ibccomettypes "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v9/testing"
-	ibcmocks "github.com/cosmos/ibc-go/v9/testing/mock"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/strangelove-ventures/interchaintest/v8"
 	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
@@ -148,8 +148,11 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 	clientState, err := clienttypes.UnpackClientState(queryResp.ClientState)
 	require.NoError(t, err)
 
+	cs, ok := clientState.(*ibccomettypes.ClientState)
+	require.True(t, ok)
+
 	// get latest height from prev client state above & create new height + 1
-	height := clientState.GetLatestHeight().(clienttypes.Height)
+	height := cs.LatestHeight
 	newHeight := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
 
 	// create a validator for signing duplicate header
@@ -167,7 +170,7 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 		Key: decodedKeyBz,
 	}
 
-	privVal := ibcmocks.PV{PrivKey: privKey}
+	privVal := mock.PV{PrivKey: privKey}
 	pubKey, err := privVal.GetPubKey()
 	require.NoError(t, err)
 

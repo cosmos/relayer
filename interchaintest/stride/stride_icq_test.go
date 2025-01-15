@@ -183,11 +183,11 @@ func TestScenarioStrideICAandICQ(t *testing.T) {
 
 	logger.Info("TestScenarioStrideICAandICQ [7]")
 
-	atomIBCDenom := transfertypes.ParseDenomTrace(
-		transfertypes.GetPrefixedDenom(
+	atomIBCDenom := transfertypes.NewDenom(
+		gaiaCfg.Denom,
+		transfertypes.NewHop(
 			gaiaChans[0].Counterparty.PortID,
 			gaiaChans[0].Counterparty.ChannelID,
-			gaiaCfg.Denom,
 		),
 	).IBCDenom()
 

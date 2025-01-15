@@ -199,8 +199,7 @@ func TestRelayerFeeMiddleware(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assigning denom
-	chainATokenDenom := transfertypes.GetPrefixedDenom(channelA.PortID, channelA.ChannelID, chainA.Config().Denom)
-	chainADenomTrace := transfertypes.ParseDenomTrace(chainATokenDenom)
+	chainADenomTrace := transfertypes.NewDenom(chainA.Config().Denom, transfertypes.NewHop(channelA.PortID, channelA.ChannelID))
 
 	// Get balances after the fees
 	expectedBal := userAOrigBal.Sub(txAmount.AddRaw(1000))

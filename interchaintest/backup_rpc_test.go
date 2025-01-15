@@ -201,19 +201,19 @@ func TestBackupRpcs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
-	denom := transfertypes.GetPrefixedDenom(
-		channel.Counterparty.PortID,
-		channel.Counterparty.ChannelID,
+	denom := transfertypes.NewDenom(
 		chainA.Config().Denom,
-	)
-	trace := transfertypes.ParseDenomTrace(denom)
-
+		transfertypes.NewHop(
+			channel.Counterparty.PortID,
+			channel.Counterparty.ChannelID,
+		),
+	).IBCDenom()
 	// validate user balances on both chains
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, userABal.Equal(initBal.Sub(transferAmount)))
 
-	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
+	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), denom)
 	require.NoError(t, err)
 	require.True(t, userBBal.Equal(transferAmount))
 }

@@ -140,11 +140,11 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compose IBC denoms for each channel
-	ibcDenoms := make([]transfertypes.DenomTrace, 3)
+	ibcDenoms := make([]transfertypes.Denom, 3)
 
-	ibcDenoms[0] = transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(channels[0].Counterparty.PortID, channels[0].Counterparty.ChannelID, gaia.Config().Denom))
-	ibcDenoms[1] = transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(channels[1].Counterparty.PortID, channels[1].Counterparty.ChannelID, gaia.Config().Denom))
-	ibcDenoms[2] = transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(channels[2].Counterparty.PortID, channels[2].Counterparty.ChannelID, gaia.Config().Denom))
+	ibcDenoms[0] = transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(channels[0].Counterparty.PortID, channels[0].Counterparty.ChannelID))
+	ibcDenoms[1] = transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(channels[1].Counterparty.PortID, channels[1].Counterparty.ChannelID))
+	ibcDenoms[2] = transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(channels[2].Counterparty.PortID, channels[2].Counterparty.ChannelID))
 
 	// Assert that the transfers are all successful out of the src chain account
 	expectedBal := initBal.Sub(transferAmount.MulRaw(3))
