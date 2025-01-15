@@ -3,7 +3,7 @@ package relayer
 import (
 	"strings"
 
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 )
 
 // PathEnd represents the local connection identifiers for a relay path

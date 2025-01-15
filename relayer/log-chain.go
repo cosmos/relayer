@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 )
 
 func logFailedTx(log *zap.Logger, chainID string, res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {

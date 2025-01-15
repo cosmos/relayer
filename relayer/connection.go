@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
+	conntypes "github.com/cosmos/ibc-go/v9/modules/core/03-connection/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
