@@ -5,7 +5,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	solomachine "github.com/cosmos/ibc-go/v9/modules/light-clients/06-solomachine"
-	localhost "github.com/cosmos/ibc-go/v9/modules/light-clients/09-localhost"
+	localhost "github.com/cosmos/relayer/v2/relayer/codecs/localhost"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 

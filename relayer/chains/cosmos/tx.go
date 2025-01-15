@@ -42,7 +42,6 @@ import (
 	host "github.com/cosmos/ibc-go/v9/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
-	localhost "github.com/cosmos/ibc-go/v9/modules/light-clients/09-localhost"
 	"github.com/cosmos/relayer/v2/cclient"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/ethermint"
@@ -1561,28 +1560,6 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 	if !ok {
 		return &tmclient.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type, got(%T)", clientStateExported)
-	}
-
-	return clientState, nil
-}
-
-// queryLocalhostClientState retrieves the latest consensus state for a client in state at a given height
-// and unpacks/cast it to localhost client state.
-func (cc *CosmosProvider) queryLocalhostClientState(ctx context.Context, srch int64) (*localhost.ClientState, error) {
-	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, ibcexported.LocalhostClientID)
-	if err != nil {
-		return &localhost.ClientState{}, err
-	}
-
-	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
-	if err != nil {
-		return &localhost.ClientState{}, err
-	}
-
-	clientState, ok := clientStateExported.(*localhost.ClientState)
-	if !ok {
-		return &localhost.ClientState{},
-			fmt.Errorf("error when casting exported clientstate to localhost client type, got(%T)", clientStateExported)
 	}
 
 	return clientState, nil
