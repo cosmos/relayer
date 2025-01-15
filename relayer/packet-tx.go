@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
@@ -40,7 +42,10 @@ func (c *Chain) SendTransferMsg(
 	if err != nil {
 		return err
 	}
-
+	cs, ok := h.(*tmclient.ClientState)
+	if !ok {
+		return errorsmod.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, cs)
+	}
 	// if the timestamp offset is set we need to query the dst chains consensus state to get the current time
 	var consensusState ibcexported.ConsensusState
 	if toTimeOffset > 0 {
@@ -53,12 +58,15 @@ func (c *Chain) SendTransferMsg(
 		if err != nil {
 			return fmt.Errorf("failed to unpack client state: %w", err)
 		}
-
+		tmClientState, ok := clientState.(*tmclient.ClientState)
+		if !ok {
+			return errorsmod.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, tmClientState)
+		}
 		consensusStateRes, err := dst.ChainProvider.QueryClientConsensusState(
 			ctx,
 			dsth,
 			dst.ClientID(),
-			clientState.GetLatestHeight(),
+			tmClientState.LatestHeight,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to query client consensus state: %w", err)
@@ -83,7 +91,7 @@ func (c *Chain) SendTransferMsg(
 		}
 	}
 
-	clientHeight := h.GetLatestHeight().GetRevisionHeight()
+	clientHeight := cs.LatestHeight.GetRevisionHeight()
 
 	switch {
 	case toHeightOffset > 0 && toTimeOffset > 0:
@@ -103,7 +111,7 @@ func (c *Chain) SendTransferMsg(
 		SourceChannel: srcChannel.ChannelId,
 		SourcePort:    srcChannel.PortId,
 		TimeoutHeight: clienttypes.Height{
-			RevisionNumber: h.GetLatestHeight().GetRevisionNumber(),
+			RevisionNumber: cs.LatestHeight.GetRevisionNumber(),
 			RevisionHeight: timeoutHeight,
 		},
 		TimeoutTimestamp: timeoutTimestamp,

@@ -512,9 +512,14 @@ func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, heig
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
+	cs, ok := clientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, nil, nil, nil, clienttypes.Height{}, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, clientState)
+	}
+
 	eg.Go(func() error {
 		var err error
-		consensusStateRes, err = cc.QueryClientConsensusState(ctx, height, clientId, clientState.GetLatestHeight())
+		consensusStateRes, err = cc.QueryClientConsensusState(ctx, height, clientId, cs.LatestHeight)
 		return err
 	})
 	eg.Go(func() error {

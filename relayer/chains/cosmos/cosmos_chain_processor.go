@@ -180,7 +180,7 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 		}
 		clientState = provider.ClientState{
 			ClientID:        clientID,
-			ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+			ConsensusHeight: cs.LatestHeight,
 			TrustingPeriod:  cs.TrustingPeriod,
 		}
 	}

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	errorsmod "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v9/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
+	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -135,9 +137,13 @@ func (pcp *PenumbraChainProcessor) clientState(ctx context.Context, clientID str
 	if err != nil {
 		return provider.ClientState{}, err
 	}
+	tmClientState, ok := cs.(*tmclient.ClientState)
+	if !ok {
+		return provider.ClientState{}, errorsmod.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, cs)
+	}
 	clientState := provider.ClientState{
 		ClientID:        clientID,
-		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+		ConsensusHeight: tmClientState.LatestHeight,
 	}
 	pcp.latestClientState[clientID] = clientState
 	return clientState, nil
