@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
+	legacytransfertypes "github.com/cosmos/relayer/v2/relayer/codecs/transfer/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
@@ -1111,16 +1111,25 @@ $ %s tx raw send ibc-0 ibc-1 100000stake cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9
 				return fmt.Errorf("could not find channel{%s} for chain{%s}@connection{%s}",
 					srcChannelID, src, pathConnectionID)
 			}
-
 			dts, err := src.ChainProvider.QueryDenoms(cmd.Context(), 0, 100, srch)
-			if err != nil {
-				return err
-			}
-
-			for _, d := range dts {
-				if amount.Denom == d.Path() {
-					amount = sdk.NewCoin(d.IBCDenom(), amount.Amount)
+			if err == nil {
+				for _, d := range dts {
+					if amount.Denom == d.Path() {
+						amount = sdk.NewCoin(d.IBCDenom(), amount.Amount)
+					}
 				}
+			} else if legacytransfertypes.ErrUnknownRequest(err) {
+				legacyDts, err := src.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, srch)
+				if err != nil {
+					return err
+				}
+				for _, d := range legacyDts {
+					if amount.Denom == d.GetFullDenomPath() {
+						amount = sdk.NewCoin(d.IBCDenom(), amount.Amount)
+					}
+				}
+			} else {
+				return err
 			}
 
 			toHeightOffset, err := cmd.Flags().GetUint64(flagTimeoutHeightOffset)

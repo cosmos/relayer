@@ -28,6 +28,7 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains"
+	legacytransfertypes "github.com/cosmos/relayer/v2/relayer/codecs/transfer/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -846,6 +847,19 @@ func (cc *PenumbraProvider) QueryDenom(ctx context.Context, denom string) (*tran
 	return transfers.Denom, nil
 }
 
+// QueryDenomTrace takes a denom from IBC and queries the information about it
+func (cc *PenumbraProvider) QueryDenomTrace(ctx context.Context, denom string) (*legacytransfertypes.DenomTrace, error) {
+	transfers, err := legacytransfertypes.NewQueryClient(cc).DenomTrace(ctx,
+		&legacytransfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	return transfers.DenomTrace, nil
+}
+
 // QueryDenoms returns all the denom traces from a given chain
 // TODO add pagination support
 func (cc *PenumbraProvider) QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error) {
@@ -857,6 +871,18 @@ func (cc *PenumbraProvider) QueryDenoms(ctx context.Context, offset, limit uint6
 		return nil, err
 	}
 	return transfers.Denoms, nil
+}
+
+// QueryDenomTraces returns all the denom traces from a given chain
+func (cc *PenumbraProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]legacytransfertypes.DenomTrace, error) {
+	transfers, err := legacytransfertypes.NewQueryClient(cc).DenomTraces(ctx,
+		&legacytransfertypes.QueryDenomTracesRequest{
+			Pagination: DefaultPageRequest(),
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.DenomTraces, nil
 }
 
 func (cc *PenumbraProvider) QueryDenomHash(ctx context.Context, trace string) (string, error) {

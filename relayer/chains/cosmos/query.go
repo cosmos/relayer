@@ -34,6 +34,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer/chains"
+	legacytransfertypes "github.com/cosmos/relayer/v2/relayer/codecs/transfer/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -1238,6 +1239,19 @@ func (cc *CosmosProvider) QueryDenom(ctx context.Context, denom string) (*transf
 	return transfers.Denom, nil
 }
 
+// QueryDenomTrace takes a denom from IBC and queries the information about it
+func (cc *CosmosProvider) QueryDenomTrace(ctx context.Context, denom string) (*legacytransfertypes.DenomTrace, error) {
+	transfers, err := legacytransfertypes.NewQueryClient(cc).DenomTrace(ctx,
+		&legacytransfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	return transfers.DenomTrace, nil
+}
+
 // QueryDenoms returns all the denom traces from a given chain
 func (cc *CosmosProvider) QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error) {
 	qc := transfertypes.NewQueryV2Client(cc)
@@ -1254,6 +1268,33 @@ func (cc *CosmosProvider) QueryDenoms(ctx context.Context, offset, limit uint64,
 		}
 
 		transfers = append(transfers, res.Denoms...)
+		next := res.GetPagination().GetNextKey()
+		if len(next) == 0 {
+			break
+		}
+
+		time.Sleep(PaginationDelay)
+		p.Key = next
+	}
+	return transfers, nil
+}
+
+// QueryDenomTraces returns all the denom traces from a given chain
+func (cc *CosmosProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]legacytransfertypes.DenomTrace, error) {
+	qc := legacytransfertypes.NewQueryClient(cc)
+	p := DefaultPageRequest()
+	transfers := []legacytransfertypes.DenomTrace{}
+	for {
+		res, err := qc.DenomTraces(ctx,
+			&legacytransfertypes.QueryDenomTracesRequest{
+				Pagination: p,
+			})
+
+		if err != nil || res == nil {
+			return nil, err
+		}
+
+		transfers = append(transfers, res.DenomTraces...)
 		next := res.GetPagination().GetNextKey()
 		if len(next) == 0 {
 			break
