@@ -199,7 +199,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
     [[TROUBLESHOOTING](docs/troubleshooting.md)]
 ---
 
-## Production deployment recomendations
+## Production deployment recommendations
 
 - Make sure the debug server is disabled in production.
 
