@@ -714,7 +714,7 @@ func (m *ParticipateResponse_ContributeNow) GetParent() *CeremonyCrs {
 	return nil
 }
 
-// Sent to the participant to confim their contribution was accepted.
+// Sent to the participant to confirm their contribution was accepted.
 type ParticipateResponse_Confirm struct {
 	Slot uint64 `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
 }
