@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine3.17 AS build-env
+FROM --platform=$BUILDPLATFORM golang:1.23.5-alpine3.21 AS build-env
 
 RUN apk add --update --no-cache curl make git libc-dev bash gcc linux-headers eudev-dev
 
@@ -57,7 +57,7 @@ RUN ln sh pwd && \
     rm ln rm
 
 # Install chain binaries
-COPY --from=build-env /bin/rly /bin
+COPY --from=build-env /go/bin/rly /bin
 
 # Install trusted CA certificates
 COPY --from=busybox-min /etc/ssl/cert.pem /etc/ssl/cert.pem
