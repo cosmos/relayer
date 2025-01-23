@@ -1420,7 +1420,7 @@ func (m *EventValueCircuitBreakerDebit) GetNewBalance() *v12.Amount {
 }
 
 func init() {
-	proto.RegisterEnum("penumbra.core.component.auction.v1.EventDutchAuctionEnded_Reason", EventDutchAuctionEnded_Reason_name, EventDutchAuctionEnded_Reason_value)
+	// proto.RegisterEnum("penumbra.core.component.auction.v1.EventDutchAuctionEnded_Reason", EventDutchAuctionEnded_Reason_name, EventDutchAuctionEnded_Reason_value)
 	proto.RegisterType((*AuctionParameters)(nil), "penumbra.core.component.auction.v1.AuctionParameters")
 	proto.RegisterType((*GenesisContent)(nil), "penumbra.core.component.auction.v1.GenesisContent")
 	proto.RegisterType((*AuctionStateByIdRequest)(nil), "penumbra.core.component.auction.v1.AuctionStateByIdRequest")

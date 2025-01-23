@@ -2834,8 +2834,8 @@ func (m *EventSlashingPenaltyApplied) GetNewPenalty() *Penalty {
 }
 
 func init() {
-	proto.RegisterEnum("penumbra.core.component.stake.v1.BondingState_BondingStateEnum", BondingState_BondingStateEnum_name, BondingState_BondingStateEnum_value)
-	proto.RegisterEnum("penumbra.core.component.stake.v1.ValidatorState_ValidatorStateEnum", ValidatorState_ValidatorStateEnum_name, ValidatorState_ValidatorStateEnum_value)
+	// proto.RegisterEnum("penumbra.core.component.stake.v1.BondingState_BondingStateEnum", BondingState_BondingStateEnum_name, BondingState_BondingStateEnum_value)
+	// proto.RegisterEnum("penumbra.core.component.stake.v1.ValidatorState_ValidatorStateEnum", ValidatorState_ValidatorStateEnum_name, ValidatorState_ValidatorStateEnum_value)
 	proto.RegisterType((*ZKUndelegateClaimProof)(nil), "penumbra.core.component.stake.v1.ZKUndelegateClaimProof")
 	proto.RegisterType((*Validator)(nil), "penumbra.core.component.stake.v1.Validator")
 	proto.RegisterType((*ValidatorList)(nil), "penumbra.core.component.stake.v1.ValidatorList")

@@ -4885,7 +4885,7 @@ func (m *CandlestickDataStreamResponse) GetData() *CandlestickData {
 }
 
 func init() {
-	proto.RegisterEnum("penumbra.core.component.dex.v1.PositionState_PositionStateEnum", PositionState_PositionStateEnum_name, PositionState_PositionStateEnum_value)
+	// proto.RegisterEnum("penumbra.core.component.dex.v1.PositionState_PositionStateEnum", PositionState_PositionStateEnum_name, PositionState_PositionStateEnum_value)
 	proto.RegisterType((*ZKSwapProof)(nil), "penumbra.core.component.dex.v1.ZKSwapProof")
 	proto.RegisterType((*ZKSwapClaimProof)(nil), "penumbra.core.component.dex.v1.ZKSwapClaimProof")
 	proto.RegisterType((*Swap)(nil), "penumbra.core.component.dex.v1.Swap")

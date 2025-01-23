@@ -4765,8 +4765,8 @@ func (m *UnbondingTokensByAddressIndexResponse) GetClaimable() bool {
 }
 
 func init() {
-	proto.RegisterEnum("penumbra.view.v1.DelegationsByAddressIndexRequest_Filter", DelegationsByAddressIndexRequest_Filter_name, DelegationsByAddressIndexRequest_Filter_value)
-	proto.RegisterEnum("penumbra.view.v1.UnbondingTokensByAddressIndexRequest_Filter", UnbondingTokensByAddressIndexRequest_Filter_name, UnbondingTokensByAddressIndexRequest_Filter_value)
+	// proto.RegisterEnum("penumbra.view.v1.DelegationsByAddressIndexRequest_Filter", DelegationsByAddressIndexRequest_Filter_name, DelegationsByAddressIndexRequest_Filter_value)
+	// proto.RegisterEnum("penumbra.view.v1.UnbondingTokensByAddressIndexRequest_Filter", UnbondingTokensByAddressIndexRequest_Filter_name, UnbondingTokensByAddressIndexRequest_Filter_value)
 	proto.RegisterType((*AuctionsRequest)(nil), "penumbra.view.v1.AuctionsRequest")
 	proto.RegisterType((*AuctionsResponse)(nil), "penumbra.view.v1.AuctionsResponse")
 	proto.RegisterType((*AuthorizeAndBuildRequest)(nil), "penumbra.view.v1.AuthorizeAndBuildRequest")

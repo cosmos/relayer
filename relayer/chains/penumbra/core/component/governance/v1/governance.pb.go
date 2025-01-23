@@ -3948,7 +3948,7 @@ func (m *EventProposalSlashed) GetProposal() *Proposal {
 }
 
 func init() {
-	proto.RegisterEnum("penumbra.core.component.governance.v1.Vote_Vote", Vote_Vote_name, Vote_Vote_value)
+	// proto.RegisterEnum("penumbra.core.component.governance.v1.Vote_Vote", Vote_Vote_name, Vote_Vote_value)
 	proto.RegisterType((*ZKDelegatorVoteProof)(nil), "penumbra.core.component.governance.v1.ZKDelegatorVoteProof")
 	proto.RegisterType((*ProposalSubmit)(nil), "penumbra.core.component.governance.v1.ProposalSubmit")
 	proto.RegisterType((*ProposalWithdraw)(nil), "penumbra.core.component.governance.v1.ProposalWithdraw")
