@@ -79,9 +79,11 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	gaiaChannel := gaiaChans[0]
 	osmosisChannel := gaiaChans[0].Counterparty
 
-	r.UpdatePath(ctx, eRep, ibcPath, ibc.ChannelFilter{
-		Rule:        processor.RuleAllowList,
-		ChannelList: []string{gaiaChannel.ChannelID},
+	r.UpdatePath(ctx, eRep, ibcPath, ibc.PathUpdateOptions{
+		ChannelFilter: &ibc.ChannelFilter{
+			Rule:        processor.RuleAllowList,
+			ChannelList: []string{gaiaChannel.ChannelID},
+		},
 	})
 
 	// Create and Fund User Wallets
@@ -222,9 +224,11 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	gaiaChannel := gaiaChans[0]
 	osmosisChannel := gaiaChans[0].Counterparty
 
-	r.UpdatePath(ctx, eRep, ibcPath, ibc.ChannelFilter{
-		Rule:        processor.RuleDenyList,
-		ChannelList: []string{gaiaChannel.ChannelID},
+	r.UpdatePath(ctx, eRep, ibcPath, ibc.PathUpdateOptions{
+		ChannelFilter: &ibc.ChannelFilter{
+			Rule:        processor.RuleDenyList,
+			ChannelList: []string{gaiaChannel.ChannelID},
+		},
 	})
 
 	// Create and Fund User Wallets
