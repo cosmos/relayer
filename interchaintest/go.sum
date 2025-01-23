@@ -937,8 +937,6 @@ github.com/mmcloughlin/addchain v0.4.0/go.mod h1:A86O+tHqZLMNO4w6ZZ4FlVQEadcoqky
 github.com/mmcloughlin/profile v0.1.1/go.mod h1:IhHD7q1ooxgwTgjxQYkACGA77oFTDdFVejUS1/tS/qU=
 github.com/mmsqe/go-substrate-rpc-client/v4 v4.0.0-20250123090201-90ee8052ef5c h1:oCt2SvNR+Je60k0KtK72uAeNdJRMH9gF0P4cH3Ne+SE=
 github.com/mmsqe/go-substrate-rpc-client/v4 v4.0.0-20250123090201-90ee8052ef5c/go.mod h1:dEVjyUJRwrKxcUQa4hYOujQxmepRx1myUTr+0qj+7Qk=
-github.com/mmsqe/interchaintest/v9 v9.0.0-20250123090906-7f9ecc5c2bcb h1:qWF3V5kNIGCied0RDb5jKXCS/wIe3uHzzNopEUjuhPg=
-github.com/mmsqe/interchaintest/v9 v9.0.0-20250123090906-7f9ecc5c2bcb/go.mod h1:tctD5vOYHbJ++t6MQIShBSs32Bcg1CtAvXOyM/sucWw=
 github.com/moby/moby v24.0.9+incompatible h1:Z/hFbZJqC5Fmuf6jesMLdHU71CMAgdiSJ1ZYey+bFmg=
 github.com/moby/moby v24.0.9+incompatible/go.mod h1:fDXVQ6+S340veQPv35CzDahGBmHsiclFwfEygB/TWMc=
 github.com/moby/patternmatcher v0.5.0 h1:YCZgJOeULcxLw1Q+sVR636pmS7sPEn1Qo2iAN6M7DBo=

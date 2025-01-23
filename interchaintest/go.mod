@@ -304,6 +304,6 @@ replace (
 	github.com/cosmos/relayer/v2 => ../
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	github.com/misko9/go-substrate-rpc-client/v4 => github.com/mmsqe/go-substrate-rpc-client/v4 v4.0.0-20250123090201-90ee8052ef5c
-	github.com/strangelove-ventures/interchaintest/v9 => github.com/mmsqe/interchaintest/v9 v9.0.0-20250123090906-7f9ecc5c2bcb
+	github.com/strangelove-ventures/interchaintest/v9 => github.com/mmsqe/interchaintest/v9 v9.0.0-20250123093253-c4caf6575e0a
 	github.com/vedhavyas/go-subkey => github.com/strangelove-ventures/go-subkey v1.0.7
 )
