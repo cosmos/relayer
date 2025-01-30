@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -137,8 +137,8 @@ func TestRelayerMultiplePathsSingleProcess(t *testing.T) {
 	junoChans, err := r.GetChannels(ctx, eRep, junoCfg.ChainID)
 	require.NoError(t, err)
 
-	osmosisIBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChans[0].Counterparty.PortID, osmosisChans[0].Counterparty.ChannelID, osmosisCfg.Denom)).IBCDenom()
-	junoIBCDenom := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(junoChans[0].Counterparty.PortID, junoChans[0].Counterparty.ChannelID, junoCfg.Denom)).IBCDenom()
+	osmosisIBCDenom := transfertypes.NewDenom(osmosisCfg.Denom, transfertypes.NewHop(osmosisChans[0].Counterparty.PortID, osmosisChans[0].Counterparty.ChannelID)).IBCDenom()
+	junoIBCDenom := transfertypes.NewDenom(junoCfg.Denom, transfertypes.NewHop(junoChans[0].Counterparty.PortID, junoChans[0].Counterparty.ChannelID)).IBCDenom()
 
 	var eg errgroup.Group
 

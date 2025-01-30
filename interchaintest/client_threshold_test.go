@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"testing"
 
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v9/relayer"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -270,8 +270,8 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	g1Height, err := g1.Height(g1Ctx)
 	require.NoError(t, err)
 
-	logger.Info("Chain height", zap.String("g0 chainID", g0.Config().ChainID), zap.Uint64("height", g0Height))
-	logger.Info("Chain height", zap.String("g1 chainID", g1.Config().ChainID), zap.Uint64("g1 height", g1Height))
+	logger.Info("Chain height", zap.String("g0 chainID", g0.Config().ChainID), zap.Int64("height", g0Height))
+	logger.Info("Chain height", zap.String("g1 chainID", g1.Config().ChainID), zap.Int64("g1 height", g1Height))
 
 	require.NoError(t, r.StartRelayer(ctx, eRep, ibcPath))
 	t.Cleanup(func() {
@@ -300,7 +300,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	eg.Go(func() error {
 		updatedG0Height, err := g0.Height(g0Ctx)
 		require.NoError(t, err)
-		logger.Info("G0 Chain height (2)", zap.String("g0 chainID", g0.Config().ChainID), zap.Uint64("g0 height", updatedG0Height))
+		logger.Info("G0 Chain height (2)", zap.String("g0 chainID", g0.Config().ChainID), zap.Int64("g0 height", updatedG0Height))
 
 		msg, err := cosmos.PollForMessage(
 			ctx,
@@ -323,7 +323,7 @@ func TestScenarioClientTrustingPeriodUpdate(t *testing.T) {
 	eg.Go(func() error {
 		updatedG1Height, err := g1.Height(g1Ctx)
 		require.NoError(t, err)
-		logger.Info("G1 Chain height (2)", zap.String("g1 chainID", g1.Config().ChainID), zap.Uint64("g1 height", updatedG1Height))
+		logger.Info("G1 Chain height (2)", zap.String("g1 chainID", g1.Config().ChainID), zap.Int64("g1 height", updatedG1Height))
 
 		msg, err := cosmos.PollForMessage(
 			ctx,

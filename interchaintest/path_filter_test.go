@@ -6,15 +6,15 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -79,9 +79,11 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	gaiaChannel := gaiaChans[0]
 	osmosisChannel := gaiaChans[0].Counterparty
 
-	r.UpdatePath(ctx, eRep, ibcPath, ibc.ChannelFilter{
-		Rule:        processor.RuleAllowList,
-		ChannelList: []string{gaiaChannel.ChannelID},
+	r.UpdatePath(ctx, eRep, ibcPath, ibc.PathUpdateOptions{
+		ChannelFilter: &ibc.ChannelFilter{
+			Rule:        processor.RuleAllowList,
+			ChannelList: []string{gaiaChannel.ChannelID},
+		},
 	})
 
 	// Create and Fund User Wallets
@@ -151,11 +153,8 @@ func TestScenarioPathFilterAllow(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// Trace IBC Denom
-	gaiaDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChannel.PortID, osmosisChannel.ChannelID, gaia.Config().Denom))
-	gaiaIbcDenom := gaiaDenomTrace.IBCDenom()
-
-	osmosisDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(gaiaChannel.PortID, gaiaChannel.ChannelID, osmosis.Config().Denom))
-	osmosisIbcDenom := osmosisDenomTrace.IBCDenom()
+	gaiaIbcDenom := transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(osmosisChannel.PortID, osmosisChannel.ChannelID)).IBCDenom()
+	osmosisIbcDenom := transfertypes.NewDenom(osmosis.Config().Denom, transfertypes.NewHop(gaiaChannel.PortID, gaiaChannel.ChannelID)).IBCDenom()
 
 	// Test destination wallets have increased funds
 	gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
@@ -225,9 +224,11 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	gaiaChannel := gaiaChans[0]
 	osmosisChannel := gaiaChans[0].Counterparty
 
-	r.UpdatePath(ctx, eRep, ibcPath, ibc.ChannelFilter{
-		Rule:        processor.RuleDenyList,
-		ChannelList: []string{gaiaChannel.ChannelID},
+	r.UpdatePath(ctx, eRep, ibcPath, ibc.PathUpdateOptions{
+		ChannelFilter: &ibc.ChannelFilter{
+			Rule:        processor.RuleDenyList,
+			ChannelList: []string{gaiaChannel.ChannelID},
+		},
 	})
 
 	// Create and Fund User Wallets
@@ -309,11 +310,8 @@ func TestScenarioPathFilterDeny(t *testing.T) {
 	require.NoError(t, eg.Wait())
 
 	// Trace IBC Denom
-	gaiaDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChannel.PortID, osmosisChannel.ChannelID, gaia.Config().Denom))
-	gaiaIbcDenom := gaiaDenomTrace.IBCDenom()
-
-	osmosisDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(gaiaChannel.PortID, gaiaChannel.ChannelID, osmosis.Config().Denom))
-	osmosisIbcDenom := osmosisDenomTrace.IBCDenom()
+	gaiaIbcDenom := transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(osmosisChannel.PortID, osmosisChannel.ChannelID)).IBCDenom()
+	osmosisIbcDenom := transfertypes.NewDenom(osmosis.Config().Denom, transfertypes.NewHop(gaiaChannel.PortID, gaiaChannel.ChannelID)).IBCDenom()
 
 	// Test destination wallets do not have increased funds
 	gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)

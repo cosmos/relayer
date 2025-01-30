@@ -6,8 +6,8 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	"github.com/stretchr/testify/require"
 )
 

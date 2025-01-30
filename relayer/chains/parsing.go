@@ -9,9 +9,9 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v9/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -181,7 +181,7 @@ func (res *ClientInfo) parseClientAttribute(log *zap.Logger, attr sdk.Attribute)
 			RevisionNumber: revisionNumber,
 			RevisionHeight: revisionHeight,
 		}
-	case clienttypes.AttributeKeyHeader:
+	case "header":
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
 			log.Error("Error parsing client header",
@@ -236,8 +236,6 @@ func (res *PacketInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 			return
 		}
 	// NOTE: deprecated per IBC spec
-	case chantypes.AttributeKeyData:
-		res.Data = []byte(attr.Value)
 	case chantypes.AttributeKeyDataHex:
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
@@ -248,9 +246,6 @@ func (res *PacketInfo) parsePacketAttribute(log *zap.Logger, attr sdk.Attribute)
 			return
 		}
 		res.Data = data
-	// NOTE: deprecated per IBC spec
-	case chantypes.AttributeKeyAck:
-		res.Ack = []byte(attr.Value)
 	case chantypes.AttributeKeyAckHex:
 		data, err := hex.DecodeString(attr.Value)
 		if err != nil {
@@ -339,8 +334,6 @@ func (res *ChannelInfo) parseChannelAttribute(attr sdk.Attribute) {
 		res.CounterpartyChannelID = attr.Value
 	case chantypes.AttributeKeyConnectionID:
 		res.ConnID = attr.Value
-	case chantypes.AttributeVersion:
-		res.Version = attr.Value
 	}
 }
 

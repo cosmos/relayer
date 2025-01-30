@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	errorsmod "cosmossdk.io/errors"
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -323,6 +324,10 @@ func MsgUpdateClient(
 			)
 		}))
 	})
+	cs, ok := dstClientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, errorsmod.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, dstClientState)
+	}
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
@@ -330,16 +335,16 @@ func MsgUpdateClient(
 				"Query IBC header",
 				zap.String("chain_id", src.ChainID()),
 				zap.String("client_id", src.ClientID()),
-				zap.Int64("height", int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1),
+				zap.Int64("height", int64(cs.LatestHeight.GetRevisionHeight())+1),
 			)
-			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
+			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(cs.LatestHeight.GetRevisionHeight())+1)
 			return err
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 			src.log.Error(
 				"Failed to query IBC header when building update client message",
 				zap.String("chain_id", src.ChainID()),
 				zap.String("client_id", src.ClientID()),
-				zap.Int64("height", int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1),
+				zap.Int64("height", int64(cs.LatestHeight.GetRevisionHeight())+1),
 				zap.Uint("attempt", n+1),
 				zap.Uint("max_attempts", RtyAttNum),
 				zap.Error(err),
@@ -354,7 +359,7 @@ func MsgUpdateClient(
 	var updateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
-		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)
+		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(srcHeader, cs.LatestHeight, dstTrustedHeader)
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.log.Info(

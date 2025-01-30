@@ -19,15 +19,16 @@ import (
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v9/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v9/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains"
+	legacytransfertypes "github.com/cosmos/relayer/v2/relayer/codecs/transfer/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -512,9 +513,14 @@ func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, heig
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
+	cs, ok := clientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, nil, nil, nil, clienttypes.Height{}, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, clientState)
+	}
+
 	eg.Go(func() error {
 		var err error
-		consensusStateRes, err = cc.QueryClientConsensusState(ctx, height, clientId, clientState.GetLatestHeight())
+		consensusStateRes, err = cc.QueryClientConsensusState(ctx, height, clientId, cs.LatestHeight)
 		return err
 	})
 	eg.Go(func() error {
@@ -829,23 +835,48 @@ func (cc *PenumbraProvider) QueryHeaderAtHeight(ctx context.Context, height int6
 	}, nil
 }
 
-// QueryDenomTrace takes a denom from IBC and queries the information about it
-func (cc *PenumbraProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTrace(ctx,
-		&transfertypes.QueryDenomTraceRequest{
+// QueryDenom takes a denom from IBC and queries the information about it
+func (cc *PenumbraProvider) QueryDenom(ctx context.Context, denom string) (*transfertypes.Denom, error) {
+	transfers, err := transfertypes.NewQueryV2Client(cc).Denom(ctx,
+		&transfertypes.QueryDenomRequest{
 			Hash: denom,
 		})
 	if err != nil {
 		return nil, err
 	}
+	return transfers.Denom, nil
+}
+
+// QueryDenomTrace takes a denom from IBC and queries the information about it
+func (cc *PenumbraProvider) QueryDenomTrace(ctx context.Context, denom string) (*legacytransfertypes.DenomTrace, error) {
+	transfers, err := legacytransfertypes.NewQueryClient(cc).DenomTrace(ctx,
+		&legacytransfertypes.QueryDenomTraceRequest{
+			Hash: denom,
+		})
+	if err != nil {
+		return nil, err
+	}
+
 	return transfers.DenomTrace, nil
 }
 
-// QueryDenomTraces returns all the denom traces from a given chain
+// QueryDenoms returns all the denom traces from a given chain
 // TODO add pagination support
-func (cc *PenumbraProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	transfers, err := transfertypes.NewQueryClient(cc).DenomTraces(ctx,
-		&transfertypes.QueryDenomTracesRequest{
+func (cc *PenumbraProvider) QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error) {
+	transfers, err := transfertypes.NewQueryV2Client(cc).Denoms(ctx,
+		&transfertypes.QueryDenomsRequest{
+			Pagination: DefaultPageRequest(),
+		})
+	if err != nil {
+		return nil, err
+	}
+	return transfers.Denoms, nil
+}
+
+// QueryDenomTraces returns all the denom traces from a given chain
+func (cc *PenumbraProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]legacytransfertypes.DenomTrace, error) {
+	transfers, err := legacytransfertypes.NewQueryClient(cc).DenomTraces(ctx,
+		&legacytransfertypes.QueryDenomTracesRequest{
 			Pagination: DefaultPageRequest(),
 		})
 	if err != nil {

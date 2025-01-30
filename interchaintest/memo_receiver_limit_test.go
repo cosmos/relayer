@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
 	"github.com/cosmos/relayer/v2/cmd"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"gopkg.in/yaml.v3"
@@ -206,12 +206,13 @@ func TestMemoAndReceiverLimit(t *testing.T) {
 	require.NoError(t, testutil.WaitForBlocks(ctx, 5, chainA, chainB))
 
 	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
-	denom := transfertypes.GetPrefixedDenom(
-		channel.Counterparty.PortID,
-		channel.Counterparty.ChannelID,
+	trace := transfertypes.NewDenom(
 		chainA.Config().Denom,
+		transfertypes.NewHop(
+			channel.Counterparty.PortID,
+			channel.Counterparty.ChannelID,
+		),
 	)
-	trace := transfertypes.ParseDenomTrace(denom)
 
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)

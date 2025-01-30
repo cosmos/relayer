@@ -18,22 +18,22 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/std"
+	"github.com/cosmos/cosmos-sdk/testutil/mock"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
-	ibctypes "github.com/cosmos/ibc-go/v8/modules/core/types"
-	ibccomettypes "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
-	ibcmocks "github.com/cosmos/ibc-go/v8/testing/mock"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	"github.com/cosmos/ibc-go/v9/modules/core/exported"
+	ibctypes "github.com/cosmos/ibc-go/v9/modules/core/types"
+	ibccomettypes "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v9/testing"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -148,8 +148,11 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 	clientState, err := clienttypes.UnpackClientState(queryResp.ClientState)
 	require.NoError(t, err)
 
+	cs, ok := clientState.(*ibccomettypes.ClientState)
+	require.True(t, ok)
+
 	// get latest height from prev client state above & create new height + 1
-	height := clientState.GetLatestHeight().(clienttypes.Height)
+	height := cs.LatestHeight
 	newHeight := clienttypes.NewHeight(height.RevisionNumber, height.RevisionHeight+1)
 
 	// create a validator for signing duplicate header
@@ -167,7 +170,7 @@ func TestRelayerMisbehaviourDetection(t *testing.T) {
 		Key: decodedKeyBz,
 	}
 
-	privVal := ibcmocks.PV{PrivKey: privKey}
+	privVal := mock.PV{PrivKey: privKey}
 	pubKey, err := privVal.GetPubKey()
 	require.NoError(t, err)
 

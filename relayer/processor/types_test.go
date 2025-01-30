@@ -3,8 +3,8 @@ package processor_test
 import (
 	"testing"
 
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/stretchr/testify/require"
 )

@@ -660,7 +660,7 @@ func (m *EventBlockFees) GetSwappedTipTotal() *Fee {
 }
 
 func init() {
-	proto.RegisterEnum("penumbra.core.component.fee.v1.FeeTier_Tier", FeeTier_Tier_name, FeeTier_Tier_value)
+	// proto.RegisterEnum("penumbra.core.component.fee.v1.FeeTier_Tier", FeeTier_Tier_name, FeeTier_Tier_value)
 	proto.RegisterType((*Fee)(nil), "penumbra.core.component.fee.v1.Fee")
 	proto.RegisterType((*Gas)(nil), "penumbra.core.component.fee.v1.Gas")
 	proto.RegisterType((*GasPrices)(nil), "penumbra.core.component.fee.v1.GasPrices")

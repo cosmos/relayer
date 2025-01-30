@@ -25,9 +25,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/modules/capability"
-	ibcfee "github.com/cosmos/ibc-go/v8/modules/apps/29-fee"
-	"github.com/cosmos/ibc-go/v8/modules/apps/transfer"
-	ibc "github.com/cosmos/ibc-go/v8/modules/core"
+	ibcfee "github.com/cosmos/ibc-go/v9/modules/apps/29-fee"
+	"github.com/cosmos/ibc-go/v9/modules/apps/transfer"
+	ibc "github.com/cosmos/ibc-go/v9/modules/core"
 
 	cosmosmodule "github.com/cosmos/relayer/v2/relayer/chains/cosmos/module"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"

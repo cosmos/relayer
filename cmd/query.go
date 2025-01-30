@@ -8,10 +8,12 @@ import (
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	legacytransfertypes "github.com/cosmos/relayer/v2/relayer/codecs/transfer/types"
 	"github.com/spf13/cobra"
 )
 
@@ -95,13 +97,21 @@ $ %s q ibc-denoms ibc-0`,
 				return err
 			}
 
-			res, err := chain.ChainProvider.QueryDenomTraces(cmd.Context(), 0, 100, h)
-			if err != nil {
+			res, err := chain.ChainProvider.QueryDenoms(cmd.Context(), 0, 100, h)
+			if err == nil {
+				for _, d := range res {
+					fmt.Fprintln(cmd.OutOrStdout(), d)
+				}
+			} else if legacytransfertypes.ErrUnknownRequest(err) {
+				legacyRes, err := chain.ChainProvider.QueryDenoms(cmd.Context(), 0, 100, h)
+				if err != nil {
+					return err
+				}
+				for _, d := range legacyRes {
+					fmt.Fprintln(cmd.OutOrStdout(), d)
+				}
+			} else {
 				return err
-			}
-
-			for _, d := range res {
-				fmt.Fprintln(cmd.OutOrStdout(), d)
 			}
 			return nil
 		},
@@ -126,12 +136,18 @@ $ %s q denom-trace osmosis 9BBA9A1C257E971E38C1422780CE6F0B0686F0A3085E2D61118D9
 				return errChainNotFound(args[0])
 			}
 
-			res, err := c.ChainProvider.QueryDenomTrace(cmd.Context(), args[1])
-			if err != nil {
+			res, err := c.ChainProvider.QueryDenom(cmd.Context(), args[1])
+			if err == nil {
+				fmt.Fprintln(cmd.OutOrStdout(), res)
+			} else if sdkerrors.ErrUnknownRequest.Is(err) {
+				legacyRes, err := c.ChainProvider.QueryDenom(cmd.Context(), args[1])
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), legacyRes)
+			} else {
 				return err
 			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), res)
 			return nil
 		},
 	}

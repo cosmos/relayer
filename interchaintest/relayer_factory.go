@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	interchaintestrelayer "github.com/strangelove-ventures/interchaintest/v9/relayer"
 )
 
 // RelayerFactory implements the interchaintest RelayerFactory interface.

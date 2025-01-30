@@ -9,13 +9,14 @@ import (
 	"github.com/cometbft/cometbft/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	tendermint "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v9/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	tendermint "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
+	legacytransfertypes "github.com/cosmos/relayer/v2/relayer/codecs/transfer/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -467,8 +468,10 @@ type QueryProvider interface {
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
 
 	// ics 20 - transfer
-	QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error)
-	QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
+	QueryDenomTrace(ctx context.Context, denom string) (*legacytransfertypes.DenomTrace, error)
+	QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]legacytransfertypes.DenomTrace, error)
+	QueryDenom(ctx context.Context, denom string) (*transfertypes.Denom, error)
+	QueryDenoms(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.Denom, error)
 	QueryDenomHash(ctx context.Context, trace string) (string, error)
 }
 

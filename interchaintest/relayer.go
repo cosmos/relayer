@@ -16,9 +16,9 @@ import (
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
+	interchaintestcosmos "github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/relayer/rly"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
@@ -89,8 +89,8 @@ func (r *Relayer) AddChainConfiguration(_ context.Context, _ ibc.RelayerExecRepo
 	return nil
 }
 
-func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType string) (ibc.Wallet, error) {
-	res := r.Sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType)
+func (r *Relayer) AddKey(ctx context.Context, _ ibc.RelayerExecReporter, chainID, keyName, coinType, signingAlgorithm string) (ibc.Wallet, error) {
+	res := r.Sys().RunC(ctx, r.log(), "keys", "add", chainID, keyName, "--coin-type", coinType, "--signing-algorithm", signingAlgorithm)
 	if res.Err != nil {
 		return nil, res.Err
 	}
@@ -119,11 +119,32 @@ func (r *Relayer) GeneratePath(ctx context.Context, _ ibc.RelayerExecReporter, s
 	return nil
 }
 
-func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, filter ibc.ChannelFilter) error {
-	res := r.Sys().RunC(ctx, r.log(), "paths", "update", pathName,
-		"--filter-rule", filter.Rule,
-		"--filter-channels", strings.Join(filter.ChannelList, ","),
-	)
+func (r *Relayer) UpdatePath(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, opts ibc.PathUpdateOptions) error {
+	command := []string{"paths", "update", pathName}
+	if opts.ChannelFilter != nil {
+		command = append(command,
+			"--filter-rule", opts.ChannelFilter.Rule,
+			"--filter-channels", strings.Join(opts.ChannelFilter.ChannelList, ","))
+	}
+	if opts.SrcChainID != nil {
+		command = append(command, "--src-chain-id", *opts.SrcChainID)
+	}
+	if opts.DstChainID != nil {
+		command = append(command, "--dst-chain-id", *opts.DstChainID)
+	}
+	if opts.SrcClientID != nil {
+		command = append(command, "--src-client-id", *opts.SrcClientID)
+	}
+	if opts.DstClientID != nil {
+		command = append(command, "--dst-client-id", *opts.DstClientID)
+	}
+	if opts.SrcConnID != nil {
+		command = append(command, "--src-connection-id", *opts.SrcConnID)
+	}
+	if opts.DstConnID != nil {
+		command = append(command, "--dst-connection-id", *opts.DstConnID)
+	}
+	res := r.Sys().RunC(ctx, r.log(), command...)
 	if res.Err != nil {
 		return res.Err
 	}
@@ -239,6 +260,14 @@ func (r *Relayer) CreateConnections(ctx context.Context, _ ibc.RelayerExecReport
 
 func (r *Relayer) CreateClients(ctx context.Context, _ ibc.RelayerExecReporter, pathName string, clientOpts ibc.CreateClientOptions) error {
 	res := r.Sys().RunC(ctx, r.log(), "tx", "clients", pathName, "--client-tp", clientOpts.TrustingPeriod)
+	if res.Err != nil {
+		return res.Err
+	}
+	return nil
+}
+
+func (r *Relayer) CreateClient(ctx context.Context, _ ibc.RelayerExecReporter, srcChainID string, dstChainID string, pathName string, clientOpts ibc.CreateClientOptions) error {
+	res := r.Sys().RunC(ctx, r.log(), "tx", "client", pathName, "--host-chain", srcChainID, "--reference-chain", dstChainID, "--client-tp", clientOpts.TrustingPeriod)
 	if res.Err != nil {
 		return res.Err
 	}

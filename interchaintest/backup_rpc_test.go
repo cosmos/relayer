@@ -7,16 +7,16 @@ import (
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	relayertest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	"github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	icrelayer "github.com/strangelove-ventures/interchaintest/v8/relayer"
-	"github.com/strangelove-ventures/interchaintest/v8/relayer/rly"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	"github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	icrelayer "github.com/strangelove-ventures/interchaintest/v9/relayer"
+	"github.com/strangelove-ventures/interchaintest/v9/relayer/rly"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -201,19 +201,19 @@ func TestBackupRpcs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Compose the ibc denom for balance assertions on the counterparty and assert balances.
-	denom := transfertypes.GetPrefixedDenom(
-		channel.Counterparty.PortID,
-		channel.Counterparty.ChannelID,
+	denom := transfertypes.NewDenom(
 		chainA.Config().Denom,
-	)
-	trace := transfertypes.ParseDenomTrace(denom)
-
+		transfertypes.NewHop(
+			channel.Counterparty.PortID,
+			channel.Counterparty.ChannelID,
+		),
+	).IBCDenom()
 	// validate user balances on both chains
 	userABal, err = chainA.GetBalance(ctx, userA.FormattedAddress(), chainA.Config().Denom)
 	require.NoError(t, err)
 	require.True(t, userABal.Equal(initBal.Sub(transferAmount)))
 
-	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), trace.IBCDenom())
+	userBBal, err = chainB.GetBalance(ctx, userB.FormattedAddress(), denom)
 	require.NoError(t, err)
 	require.True(t, userBBal.Equal(transferAmount))
 }

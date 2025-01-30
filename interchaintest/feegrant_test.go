@@ -16,17 +16,17 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/go-bip39"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/cclient"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/strangelove-ventures/interchaintest/v8"
-	cosmosv8 "github.com/strangelove-ventures/interchaintest/v8/chain/cosmos"
-	"github.com/strangelove-ventures/interchaintest/v8/ibc"
-	"github.com/strangelove-ventures/interchaintest/v8/testreporter"
-	"github.com/strangelove-ventures/interchaintest/v8/testutil"
+	"github.com/strangelove-ventures/interchaintest/v9"
+	cosmosv8 "github.com/strangelove-ventures/interchaintest/v9/chain/cosmos"
+	"github.com/strangelove-ventures/interchaintest/v9/ibc"
+	"github.com/strangelove-ventures/interchaintest/v9/testreporter"
+	"github.com/strangelove-ventures/interchaintest/v9/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -509,11 +509,8 @@ func TestRelayerFeeGrant(t *testing.T) {
 			}
 
 			// Trace IBC Denom
-			gaiaDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChannel.PortID, osmosisChannel.ChannelID, gaia.Config().Denom))
-			gaiaIbcDenom := gaiaDenomTrace.IBCDenom()
-
-			osmosisDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(gaiaChannel.PortID, gaiaChannel.ChannelID, osmosis.Config().Denom))
-			osmosisIbcDenom := osmosisDenomTrace.IBCDenom()
+			gaiaIbcDenom := transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(osmosisChannel.PortID, osmosisChannel.ChannelID)).IBCDenom()
+			osmosisIbcDenom := transfertypes.NewDenom(osmosis.Config().Denom, transfertypes.NewHop(gaiaChannel.PortID, gaiaChannel.ChannelID)).IBCDenom()
 
 			// Test destination wallets have increased funds
 			gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)
@@ -983,11 +980,8 @@ func TestRelayerFeeGrantExternal(t *testing.T) {
 			}
 
 			// Trace IBC Denom
-			gaiaDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(osmosisChannel.PortID, osmosisChannel.ChannelID, gaia.Config().Denom))
-			gaiaIbcDenom := gaiaDenomTrace.IBCDenom()
-
-			osmosisDenomTrace := transfertypes.ParseDenomTrace(transfertypes.GetPrefixedDenom(gaiaChannel.PortID, gaiaChannel.ChannelID, osmosis.Config().Denom))
-			osmosisIbcDenom := osmosisDenomTrace.IBCDenom()
+			gaiaIbcDenom := transfertypes.NewDenom(gaia.Config().Denom, transfertypes.NewHop(osmosisChannel.PortID, osmosisChannel.ChannelID)).IBCDenom()
+			osmosisIbcDenom := transfertypes.NewDenom(osmosis.Config().Denom, transfertypes.NewHop(gaiaChannel.PortID, gaiaChannel.ChannelID)).IBCDenom()
 
 			// Test destination wallets have increased funds
 			gaiaIBCBalance, err := osmosis.GetBalance(ctx, gaiaDstAddress, gaiaIbcDenom)

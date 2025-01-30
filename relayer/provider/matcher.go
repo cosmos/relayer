@@ -8,9 +8,9 @@ import (
 
 	sdkcodec "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 )
 
 var tendermintClientCodec = tmClientCodec()
@@ -100,7 +100,7 @@ func cometMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 		}
 
 		// Query the src chain for the latest consensus state of the potential matching client.
-		consensusStateResp, err := src.QueryClientConsensusState(ctx, srch, existingClientID, existingClientState.GetLatestHeight())
+		consensusStateResp, err := src.QueryClientConsensusState(ctx, srch, existingClientID, existingClientState.LatestHeight)
 		if err != nil {
 			return "", err
 		}
@@ -122,7 +122,7 @@ func cometMatcher(ctx context.Context, src, dst ChainProvider, existingClientID 
 		}
 
 		// Construct a header for the consensus state of the counterparty chain.
-		ibcHeader, err := dst.QueryIBCHeader(ctx, int64(existingClientState.GetLatestHeight().GetRevisionHeight()))
+		ibcHeader, err := dst.QueryIBCHeader(ctx, int64(existingClientState.LatestHeight.GetRevisionHeight()))
 		if err != nil {
 			return "", err
 		}

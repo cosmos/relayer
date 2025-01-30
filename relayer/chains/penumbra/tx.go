@@ -23,14 +23,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	legacyerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	cosmosproto "github.com/cosmos/gogoproto/proto"
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
-	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
-	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	transfertypes "github.com/cosmos/ibc-go/v9/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v9/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v9/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v9/modules/core/04-channel/types"
+	commitmenttypes "github.com/cosmos/ibc-go/v9/modules/core/23-commitment/types"
+	host "github.com/cosmos/ibc-go/v9/modules/core/24-host"
+	ibcexported "github.com/cosmos/ibc-go/v9/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v9/modules/light-clients/07-tendermint"
 	ics23 "github.com/cosmos/ics23/go"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	penumbrafee "github.com/cosmos/relayer/v2/relayer/chains/penumbra/core/component/fee/v1"
@@ -582,7 +582,10 @@ func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvi
 		ConnectionId: dstConnId,
 		Prefix:       dstPrefix,
 	}
-
+	cs, ok := clientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, clientState)
+	}
 	// TODO: Get DelayPeriod from counterparty connection rather than using default value
 	msg := &conntypes.MsgConnectionOpenTry{
 		ClientId:             srcClientId,
@@ -598,7 +601,7 @@ func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvi
 		ProofInit:       connStateProof,
 		ProofClient:     clientStateProof,
 		ProofConsensus:  consensusStateProof,
-		ConsensusHeight: clientState.GetLatestHeight().(clienttypes.Height),
+		ConsensusHeight: cs.LatestHeight,
 		Signer:          acc,
 	}
 
@@ -637,7 +640,10 @@ func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvi
 	if err != nil {
 		return nil, err
 	}
-
+	cs, ok := clientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, clientState)
+	}
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             srcConnId,
 		CounterpartyConnectionId: dstConnId,
@@ -650,7 +656,7 @@ func (cc *PenumbraProvider) ConnectionOpenAck(ctx context.Context, dstQueryProvi
 		ProofTry:        connStateProof,
 		ProofClient:     clientStateProof,
 		ProofConsensus:  consensusStateProof,
-		ConsensusHeight: clientState.GetLatestHeight().(clienttypes.Height),
+		ConsensusHeight: cs.LatestHeight,
 		Signer:          acc,
 	}
 
@@ -1383,7 +1389,10 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 		ConnectionId: msgOpenInit.ConnID,
 		Prefix:       msgOpenInit.CounterpartyCommitmentPrefix,
 	}
-
+	cs, ok := proof.ClientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, proof.ClientState)
+	}
 	msg := &conntypes.MsgConnectionOpenTry{
 		ClientId:             msgOpenInit.CounterpartyClientID,
 		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
@@ -1395,7 +1404,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 		ProofInit:            proof.ConnectionStateProof,
 		ProofClient:          proof.ClientStateProof,
 		ProofConsensus:       proof.ConsensusStateProof,
-		ConsensusHeight:      proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		ConsensusHeight:      cs.LatestHeight,
 		Signer:               signer,
 	}
 
@@ -1414,7 +1423,10 @@ func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionI
 	if err != nil {
 		return nil, err
 	}
-
+	cs, ok := proof.ClientState.(*tmclient.ClientState)
+	if !ok {
+		return nil, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, proof.ClientState)
+	}
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
 		CounterpartyConnectionId: msgOpenTry.ConnID,
@@ -1427,7 +1439,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionI
 		ProofTry:        proof.ConnectionStateProof,
 		ProofClient:     proof.ClientStateProof,
 		ProofConsensus:  proof.ConsensusStateProof,
-		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		ConsensusHeight: cs.LatestHeight,
 		Signer:          signer,
 	}
 
@@ -1935,8 +1947,12 @@ func (cc *PenumbraProvider) InjectTrustedFields(ctx context.Context, header ibce
 		return nil, err
 	}
 
+	tmCs, ok := cs.(*tmclient.ClientState)
+	if !ok {
+		return nil, sdkerrors.Wrapf(clienttypes.ErrInvalidClientType, "expected: %T, got: %T", &tmclient.ClientState{}, cs)
+	}
 	// inject TrustedHeight as latest height stored on dst client
-	h.TrustedHeight = cs.GetLatestHeight().(clienttypes.Height)
+	h.TrustedHeight = tmCs.LatestHeight
 
 	// NOTE: We need to get validators from the source chain at height: trustedHeight+1
 	// since the last trusted validators for a header at height h is the NextValidators
