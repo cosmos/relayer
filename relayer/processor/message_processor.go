@@ -257,8 +257,8 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	trustedHeight := dst.clientTrustedState.ClientState.LatestHeight
 
 	var trustedNextValHash []byte
-	if dst.clientTrustedState.NextIBCHeader != nil {
-		trustedNextValHash = dst.clientTrustedState.NextIBCHeader.NextValidatorsHash()
+	if dst.clientTrustedState.NextHeader != nil {
+		trustedNextValHash = dst.clientTrustedState.NextHeader.NextValidatorsHash()
 	}
 
 	// If the client state height is not equal to the client trusted state height and the client state height is
@@ -289,8 +289,8 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		)
 
 		dst.clientTrustedState = provider.ClientStateWithNextHeader{
-			ClientState:   dst.lastObservedClientState,
-			NextIBCHeader: header,
+			ClientState: dst.lastObservedClientState,
+			NextHeader:  header,
 		}
 
 		trustedHeight = clientLatestHeight
@@ -309,7 +309,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
 		trustedHeight,
-		dst.clientTrustedState.NextIBCHeader,
+		dst.clientTrustedState.NextHeader,
 	)
 	if err != nil {
 		return fmt.Errorf("msg update client header: %w", err)

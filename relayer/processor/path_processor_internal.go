@@ -702,19 +702,19 @@ func (pp *PathProcessor) updateClientTrustedState(updatee *pathEndRuntime, count
 
 	// need to assemble new trusted state
 	// We see if header for H+1 exists (and that we have it) because the client trusts H and has the nextValidatorsHash of it (+1)
-	ibcHeader, ok := counterparty.ibcHeaderCache[updatee.lastObservedClientState.LatestHeight.RevisionHeight+1]
+	nextHeader, ok := counterparty.ibcHeaderCache[updatee.lastObservedClientState.LatestHeight.RevisionHeight+1]
 	if !ok {
 
 		// We dont have H+1
-		// Maybe we can use H?
+		// Maybe we can use H? (If validator set didn't change)
 
 		// DYMENSION: changed from upstream. Think there was a bug there. Now looking at updatee.clientTrustedState
 
-		if ibcHeaderCurrent, ok := counterparty.ibcHeaderCache[updatee.lastObservedClientState.LatestHeight.RevisionHeight]; ok {
-			if updatee.clientTrustedState.NextIBCHeader != nil && bytes.Equal(updatee.clientTrustedState.NextIBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+		if currHeader, ok := counterparty.ibcHeaderCache[updatee.lastObservedClientState.LatestHeight.RevisionHeight]; ok {
+			if updatee.clientTrustedState.NextHeader != nil && bytes.Equal(updatee.clientTrustedState.NextHeader.NextValidatorsHash(), currHeader.NextValidatorsHash()) {
 				updatee.clientTrustedState = provider.ClientStateWithNextHeader{
-					ClientState:   updatee.lastObservedClientState,
-					NextIBCHeader: ibcHeaderCurrent,
+					ClientState: updatee.lastObservedClientState,
+					NextHeader:  currHeader,
 				}
 				return
 			}
@@ -728,8 +728,8 @@ func (pp *PathProcessor) updateClientTrustedState(updatee *pathEndRuntime, count
 
 	}
 	updatee.clientTrustedState = provider.ClientStateWithNextHeader{
-		ClientState:   updatee.lastObservedClientState,
-		NextIBCHeader: ibcHeader,
+		ClientState: updatee.lastObservedClientState,
+		NextHeader:  nextHeader,
 	}
 }
 
