@@ -253,62 +253,58 @@ func (mp *messageProcessor) assembleMessage(
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
 	clientID := dst.info.ClientID
-	clientLatestHeight := dst.lastObservedClientState.LatestHeight
-	trustedHeight := dst.clientTrustedState.ClientState.LatestHeight
+	latestH := dst.lastObservedClientState.LatestHeight
+	trustedH := dst.clientTrustedState.ClientState.LatestHeight
 
-	var trustedNextValHash []byte
+	var nextHeaderNextValHash []byte
 	if dst.clientTrustedState.NextHeader != nil {
-		trustedNextValHash = dst.clientTrustedState.NextHeader.NextValidatorsHash()
+		nextHeaderNextValHash = dst.clientTrustedState.NextHeader.NextValidatorsHash()
 	}
 
-	// If the client state height is not equal to the client trusted state height and the client state height is
-	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
-	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
-	if !trustedHeight.EQ(clientLatestHeight) {
+	if !trustedH.EQ(latestH) {
 		// TODO: looks like dupe code with updateClientTrustedState
 
-		deltaConsensusHeight := int64(clientLatestHeight.RevisionHeight) - int64(trustedHeight.RevisionHeight)
-		if trustedHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
+		deltaConsensusHeight := int64(latestH.RevisionHeight) - int64(trustedH.RevisionHeight)
+		if trustedH.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
 			return fmt.Errorf("observed client trusted height does not equal latest client state height: trusted: %d: latest %d",
-				trustedHeight.RevisionHeight, clientLatestHeight.RevisionHeight)
+				trustedH.RevisionHeight, latestH.RevisionHeight)
 		}
 
-		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientLatestHeight.RevisionHeight+1))
+		nextHeader, err := src.chainProvider.QueryIBCHeader(ctx, int64(latestH.RevisionHeight+1))
 		if err != nil {
-			return fmt.Errorf("query IBC header at height: %d: chain_id: %s, %w",
-				clientLatestHeight.RevisionHeight+1, src.info.ChainID, err)
+			return fmt.Errorf("query IBC nextHeader at height: %d: chain_id: %s, %w",
+				latestH.RevisionHeight+1, src.info.ChainID, err)
 		}
 
-		mp.log.Debug("Queried for client trusted IBC header",
+		mp.log.Debug("Queried for client trusted IBC nextHeader",
 			zap.String("path_name", src.info.PathName),
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
 			zap.String("counterparty_client_id", clientID),
-			zap.Uint64("height", clientLatestHeight.RevisionHeight+1),
+			zap.Uint64("height", latestH.RevisionHeight+1),
 			zap.Uint64("latest_height", src.latestBlock.Height),
 		)
 
 		dst.clientTrustedState = provider.ClientStateWithNextHeader{
 			ClientState: dst.lastObservedClientState,
-			NextHeader:  header,
+			NextHeader:  nextHeader,
 		}
 
-		trustedHeight = clientLatestHeight
-		trustedNextValHash = header.NextValidatorsHash()
+		trustedH = latestH
+		nextHeaderNextValHash = nextHeader.NextValidatorsHash() // TODO: pretty sure this is wrong, this is next next val hash
 	}
 
-	if src.latestHeader.Height() == trustedHeight.RevisionHeight &&
-		// TODO: wth?
-		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValHash) {
+	alreadyUpdated := src.latestHeader.Height() == trustedH.RevisionHeight
+	if alreadyUpdated && !bytes.Equal(src.latestHeader.NextValidatorsHash(), nextHeaderNextValHash) {
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
-			trustedHeight.RevisionHeight)
+			trustedH.RevisionHeight)
 	}
 
 	// get the header to update with a new trusted, base on what we have for trusted
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
-		trustedHeight,
+		trustedH,
 		dst.clientTrustedState.NextHeader,
 	)
 	if err != nil {
