@@ -325,6 +325,7 @@ func MsgUpdateClient(
 	eg.Go(func() error {
 		return retry.Do(func() error {
 			var err error
+			// query h+1 because we need the header whose validator set corresponds to the nextValidatorsHash of the last trusted height
 			dstTrustedHeader, err = src.ChainProvider.QueryIBCHeader(egCtx, int64(dstClientState.GetLatestHeight().GetRevisionHeight())+1)
 			return err
 		}, retry.Context(egCtx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {

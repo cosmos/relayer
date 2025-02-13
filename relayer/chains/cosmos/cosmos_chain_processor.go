@@ -551,7 +551,7 @@ func (ccp *CosmosChainProcessor) queryCycle(
 	}
 
 	for _, pp := range ccp.pathProcessors {
-		clientID := pp.RelevantClientID(chainID)
+		clientID := pp.CounterpartyClientID(chainID)
 		clientState, err := ccp.clientState(ctx, clientID)
 		if err != nil {
 			ccp.log.Error("Fetching client state.",

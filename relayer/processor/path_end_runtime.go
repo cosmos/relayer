@@ -30,11 +30,14 @@ type pathEndRuntime struct {
 	latestBlock  provider.LatestBlock
 	messageCache IBCMessagesCache
 
+	// TODO: clear up next two fields
+
 	// This is the actual state of the light client for the counterparty
 	clientState provider.ClientState
 	// This is a copy of clientState but it also might have a header which can be used as a trusted header
 	// when submitted updates.
-	clientTrustedState   provider.ClientTrustedState
+	clientTrustedState provider.ClientTrustedState
+
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
 	channelStateCacheMu  sync.RWMutex
