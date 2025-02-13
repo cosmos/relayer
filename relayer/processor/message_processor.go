@@ -296,6 +296,11 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 
 	alreadyUpdated := src.latestHeader.Height() == trustedH.RevisionHeight
 	if alreadyUpdated && !bytes.Equal(src.latestHeader.NextValidatorsHash(), nextHeaderNextValHash) {
+		/*
+			TODO: don't understand this. It's saying
+			'If the latest is already trusted, AND the validator set is changing to something different, then error'
+			Which just makes no sense.
+		*/
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
 			trustedH.RevisionHeight)
