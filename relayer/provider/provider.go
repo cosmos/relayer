@@ -76,7 +76,7 @@ type ClientState struct {
 }
 
 type ClientStateWithNextHeader struct {
-	ClientState   ClientState
+	ClientState
 	NextIBCHeader IBCHeader // IBC header corresponds to H+1 of ClientState, because it should match the nextValidatorsHash of the last header
 }
 
