@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -267,63 +266,27 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, counter
 
 	clientID := updatee.info.ClientID
 	latestH := updatee.lastObservedClientState.LatestHeight
-	trustedH := updatee.clientTrustedState.ClientState.LatestHeight
 
-	var nextHeaderNextValHash []byte
-	if updatee.clientTrustedState.NextHeader != nil {
-		nextHeaderNextValHash = updatee.clientTrustedState.NextHeader.NextValidatorsHash()
+	nextHeader, err := counterparty.chainProvider.QueryIBCHeader(ctx, int64(latestH.RevisionHeight+1))
+	if err != nil {
+		return fmt.Errorf("query IBC nextHeader at height: %d: chain_id: %s, %w",
+			latestH.RevisionHeight+1, counterparty.info.ChainID, err)
 	}
 
-	if !trustedH.EQ(latestH) {
-		// TODO: looks like dupe code with updateClientTrustedState
-
-		deltaConsensusHeight := int64(latestH.RevisionHeight) - int64(trustedH.RevisionHeight)
-		if trustedH.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
-			return fmt.Errorf("observed client trusted height does not equal latest client state height: trusted: %d: latest %d",
-				trustedH.RevisionHeight, latestH.RevisionHeight)
-		}
-
-		nextHeader, err := counterparty.chainProvider.QueryIBCHeader(ctx, int64(latestH.RevisionHeight+1))
-		if err != nil {
-			return fmt.Errorf("query IBC nextHeader at height: %d: chain_id: %s, %w",
-				latestH.RevisionHeight+1, counterparty.info.ChainID, err)
-		}
-
-		mp.log.Debug("Queried for client trusted IBC nextHeader",
-			zap.String("path_name", counterparty.info.PathName),
-			zap.String("chain_id", counterparty.info.ChainID),
-			zap.String("counterparty_chain_id", updatee.info.ChainID),
-			zap.String("counterparty_client_id", clientID),
-			zap.Uint64("height", latestH.RevisionHeight+1),
-			zap.Uint64("latest_height", counterparty.latestBlock.Height),
-		)
-
-		updatee.clientTrustedState = provider.ClientStateWithNextHeader{
-			ClientState: updatee.lastObservedClientState,
-			NextHeader:  nextHeader,
-		}
-
-		trustedH = latestH
-		nextHeaderNextValHash = nextHeader.NextValidatorsHash() // TODO: pretty sure this is wrong, this is next next val hash
-	}
-
-	alreadyUpdated := counterparty.latestHeader.Height() == trustedH.RevisionHeight
-	if alreadyUpdated && !bytes.Equal(counterparty.latestHeader.NextValidatorsHash(), nextHeaderNextValHash) {
-		/*
-			TODO: don't understand this. It's saying
-			'If the latest is already trusted, AND the validator set is changing to something different, then error'
-			Which just makes no sense.
-		*/
-		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
-			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
-			trustedH.RevisionHeight)
-	}
+	mp.log.Debug("Queried for client trusted IBC nextHeader",
+		zap.String("path_name", counterparty.info.PathName),
+		zap.String("chain_id", counterparty.info.ChainID),
+		zap.String("counterparty_chain_id", updatee.info.ChainID),
+		zap.String("counterparty_client_id", clientID),
+		zap.Uint64("height", latestH.RevisionHeight+1),
+		zap.Uint64("latest_height", counterparty.latestBlock.Height),
+	)
 
 	// get the header to update with a new trusted, base on what we have for trusted
 	msgUpdateClientHeader, err := counterparty.chainProvider.MsgUpdateClientHeader(
 		counterparty.latestHeader,
-		trustedH,                              // should be the last trusted on updatee
-		updatee.clientTrustedState.NextHeader, // should correspond to trusted h + 1
+		latestH,
+		nextHeader,
 	)
 	if err != nil {
 		return fmt.Errorf("msg update client header: %w", err)
