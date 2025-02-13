@@ -34,9 +34,6 @@ type pathEndRuntime struct {
 
 	// This is some recently queried client state for the light client for the counterparty chain, on this chain
 	lastObservedClientState provider.ClientState
-	// This is a copy of lastObservedClientState but it also might have a next header which can be used as a trusted header
-	// when submitted updates.
-	clientTrustedState provider.ClientStateWithNextHeader
 
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache

@@ -250,8 +250,21 @@ func (mp *messageProcessor) assembleMessage(
 }
 
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
-// from the source and then assemble the update client message in the correct format for the destination.
+// from the counterparty and then assemble the update client message in the correct format for the updatee.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, counterparty, updatee *pathEndRuntime) error {
+	/*
+		Reminder how IBC update works:
+			Update contains:
+				- signed header
+				- validator set that signed the header (at least 2/3)
+				- trusted height
+				- trusted header
+					Must have a trusted validator set exactly corresponding to trustedHeight.nextValidatorsHash
+
+			Checks (among other things), that:
+				- validators that signed trusted header correspond to trustedHeight.nextValidatorsHash
+	*/
+
 	clientID := updatee.info.ClientID
 	latestH := updatee.lastObservedClientState.LatestHeight
 	trustedH := updatee.clientTrustedState.ClientState.LatestHeight
@@ -309,8 +322,8 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, counter
 	// get the header to update with a new trusted, base on what we have for trusted
 	msgUpdateClientHeader, err := counterparty.chainProvider.MsgUpdateClientHeader(
 		counterparty.latestHeader,
-		trustedH,
-		updatee.clientTrustedState.NextHeader,
+		trustedH,                              // should be the last trusted on updatee
+		updatee.clientTrustedState.NextHeader, // should correspond to trusted h + 1
 	)
 	if err != nil {
 		return fmt.Errorf("msg update client header: %w", err)
