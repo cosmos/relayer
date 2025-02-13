@@ -251,14 +251,14 @@ func (mp *messageProcessor) assembleMessage(
 
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
-func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
-	clientID := dst.info.ClientID
-	latestH := dst.lastObservedClientState.LatestHeight
-	trustedH := dst.clientTrustedState.ClientState.LatestHeight
+func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, counterparty, updatee *pathEndRuntime) error {
+	clientID := updatee.info.ClientID
+	latestH := updatee.lastObservedClientState.LatestHeight
+	trustedH := updatee.clientTrustedState.ClientState.LatestHeight
 
 	var nextHeaderNextValHash []byte
-	if dst.clientTrustedState.NextHeader != nil {
-		nextHeaderNextValHash = dst.clientTrustedState.NextHeader.NextValidatorsHash()
+	if updatee.clientTrustedState.NextHeader != nil {
+		nextHeaderNextValHash = updatee.clientTrustedState.NextHeader.NextValidatorsHash()
 	}
 
 	if !trustedH.EQ(latestH) {
@@ -270,23 +270,23 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 				trustedH.RevisionHeight, latestH.RevisionHeight)
 		}
 
-		nextHeader, err := src.chainProvider.QueryIBCHeader(ctx, int64(latestH.RevisionHeight+1))
+		nextHeader, err := counterparty.chainProvider.QueryIBCHeader(ctx, int64(latestH.RevisionHeight+1))
 		if err != nil {
 			return fmt.Errorf("query IBC nextHeader at height: %d: chain_id: %s, %w",
-				latestH.RevisionHeight+1, src.info.ChainID, err)
+				latestH.RevisionHeight+1, counterparty.info.ChainID, err)
 		}
 
 		mp.log.Debug("Queried for client trusted IBC nextHeader",
-			zap.String("path_name", src.info.PathName),
-			zap.String("chain_id", src.info.ChainID),
-			zap.String("counterparty_chain_id", dst.info.ChainID),
+			zap.String("path_name", counterparty.info.PathName),
+			zap.String("chain_id", counterparty.info.ChainID),
+			zap.String("counterparty_chain_id", updatee.info.ChainID),
 			zap.String("counterparty_client_id", clientID),
 			zap.Uint64("height", latestH.RevisionHeight+1),
-			zap.Uint64("latest_height", src.latestBlock.Height),
+			zap.Uint64("latest_height", counterparty.latestBlock.Height),
 		)
 
-		dst.clientTrustedState = provider.ClientStateWithNextHeader{
-			ClientState: dst.lastObservedClientState,
+		updatee.clientTrustedState = provider.ClientStateWithNextHeader{
+			ClientState: updatee.lastObservedClientState,
 			NextHeader:  nextHeader,
 		}
 
@@ -294,8 +294,8 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		nextHeaderNextValHash = nextHeader.NextValidatorsHash() // TODO: pretty sure this is wrong, this is next next val hash
 	}
 
-	alreadyUpdated := src.latestHeader.Height() == trustedH.RevisionHeight
-	if alreadyUpdated && !bytes.Equal(src.latestHeader.NextValidatorsHash(), nextHeaderNextValHash) {
+	alreadyUpdated := counterparty.latestHeader.Height() == trustedH.RevisionHeight
+	if alreadyUpdated && !bytes.Equal(counterparty.latestHeader.NextValidatorsHash(), nextHeaderNextValHash) {
 		/*
 			TODO: don't understand this. It's saying
 			'If the latest is already trusted, AND the validator set is changing to something different, then error'
@@ -307,16 +307,16 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	}
 
 	// get the header to update with a new trusted, base on what we have for trusted
-	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
-		src.latestHeader,
+	msgUpdateClientHeader, err := counterparty.chainProvider.MsgUpdateClientHeader(
+		counterparty.latestHeader,
 		trustedH,
-		dst.clientTrustedState.NextHeader,
+		updatee.clientTrustedState.NextHeader,
 	)
 	if err != nil {
 		return fmt.Errorf("msg update client header: %w", err)
 	}
 
-	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
+	msgUpdateClient, err := updatee.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
 	if err != nil {
 		return fmt.Errorf("msg update client: %w", err)
 	}
