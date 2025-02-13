@@ -59,7 +59,7 @@ func (s *rotationSolver) solve(ctx c.Context) error {
 }
 
 func (s *rotationSolver) hubClientValset(ctx c.Context) (uint64, []byte, error) {
-	h := s.hub.clientState.LatestHeight.GetRevisionHeight()
+	h := s.hub.lastObservedClientState.LatestHeight.GetRevisionHeight()
 	header, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(h))
 	if err != nil {
 		return 0, nil, fmt.Errorf("query ibc header: %w", err)
@@ -149,14 +149,14 @@ func search(sleep time.Duration, l, r uint64, direction func(uint64) (int, error
 
 // a = h, b = h+1 where valhash changes in between
 func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) error {
-	trusted, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(s.hub.clientState.LatestHeight.GetRevisionHeight())+1)
+	trusted, err := s.ra.chainProvider.QueryIBCHeader(ctx, int64(s.hub.lastObservedClientState.LatestHeight.GetRevisionHeight())+1)
 	if err != nil {
 		return fmt.Errorf("query ibc header: %w", err)
 	}
 
 	u1, err := s.ra.chainProvider.MsgUpdateClientHeader(
 		a,
-		s.hub.clientState.LatestHeight,
+		s.hub.lastObservedClientState.LatestHeight,
 		trusted, // latest+1
 	)
 	if err != nil {
@@ -169,7 +169,7 @@ func (s *rotationSolver) sendUpdatesV2(ctx c.Context, a, b provider.IBCHeader) e
 	}
 
 	aHeight := clienttypes.Height{
-		RevisionNumber: s.hub.clientState.LatestHeight.RevisionNumber,
+		RevisionNumber: s.hub.lastObservedClientState.LatestHeight.RevisionNumber,
 		RevisionHeight: a.Height(),
 	}
 

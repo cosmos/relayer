@@ -319,9 +319,13 @@ func (c ConnectionStateCache) FilterForClient(clientID string) ConnectionStateCa
 // ChainProcessorCacheData is the data sent from the ChainProcessors to the PathProcessors
 // to keep the PathProcessors up to date with the latest info from the chains.
 type ChainProcessorCacheData struct {
-	IBCMessagesCache     IBCMessagesCache
-	InSync               bool
-	ClientState          provider.ClientState
+	IBCMessagesCache IBCMessagesCache
+	InSync           bool
+
+	// Continuously updated: the client state for the counterparty chain on this chain, at the
+	// height defined by .LatestBlock
+	ClientState provider.ClientState
+	
 	ConnectionStateCache ConnectionStateCache
 	ChannelStateCache    ChannelStateCache
 	LatestBlock          provider.LatestBlock

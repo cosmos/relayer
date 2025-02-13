@@ -32,11 +32,11 @@ type pathEndRuntime struct {
 
 	// TODO: clear up next two fields
 
-	// This is the actual state of the light client for the counterparty
-	clientState provider.ClientState
-	// This is a copy of clientState but it also might have a header which can be used as a trusted header
+	// This is some recently queried client state for the light client for the counterparty chain, on this chain
+	lastObservedClientState provider.ClientState
+	// This is a copy of lastObservedClientState but it also might have a header which can be used as a trusted header
 	// when submitted updates.
-	clientTrustedState provider.ClientTrustedState
+	clientTrustedState provider.ClientStateWithNextHeader
 
 	connectionStateCache ConnectionStateCache
 	channelStateCache    ChannelStateCache
@@ -520,9 +520,9 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 	pathEnd.inSync = d.InSync
 
 	pathEnd.latestHeader = d.LatestHeader
-	pathEnd.clientState = d.ClientState
+	pathEnd.lastObservedClientState = d.ClientState
 
-	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
+	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.lastObservedClientState, counterParty)
 	if err != nil {
 		pathEnd.log.Error("Check for misbehaviour.",
 			zap.String("client_id", pathEnd.info.ClientID),
@@ -530,11 +530,14 @@ func (pathEnd *pathEndRuntime) mergeCacheData(
 		)
 	}
 
-	if d.ClientState.LatestHeight != pathEnd.clientState.LatestHeight {
-		pathEnd.clientState = d.ClientState
-		ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.LatestHeight.RevisionHeight]
-		if ok {
-			pathEnd.clientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
+	{
+		// TODO: why is this block needed? Seems useless as pathEnd.lastObservedClientState is set above
+		if d.ClientState.LatestHeight != pathEnd.lastObservedClientState.LatestHeight {
+			pathEnd.lastObservedClientState = d.ClientState
+			ibcHeader, ok := counterParty.ibcHeaderCache[d.ClientState.LatestHeight.RevisionHeight]
+			if ok {
+				pathEnd.lastObservedClientState.ConsensusTime = time.Unix(0, int64(ibcHeader.ConsensusState().GetTimestamp()))
+			}
 		}
 	}
 

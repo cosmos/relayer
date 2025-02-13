@@ -105,7 +105,7 @@ func (mp *messageProcessor) processMessages(
 	var needsClientUpdate bool
 
 	// Localhost IBC does not permit client updates
-	if !isLocalhostClient(src.clientState.ClientID, dst.clientState.ClientID) {
+	if !isLocalhostClient(src.lastObservedClientState.ClientID, dst.lastObservedClientState.ClientID) {
 		var err error
 
 		// need to update dst with a more recent view of src first?
@@ -143,15 +143,15 @@ func isLocalhostClient(srcClientID, dstClientID string) bool {
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
 	var consensusHeightTime time.Time
 
-	if dst.clientState.ConsensusTime.IsZero() {
-		height := int64(dst.clientState.LatestHeight.RevisionHeight)
+	if dst.lastObservedClientState.ConsensusTime.IsZero() {
+		height := int64(dst.lastObservedClientState.LatestHeight.RevisionHeight)
 		h, err := src.chainProvider.QueryIBCHeader(ctx, height)
 		if err != nil {
 			return false, fmt.Errorf("query ibc header: chain id: %s: height: %d: %w", src.chainProvider.ChainId(), height, err)
 		}
 		consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
 	} else {
-		consensusHeightTime = dst.clientState.ConsensusTime
+		consensusHeightTime = dst.lastObservedClientState.ConsensusTime
 	}
 
 	clientUpdateThresholdMs := mp.clientUpdateThresholdTime.Milliseconds()
@@ -160,10 +160,10 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
 	dst.lastClientUpdateHeightMu.Unlock()
 
-	twoThirdsTrustingPeriodMs := float64(dst.clientState.TrustingPeriod.Milliseconds()) * 2 / 3
+	twoThirdsTrustingPeriodMs := float64(dst.lastObservedClientState.TrustingPeriod.Milliseconds()) * 2 / 3
 	timeSinceLastClientUpdateMs := float64(time.Since(consensusHeightTime).Milliseconds())
 
-	pastTwoThirdsTrustingPeriod := dst.clientState.TrustingPeriod > 0 &&
+	pastTwoThirdsTrustingPeriod := dst.lastObservedClientState.TrustingPeriod > 0 &&
 		timeSinceLastClientUpdateMs > twoThirdsTrustingPeriodMs
 
 	pastConfiguredClientUpdateThreshold := clientUpdateThresholdMs > 0 &&
@@ -172,9 +172,9 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold)
 
 	if mp.metrics != nil {
-		timeToExpiration := dst.clientState.TrustingPeriod - time.Since(consensusHeightTime)
-		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.clientState.ClientID, fmt.Sprint(dst.clientState.TrustingPeriod.String()), timeToExpiration)
-		mp.metrics.SetClientTrustingPeriod(src.info.PathName, dst.info.ChainID, dst.info.ClientID, time.Duration(dst.clientState.TrustingPeriod))
+		timeToExpiration := dst.lastObservedClientState.TrustingPeriod - time.Since(consensusHeightTime)
+		mp.metrics.SetClientExpiration(src.info.PathName, dst.info.ChainID, dst.lastObservedClientState.ClientID, fmt.Sprint(dst.lastObservedClientState.TrustingPeriod.String()), timeToExpiration)
+		mp.metrics.SetClientTrustingPeriod(src.info.PathName, dst.info.ChainID, dst.info.ClientID, time.Duration(dst.lastObservedClientState.TrustingPeriod))
 	}
 
 	return shouldUpdateClientNow, nil
@@ -253,12 +253,12 @@ func (mp *messageProcessor) assembleMessage(
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
 	clientID := dst.info.ClientID
-	clientLatestHeight := dst.clientState.LatestHeight
+	clientLatestHeight := dst.lastObservedClientState.LatestHeight
 	trustedHeight := dst.clientTrustedState.ClientState.LatestHeight
 
 	var trustedNextValHash []byte
-	if dst.clientTrustedState.IBCHeader != nil {
-		trustedNextValHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
+	if dst.clientTrustedState.NextIBCHeader != nil {
+		trustedNextValHash = dst.clientTrustedState.NextIBCHeader.NextValidatorsHash()
 	}
 
 	// If the client state height is not equal to the client trusted state height and the client state height is
@@ -288,9 +288,9 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 			zap.Uint64("latest_height", src.latestBlock.Height),
 		)
 
-		dst.clientTrustedState = provider.ClientTrustedState{
-			ClientState: dst.clientState,
-			IBCHeader:   header,
+		dst.clientTrustedState = provider.ClientStateWithNextHeader{
+			ClientState:   dst.lastObservedClientState,
+			NextIBCHeader: header,
 		}
 
 		trustedHeight = clientLatestHeight
@@ -309,7 +309,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
 		trustedHeight,
-		dst.clientTrustedState.IBCHeader,
+		dst.clientTrustedState.NextIBCHeader,
 	)
 	if err != nil {
 		return fmt.Errorf("msg update client header: %w", err)

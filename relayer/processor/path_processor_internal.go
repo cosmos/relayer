@@ -692,13 +692,17 @@ ClientICQLoop:
 	return res
 }
 
+// updates the clientTrustedState of src
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
-	if src.clientTrustedState.ClientState.LatestHeight.GTE(src.clientState.LatestHeight) {
+
+	if src.clientTrustedState.ClientState.LatestHeight.GTE(src.lastObservedClientState.LatestHeight) {
+		// already up to date
 		return
 	}
+
 	// need to assemble new trusted state
-	// We see if header for H+1 exists because the client trusts H and has the nextValidatorsHash of it (+1)
-	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.LatestHeight.RevisionHeight+1]
+	// We see if header for H+1 exists (and that we have it) because the client trusts H and has the nextValidatorsHash of it (+1)
+	ibcHeader, ok := dst.ibcHeaderCache[src.lastObservedClientState.LatestHeight.RevisionHeight+1]
 	if !ok {
 
 		// We dont have H+1
@@ -706,11 +710,11 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 
 		// DYMENSION: changed from upstream. Think there was a bug there. Now looking at src.clientTrustedState
 
-		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.LatestHeight.RevisionHeight]; ok {
-			if src.clientTrustedState.IBCHeader != nil && bytes.Equal(src.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
-				src.clientTrustedState = provider.ClientTrustedState{
-					ClientState: src.clientState,
-					IBCHeader:   ibcHeaderCurrent,
+		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.lastObservedClientState.LatestHeight.RevisionHeight]; ok {
+			if src.clientTrustedState.NextIBCHeader != nil && bytes.Equal(src.clientTrustedState.NextIBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
+				src.clientTrustedState = provider.ClientStateWithNextHeader{
+					ClientState:   src.lastObservedClientState,
+					NextIBCHeader: ibcHeaderCurrent,
 				}
 				return
 			}
@@ -718,14 +722,14 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
-			zap.Uint64("height", src.clientState.LatestHeight.RevisionHeight+1),
+			zap.Uint64("height", src.lastObservedClientState.LatestHeight.RevisionHeight+1),
 		)
 		return
 
 	}
-	src.clientTrustedState = provider.ClientTrustedState{
-		ClientState: src.clientState,
-		IBCHeader:   ibcHeader,
+	src.clientTrustedState = provider.ClientStateWithNextHeader{
+		ClientState:   src.lastObservedClientState,
+		NextIBCHeader: ibcHeader,
 	}
 }
 

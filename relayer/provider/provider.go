@@ -75,11 +75,9 @@ type ClientState struct {
 	Header []byte
 }
 
-// ClientTrustedState holds the current state of a client from the perspective of both involved chains,
-// i.e. ClientState enriched with the trusted IBC header of the counterparty chain.
-type ClientTrustedState struct {
-	ClientState ClientState
-	IBCHeader   IBCHeader
+type ClientStateWithNextHeader struct {
+	ClientState   ClientState
+	NextIBCHeader IBCHeader // IBC header corresponds to H+1 of ClientState, because it should match the nextValidatorsHash of the last header
 }
 
 // PacketInfo contains any relevant properties from packet flow messages

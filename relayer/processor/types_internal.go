@@ -78,7 +78,7 @@ func (msg packetIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
 	}
-	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+	if src.lastObservedClientState.ClientID == ibcexported.LocalhostClientID {
 		packetProof = src.localhostSentinelProofPacket
 	}
 
@@ -170,7 +170,7 @@ func (msg channelIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected channel message eventType for message assembly: %s", msg.eventType)
 	}
-	if src.clientState.ClientID == ibcexported.LocalhostClientID {
+	if src.lastObservedClientState.ClientID == ibcexported.LocalhostClientID {
 		chanProof = src.localhostSentinelProofChannel
 	}
 
