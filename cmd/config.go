@@ -24,7 +24,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -69,7 +68,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 				return err
 			}
 
-			cfgPath := path.Join(home, "config", "config.yaml")
+			cfgPath := filepath.Join(home, "config", "config.yaml")
 			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 				if _, err := os.Stat(home); os.IsNotExist(err) {
 					return fmt.Errorf("home path does not exist: %s", home)
@@ -125,8 +124,8 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				return err
 			}
 
-			cfgDir := path.Join(home, "config")
-			cfgPath := path.Join(cfgDir, "config.yaml")
+			cfgDir := filepath.Join(home, "config")
+			cfgPath := filepath.Join(cfgDir, "config.yaml")
 
 			// If the config doesn't exist...
 			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
@@ -178,7 +177,7 @@ $ %s cfg i`, appName, defaultHome, appName)),
 // the error is logged.
 // An error is only returned if the directory cannot be read at all.
 func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
-	dir = path.Clean(dir)
+	dir = filepath.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
@@ -230,7 +229,7 @@ func addChainsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, 
 // addPathsFromDirectory returns the first error encountered,
 // which means a's paths may include a subset of the path files in dir.
 func addPathsFromDirectory(ctx context.Context, stderr io.Writer, a *appState, dir string) error {
-	dir = path.Clean(dir)
+	dir = filepath.Clean(dir)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err

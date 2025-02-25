@@ -8,7 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/gofrs/flock"
@@ -48,7 +48,7 @@ func (a *appState) initLogger(configLogLevel string) error {
 }
 
 func (a *appState) configPath() string {
-	return path.Join(a.homePath, "config", "config.yaml")
+	return filepath.Join(a.homePath, "config", "config.yaml")
 }
 
 // loadConfigFile reads config file into a.Config if file is present.
@@ -197,7 +197,7 @@ func (a *appState) addPathFromUserInput(
 }
 
 func (a *appState) performConfigLockingOperation(ctx context.Context, operation func() error) error {
-	lockFilePath := path.Join(a.homePath, "config", "config.lock")
+	lockFilePath := filepath.Join(a.homePath, "config", "config.lock")
 	fileLock := flock.New(lockFilePath)
 	_, err := fileLock.TryLock()
 	if err != nil {
