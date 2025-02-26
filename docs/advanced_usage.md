@@ -68,7 +68,7 @@ Feegrant configurations can be applied to each chain in the relayer. Note that O
 For example, configure feegrants for Kujira:
 - `rly chains configure feegrant basicallowance kujira default --num-grantees 10`
 - Note: above, `default` is the key that will need to contain funds (the granter)
-- 10 grantees will be configured, so those 10 address will sign TXs in round robin order.
+- 10 grantees will be configured, so those 10 addresses will sign TXs in round robin order.
 
 An external feegrant configuration can be applied with the following command:
 - `rly chains configure feegrant basicallowance cosmoshub cosmosaddr --grantees grantee3`
@@ -88,7 +88,7 @@ To remove the feegrant configuration:
 
 There can be scenarios where a standard flush fails to clear a packet due to differences in the way packets are observed. The standard flush depends on the packet queries working properly. Sometimes the packet queries can miss things that the block scanning performed by the relayer during standard operation wouldn't. For packets affected by this, if they were emitted in recent blocks, the `--block-history` flag can be used to have the standard relayer block scanning start at a block height that many blocks behind the current chain tip. However, if the stuck packet occurred at an old height, farther back than would be reasonable for the `--block-history` scan from historical to current, there is an additional set of flags that can be used to zoom in on the block heights where the stuck packet occurred.
 
-For example, say a relayer is configured between Chain A and B. The relayer was not operational during the time a user on Chain A sends a packet to Chain B. Due to an issue in the queries to Chain A, the typical flush of the relayer does not relay the packet. Say that many days go by before recognition of the issue by the relayer operator. The relayer operator could start up the relayer with a massive `--block-history` to query all blocks from the time of the stuck packet until the current block, but that could take many hours to query through each block. Instead, the relayer operator can flush out the packet by doing the following:
+For example, say a relayer is configured between Chain A and B. The relayer was not operational during the time a user on Chain A sent a packet to Chain B. Due to an issue in the queries to Chain A, the typical flush of the relayer does not relay the packet. Say that many days go by before recognition of the issue by the relayer operator. The relayer operator could start up the relayer with a massive `--block-history` to query all blocks from the time of the stuck packet until the current block, but that could take many hours to query through each block. Instead, the relayer operator can flush out the packet by doing the following:
 
 ```bash
 rly start $PATH_NAME --stuck-packet-chain-id $CHAIN_A_CHAIN_ID --stuck-packet-height-start $CHAIN_A_STUCK_PACKET_HEIGHT --stuck-packet-height-end $CHAIN_A_STUCK_PACKET_HEIGHT -d
