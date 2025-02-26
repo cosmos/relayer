@@ -6,7 +6,7 @@
 
 * [\#487](https://github.com/cosmos/relayer/pull/487) Add override flag for client reuse.
 * [\#491](https://github.com/cosmos/relayer/pull/491) Add flag for client parameters which allow or disallow governance to update frozen/expired clients
-* [\#486](https://github.com/cosmos/relayer/pull/486) Refactor fly path generate command
+* [\#486](https://github.com/cosmos/relayer/pull/486) Refactor file path generate command
 * [\#475](https://github.com/cosmos/relayer/pull/475) remove cmd docs file
 * [\#468](https://github.com/cosmos/relayer/pull/468) cli: UX cleanup for query commands
 * [\#467](https://github.com/cosmos/relayer/pull/467) cli: UX cleanup for tx commands

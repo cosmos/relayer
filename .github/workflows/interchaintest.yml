@@ -162,7 +162,7 @@ jobs:
           TESTS=$(cd interchaintest && go test -list ^TestScenario ./... | grep -v "^ok " | grep -v "proto: duplicate proto type registered" | jq -R -s -c 'split("\n")[:-1]')
           echo "matrix=${TESTS}" >> $GITHUB_OUTPUT
   
-  # Note : This job will not start until prepare-scenario-matrix completes sucessfully
+  # Note : This job will not start until prepare-scenario-matrix completes successfully
   scenarios:
     needs: prepare-scenario-matrix
     runs-on: ubuntu-latest
