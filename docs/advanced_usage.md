@@ -52,7 +52,7 @@ Selecting a time-threshold that is greater than 2/3 of the client trusting perio
 
 Use cases for configuring the `--time-threshold` flag:
 - The underlying chain node that the relayer is using as an endpoint has restrictive pruning. Client updates are needed more frequently since states 2/3 trusting period ago would not be available due to pruning.
-- Mitiage relayer operational errors allowing more frequent updates in case a relayer node goes down for > the client trusting period.
+- Mitigate relayer operational errors allowing more frequent updates in case a relayer node goes down for > the client trusting period.
 
 \* It is not mandatory for relayers to include the `MsgUpdateClient` when relaying packets, however most, if not all relayers currently do.
 
