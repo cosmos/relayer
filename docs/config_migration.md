@@ -14,7 +14,7 @@ To migrate, you will need to re-initialize your config file. Follow the steps be
 rly config init
 ```
 
-3) Add chains to relay for to the config. This fetches chain meta-data from `cosmos/chain-registry`. Example:
+3) Add chains to relay to the config. This fetches chain meta-data from `cosmos/chain-registry`. Example:
 ```sh
 rly chains add cosmoshub osmosis juno
 ```
