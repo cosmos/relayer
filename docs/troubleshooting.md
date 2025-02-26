@@ -43,7 +43,7 @@ If output:
 ```shell
 -> chns(✘) clnts(✘) conn(✘)
 ```
-Verify that you have a healthy RPC address. This means the relayer was unable to query the latest height of one or both the chains.
+Verify that you have a healthy RPC address. This means the relayer was unable to query the latest height of one or both chains.
 
 If:
 ```shell
@@ -132,9 +132,9 @@ A workaround is available in which the `min-gas-amount` may be set in the chain'
 
 <br>
 This is most likely an rpc issue.
-The latest block time on the source and destination chain have likely drifted apart.
+The latest block time on the source and destination chain has likely drifted apart.
 
-You can confirm by this by checking the latest block time on each chain:
+You can confirm this by checking the latest block time on each chain:
 
 ```shell
 grpcurl -plaintext <GRP-URL:PORT> cosmos.base.tendermint.v1beta1.Service.GetLatestBlock | grep '"time":'
