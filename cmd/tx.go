@@ -1004,7 +1004,7 @@ $ %s tx relay-pkts demo-path channel-0`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			a.log.Warn("This command is deprecated. Please use 'tx flush' command instead")
+			a.log.Warn("This command is deprecated. Please use 'tx flush' command instead.")
 			return flushCmd(a).RunE(cmd, args)
 		},
 	}
@@ -1026,7 +1026,7 @@ $ %s tx relay-acks demo-path channel-0 -l 3 -s 6`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			a.log.Warn("This command is deprecated. Please use 'tx flush' command instead")
+			a.log.Warn("This command is deprecated. Please use 'tx flush' command instead.")
 			return flushCmd(a).RunE(cmd, args)
 		},
 	}
