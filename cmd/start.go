@@ -192,14 +192,14 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 	}
 
 	if flagEnableMetricsServer == false {
-		a.log.Info("Metrics server is disabled you can enable it using --enable-metrics-server flag")
+		a.log.Info("Metrics server is disabled, you can enable it using --enable-metrics-server flag.")
 	} else if metricsListenAddr == "" {
-		a.log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag")
+		a.log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag.")
 	} else {
-		a.log.Info("Metrics server is enabled")
+		a.log.Info("Metrics server is enabled.")
 		ln, err := net.Listen("tcp", metricsListenAddr)
 		if err != nil {
-			a.log.Error(fmt.Sprintf("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag"))
+			a.log.Error(fmt.Sprintf("Failed to start metrics server you can change the address and port using metrics-listen-addr config setting or --metrics-listen-addr."))
 
 			return nil, fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
 		}
@@ -222,7 +222,7 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 	if debugListenAddr == "" {
 		debugListenAddr = a.config.Global.ApiListenPort
 		if debugListenAddr != "" {
-			a.log.Warn("DEPRECATED: api-listen-addr config setting is deprecated use debug-listen-addr instead")
+			a.log.Warn("DEPRECATED: api-listen-addr config setting is deprecated, use debug-listen-addr instead.")
 		}
 	}
 
@@ -238,7 +238,7 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 
 	if debugAddrFlag != "" {
 		debugListenAddr = debugAddrFlag
-		a.log.Warn("DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead")
+		a.log.Warn("DEPRECATED: --debug-addr flag is deprecated, use --enable-debug-server and --debug-listen-addr instead.")
 	}
 
 	if debugListenAddrFlag != "" {
@@ -253,15 +253,15 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 	enableDebugServer := flagEnableDebugServer == true || debugAddrFlag != ""
 
 	if enableDebugServer == false {
-		a.log.Info("Debug server is disabled you can enable it using --enable-debug-server flag")
+		a.log.Info("Debug server is disabled, you can enable it using --enable-debug-server flag.")
 	} else if debugListenAddr == "" {
-		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag")
+		a.log.Warn("Disabled debug server due to missing debug-listen-addr setting in config file or --debug-listen-addr flag.")
 	} else {
-		a.log.Info("Debug server is enabled")
-		a.log.Warn("SECURITY WARNING! Debug server should only be run with caution and proper security in place")
+		a.log.Info("Debug server is enabled.")
+		a.log.Warn("SECURITY WARNING! Debug server should only be run with caution and proper security in place.")
 		ln, err := net.Listen("tcp", debugListenAddr)
 		if err != nil {
-			a.log.Error(fmt.Sprintf("Failed to start debug server you can change the address and port using debug-listen-addr config settingh or --debug-listen-flag"))
+			a.log.Error(fmt.Sprintf("Failed to start debug server you can change the address and port using debug-listen-addr config setting or --debug-listen-addr."))
 
 			return fmt.Errorf("failed to listen on debug address %q: %w", debugListenAddr, err)
 		}
