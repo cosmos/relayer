@@ -39,7 +39,7 @@ func (c CosmosGithubRegistry) ListChains(ctx context.Context) ([]string, error) 
 		"chain-registry",
 		"master",
 		false)
-	if err != nil || res.StatusCode != 200 {
+	if err != nil || res.StatusCode != http.StatusOK {
 		return chains, err
 	}
 
