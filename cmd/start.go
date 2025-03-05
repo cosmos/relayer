@@ -13,7 +13,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/package cmd
+*/
+package cmd
 
 import (
 	"context"
@@ -171,12 +172,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	return cmd
 }
 
-func setupMetricsServer(
-	cmd *cobra.Command,
-	a *appState,
-	err error,
-	chains map[string]*relayer.Chain,
-) (*processor.PrometheusMetrics, error) {
+func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[string]*relayer.Chain) (*processor.PrometheusMetrics, error) {
 	var prometheusMetrics *processor.PrometheusMetrics
 
 	metricsListenAddr := a.config.Global.MetricsListenPort
@@ -242,9 +238,7 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 
 	if debugAddrFlag != "" {
 		debugListenAddr = debugAddrFlag
-		a.log.Warn(
-			"DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead",
-		)
+		a.log.Warn("DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead")
 	}
 
 	if debugListenAddrFlag != "" {
