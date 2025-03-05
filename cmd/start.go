@@ -267,7 +267,7 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 		a.log.Warn("SECURITY WARNING! Debug server should only be run with caution and proper security in place")
 		ln, err := net.Listen("tcp", debugListenAddr)
 		if err != nil {
-			a.log.Error(fmt.Sprintf("Failed to start debug server you can change the address and port using debug-listen-addr config settingh or --debug-listen-flag"))
+			a.log.Error(fmt.Sprintf("Failed to start debug server you can change the address and port using debug-listen-addr config settingh or --debug-listen-addr flag"))
 
 			return fmt.Errorf("failed to listen on debug address %q: %w", debugListenAddr, err)
 		}
