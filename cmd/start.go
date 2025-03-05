@@ -13,8 +13,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/
-package cmd
+*/package cmd
 
 import (
 	"context"
@@ -172,7 +171,12 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	return cmd
 }
 
-func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[string]*relayer.Chain) (*processor.PrometheusMetrics, error) {
+func setupMetricsServer(
+	cmd *cobra.Command,
+	a *appState,
+	err error,
+	chains map[string]*relayer.Chain,
+) (*processor.PrometheusMetrics, error) {
 	var prometheusMetrics *processor.PrometheusMetrics
 
 	metricsListenAddr := a.config.Global.MetricsListenPort
@@ -199,7 +203,7 @@ func setupMetricsServer(cmd *cobra.Command, a *appState, err error, chains map[s
 		a.log.Info("Metrics server is enabled")
 		ln, err := net.Listen("tcp", metricsListenAddr)
 		if err != nil {
-			a.log.Error(fmt.Sprintf("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag"))
+			a.log.Error(fmt.Sprintf("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-addr flag"))
 
 			return nil, fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
 		}
@@ -238,7 +242,9 @@ func setupDebugServer(cmd *cobra.Command, a *appState, err error) error {
 
 	if debugAddrFlag != "" {
 		debugListenAddr = debugAddrFlag
-		a.log.Warn("DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead")
+		a.log.Warn(
+			"DEPRECATED: --debug-addr flag is deprecated use --enable-debug-server and --debug-listen-addr instead",
+		)
 	}
 
 	if debugListenAddrFlag != "" {
