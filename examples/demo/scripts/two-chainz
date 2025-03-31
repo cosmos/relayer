@@ -46,7 +46,7 @@ chainid0=ibc-0
 chainid1=ibc-1
 
 echo "Generating gaia configurations..."
-mkdir -p $GAIA_DATA && cd $GAIA_DATA && cd ../
+mkdir -p "$GAIA_DATA"
 ./scripts/one-chain gaiad $chainid0 ./data 26657 26656 6060 9090 stake samoleans
 ./scripts/one-chain gaiad $chainid1 ./data 26557 26556 6061 9091 rice beans
 
