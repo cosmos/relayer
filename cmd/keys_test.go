@@ -114,7 +114,12 @@ func TestKeysExport(t *testing.T) {
 	kr := keyring.NewInMemory(cdc)
 	require.NoError(t, kr.ImportPrivKey("temp", armorOut, keys.DefaultKeyPass))
 
-	// TODO: confirm the imported address matches?
+	// Retrieve the imported key's address and confirm it matches the expected address
+	info, err := kr.Key("temp")
+	require.NoError(t, err, "failed to retrieve imported key")
+	addr, err := info.GetAddress()
+	require.NoError(t, err, "failed to get address from imported key")
+	require.Equal(t, relayertest.ZeroCosmosAddr, addr.String(), "imported address does not match expected address")
 }
 
 func TestKeysDefaultCoinType(t *testing.T) {
@@ -248,7 +253,7 @@ func TestKeysRestoreAll_Delete(t *testing.T) {
 	res = sys.MustRun(t, "keys", "delete", "testChain2", "default", "-y")
 	require.Empty(t, res.Stdout.String())
 	require.Equal(t, res.Stderr.String(), "key default deleted\n")
-	
+
 	res = sys.MustRun(t, "keys", "delete", "testChain3", "default", "-y")
 	require.Empty(t, res.Stdout.String())
 	require.Equal(t, res.Stderr.String(), "key default deleted\n")
