@@ -6,19 +6,19 @@ import (
 )
 
 func errKeyExists(name string) error {
-	return fmt.Errorf("a key with name %s already exists", name)
+	return errors.New("a key with name %s already exists", name)
 }
 
 func errKeyDoesntExist(name string) error {
-	return fmt.Errorf("a key with name %s doesn't exist", name)
+	return errors.New("a key with name %s doesn't exist", name)
 }
 
 func errChainNotFound(chainName string) error {
-	return fmt.Errorf("chain with name \"%s\" not found in config. consider running `rly chains add %s`", chainName, chainName)
+	return errors.New("chain with name \"%s\" not found in config. consider running `rly chains add %s`", chainName, chainName)
 }
 
 func invalidRpcAddr(rpcAddr string) error {
-	return fmt.Errorf("rpc-addr %s is  not valid", rpcAddr)
+	return errors.New("rpc-addr %s is  not valid", rpcAddr)
 }
 
 var (
