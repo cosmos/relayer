@@ -441,7 +441,7 @@ func addChainFromFile(a *appState, chainName string, file string) error {
 		a.homePath, a.debug, chainName,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to build ChainProvider for %s: %w", file, err)
+		return errors.New("failed to build ChainProvider for %s: %w", file, err)
 	}
 
 	c := relayer.NewChain(a.log, prov, a.debug)
@@ -457,7 +457,7 @@ func addChainFromFile(a *appState, chainName string, file string) error {
 func addChainFromURL(a *appState, chainName string, rawurl string) error {
 	u, err := url.Parse(rawurl)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		return fmt.Errorf("invalid URL %s", rawurl)
+		return errors.New("invalid URL %s", rawurl)
 	}
 
 	// TODO: add a rly user agent to this outgoing request.
@@ -481,7 +481,7 @@ func addChainFromURL(a *appState, chainName string, rawurl string) error {
 		a.homePath, a.debug, chainName,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to build ChainProvider for %s: %w", rawurl, err)
+		return errors.New("failed to build ChainProvider for %s: %w", rawurl, err)
 	}
 
 	c := relayer.NewChain(a.log, prov, a.debug)
