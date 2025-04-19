@@ -31,6 +31,7 @@
 * [\#1364](https://github.com/cosmos/relayer/pull/1364) Include feegrant message when calculate gas.
 * [\#1390](https://github.com/cosmos/relayer/pull/1390) Avoid no concrete type registered for type URL error of EthAccount.
 * [\#1455](https://github.com/cosmos/relayer/pull/1455) Allow retry for pathEnd to avoid packet message get removed before open channel.
+* [\#1470](https://github.com/cosmos/relayer/pull/1470) Add max-msg-num parameter for batch broadcast in chain configs.
 
 ## v0.9.3
 

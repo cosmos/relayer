@@ -66,7 +66,7 @@ build-osmosis-docker:
 
 #? test: Run all unit tests
 test:
-	@go test -mod=readonly -race ./...
+	@go test -mod=readonly -timeout 3m -race ./...
 
 #? interchaintest: Run interchain TestRelayerInProcess tests
 interchaintest:
